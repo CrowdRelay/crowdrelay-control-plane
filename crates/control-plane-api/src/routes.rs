@@ -4,6 +4,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     routing::{get, post},
 };
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -75,6 +76,10 @@ pub fn tenant_admin_router() -> Router<AppState> {
             post(cancel_provisioning),
         )
         .route("/tenants/{slug}/audit", get(audit))
+        // The ninety-day guarantee as a query: the frozen activation baseline,
+        // the latest reported fan-graph level, and the verdict derived from
+        // both. A refund decision reads this, never a spreadsheet.
+        .route("/tenants/{slug}/guarantee", get(tenant_guarantee))
 }
 
 /// Named operator account management. Platform-level access — a tenant
@@ -409,6 +414,9 @@ async fn create_tenant(
     input.placement = validation::tenant_placement(input.placement.take())?;
     input.fanbase_sources =
         validation::fanbase_sources(std::mem::take(&mut input.fanbase_sources))?;
+    input.team_members = Some(validation::team_members(
+        input.team_members.take().unwrap_or_default(),
+    )?);
     input.signal_play_store_url = validation::play_store_url(input.signal_play_store_url.take())?;
     input.synesthesia_play_store_url =
         validation::play_store_url(input.synesthesia_play_store_url.take())?;
@@ -890,15 +898,42 @@ async fn unpark_tenant(
 struct BillingWebhookRequest {
     tenant_slug: String,
     event: String,
+    /// Which provider sent the event through the translator (n8n). Defaults
+    /// to `stripe` — the only provider wired today — so existing
+    /// `payment_succeeded` callers keep working.
+    provider: Option<String>,
+    provider_customer_id: Option<String>,
+    provider_subscription_id: Option<String>,
+    subscription_started_at: Option<DateTime<Utc>>,
+    trial_ends_at: Option<DateTime<Utc>>,
+    current_period_ends_at: Option<DateTime<Utc>>,
 }
 
-/// Billing webhook: a payment provider calls this to auto-unpark a tenant
-/// when payment is received. Authenticated via a shared secret header
-/// (`X-Billing-Webhook-Secret`), not the platform admin token.
+/// Events the billing webhook acts on. Anything else is acknowledged and
+/// ignored — the provider sends its whole stream, not just the parts we
+/// subscribe to.
+const BILLING_EVENTS: &[&str] = &[
+    "subscription_started",
+    "payment_succeeded",
+    "payment_failed",
+    "subscription_canceled",
+    "subscription_refunded",
+];
+
+/// Billing webhook: a payment provider (translated by n8n) reports
+/// subscription lifecycle events here. Authenticated via a shared secret
+/// header (`X-Billing-Webhook-Secret`), not the platform admin token.
 ///
-/// Idempotent: if the tenant is already active, returns 204 without doing
-/// anything. If the CrowdRelay restore fails, returns 503 and rolls back
-/// the CP status so the snapshot is preserved for retry.
+/// Every recognized event drives the tenant's subscription state machine
+/// (`control_plane_tenant_billing`) and is audited. Two events also act:
+///
+/// - `subscription_started` re-anchors the guarantee to the paid window and,
+///   for a tenant still in `provisioning`, creates the provisioning intent —
+///   an approved deploy job when the tenant already carries everything the
+///   provisioner needs, otherwise a `planned` job a human completes.
+/// - `payment_succeeded` auto-unparks a parked tenant. If the CrowdRelay
+///   restore fails, returns 503 and rolls back the CP status so the snapshot
+///   is preserved for retry.
 async fn billing_webhook(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -923,17 +958,88 @@ async fn billing_webhook(
     if !ok {
         return Err(ApiError::Unauthorized);
     }
-    if input.event != "payment_succeeded" {
+    if !BILLING_EVENTS.contains(&input.event.as_str()) {
         return Ok(StatusCode::NO_CONTENT);
     }
     let slug = validation::slug(&input.tenant_slug)?;
     let tenant = state.store.tenant_by_slug(&slug).await?;
+    let actor = "billing-webhook";
+    let req_id = request_id(&headers);
+    // The subscription machine records every recognized event — including
+    // ones that then no-op — so "what does billing think this tenant is" is
+    // always a row, never a log line.
+    state
+        .store
+        .apply_billing_event(
+            tenant.tenant.id,
+            &crate::model::BillingEventInput {
+                event: input.event.clone(),
+                provider: input
+                    .provider
+                    .clone()
+                    .unwrap_or_else(|| "stripe".to_owned()),
+                provider_customer_id: input.provider_customer_id.clone(),
+                provider_subscription_id: input.provider_subscription_id.clone(),
+                subscription_started_at: input.subscription_started_at,
+                trial_ends_at: input.trial_ends_at,
+                current_period_ends_at: input.current_period_ends_at,
+            },
+            actor,
+            req_id,
+        )
+        .await?;
+
+    if input.event == "subscription_started" {
+        state
+            .store
+            .anchor_guarantee_to_subscription(tenant.tenant.id, actor, req_id)
+            .await?;
+        // Payment before a workspace: a tenant sitting in `provisioning`
+        // with nothing running gets its provisioning intent from the money
+        // itself. A deployable tenant (base URL + regional profile already
+        // set) goes straight to an approved job the provisioner claims;
+        // anything missing falls back to a `planned` job the operator
+        // completes — the intent is recorded either way.
+        if tenant.tenant.status == "provisioning" && tenant.tenant.can_provision {
+            let deployed = match validation::deployment_version(
+                None,
+                state.provisioner_default_image_tag.as_deref(),
+            ) {
+                Ok(version) => state
+                    .store
+                    .request_deployment(
+                        &slug,
+                        version,
+                        &state.provisioner_api_image,
+                        &state.provisioner_worker_image,
+                        actor,
+                        req_id,
+                    )
+                    .await
+                    .map(|_| ()),
+                Err(error) => Err(error),
+            };
+            match deployed {
+                Ok(()) => {}
+                Err(ApiError::InvalidInput(_)) | Err(ApiError::Conflict(_)) => {
+                    state
+                        .store
+                        .plan_provisioning(&slug, None, None, actor, req_id)
+                        .await?;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        return Ok(StatusCode::NO_CONTENT);
+    }
+    if input.event != "payment_succeeded" {
+        return Ok(StatusCode::NO_CONTENT);
+    }
     // Idempotent: already active is a no-op.
     if tenant.tenant.status != "parked" {
         return Ok(StatusCode::NO_CONTENT);
     }
     let tenant_id = tenant.tenant.id;
-    let actor = "billing-webhook";
     let snapshot = state
         .store
         .load_park_snapshot(tenant_id)
@@ -1464,6 +1570,19 @@ mod tests {
             );
         }
     }
+}
+
+/// The ninety-day guarantee for one tenant — baseline frozen at first
+/// measured fan-graph report, verdict derived on read. Scoped like every
+/// tenant read: a tenant operator may see their own guarantee.
+async fn tenant_guarantee(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let tenant = resolve_scoped_tenant(&state, &identity, &raw_slug).await?;
+    let view = state.store.tenant_guarantee(&tenant.tenant.slug).await?;
+    Ok(Json(json!(view)))
 }
 
 async fn provisioning_jobs(

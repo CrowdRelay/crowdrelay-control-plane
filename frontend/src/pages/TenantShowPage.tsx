@@ -1,6 +1,6 @@
-import { For, Show, type JSX } from 'solid-js'
+import { For, Show, createSignal, type JSX } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse } from '../lib/types'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
@@ -8,7 +8,9 @@ import { PageShell, PageHeader } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
+import { Button } from '../components/app/button'
 import { ShowSetupPanel } from '../components/ShowSetupPanel'
+import { ShowGrowthLadderPanel } from '../components/ShowGrowthLadderPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
 import { formatTimestamp } from '../lib/format'
 import { ArrowLeft } from 'lucide-solid'
@@ -139,6 +141,9 @@ export function TenantShowPage() {
               )}
             </Show>
             <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
+            {/* P.4 — the approve-once growth ladder: one yes covers the whole
+                T-21→T+7 sequence, each rung still gated on its own evidence. */}
+            <ShowGrowthLadderPanel slug={params().slug} eventId={data().event.id} />
             {/* §4h-11 — who could help with this show: the staging queue
                 read against a date rather than as an inventory. Candidates,
                 never instructions — no row carries a contact address. */}
@@ -294,21 +299,36 @@ function DetailLine(props: { step: ShowTimelineStep }) {
 // press, Places for rooms, Communities for communities); nothing here
 // hands out an address — promotion is still the only door to a send.
 
-type HelperSection = 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'
+type HelperSection =
+  | 'press'
+  | 'rooms_and_promoters'
+  | 'communities'
+  | 'cold_rooms'
+  | 'bill_mates'
+  | 'venue_channel'
+  | 'photographers'
 
 const HELPER_LABEL: Record<HelperSection, string> = {
   press: 'Press & radio',
   rooms_and_promoters: 'Rooms & promoters',
   communities: 'Communities',
   cold_rooms: 'Cold rooms',
+  bill_mates: 'The other bands on the bill',
+  venue_channel: 'The room itself',
+  photographers: 'Photographers',
 }
 
-/** The tab each section's owner surface lives under on the Audience page. */
+/** The tab each section's owner surface lives under on the Audience page.
+ * The bill-side sections own beacons instead — their owner link overrides
+ * the audience-tab default. */
 const HELPER_TAB: Record<HelperSection, string> = {
   press: 'contacts',
   rooms_and_promoters: 'places',
   communities: 'communities',
   cold_rooms: 'places',
+  bill_mates: '',
+  venue_channel: '',
+  photographers: '',
 }
 
 /** The honest line a measured-empty section collapses to. `place` is the
@@ -325,12 +345,30 @@ function emptyLine(section: HelperSection, place: string | null): string {
       return `No communities${where} yet`
     case 'cold_rooms':
       return `No unplayed rooms${where} on the shared registry`
+    case 'bill_mates':
+      return 'No other acts on this bill yet — the bill is the operator\'s to enter'
+    case 'venue_channel':
+      return 'The event names no room — add the venue to the show and it lands here'
+    case 'photographers':
+      return `No photographer beacons${where} — the recap needs one found before the show`
   }
 }
 
 /** One group: label + count, then compact rows or the single honest line.
  * A degraded section never reads as empty — "couldn't check" is not "none". */
-function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element }) {
+function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element; owner?: 'beacons' }) {
+  const ownerLink = () =>
+    props.owner === 'beacons'
+      ? { to: '/tenants/$slug/beacons' as const, label: 'Beacons' }
+      : {
+          to: '/tenants/$slug/audience' as const,
+          label:
+            HELPER_TAB[props.section] === 'places'
+              ? 'Places'
+              : HELPER_TAB[props.section] === 'contacts'
+                ? 'Contacts'
+                : 'Communities',
+        }
   return (
     <div class="mt-2">
       <div class="flex items-baseline justify-between gap-2">
@@ -339,12 +377,12 @@ function HelperGroup(props: { section: HelperSection; slug: string; count: numbe
           <span class="ml-1.5 tabular-nums text-muted-foreground">{props.degraded ? '—' : props.count}</span>
         </p>
         <Link
-          to="/tenants/$slug/audience"
+          to={ownerLink().to}
           params={{ slug: props.slug }}
-          search={{ tab: HELPER_TAB[props.section] }}
+          search={props.owner === 'beacons' ? {} : { tab: HELPER_TAB[props.section] }}
           class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
         >
-          {HELPER_TAB[props.section] === 'places' ? 'Places' : HELPER_TAB[props.section] === 'contacts' ? 'Contacts' : 'Communities'} →
+          {ownerLink().label} →
         </Link>
       </div>
       <Show
@@ -370,12 +408,49 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
     refetchOnWindowFocus: false,
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
+  const queryClient = useQueryClient()
   const city = () => helpers.data?.event.city ?? null
   const country = () => helpers.data?.event.country_code ?? null
   const noCity = () => (helpers.data?.degraded ?? []).includes('city')
   const sectionDegraded = (s: HelperSection) => (helpers.data?.degraded ?? []).includes(s)
   const rowLink = "mt-0.5 block truncate text-xs text-muted-foreground hover:text-foreground"
   const audienceSearch = (s: HelperSection) => ({ tab: HELPER_TAB[s] })
+  const [admitting, setAdmitting] = createSignal<string | null>(null)
+  const [admitNote, setAdmitNote] = createSignal<string | null>(null)
+
+  // A candidate becomes a roster row: unverified, outreach off — a name to
+  // research, never a contact to mail. The same rule the researched-import
+  // carries ("approve them before inviting") is what makes this one click.
+  const admit = (name: string, kind: 'scene_partner' | 'venue') => {
+    const cityId = helpers.data?.event.city_id
+    if (!cityId || admitting()) return
+    setAdmitting(name)
+    setAdmitNote(null)
+    void api
+      .upsertBeacon(props.slug, {
+        displayName: name,
+        beaconKind: kind,
+        cityId,
+        active: true,
+        verified: false,
+        acceptsOutreach: false,
+        doNotContact: false,
+        relationshipScore: 50,
+        relevanceBasisPoints: 7_500,
+        confidenceBasisPoints: 7_500,
+      })
+      .then(() => {
+        setAdmitNote(`${name} is on the roster — unverified. Find their channel before outreach.`)
+        void queryClient.invalidateQueries({ queryKey: ['tenant-show-helpers', props.slug, props.eventSlug] })
+        void queryClient.invalidateQueries({ queryKey: ['beacon-'] })
+      })
+      .catch((error: unknown) =>
+        setAdmitNote(
+          `Adding ${name} did not work — ${error instanceof Error && error.message ? error.message : 'the request was rejected'}.`,
+        ),
+      )
+      .finally(() => setAdmitting(null))
+  }
 
   return (
     <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
@@ -396,6 +471,64 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                 The show has no city yet — set one and this list fills in.
               </p>
             </Show>
+            {/* Bill-mates and the room itself belong to the event, not the
+                city — they answer even on a city-less show. The admit
+                affordance still needs a city to place the beacon in, so the
+                button hides without one. */}
+            <HelperGroup section="bill_mates" slug={props.slug} count={data().bill_mates.length} degraded={sectionDegraded('bill_mates')} empty={emptyLine('bill_mates', city())} owner="beacons">
+              <For each={data().bill_mates}>
+                {row => (
+                  <div class="mt-0.5 flex items-baseline justify-between gap-2">
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                      <span class="text-foreground">{row.act_name}</span>
+                      {` · slot ${row.position}`}
+                      {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
+                      {row.on_roster ? ' · on the roster' : row.resolution === 'peer' ? ' · on the registry' : ' · unclaimed name'}
+                    </Link>
+                    <Show when={!row.on_roster && data().event.city_id}>
+                      <Button
+                        writes
+                        variant="link"
+                        size="sm"
+                        disabled={admitting() !== null}
+                        onClick={() => admit(row.act_name, 'scene_partner')}
+                        class="h-auto shrink-0 p-0 text-xs text-muted-foreground decoration-dotted underline-offset-2"
+                      >
+                        {admitting() === row.act_name ? 'Adding…' : 'Add to roster'}
+                      </Button>
+                    </Show>
+                  </div>
+                )}
+              </For>
+            </HelperGroup>
+            <HelperGroup section="venue_channel" slug={props.slug} count={data().venue_channel ? 1 : 0} degraded={sectionDegraded('venue_channel')} empty={emptyLine('venue_channel', city())} owner="beacons">
+              <Show when={data().venue_channel}>
+                {channel => (
+                  <div class="mt-0.5 flex items-baseline justify-between gap-2">
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                      <span class="text-foreground">{channel().display_name}</span>
+                      {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
+                      {channel().on_roster ? ' · on the roster' : ''}
+                      <Show when={channel().venue_prior && channel().venue_prior!.tenants_played > 0 ? channel().venue_prior : null}>
+                        {prior => ` · played by ${prior().tenants_played} act${prior().tenants_played === 1 ? '' : 's'}, ${prior().shows} show${prior().shows === 1 ? '' : 's'}`}
+                      </Show>
+                    </Link>
+                    <Show when={!channel().on_roster && data().event.city_id}>
+                      <Button
+                        writes
+                        variant="link"
+                        size="sm"
+                        disabled={admitting() !== null}
+                        onClick={() => admit(channel().display_name, 'venue')}
+                        class="h-auto shrink-0 p-0 text-xs text-muted-foreground decoration-dotted underline-offset-2"
+                      >
+                        {admitting() === channel().display_name ? 'Adding…' : 'Add to roster'}
+                      </Button>
+                    </Show>
+                  </div>
+                )}
+              </Show>
+            </HelperGroup>
             <Show when={!noCity()}>
               <HelperGroup section="press" slug={props.slug} count={data().press.length} degraded={sectionDegraded('press')} empty={emptyLine('press', city())}>
                 <For each={data().press}>
@@ -416,6 +549,12 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                       <span class="text-foreground">{row.display_name}</span>
                       {` · ${row.target_kind}`}
                       {row.venue_linked ? ' · on the registry' : ''}
+                      {row.counterparty_prior && row.counterparty_prior.tenants_contacted > 0
+                        ? ` · ${row.counterparty_prior.tenants_replied}/${row.counterparty_prior.tenants_contacted} answered${row.counterparty_prior.tenants_won > 0 ? `, ${row.counterparty_prior.tenants_won} won` : ''}`
+                        : ''}
+                      {row.venue_prior && row.venue_prior.tenants_played > 0
+                        ? ` · played by ${row.venue_prior.tenants_played} act${row.venue_prior.tenants_played === 1 ? '' : 's'}`
+                        : ''}
                       {row.accepts_booking ? '' : ' · booking closed'}
                     </Link>
                   )}
@@ -437,10 +576,34 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
                     <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={audienceSearch('cold_rooms')} class={rowLink}>
                       <span class="text-foreground">{row.display_name}</span>
                       {row.capacity ? ` · ${row.capacity}` : ''}
+                      {row.venue_prior && row.venue_prior.tenants_played > 0
+                        ? ` · played by ${row.venue_prior.tenants_played} act${row.venue_prior.tenants_played === 1 ? '' : 's'}, ${row.venue_prior.shows} show${row.venue_prior.shows === 1 ? '' : 's'}`
+                        : ''}
                     </Link>
                   )}
                 </For>
               </HelperGroup>
+              <HelperGroup section="photographers" slug={props.slug} count={data().photographers.length} degraded={sectionDegraded('photographers')} empty={emptyLine('photographers', city())} owner="beacons">
+                <For each={data().photographers}>
+                  {row => (
+                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
+                      <span class="text-foreground">{row.display_name}</span>
+                      {row.verified ? ' · verified' : ''}
+                      {row.contacted_before ? ' · contacted before' : ''}
+                    </Link>
+                  )}
+                </For>
+              </HelperGroup>
+              <Show when={admitNote()}>
+                {note => <p class="mt-2 text-xs text-muted-foreground">{note()}</p>}
+              </Show>
+            </Show>
+            {/* A capped section shows 40 of more — the read names which. */}
+            <Show when={(data().truncated ?? []).length > 0}>
+              <p class="mt-2 text-xs text-muted-foreground">
+                {(data().truncated ?? []).map(s => HELPER_LABEL[s as HelperSection] ?? s).join(', ')}
+                {' — more than the shortlist shows.'}
+              </p>
             </Show>
             {/* The read's own gaps, named — never pattern-matched around. */}
             <Show when={data().notes.includes('staged_contacts_have_no_city')}>

@@ -2,14 +2,14 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } fro
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { errorMessage, relativeTime, formatTimestamp as observed } from '../lib/format'
-import type { OperationsSummary, ReconciliationFinding } from '../lib/types'
+import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
@@ -21,6 +21,7 @@ import { hasDegradedSections } from '../lib/incomplete'
 import { EmptyState } from '../components/ui/empty-state'
 import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
+import { ActionLedgerPanel } from '../components/ActionLedgerPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon, type IconName } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
@@ -186,6 +187,7 @@ export function TenantAttentionPage() {
   const [busy, setBusy] = createSignal('')
   const [timelineInput, setTimelineInput] = createSignal('')
   const [timeline, setTimeline] = createSignal<Awaited<ReturnType<typeof api.operationTimeline>> | null>(null)
+  const [traceResult, setTraceResult] = createSignal<TraceTimeline | null>(null)
   const [showRequestId, setShowRequestId] = createSignal(false)
 
   const refreshMaintenance = async () => {
@@ -226,13 +228,26 @@ export function TenantAttentionPage() {
   }
 
   const lookupTimeline = async () => {
-    const requestId = timelineInput().trim()
-    if (!requestId || busy()) return
+    const id = timelineInput().trim()
+    if (!id || busy()) return
     setBusy('timeline')
+    setTimeline(null)
+    setTraceResult(null)
     try {
-      setTimeline(await api.operationTimeline(params().slug, requestId))
+      setTimeline(await api.operationTimeline(params().slug, id))
     } catch (error) {
-      setTimeline(null)
+      // A UUID that is not a request id may still be a trace id — the
+      // ledger's causal key joins a different set of tables than the
+      // request-correlation timeline does.
+      if (error instanceof ApiError && error.status === 404) {
+        try {
+          setTraceResult(await api.operationTrace(params().slug, id))
+          return
+        } catch (traceError) {
+          toast.error(traceError instanceof Error ? traceError.message : 'Trace unavailable')
+          return
+        }
+      }
       toast.error(error instanceof Error ? error.message : 'Timeline unavailable')
     } finally {
       setBusy('')
@@ -248,7 +263,7 @@ export function TenantAttentionPage() {
 
   return <PageShell>
     <PageHeader
-      title={authState.isPlatformLevel() ? 'Attention' : 'Needs you'}
+      title="Needs you"
       description={authState.isPlatformLevel()
         ? 'What needs a decision, what is wrong right now, and the checks you can run yourself.'
         : 'What needs a decision and what is wrong right now.'}
@@ -472,10 +487,10 @@ export function TenantAttentionPage() {
     {/* ─── Trace ─────────────────────────────────────────────────── */}
     <TabPanel active={activeTab()} id="trace" visited={isVisited('trace')}>
       <div class="space-y-4">
-        <p class="text-sm text-muted-foreground">Metadata-only trace of one request across audit, outbox, delivery and operator actions.</p>
+        <p class="text-sm text-muted-foreground">Metadata-only trace of one request across audit, outbox, delivery and operator actions. A trace ID from the action ledger works too.</p>
         <form class="flex flex-col gap-2 sm:flex-row" onSubmit={e => { e.preventDefault(); void lookupTimeline() }}>
-          <Input class="sm:max-w-md" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request or correlation ID" aria-label="Request or correlation ID" />
-          <Button type="submit" variant="outline" disabled={!timelineInput().trim() || !!busy()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace request'}</Button>
+          <Input class="sm:max-w-md" value={timelineInput()} onInput={(event) => setTimelineInput(event.currentTarget.value)} placeholder="Request, correlation or trace ID" aria-label="Request, correlation or trace ID" />
+          <Button type="submit" variant="outline" disabled={!timelineInput().trim() || !!busy()}>{busy() === 'timeline' ? 'Tracing…' : 'Trace'}</Button>
         </form>
         <Show when={timeline()}>{result => <Card class="p-4">
           <div class="flex items-start justify-between gap-4">
@@ -496,6 +511,31 @@ export function TenantAttentionPage() {
             </li>}</For>
           </ol>
         </Card>}</Show>
+        <Show when={traceResult()}>{result => <Card class="p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <PanelTitle as="h3" icon={<SectionIcon name="history" />}>{result().events.length} trace event{result().events.length === 1 ? '' : 's'}</PanelTitle>
+              <code class="mt-1 block break-all text-xs text-muted-foreground">{result().trace_id}</code>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setTraceResult(null)}>Close</Button>
+          </div>
+          <ol class="mt-3 divide-y divide-border border-t border-border">
+            <For each={result().events}>{event => <li class="py-3 text-sm">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <Badge variant="muted">{event.source}</Badge>
+                <Badge variant="outline">{event.kind}</Badge>
+                <Show when={event.state}><Badge variant="outline">{event.state}</Badge></Show>
+                <Badge variant="outline">{event.certainty}</Badge>
+              </div>
+              <p class="mt-1.5 text-muted-foreground">
+                {observed(event.occurred_at)}
+                <Show when={event.action_id}> · action <code class="text-xs">{event.action_id!.slice(0, 8)}</code></Show>
+                <Show when={event.decision_id}> · decision <code class="text-xs">{event.decision_id!.slice(0, 8)}</code></Show>
+              </p>
+            </li>}</For>
+          </ol>
+        </Card>}</Show>
+        <ActionLedgerPanel slug={params().slug} />
       </div>
     </TabPanel>
   </PageShell>

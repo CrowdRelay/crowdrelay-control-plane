@@ -88,7 +88,7 @@ pub struct Config {
     pub allowed_landing_origins: Vec<String>,
     /// Shared-Postgres placement: the cluster container tenant databases live
     /// on, the docker network tenants join to reach it, and how many tenants
-    /// one cluster may host before creation is refused. See migration 0026.
+    /// one cluster may host before creation is refused. See migration 0031.
     pub shared_pg_cluster: String,
     pub shared_pg_network: String,
     pub shared_pg_max_tenants: i64,

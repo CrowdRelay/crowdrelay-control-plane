@@ -453,6 +453,26 @@ export function TenantCityPage() {
                           outreach {contact.beacon_outcome}
                         </Badge>
                       </Show>
+                      <Show when={contact.counterparty_prior && contact.counterparty_prior!.tenants_contacted > 0 ? contact.counterparty_prior : null}>
+                        {prior => (
+                          <Badge
+                            variant="muted"
+                            title="Anonymous counts across every tenant — sends, replies, wins on this address"
+                          >
+                            {`${prior().tenants_contacted} wrote · ${prior().tenants_replied} answered`}
+                          </Badge>
+                        )}
+                      </Show>
+                      <Show when={contact.venue_prior && contact.venue_prior!.tenants_played > 0 ? contact.venue_prior : null}>
+                        {prior => (
+                          <Badge
+                            variant="muted"
+                            title="Anonymous counts across every tenant — the room's play record on the registry"
+                          >
+                            {`${prior().tenants_played} played · ${prior().shows} show${prior().shows === 1 ? '' : 's'}`}
+                          </Badge>
+                        )}
+                      </Show>
                     </div>
                     <p class="m-0 mt-1 text-xs text-muted-foreground">
                       {[contact.display_name, contact.organization].filter(Boolean).join(' · ') || 'No name on file'}

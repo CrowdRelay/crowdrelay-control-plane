@@ -13,6 +13,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
+use url::Url;
 use uuid::Uuid;
 
 use crate::{
@@ -21,6 +22,10 @@ use crate::{
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
+/// The sheet upload forwards up to 2 MiB of CSV inside a JSON envelope —
+/// the router-wide 8 KiB would refuse every real sheet before the
+/// upstream's own bounds could answer.
+const MAX_UPLOAD_BODY_BYTES: usize = 2 * 1024 * 1024 + 64 * 1024;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -29,6 +34,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/signal-overview",
             get(signal_overview),
         )
+        .route("/tenants/{slug}/operations/intelligence", get(intelligence))
         .route("/tenants/{slug}/operations/outbox", get(list_outbox))
         .route(
             "/tenants/{slug}/operations/outbox/{event_id}/retry",
@@ -76,6 +82,26 @@ pub fn router() -> Router<AppState> {
             get(get_action),
         )
         .route(
+            "/tenants/{slug}/operations/processes/relays",
+            get(list_process_relays),
+        )
+        .route(
+            "/tenants/{slug}/operations/processes/relays/{source_id}",
+            get(process_relay_run),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-relays/{source_id}/approve",
+            post(approve_community_relay),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-relays/{source_id}/revoke",
+            post(revoke_community_relay),
+        )
+        .route(
+            "/tenants/{slug}/operations/community-posts/{post_id}/register-manual",
+            post(register_manual_community_post),
+        )
+        .route(
             "/tenants/{slug}/operations/actions/{action_id}/sent",
             get(action_sent_record),
         )
@@ -121,6 +147,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/capabilities",
             get(autopilot_capabilities),
         )
+        .route(
+            "/tenants/{slug}/operations/autopilot/opportunity-shortlist",
+            get(opportunity_shortlist),
+        )
         // Portfolio reads live in read_models::portfolio as one consolidated
         // model; only the mutations are routed here.
         .route(
@@ -138,6 +168,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
+        )
+        // Tenant-held credentials: the masked inventory and the write-only
+        // set/unset. The value goes up and never comes back — the list shows
+        // only the hint upstream computed at write time.
+        .route("/tenants/{slug}/secrets", get(list_tenant_secrets))
+        .route(
+            "/tenants/{slug}/secrets/{secret_name}",
+            put(set_tenant_secret).delete(delete_tenant_secret),
         )
         .route(
             "/tenants/{slug}/portfolio/fanbases",
@@ -355,6 +393,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/gdrive-contacts/scan",
             axum::routing::post(gdrive_scan),
         )
+        // P.2: the operator's own sheet is an intake source too — the body
+        // passes through verbatim; upstream parses, extracts and stages.
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/upload",
+            axum::routing::post(gdrive_upload).layer(DefaultBodyLimit::max(MAX_UPLOAD_BODY_BYTES)),
+        )
         .route(
             "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/promote",
             axum::routing::post(promote_drive_contact),
@@ -410,8 +454,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/show-economics",
             get(show_economics),
         )
-        // The gig page's list — the tenant's shows, next up then past.
-        .route("/tenants/{slug}/shows", get(tenant_shows))
+        // The gig page's list — the tenant's shows, next up then past — plus
+        // the write that puts one there by hand when no sync source runs.
+        .route(
+            "/tenants/{slug}/shows",
+            get(tenant_shows).post(tenant_show_create),
+        )
         // One night: the T-21→T+7 ladder. The slug path segment is the
         // event's own slug, not its id — it is what the list hands down.
         .route(
@@ -545,6 +593,41 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/operations/beacons/{beacon_id}/reply",
             post(record_beacon_reply),
+        )
+        // P.1: the industry list seen as an audience — who already hears
+        // the dates, who could be asked, and the one-person, once-ever
+        // invitation itself.
+        .route(
+            "/tenants/{slug}/operations/contacts/dual-role",
+            get(dual_role_contacts),
+        )
+        .route(
+            "/tenants/{slug}/operations/contacts/{beacon_id}/latarnik-invite",
+            post(invite_to_latarnik),
+        )
+        // P.4: one show's approve-once growth ladder — the state plus the
+        // rungs, and the two writes (approve / revoke) that move it.
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder",
+            get(show_growth_ladder),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder/approve",
+            post(approve_show_growth_ladder),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/events/{event_id}/growth-ladder/revoke",
+            post(revoke_show_growth_ladder),
+        )
+        // P.7: the negotiation table — the ladder every live terms row was
+        // argued from, plus the write that records the promoter's position.
+        .route(
+            "/tenants/{slug}/operations/autopilot/negotiations",
+            get(negotiations),
+        )
+        .route(
+            "/tenants/{slug}/operations/autopilot/team-opportunities/{opportunity_id}/terms",
+            post(record_opportunity_terms),
         )
         // ── Release campaigns ─────────────────────────────────────────
         .route(
@@ -751,6 +834,27 @@ async fn summary(
     object_no_store(value, "summary")
 }
 
+/// The intelligence brief: one upstream read composing the brain's verdict,
+/// posture, plan, findings, activity and needs into a single story. The
+/// upstream assembles it; this is a passthrough.
+async fn intelligence(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/intelligence",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "intelligence")
+}
+
 async fn delivery_details(
     State(state): State<AppState>,
     Path((slug, delivery_id)): Path<(String, String)>,
@@ -808,6 +912,193 @@ async fn get_action(
     let path = format!("/v1/control-plane/ops/actions/{action_id}");
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "action ledger entry")
+}
+
+/// Relay process runs: one observed post → one decision → the per-community
+/// fan-out, joined upstream into the step shape the process page renders.
+/// One call, one upstream read — the console never fans out per community.
+async fn list_process_relays(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/processes/relays",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "relay process runs")
+}
+
+/// One run's checklist: every community the decision named, its draft, its
+/// approval state, its receipt and its latest measurement.
+async fn process_relay_run(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    let path = format!("/v1/control-plane/processes/relays/{source_id}");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "relay process run")
+}
+
+/// The relay spread's one answer: approve releases every parked delivery to
+/// the drip, revoke cancels what has not landed. Both are per-source writes
+/// upstream owns end-to-end — the proxy carries the idempotency key and the
+/// audit trail, nothing else.
+async fn approve_community_relay(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    community_relay_mutation(
+        &state,
+        &slug,
+        &source_id,
+        "approve",
+        &headers,
+        body,
+        "tenant.community_relay.approved",
+    )
+    .await
+}
+
+async fn revoke_community_relay(
+    State(state): State<AppState>,
+    Path((slug, source_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let source_id = uuid_segment(&source_id)?.to_owned();
+    community_relay_mutation(
+        &state,
+        &slug,
+        &source_id,
+        "revoke",
+        &headers,
+        axum::body::Bytes::new(),
+        "tenant.community_relay.revoked",
+    )
+    .await
+}
+
+async fn community_relay_mutation(
+    state: &AppState,
+    slug: &str,
+    source_id: &str,
+    verb: &str,
+    headers: &HeaderMap,
+    body: axum::body::Bytes,
+    audit_action: &'static str,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(headers)?.to_owned();
+    // Forward the body as opaque JSON — upstream owns the contract (cadence
+    // override, per-delivery draft revisions); a typed relay here would
+    // silently drop any field this struct forgot. Malformed JSON fails as a
+    // bad request here rather than upstream.
+    let payload: Option<Value> = if body.is_empty() {
+        None
+    } else {
+        Some(
+            serde_json::from_slice(&body)
+                .map_err(|_| ApiError::InvalidInput("request body is not valid JSON".to_owned()))?,
+        )
+    };
+    let (tenant, target) = crate::area_routes::target(state, slug).await?;
+    let path = format!("/v1/control-plane/autopilot/community-relays/{source_id}/{verb}");
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &path,
+                body: payload.as_ref(),
+                correlation_id: correlation(headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        state,
+        tenant.tenant.id,
+        audit_action,
+        "community_relay",
+        source_id,
+        headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, slug).await;
+    // Upstream answers 200 with the mutation receipt — a real JSON object,
+    // not the 204 the manual-registration write returns.
+    object_no_store(result, "community relay mutation")
+}
+
+#[derive(Debug, Deserialize)]
+struct ManualPostRegistration {
+    reddit_post_url: String,
+}
+
+/// The process page's manual leg: the operator published a drafted Reddit
+/// post by hand, and registering its URL turns the metrics poller on.
+/// Upstream owns the real URL check — this bounds the envelope only.
+async fn register_manual_community_post(
+    State(state): State<AppState>,
+    Path((slug, post_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<ManualPostRegistration>,
+) -> Result<Response, ApiError> {
+    let post_id = uuid_segment(&post_id)?.to_owned();
+    let url = input.reddit_post_url.trim();
+    if url.is_empty() || url.len() > 2048 || !url.starts_with("https://") {
+        return Err(ApiError::InvalidInput(
+            "a manual post needs its https reddit URL".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = json!({ "reddit_post_url": url });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/community-posts/{post_id}/register-manual"),
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.community_post.registered_manual",
+        "community_post",
+        &post_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    // Upstream answers 204 No Content — a success shape object_no_store
+    // would refuse as "invalid JSON", so this takes the mutation path.
+    mutation_no_store(result, "manual post registration")
 }
 
 /// What the action actually sent — the words and the addresses it went to.
@@ -1099,6 +1390,27 @@ async fn autopilot_growth(
     )
     .await?;
     object_no_store(value, "autopilot growth")
+}
+
+/// The scout shortlist: every tracked opportunity with its link, costed
+/// figures, staleness and newest decision. Read-only — the review acts
+/// (progress, dismiss) ride their own routes, not this one.
+async fn opportunity_shortlist(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/opportunity-shortlist",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "opportunity shortlist")
 }
 
 /// The north stars this tenant may choose.
@@ -1996,6 +2308,165 @@ async fn update_portfolio_setting(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "portfolio setting update")
+}
+
+// ─── Tenant-held secrets ────────────────────────────────────────────────────
+// The value crosses this surface once, inbound on the write. It is never
+// logged, never echoed into an audit row, and never readable back — the list
+// returns only the hint upstream computed when it stored the ciphertext.
+
+/// Secret names the tenant may manage, with the value grammar each accepts.
+/// Mirrors the upstream allowlist and its `valid_secret_value` prefixes —
+/// keeping both here means a bad paste is refused before it crosses the
+/// wire, and a restricted `rk_` key is not rejected on the way to a store
+/// that accepts it.
+const TENANT_SECRET_NAMES: &[(&str, &[&str])] = &[
+    (
+        "stripe_secret_key",
+        &["sk_live_", "sk_test_", "rk_live_", "rk_test_"],
+    ),
+    ("stripe_webhook_secret", &["whsec_"]),
+];
+
+fn tenant_secret_path(name: &str) -> Result<String, ApiError> {
+    TENANT_SECRET_NAMES
+        .iter()
+        .any(|(allowed, _)| *allowed == name)
+        .then(|| format!("/v1/control-plane/secrets/{name}"))
+        .ok_or_else(|| ApiError::InvalidInput("unknown secret name".to_owned()))
+}
+
+/// Same bounds and prefixes as upstream `valid_secret_value` — the wire copy
+/// so a malformed paste never leaves this plane.
+fn valid_tenant_secret(name: &str, value: &str) -> bool {
+    let Some((_, prefixes)) = TENANT_SECRET_NAMES
+        .iter()
+        .find(|(allowed, _)| *allowed == name)
+    else {
+        return false;
+    };
+    (8..=200).contains(&value.len())
+        && value.bytes().all(|b| b.is_ascii_graphic())
+        && prefixes.iter().any(|prefix| value.starts_with(prefix))
+}
+
+fn invalid_secret_error(name: &str) -> ApiError {
+    let (_, prefixes) = TENANT_SECRET_NAMES
+        .iter()
+        .find(|(allowed, _)| *allowed == name)
+        .expect("validated name");
+    ApiError::InvalidInput(format!(
+        "{name} must start with {} and be printable ASCII 8–200 chars",
+        prefixes.join(" or ")
+    ))
+}
+
+/// `GET /tenants/{slug}/secrets` — masked inventory only.
+async fn list_tenant_secrets(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/secrets",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tenant secrets list")
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SetTenantSecretBody {
+    value: String,
+}
+
+/// `PUT /tenants/{slug}/secrets/{name}` — write-only credential set. The body
+/// is validated for shape (the prefix the name requires), forwarded verbatim,
+/// and the masked view upstream returns is what the client sees.
+async fn set_tenant_secret(
+    State(state): State<AppState>,
+    Path((slug, secret_name)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<SetTenantSecretBody>,
+) -> Result<Response, ApiError> {
+    let path = tenant_secret_path(&secret_name)?;
+    let value = body.value.trim();
+    if !valid_tenant_secret(&secret_name, value) {
+        return Err(invalid_secret_error(&secret_name));
+    }
+    let payload = json!({ "value": value });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "PUT",
+                path: &path,
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    // Audited by name — the value never enters the audit row.
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.secret.set",
+        "tenant_secret",
+        &secret_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    mutation_no_store(value, "tenant secret set")
+}
+
+/// `DELETE /tenants/{slug}/secrets/{name}` — unsets the credential.
+async fn delete_tenant_secret(
+    State(state): State<AppState>,
+    Path((slug, secret_name)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let path = tenant_secret_path(&secret_name)?;
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "DELETE",
+                path: &path,
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: None,
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.secret.removed",
+        "tenant_secret",
+        &secret_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    mutation_no_store(value, "tenant secret removed")
 }
 
 /// Registers a new audience block with its acquisition origin.
@@ -3239,6 +3710,9 @@ async fn gdrive_scan(
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
+    // POSTs forward a key or never leave this plane — a scan without one
+    // was refused before it could run.
+    let idempotency = idempotency_key(&headers)?.to_owned();
     let (_, value) = call(
         &state,
         &slug,
@@ -3246,10 +3720,57 @@ async fn gdrive_scan(
         "/v1/control-plane/gdrive/scan",
         None,
         &headers,
-        None,
+        Some(&idempotency),
     )
     .await?;
     mutation_no_store(value, "gdrive scan")
+}
+
+/// The upload body the panel sends: `{file_name, csv}`. `deny_unknown_fields`
+/// keeps a stray field from travelling further than this plane; the sheet's
+/// own size/row bounds and its "not a contact list" answer live upstream.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DriveContactUpload {
+    file_name: String,
+    csv: String,
+}
+
+async fn gdrive_upload(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<DriveContactUpload>,
+) -> Result<Response, ApiError> {
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = serde_json::json!({
+        "file_name": input.file_name,
+        "csv": input.csv,
+    });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gdrive/contacts/upload",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.contacts.uploaded",
+        "drive_contacts",
+        &input.file_name,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "contacts upload")
 }
 
 /// The promote body: `destination` picks fan or beacon, `kind` names the
@@ -3740,6 +4261,185 @@ async fn tenant_shows(
     )
     .await?;
     object_no_store(value, "shows")
+}
+
+/// `POST /tenants/{slug}/shows` — a night the operator types in by hand.
+/// Upstream owns the write (find-or-create city, slug uniqueness, draft vs
+/// announced); this surface mirrors the transport bounds so a malformed form
+/// never crosses the wire, and audits the mutation like every other show
+/// write.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateShowBody {
+    title: String,
+    starts_at: String,
+    doors_at: Option<String>,
+    ends_at: Option<String>,
+    venue: Option<String>,
+    venue_address: Option<String>,
+    city_name: Option<String>,
+    city_country_code: Option<String>,
+    city_region: Option<String>,
+    timezone: Option<String>,
+    ticket_url: Option<String>,
+    #[serde(default)]
+    publish: bool,
+}
+
+fn valid_show_timestamp(value: &str) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+    chrono::DateTime::parse_from_rfc3339(value.trim()).ok()
+}
+
+// Byte bound, not chars — the upstream domain validator checks `str::len()`,
+// so the mirror must too or a multibyte name would pass here and fail there.
+fn valid_show_text(value: Option<&str>, max_bytes: usize) -> bool {
+    value.is_none_or(|text| {
+        let trimmed = text.trim();
+        !trimmed.is_empty() && trimmed.len() <= max_bytes && !trimmed.chars().any(char::is_control)
+    })
+}
+
+/// Validates the form against the same bounds the upstream write applies and
+/// returns the JSON body forwarded to it. Pure, so the mirror is tested
+/// without standing a tenant up.
+fn show_create_payload(body: &CreateShowBody) -> Result<Value, ApiError> {
+    let title = body.title.trim();
+    let Some(starts_at) = valid_show_timestamp(&body.starts_at) else {
+        return Err(ApiError::InvalidInput(
+            "invalid show: starts_at must be RFC 3339".to_owned(),
+        ));
+    };
+    let doors_at = body.doors_at.as_deref().map(valid_show_timestamp);
+    let ends_at = body.ends_at.as_deref().map(valid_show_timestamp);
+    // Present-but-empty is absent for the pair check — upstream trims to the
+    // same conclusion, and the pair must match here before it gets there.
+    let city_name = body
+        .city_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+    let city_country_code = body
+        .city_country_code
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_uppercase)
+        .filter(|v| !v.is_empty());
+    let city_ok = city_name.is_some() == city_country_code.is_some()
+        && city_country_code
+            .as_deref()
+            .is_none_or(|code| code.len() == 2 && code.bytes().all(|b| b.is_ascii_uppercase()));
+    // A present-but-unparseable time is invalid, not absent.
+    let schedule_ok = match &doors_at {
+        None => true,
+        Some(parsed) => parsed.is_some_and(|doors| doors <= starts_at),
+    } && match &ends_at {
+        None => true,
+        Some(parsed) => parsed.is_some_and(|ends| ends >= starts_at),
+    };
+    let ticket_url = body.ticket_url.as_deref().map(str::trim);
+    // Same door-link rules the domain applies: a real https URL with a host,
+    // no credentials-in-URL, no fragment — otherwise upstream refuses and the
+    // operator sees a generic bad_request instead of a form-level error.
+    let ticket_ok = ticket_url.is_none_or(|url| {
+        url.len() <= 2048
+            && Url::parse(url).is_ok_and(|parsed| {
+                parsed.scheme() == "https"
+                    && parsed.host_str().is_some()
+                    && parsed.username().is_empty()
+                    && parsed.password().is_none()
+                    && parsed.fragment().is_none()
+            })
+    });
+    // A region only colours a city pair that exists.
+    let region_ok = body
+        .city_region
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .is_none()
+        || city_name.is_some();
+    let fields_ok = valid_show_text(Some(title), 300)
+        && valid_show_text(body.venue.as_deref(), 500)
+        && valid_show_text(body.venue_address.as_deref(), 500)
+        && valid_show_text(body.city_name.as_deref(), 200)
+        && valid_show_text(body.city_region.as_deref(), 100)
+        && valid_show_text(body.timezone.as_deref(), 128)
+        && schedule_ok
+        && ticket_ok
+        && city_ok
+        && region_ok;
+    if !fields_ok {
+        return Err(ApiError::InvalidInput(
+            "invalid show: title required (≤300), RFC 3339 times with doors ≤ start ≤ end, \
+             venue ≤500, https ticket_url, city name + country code together"
+                .to_owned(),
+        ));
+    }
+    Ok(json!({
+        "title": title,
+        "starts_at": starts_at.to_rfc3339(),
+        "doors_at": doors_at.flatten().map(|value| value.to_rfc3339()),
+        "ends_at": ends_at.flatten().map(|value| value.to_rfc3339()),
+        "venue": body.venue.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "venue_address": body.venue_address.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "city_name": city_name,
+        "city_country_code": city_country_code,
+        "city_region": body.city_region.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "timezone": body.timezone.as_deref().map(str::trim).filter(|v| !v.is_empty()),
+        "ticket_url": ticket_url.filter(|v| !v.is_empty()),
+        "publish": body.publish,
+    }))
+}
+
+async fn tenant_show_create(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<CreateShowBody>,
+) -> Result<Response, ApiError> {
+    let title = body.title.trim().to_owned();
+    let payload = show_create_payload(&body)?;
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/events",
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    // The audit record points at the slug upstream minted — the durable name
+    // for the night — falling back to the title when the call failed before
+    // one existed. Held as a Result so a refused create is audited too, like
+    // every other proxied mutation.
+    let audit_target = result
+        .as_ref()
+        .ok()
+        .and_then(|value| value.get("slug"))
+        .and_then(Value::as_str)
+        .unwrap_or(&title)
+        .to_owned();
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show.created",
+        "event",
+        &audit_target,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show")
 }
 
 async fn tenant_show_timeline(
@@ -4648,7 +5348,7 @@ async fn upsert_beacon(
             .unwrap_or("unknown"),
         &headers,
         &result,
-        None,
+        body.get("expected_version").and_then(Value::as_u64),
     )
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
@@ -4952,6 +5652,207 @@ async fn record_beacon_reply(
     mutation_no_store(value, "beacon reply")
 }
 
+/// The industry list read as an audience: everybody the band works with,
+/// with both roles resolved — who already hears the dates, who could be
+/// asked, and the sentence saying why not for everybody else.
+async fn dual_role_contacts(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/contacts/dual-role",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "dual-role contacts")
+}
+
+/// Asks one person, once. Upstream recomputes the standing, the reason and
+/// the words at the click, and answers every refusal as a 200 with its
+/// sentence — the panel renders the answer rather than a toast.
+async fn invite_to_latarnik(
+    State(state): State<AppState>,
+    Path((slug, beacon_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let beacon_id = uuid_segment(&beacon_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/contacts/{beacon_id}/latarnik-invite");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.contact.latarnik_invited",
+        "beacon",
+        &beacon_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "latarnik invite")
+}
+
+/// One show's growth ladder (P.4): the approval row's state plus every rung
+/// in due order. Read-only — the same read the panel renders.
+async fn show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder");
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
+    object_no_store(value, "show growth ladder")
+}
+
+/// One yes over the show's whole ladder (P.4). The write is the canonical
+/// upstream one; the proxy only carries it with its idempotency key.
+async fn approve_show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder/approve");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_growth_ladder.approved",
+        "event",
+        &event_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show growth ladder approval")
+}
+
+/// Stops the rungs the ladder approval would still release (P.4). Rungs
+/// already running or finished keep their record.
+async fn revoke_show_growth_ladder(
+    State(state): State<AppState>,
+    Path((slug, event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let event_id = uuid_segment(&event_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/events/{event_id}/growth-ladder/revoke");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        None,
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.show_growth_ladder.revoked",
+        "event",
+        &event_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "show growth ladder revoke")
+}
+
+/// The negotiation table — live terms rows with their ladders and the move
+/// parked in `awaiting_approval` for each (P.7).
+async fn negotiations(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/autopilot/negotiations",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "negotiations")
+}
+
+/// Records the promoter's position on a live negotiation — an offer with
+/// its deadline, or a withdrawal. The write is the canonical upstream one;
+/// the proxy only carries it with its idempotency key (P.7).
+async fn record_opportunity_terms(
+    State(state): State<AppState>,
+    Path((slug, opportunity_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let opportunity_id = uuid_segment(&opportunity_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let path = format!("/v1/control-plane/autopilot/team-opportunities/{opportunity_id}/terms");
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        &path,
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.opportunity.terms_recorded",
+        "team_opportunity",
+        &opportunity_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "opportunity terms")
+}
+
 async fn create_beacon_release_campaign(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -5225,4 +6126,167 @@ async fn community_detail(
         "entities": section(entities),
     });
     object_no_store(projected, "community detail")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn show_body() -> CreateShowBody {
+        CreateShowBody {
+            title: "Virya live".to_owned(),
+            starts_at: "2026-10-02T20:00:00+02:00".to_owned(),
+            doors_at: None,
+            ends_at: None,
+            venue: None,
+            venue_address: None,
+            city_name: None,
+            city_country_code: None,
+            city_region: None,
+            timezone: None,
+            ticket_url: None,
+            publish: false,
+        }
+    }
+
+    #[test]
+    fn show_payload_accepts_the_thinnest_honest_show() {
+        let payload = show_create_payload(&show_body()).expect("minimal show");
+        assert_eq!(payload["title"], "Virya live");
+        assert_eq!(payload["starts_at"], "2026-10-02T20:00:00+02:00");
+        assert_eq!(payload["publish"], false);
+    }
+
+    #[test]
+    fn show_payload_rejects_missing_and_bad_start() {
+        let mut body = show_body();
+        body.starts_at = "not a date".to_owned();
+        assert!(show_create_payload(&body).is_err());
+        body.starts_at = " ".to_owned();
+        assert!(show_create_payload(&body).is_err());
+    }
+
+    #[test]
+    fn show_payload_enforces_the_city_pair() {
+        let mut body = show_body();
+        body.city_name = Some("Warszawa".to_owned());
+        assert!(show_create_payload(&body).is_err(), "name without code");
+        body.city_name = None;
+        body.city_country_code = Some("PL".to_owned());
+        assert!(show_create_payload(&body).is_err(), "code without name");
+        body.city_region = Some("mazowieckie".to_owned());
+        assert!(show_create_payload(&body).is_err(), "region without a pair");
+        body.city_name = Some("Warszawa".to_owned());
+        let payload = show_create_payload(&body).expect("complete city triple");
+        assert_eq!(payload["city_country_code"], "PL");
+        // Lowercase codes normalize rather than refuse.
+        body.city_country_code = Some("de".to_owned());
+        let payload = show_create_payload(&body).expect("lowercase code folds");
+        assert_eq!(payload["city_country_code"], "DE");
+        body.city_country_code = Some("P1".to_owned());
+        assert!(show_create_payload(&body).is_err());
+        body.city_country_code = Some("POL".to_owned());
+        assert!(show_create_payload(&body).is_err());
+    }
+
+    #[test]
+    fn show_payload_rejects_impossible_schedule_and_insecure_url() {
+        let mut body = show_body();
+        body.doors_at = Some("2026-10-02T21:00:00+02:00".to_owned());
+        assert!(show_create_payload(&body).is_err(), "doors after start");
+        body.doors_at = Some("not a date".to_owned());
+        assert!(
+            show_create_payload(&body).is_err(),
+            "unparseable doors is invalid, not absent"
+        );
+        body.doors_at = None;
+        body.ends_at = Some("2026-10-02T19:00:00+02:00".to_owned());
+        assert!(show_create_payload(&body).is_err(), "ends before start");
+        body.ends_at = None;
+        body.ticket_url = Some("http://tickets.example/x".to_owned());
+        assert!(show_create_payload(&body).is_err(), "http refused");
+        // A space in the path parses to %20 — upstream's Url::parse accepts
+        // it, so the mirror does too rather than diverging on encoding.
+        body.ticket_url = Some("https://tickets.example/a b".to_owned());
+        assert!(show_create_payload(&body).is_ok(), "space encodes");
+        // The mirror is the upstream rule, not just the scheme prefix —
+        // credentials-in-URL and fragments get the form-level error, not a
+        // generic upstream bad_request.
+        body.ticket_url = Some("https://u:p@tickets.example/x".to_owned());
+        assert!(show_create_payload(&body).is_err(), "userinfo refused");
+        body.ticket_url = Some("https://tickets.example/x#frag".to_owned());
+        assert!(show_create_payload(&body).is_err(), "fragment refused");
+        body.ticket_url = Some("https://tickets.example/virya".to_owned());
+        assert!(show_create_payload(&body).is_ok());
+    }
+
+    #[test]
+    fn show_payload_bounds_are_bytes_like_the_upstream_validator() {
+        let mut body = show_body();
+        body.title = "x".repeat(301);
+        assert!(show_create_payload(&body).is_err(), "301 bytes");
+        // 151 two-byte characters = 302 bytes — the mirror counts bytes, not
+        // characters, because the domain validator checks `str::len()`.
+        body.title = "ą".repeat(151);
+        assert!(show_create_payload(&body).is_err(), "302 bytes of ą");
+        body.title = "ą".repeat(150);
+        assert!(show_create_payload(&body).is_ok(), "300 bytes of ą");
+        body.title = " ".to_owned();
+        assert!(show_create_payload(&body).is_err(), "blank title");
+    }
+
+    #[test]
+    fn secret_paths_carry_only_allowlisted_names() {
+        assert!(tenant_secret_path("stripe_secret_key").is_ok());
+        assert!(tenant_secret_path("stripe_webhook_secret").is_ok());
+        // An unknown name must fail before a path is built — the proxy route
+        // is the only thing standing between this name and the store.
+        assert!(tenant_secret_path("database_url").is_err());
+        assert!(tenant_secret_path("").is_err());
+        assert_eq!(
+            tenant_secret_path("stripe_secret_key").expect("known"),
+            "/v1/control-plane/secrets/stripe_secret_key"
+        );
+    }
+
+    #[test]
+    fn secret_values_are_checked_against_the_upstream_grammar() {
+        // The mirror is the upstream `valid_secret_value`: the same length
+        // bounds and the same prefixes, so nothing refused here would have
+        // passed there — and nothing accepted here fails there.
+        assert!(valid_tenant_secret(
+            "stripe_secret_key",
+            "sk_live_f4ke-k3y-n0t-r34l"
+        ));
+        assert!(valid_tenant_secret(
+            "stripe_secret_key",
+            "rk_test_1234567890"
+        ));
+        assert!(valid_tenant_secret(
+            "stripe_webhook_secret",
+            "whsec_f4ke-s3cret9END00"
+        ));
+        // A restricted key must reach the store that accepts it.
+        assert!(valid_tenant_secret("stripe_secret_key", "rk_live_abc123"));
+        // Wrong slot, wrong prefix, junk: all refused before the wire.
+        assert!(!valid_tenant_secret("stripe_secret_key", "whsec_12345678"));
+        assert!(!valid_tenant_secret(
+            "stripe_webhook_secret",
+            "sk_live_12345678"
+        ));
+        assert!(!valid_tenant_secret(
+            "stripe_secret_key",
+            "pk_live_12345678"
+        ));
+        assert!(!valid_tenant_secret("stripe_webhook_secret", "whsec_1")); // too short
+        assert!(!valid_tenant_secret(
+            "stripe_secret_key",
+            "sk_live_with space"
+        ));
+        assert!(!valid_tenant_secret(
+            "nonsense",
+            "sk_live_123456789012345678"
+        ));
+        assert!(!valid_tenant_secret("stripe_secret_key", &"x".repeat(201)));
+    }
 }

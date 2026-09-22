@@ -8,10 +8,11 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     model::{
-        AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BrandingPalette,
-        CreateAutomationEventRequest, CreateTenantRequest, PlatformHealthRow, ProvisioningJobRow,
-        RegionalProfile, RuntimeHealth, RuntimeReportRequest, RuntimeStatusRow,
-        TenantDeploymentSpec, TenantRow, TenantSummary, TenantSummaryJoinRow,
+        AuditRow, AutomationEventRow, AutomationWorkflowConfigRow, BillingEventInput, BillingState,
+        BrandingPalette, CreateAutomationEventRequest, CreateTenantRequest, GuaranteeState,
+        GuaranteeView, PlatformHealthRow, ProvisioningJobRow, RegionalProfile, RuntimeHealth,
+        RuntimeReportRequest, RuntimeStatusRow, TenantDeploymentSpec, TenantGuaranteeRow,
+        TenantRow, TenantSummary, TenantSummaryJoinRow,
     },
 };
 
@@ -154,6 +155,23 @@ pub struct NotifierOutboxRow {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Fleet-level health of the control plane's own notification outbox.
+///
+/// Per-tenant rows are listed by [`Self::notifier_outbox`], but nothing
+/// opens every tenant's list: a dead `approvals.pending` row is a pending
+/// approval the operator was never told about — the channel that would
+/// report the failure is the one that failed. The command center's system
+/// block is the one surface an operator always sees, so the counts live
+/// there. `dead_7d` is windowed because dead rows never leave `dead`
+/// status and an all-time count alarms forever over long-fixed failures;
+/// `overdue_pending` counts rows due for longer than the dispatcher's
+/// cadence can explain, i.e. the worker itself is down.
+#[derive(Debug, Clone, Copy, sqlx::FromRow)]
+pub struct NotificationOutboxHealth {
+    pub dead_7d: i64,
+    pub overdue_pending: i64,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WaitlistRow {
@@ -247,6 +265,7 @@ impl Store {
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
                       t.placement, t.placement_cluster, t.placement_database,
+                      t.team_members,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -255,10 +274,19 @@ impl Store {
                       r.deployed_sha AS runtime_deployed_sha,
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
+                      r.awaiting_approval AS runtime_awaiting_approval,
+                      r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
-                      r.checked_at AS runtime_checked_at
+                      r.checked_at AS runtime_checked_at,
+                      b.state AS billing_state,
+                      b.subscription_started_at AS billing_subscription_started_at,
+                      b.trial_ends_at AS billing_trial_ends_at,
+                      b.current_period_ends_at AS billing_current_period_ends_at,
+                      (SELECT COUNT(*) FROM control_plane_notifier_channels nc
+                        WHERE nc.tenant_id = t.id AND nc.enabled) AS enabled_notifier_channels
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
+               LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
                ORDER BY CASE WHEN t.slug = 'virya' THEN 0 ELSE 1 END, t.display_name"#,
         )
         .fetch_all(&self.pool)
@@ -279,6 +307,7 @@ impl Store {
                       t.signal_play_store_url, t.synesthesia_play_store_url,
                       t.can_suspend, t.can_provision, t.can_remove, t.archetype,
                       t.placement, t.placement_cluster, t.placement_database,
+                      t.team_members,
                       t.created_at, t.updated_at,
                       r.tenant_id AS runtime_tenant_id,
                       r.api_healthy AS runtime_api_healthy,
@@ -287,10 +316,19 @@ impl Store {
                       r.deployed_sha AS runtime_deployed_sha,
                       r.outbox_pending AS runtime_outbox_pending,
                       r.queue_lag AS runtime_queue_lag,
+                      r.awaiting_approval AS runtime_awaiting_approval,
+                      r.north_star_fans AS runtime_north_star_fans,
                       r.last_heartbeat_at AS runtime_last_heartbeat_at,
-                      r.checked_at AS runtime_checked_at
+                      r.checked_at AS runtime_checked_at,
+                      b.state AS billing_state,
+                      b.subscription_started_at AS billing_subscription_started_at,
+                      b.trial_ends_at AS billing_trial_ends_at,
+                      b.current_period_ends_at AS billing_current_period_ends_at,
+                      (SELECT COUNT(*) FROM control_plane_notifier_channels nc
+                        WHERE nc.tenant_id = t.id AND nc.enabled) AS enabled_notifier_channels
                FROM control_plane_tenants t
                LEFT JOIN control_plane_runtime_status r ON r.tenant_id = t.id
+               LEFT JOIN control_plane_tenant_billing b ON b.tenant_id = t.id
                WHERE t.slug = $1"#,
         )
         .bind(slug)
@@ -426,6 +464,10 @@ impl Store {
         } else {
             (None, None)
         };
+        // Already validated + key-filled by the route; `[]` covers a direct
+        // caller that skips validation.
+        let team_members_json =
+            serde_json::to_value(input.team_members.as_deref().unwrap_or_default())?;
         let mut tx = self.pool.begin().await?;
         if placement == "shared_pg" {
             // Serialize concurrent shared-pg creations per cluster: without
@@ -453,14 +495,15 @@ impl Store {
         }
         let tenant = sqlx::query_as::<_, TenantRow>(
             r#"INSERT INTO control_plane_tenants
-               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype, placement, placement_cluster, placement_database)
-               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+               (id, slug, display_name, status, workspace_id, crowdrelay_base_url, signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled, signal_enabled, north_star_metric, fanbase_sources, signal_play_store_url, synesthesia_play_store_url, archetype, placement, placement_cluster, placement_database, team_members)
+               VALUES ($1, $2, $3, 'provisioning', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
                RETURNING id, slug, display_name, status, workspace_id, crowdrelay_base_url,
                          signal_base_url, default_country_code, regional_profile, branding_palette, synesthesia_enabled, area_enabled,
                          signal_enabled, north_star_metric, fanbase_sources,
                          signal_play_store_url, synesthesia_play_store_url,
                          can_suspend, can_provision, can_remove, archetype,
                          placement, placement_cluster, placement_database,
+                         team_members,
                          created_at, updated_at"#,
         )
         .bind(id)
@@ -484,6 +527,7 @@ impl Store {
         .bind(placement)
         .bind(&placement_cluster)
         .bind(&placement_database)
+        .bind(&team_members_json)
         .fetch_one(&mut *tx)
         .await
         .map_err(|error| match error {
@@ -562,6 +606,8 @@ impl Store {
             tenant,
             runtime: None,
             runtime_health: RuntimeHealth::Unknown,
+            billing: None,
+            enabled_notifier_channels: 0,
         })
     }
 
@@ -875,6 +921,7 @@ impl Store {
             "signalBaseUrl": tenant.tenant.signal_base_url,
             "defaultCountryCode": tenant.tenant.default_country_code,
             "synesthesiaEnabled": tenant.tenant.synesthesia_enabled,
+            "teamMembers": tenant.tenant.team_members,
             "execution": "requires explicit deploy approval and the narrow provisioner agent"
         });
         if let Some(keys) = provider_keys {
@@ -952,6 +999,11 @@ impl Store {
     /// platform-admin only — the promotion runbook's trigger (shared_pg ->
     /// dedicated) and the recovery primitive for a managed stack that needs a
     /// fresh provisioning pass. Tenant operators never reach it.
+    ///
+    /// The billing webhook calls this when a `subscription_started` lands on
+    /// a tenant still in `provisioning` — payment becomes the provisioning
+    /// intent. An operator's explicit deploy request upgrades a `planned`
+    /// job the same way.
     pub async fn request_deployment(
         &self,
         slug: &str,
@@ -1395,10 +1447,10 @@ impl Store {
         // runtime reads `unknown` until an actual observation arrives.
         sqlx::query(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
-               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL)
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at)
+               VALUES ($1,NULL,NULL,$2,$3,NULL,NULL,NULL,NULL,NULL,NULL)
                ON CONFLICT (tenant_id) DO UPDATE SET
-                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL,
+                 api_healthy=NULL, worker_healthy=NULL, outbox_pending=NULL, queue_lag=NULL, awaiting_approval=NULL, north_star_fans=NULL,
                  schema_version=EXCLUDED.schema_version, deployed_sha=EXCLUDED.deployed_sha"#,
         )
         .bind(job.tenant_id)
@@ -1548,12 +1600,21 @@ impl Store {
             .as_ref()
             .and_then(|row| row.deployed_sha.as_deref())
             .map(str::to_owned);
+        // The pre-update queue depth is the arming threshold for the
+        // `approvals.pending` notifier event below. An absent row arms at
+        // zero: a tenant whose first report arrives with a backlog has asks
+        // nobody was ever told about, which is exactly the event's case.
+        let previous_awaiting = tenant
+            .runtime
+            .as_ref()
+            .and_then(|row| row.awaiting_approval)
+            .unwrap_or(0);
 
         let mut tx = self.pool.begin().await?;
         let runtime = sqlx::query_as::<_, RuntimeStatusRow>(
             r#"INSERT INTO control_plane_runtime_status
-               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, last_heartbeat_at, checked_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
+               (tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha, outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
                ON CONFLICT (tenant_id) DO UPDATE SET
                  api_healthy=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                       OR control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1585,6 +1646,16 @@ impl Store {
                                     OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
                                 THEN COALESCE(EXCLUDED.queue_lag, control_plane_runtime_status.queue_lag)
                                 ELSE control_plane_runtime_status.queue_lag END,
+                 awaiting_approval=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                    OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                    OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                THEN COALESCE(EXCLUDED.awaiting_approval, control_plane_runtime_status.awaiting_approval)
+                                ELSE control_plane_runtime_status.awaiting_approval END,
+                 north_star_fans=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
+                                    OR control_plane_runtime_status.last_heartbeat_at IS NULL
+                                    OR EXCLUDED.last_heartbeat_at >= control_plane_runtime_status.last_heartbeat_at
+                                THEN COALESCE(EXCLUDED.north_star_fans, control_plane_runtime_status.north_star_fans)
+                                ELSE control_plane_runtime_status.north_star_fans END,
                  last_heartbeat_at=CASE WHEN EXCLUDED.last_heartbeat_at IS NULL
                                         THEN control_plane_runtime_status.last_heartbeat_at
                                         WHEN control_plane_runtime_status.last_heartbeat_at IS NULL
@@ -1593,7 +1664,7 @@ impl Store {
                                         ELSE control_plane_runtime_status.last_heartbeat_at END,
                  checked_at=now()
                RETURNING tenant_id, api_healthy, worker_healthy, schema_version, deployed_sha,
-                         outbox_pending, queue_lag, last_heartbeat_at, checked_at"#,
+                         outbox_pending, queue_lag, awaiting_approval, north_star_fans, last_heartbeat_at, checked_at"#,
         )
         .bind(tenant.tenant.id)
         .bind(input.api_healthy)
@@ -1602,9 +1673,40 @@ impl Store {
         .bind(input.deployed_sha.as_deref())
         .bind(input.outbox_pending)
         .bind(input.queue_lag)
+        .bind(input.awaiting_approval)
+        .bind(input.north_star_fans)
         .bind(input.last_heartbeat_at)
         .fetch_one(&mut *tx)
         .await?;
+
+        // The ninety-day guarantee freezes its baseline on the first report
+        // that carries a fan-graph level: "your fan graph" means what was
+        // actually measured, so the clock starts at first measurement rather
+        // than at provisioning. Once frozen it never moves — ON CONFLICT
+        // keeps the earliest baseline, and every later report only updates
+        // `north_star_fans` on the runtime row above. When a subscription is
+        // already recorded the deadline anchors to its start: the contract's
+        // ninety days are the *paid* ninety days, and a tenant that paid
+        // before its first measurement still gets its clock from payment.
+        if let Some(fans) = input.north_star_fans {
+            sqlx::query(
+                r#"INSERT INTO control_plane_tenant_guarantee
+                   (tenant_id, metric_key, baseline_value, baseline_captured_at, deadline)
+                   VALUES ($1, 'activated_fans_30d', $2, COALESCE($3, now()),
+                           COALESCE(
+                               (SELECT subscription_started_at
+                                FROM control_plane_tenant_billing
+                                WHERE tenant_id = $1),
+                               COALESCE($3, now())
+                           ) + INTERVAL '90 days')
+                   ON CONFLICT (tenant_id) DO NOTHING"#,
+            )
+            .bind(tenant.tenant.id)
+            .bind(fans)
+            .bind(input.last_heartbeat_at)
+            .execute(&mut *tx)
+            .await?;
+        }
 
         let now = Utc::now();
         let current_health =
@@ -1658,12 +1760,229 @@ impl Store {
                 .await?;
             }
         }
+        // A rise in the reported approval-queue depth notifies subscribed
+        // channels in the same transaction. "Rise", not "nonzero": the queue
+        // sitting ignored at five is the watchdog's story, while the jump
+        // from five to eight is asks the operator was never told about — and
+        // a 60-second heartbeat re-firing on a flat backlog would train the
+        // channel to be ignored. Draining to any lower value re-arms the
+        // edge, so the next ask that lands still reaches somebody.
+        let current_awaiting = runtime.awaiting_approval.unwrap_or(0);
+        if current_awaiting > previous_awaiting {
+            Self::enqueue_event_tx(
+                &mut tx,
+                tenant.tenant.id,
+                "approvals.pending",
+                &json!({
+                    "event": "approvals.pending",
+                    "awaitingApproval": current_awaiting,
+                    "previousAwaitingApproval": previous_awaiting,
+                }),
+            )
+            .await?;
+        }
         tx.commit().await?;
         Ok(TenantSummary {
+            enabled_notifier_channels: tenant.enabled_notifier_channels,
             tenant: tenant.tenant,
             runtime: Some(runtime),
             runtime_health: current_health,
+            billing: tenant.billing,
         })
+    }
+
+    /// The ninety-day guarantee as a read: the frozen baseline, the latest
+    /// reported fan-graph level, and the verdict derived from both against
+    /// the deadline. The verdict is computed here and never stored — a row
+    /// that could disagree with its own numbers is how a refund question
+    /// turns into an argument.
+    ///
+    /// `refund_owed` covers "the deadline passed and the graph did not grow"
+    /// *and* "the deadline passed with nothing measured": the contract cannot
+    /// be judged kept on a number nobody saw.
+    pub async fn tenant_guarantee(&self, slug: &str) -> Result<GuaranteeView, ApiError> {
+        let tenant = self.tenant_by_slug(slug).await?;
+        let guarantee = sqlx::query_as::<_, TenantGuaranteeRow>(
+            "SELECT tenant_id, metric_key, baseline_value, baseline_captured_at, deadline, created_at \
+             FROM control_plane_tenant_guarantee WHERE tenant_id = $1",
+        )
+        .bind(tenant.tenant.id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let current = tenant.runtime.as_ref().and_then(|row| row.north_star_fans);
+        let current_at = tenant
+            .runtime
+            .as_ref()
+            .and_then(|row| row.last_heartbeat_at);
+        let now = Utc::now();
+        let Some(row) = guarantee else {
+            return Ok(GuaranteeView {
+                state: GuaranteeState::Unmeasured,
+                metric_key: "activated_fans_30d".to_owned(),
+                baseline_value: None,
+                baseline_captured_at: None,
+                deadline: None,
+                current_value: current,
+                current_captured_at: current_at,
+                days_remaining: None,
+            });
+        };
+        let elapsed = now >= row.deadline;
+        let state = GuaranteeState::derive(elapsed, current, row.baseline_value);
+        Ok(GuaranteeView {
+            state,
+            metric_key: row.metric_key,
+            baseline_value: Some(row.baseline_value),
+            baseline_captured_at: Some(row.baseline_captured_at),
+            deadline: Some(row.deadline),
+            current_value: current,
+            current_captured_at: current_at,
+            days_remaining: (!elapsed).then(|| (row.deadline - now).num_days()),
+        })
+    }
+
+    /// One billing webhook event applied to the tenant's subscription row.
+    ///
+    /// The state machine lives in `BillingState::apply`: events that do not
+    /// move the machine (a `payment_failed` landing after `refunded`) leave
+    /// the row untouched and return the current state. `subscription_started`
+    /// is the only event that writes every field — a new subscription is a
+    /// new contract, so provider ids and the start instant are replaced, not
+    /// merged. Other events keep the recorded start: a `payment_succeeded`
+    /// arriving before its `subscription_started` (provider ordering is not
+    /// guaranteed) still creates a row, anchored to receipt time rather than
+    /// invented.
+    ///
+    /// Returns `(previous, current)` so the caller can audit the transition.
+    pub async fn apply_billing_event(
+        &self,
+        tenant_id: Uuid,
+        input: &BillingEventInput,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<(Option<BillingState>, Option<BillingState>), ApiError> {
+        let now = Utc::now();
+        let mut tx = self.pool.begin().await?;
+        let current_raw = sqlx::query_scalar::<_, String>(
+            "SELECT state FROM control_plane_tenant_billing WHERE tenant_id = $1 FOR UPDATE",
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let previous = current_raw.as_deref().and_then(BillingState::parse);
+        let in_trial = input.trial_ends_at.is_some_and(|end| end > now);
+        let next = BillingState::apply(previous, &input.event, in_trial);
+        let Some(state) = next else {
+            tx.commit().await?;
+            return Ok((previous, previous));
+        };
+        let started_at = if input.event == "subscription_started" {
+            input.subscription_started_at.unwrap_or(now)
+        } else {
+            now
+        };
+        sqlx::query(
+            r#"INSERT INTO control_plane_tenant_billing
+               (tenant_id, provider, provider_customer_id, provider_subscription_id,
+                state, subscription_started_at, trial_ends_at, current_period_ends_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (tenant_id) DO UPDATE SET
+                 provider = EXCLUDED.provider,
+                 provider_customer_id = COALESCE(EXCLUDED.provider_customer_id,
+                                                 control_plane_tenant_billing.provider_customer_id),
+                 provider_subscription_id = COALESCE(EXCLUDED.provider_subscription_id,
+                                                     control_plane_tenant_billing.provider_subscription_id),
+                 state = EXCLUDED.state,
+                 subscription_started_at = CASE WHEN $9::bool
+                     THEN EXCLUDED.subscription_started_at
+                     ELSE control_plane_tenant_billing.subscription_started_at END,
+                 trial_ends_at = COALESCE(EXCLUDED.trial_ends_at,
+                                          control_plane_tenant_billing.trial_ends_at),
+                 current_period_ends_at = COALESCE(EXCLUDED.current_period_ends_at,
+                                                   control_plane_tenant_billing.current_period_ends_at),
+                 updated_at = now()"#,
+        )
+        .bind(tenant_id)
+        .bind(&input.provider)
+        .bind(&input.provider_customer_id)
+        .bind(&input.provider_subscription_id)
+        .bind(state.as_str())
+        .bind(started_at)
+        .bind(input.trial_ends_at)
+        .bind(input.current_period_ends_at)
+        .bind(input.event == "subscription_started")
+        .execute(&mut *tx)
+        .await?;
+        self.audit_tx(
+            &mut tx,
+            AuditRecord {
+                tenant_id: Some(tenant_id),
+                actor,
+                action: "tenant.billing.transition",
+                target_kind: "tenant_billing",
+                target_id: tenant_id.to_string(),
+                request_id,
+                detail: json!({
+                    "event": &input.event,
+                    "previousState": previous.map(BillingState::as_str),
+                    "state": state.as_str(),
+                    "provider": &input.provider,
+                    "providerSubscriptionId": &input.provider_subscription_id,
+                }),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok((previous, next))
+    }
+
+    /// The paid ninety-day window starts when money changes hands. A pilot
+    /// that measured before payment froze a baseline against free days; on
+    /// `subscription_started` the contract re-anchors — baseline becomes the
+    /// level the graph stood at when the customer started paying (the latest
+    /// heartbeat value), and the deadline becomes ninety days from now.
+    /// Growth delivered for free before the contract does not count toward
+    /// it, and a decline during the paid window cannot hide behind it.
+    ///
+    /// Returns true when a guarantee row was re-anchored.
+    pub async fn anchor_guarantee_to_subscription(
+        &self,
+        tenant_id: Uuid,
+        actor: &str,
+        request_id: Option<&str>,
+    ) -> Result<bool, ApiError> {
+        let mut tx = self.pool.begin().await?;
+        let anchored = sqlx::query_scalar::<_, i64>(
+            r#"UPDATE control_plane_tenant_guarantee
+               SET baseline_value = COALESCE(
+                       (SELECT north_star_fans FROM control_plane_runtime_status
+                        WHERE tenant_id = $1),
+                       baseline_value),
+                   baseline_captured_at = now(),
+                   deadline = now() + INTERVAL '90 days'
+               WHERE tenant_id = $1
+               RETURNING baseline_value"#,
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(baseline) = anchored {
+            self.audit_tx(
+                &mut tx,
+                AuditRecord {
+                    tenant_id: Some(tenant_id),
+                    actor,
+                    action: "tenant.guarantee.anchored_to_subscription",
+                    target_kind: "tenant_guarantee",
+                    target_id: tenant_id.to_string(),
+                    request_id,
+                    detail: json!({"baselineValue": baseline}),
+                },
+            )
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(anchored.is_some())
     }
 
     pub async fn set_area_enabled(
@@ -2291,6 +2610,32 @@ impl Store {
         Ok(rows)
     }
 
+    /// Count the two outbox states the notifier cannot report about itself.
+    ///
+    /// A `dead` row is a notification that exhausted every retry — for an
+    /// `approvals.pending` event that is the silent-churn failure: the
+    /// approval waits and the operator was never told. Windowed to seven
+    /// days so a repaired channel stops alarming once the backlog drains.
+    ///
+    /// A `pending` row overdue by fifteen minutes means the dispatcher is
+    /// not running: it ticks every five seconds and leases claims for
+    /// sixty, so no live worker leaves a due row unclaimed that long. Rows
+    /// merely backing off (`next_attempt_at` in the future) are retries in
+    /// progress, not a stalled worker, and do not count.
+    pub async fn notification_outbox_health(&self) -> Result<NotificationOutboxHealth, ApiError> {
+        let row = sqlx::query_as::<_, NotificationOutboxHealth>(
+            r#"SELECT
+                   COUNT(*) FILTER (WHERE status = 'dead'
+                                    AND updated_at > now() - INTERVAL '7 days') AS dead_7d,
+                   COUNT(*) FILTER (WHERE status = 'pending'
+                                    AND next_attempt_at < now() - INTERVAL '15 minutes') AS overdue_pending
+               FROM control_plane_notification_outbox"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
     /// Claim due notifications under SKIP LOCKED so repeated workers or a
     /// restart cannot double-deliver concurrently. The claiming transaction
     /// bumps `attempts` and pushes `next_attempt_at` forward by a lease
@@ -2905,6 +3250,17 @@ fn deployment_plan(
             "network": shared_pg.network,
             "database": database,
         });
+    }
+    // The crew roster is tenant state, not per-request input: whatever the
+    // wizard collected is re-rendered into CROWDRELAY_TEAM_MEMBERS_JSON on
+    // every deploy, so a redeploy never strands the roster. The schema bump to
+    // 5 makes a pre-roster provisioner reject the plan instead of silently
+    // dropping teamMembers and booting the tenant into an empty crew.
+    if let Some(members) = tenant.team_members.as_array()
+        && !members.is_empty()
+    {
+        plan["teamMembers"] = Value::Array(members.clone());
+        plan["schema"] = json!(5);
     }
     // Include provider API keys in the plan if provided.
     // The provisioner writes them to tenant.env.

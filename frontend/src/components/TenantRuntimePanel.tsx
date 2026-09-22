@@ -53,7 +53,7 @@ export function TenantRuntimePanel(props: { slug: string; initial?: TenantRuntim
   }
 
   {/* Named for its source. Plain "Health" read as a contradiction next to
-      the Operations page, which reports CrowdRelay's own HTTP health from a
+      the Today page, which reports CrowdRelay's own HTTP health from a
       different feed: this one is the heartbeat the tenant pushes here. */}
   return <Section
     flush
@@ -65,7 +65,7 @@ export function TenantRuntimePanel(props: { slug: string; initial?: TenantRuntim
   >
     <Show when={runtime.error}><p class="text-sm text-muted-foreground" role="status">Live refresh failed. Showing the last known runtime snapshot.</p></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>
-      <p class="text-sm text-muted-foreground">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Operations page.</p>
+      <p class="text-sm text-muted-foreground">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Today page.</p>
     </Show>
     <Show when={snapshot().runtimeHealth === 'stale'}>
       <p class="text-sm text-muted-foreground">Live data has stopped updating. Optional products and app-store distribution do not affect this status.</p>

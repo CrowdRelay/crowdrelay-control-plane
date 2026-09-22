@@ -30,8 +30,23 @@ export type RuntimeStatus = {
   deployedSha: string | null
   outboxPending: number | null
   queueLag: number | null
+  awaitingApproval: number | null
+  northStarFans: number | null
   lastHeartbeatAt: string | null
   checkedAt: string | null
+}
+
+/** The ninety-day guarantee verdict, derived on read from the frozen
+ * activation baseline and the latest reported fan-graph level. */
+export type GuaranteeView = {
+  state: 'unmeasured' | 'tracking' | 'kept' | 'refund_owed'
+  metricKey: string
+  baselineValue: number | null
+  baselineCapturedAt: string | null
+  deadline: string | null
+  currentValue: number | null
+  currentCapturedAt: string | null
+  daysRemaining: number | null
 }
 
 export type Tenant = {
@@ -59,13 +74,28 @@ export type Tenant = {
   placement: 'dedicated' | 'shared_pg'
   placementCluster: string | null
   placementDatabase: string | null
+  /** Crew roster collected at onboarding — `[{key,name,email,skills}]`. */
+  teamMembers: { key: string; name: string; email: string; skills: string[] }[]
   createdAt: string
   updatedAt: string
 }
 
 export type RuntimeHealth = 'healthy' | 'degraded' | 'stale' | 'unknown'
 
-export type TenantSummary = Tenant & { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
+export type BillingState = 'trialing' | 'active' | 'past_due' | 'canceled' | 'refunded'
+
+export type BillingView = {
+  state: BillingState
+  subscriptionStartedAt: string
+  trialEndsAt: string | null
+  currentPeriodEndsAt: string | null
+}
+
+export type TenantSummary = Tenant & {
+  runtime: RuntimeStatus | null
+  runtimeHealth: RuntimeHealth
+  billing: BillingView | null
+}
 export type TenantRuntimeSnapshot = { runtime: RuntimeStatus | null; runtimeHealth: RuntimeHealth }
 
 export type AuditEntry = {
@@ -275,17 +305,105 @@ export type DriveContact = {
   city: string | null
   notes: string | null
   source_file_name: string
-  /** Where this address was sighted — 'gdrive', 'gmail', or both. */
+  /** Where this address was sighted — 'gdrive', 'gmail', 'upload', or a mix. */
   sources: string[]
   last_seen_at: string
   /** The file stopped carrying this address — kept, not deleted. */
   gone_from_source: boolean
   fan_outcome: DriveContactOutcome
   beacon_outcome: DriveContactOutcome
+  /** P.2: the room's registry display name when this contact's
+      organisation is already on record — null means a stranger. */
+  matched_venue: string | null
+  /** The band's own marks say they already played that room. */
+  venue_played_here: boolean
+  /** The counterparty registry knows this address. */
+  matched_counterparty: string | null
+  /** The band's own marks say they already dealt with them. */
+  counterparty_worked_with: boolean
+  /** P.6: the address's reply record across every tenant — anonymous
+      counts. null means the prior read did not run, not "no history". */
+  counterparty_prior: CounterpartyPrior | null
+  /** P.6: the matched room's play record across every tenant. null when
+      no venue matched or the read did not run. */
+  venue_prior: VenuePrior | null
+}
+
+/** P.6 — one address's cross-tenant reply record. Counts of tenants,
+    never which tenants. `tenants_replied` counts any disposition — a
+    decline is still an answer. */
+export type CounterpartyPrior = {
+  tenants_contacted: number
+  tenants_replied: number
+  tenants_won: number
+}
+
+/** P.6 — one room's cross-tenant play record: tenants with a mark and
+    total shows on record. */
+export type VenuePrior = {
+  tenants_played: number
+  shows: number
+}
+
+/** The registry joins counted over the whole staging population — the
+    page is capped, so "already on record" numbers cannot come from it. */
+export type DriveRegistrySummary = {
+  total: number
+  known_venues: number
+  own_rooms: number
+  known_counterparties: number
+  dealt_with: number
 }
 
 export type DriveContactsResponse = {
   contacts: DriveContact[]
+  /** Null when the registry pass could not run — never reads as zeroes. */
+  registry_summary: DriveRegistrySummary | null
+}
+
+// P.1 — one person, two roles. The industry list (beacons) joined to the
+// fan list by address, for reading only. snake_case — the upstream read
+// model serialises field names verbatim.
+export type DualRoleContact = {
+  beacon_id: string
+  display_name: string
+  role: string
+  city: string | null
+  relationship_score: number
+  /** Already an active fan with marketing consent. */
+  hears_the_dates: boolean
+  /** A fan row exists but without live consent — never reachable. */
+  known_but_not_consented: boolean
+  /** Days since contact in any role; null means never — "cold". */
+  days_since_last_contact: number | null
+  already_invited: boolean
+  invitable: boolean
+  /** Why not, when not — a sentence, not a flag. */
+  hold_reason: string | null
+  /** The band ever had an answer — a reply outranks a score. */
+  has_replied: boolean
+  /** Marked do-not-contact on the beacon or the governor. */
+  do_not_contact: boolean
+  accepts_outreach: boolean
+  /** They were on the list and left — the hold that never expires. */
+  previously_opted_out: boolean
+  /** Their double opt-in is already in their inbox, unanswered. */
+  opt_in_pending: boolean
+}
+
+export type DualRoleReview = {
+  contacts: DualRoleContact[]
+  total: number
+  already_hear_the_dates: number
+  invitable_now: number
+}
+
+/** The invitation answers 200 either way: `outcome` on a send, `refused`
+    with the rule's own sentence when the click re-check found a reason
+    the read's assumption missed. */
+export type LatarnikInviteResult = {
+  outcome?: string
+  refused?: string
 }
 
 export type DeliveryAttempt = {
@@ -362,6 +480,163 @@ export type OperationTimelineEvent = {
 }
 
 export type OperationTimeline = { request_id: string; events: OperationTimelineEvent[] }
+
+/// One row of the tenant's ViryaOS action ledger — the durable state machine
+/// every autopilot action moves through (PLANNED → AUTHORIZED → QUEUED →
+/// RUNNING → SUCCEEDED/FAILED/UNKNOWN → RECONCILING → terminal).
+export type ActionLedgerEntry = {
+  action_id: string
+  state: string
+  trace_id: string | null
+  causation_id: string | null
+  decision_id: string | null
+  state_entered_at: string
+  updated_at: string
+  transition_count: number
+  previous_state: string | null
+  reconciliation_count: number
+  last_reconciliation_error: string | null
+}
+
+/// One event in the causal chain a trace_id joins across the event tables:
+/// decision → action → outbox → delivery → measurement → evidence.
+export type TraceTimelineEvent = {
+  occurred_at: string
+  source: string
+  kind: string
+  state: string | null
+  action_id: string | null
+  decision_id: string | null
+  causation_id: string | null
+  event_id: string | null
+  /// FACT (observed), INFERENCE (derived) or UNKNOWN (not yet confirmed).
+  certainty: string
+}
+
+export type TraceTimeline = { trace_id: string; events: TraceTimelineEvent[] }
+
+// ── Process runs ────────────────────────────────────────────────────────
+// One pass of a pipeline over one subject, rendered as steps: observed →
+// decided → awaiting a person → sent → proof → measured. The community
+// relay is the first kind: one synced band post fans out to one Signal push
+// plus one drafted Reddit post per admitted community.
+
+/// One community the decision named, its draft, approval state, receipt and
+/// latest measurement. `state` is the upstream-derived step word — the page
+/// never re-interprets timestamps into its own vocabulary.
+export type RelayTargetState =
+  | 'deciding'
+  | 'awaiting_you'
+  | 'expired'
+  | 'queued'
+  | 'posting'
+  | 'posted'
+  | 'manual'
+  | 'failed'
+  | 'skipped'
+
+export type RelayTarget = {
+  /// Client-side identity for keyed reconcile — mirrors `target_id`.
+  id: string
+  target_id: string
+  subreddit: string | null
+  display_name: string | null
+  confidence_bp: number | null
+  state: RelayTargetState
+  action_id: string | null
+  community_post_id: string | null
+  draft_title: string | null
+  draft_body: string | null
+  image_url: string | null
+  approval_expires_at: string | null
+  post_status: string | null
+  reddit_post_url: string | null
+  posted_at: string | null
+  score: number | null
+  upvotes: number | null
+  num_comments: number | null
+  upvote_ratio: number | null
+  measured_at: string | null
+  reach_status: string | null
+  observed_fans: number | null
+  converted: boolean | null
+  /// Why the action or the post failed, when it did.
+  error_kind: string | null
+}
+
+export type RelayPushLeg = {
+  action_id: string
+  status: string
+  audience_size: number | null
+  approval_expires_at: string | null
+}
+
+/// The full run detail — the single-call process view.
+export type RelayProcessRunDetail = {
+  source_id: string
+  title: string | null
+  platform: string | null
+  source_url: string | null
+  thumbnail_url: string | null
+  body: string | null
+  occurred_at: string | null
+  decided_at: string
+  confidence_bp: number
+  /// The batch ask — one approval per source. `awaiting_approval` while a
+  /// person has not answered, `approved` while the drip runs, `revoked`/
+  /// `done` once the answer landed. `null` while drafts still land.
+  batch_status: string | null
+  /// Seconds the executor holds between two posts of the same spread.
+  interval_seconds: number | null
+  approved_at: string | null
+  revoked_at: string | null
+  observe_until: string | null
+  push: RelayPushLeg | null
+  /// True when the fan-out exceeded the bounded cap — the view says so
+  /// rather than silently showing a partial list. `targets_total` is the
+  /// untruncated count for the "N of total" note.
+  targets_truncated: boolean
+  targets_total: number
+  targets: RelayTarget[]
+}
+
+/// One row of step state per run — the list view stays thin so it renders
+/// in a single indexed read.
+export type RelayProcessRun = {
+  /// Client-side identity for keyed reconcile — mirrors `source_id`.
+  id: string
+  source_id: string
+  title: string | null
+  platform: string | null
+  source_url: string | null
+  thumbnail_url: string | null
+  occurred_at: string | null
+  decided_at: string
+  confidence_bp: number
+  communities_decided: number
+  push_decided: boolean
+  /// The batch ask — the run's one answer. See `RelayProcessRunDetail`.
+  batch_status: string | null
+  interval_seconds: number | null
+  observe_until: string | null
+  deciding: number
+  awaiting: number
+  expired: number
+  queued: number
+  posting: number
+  posted: number
+  manual: number
+  failed: number
+  skipped: number
+  last_posted_at: string | null
+  total_score: number | null
+  total_comments: number | null
+  replies: number
+  conversions: number
+  push_status: string | null
+}
+
+export type RelayProcessRuns = { runs: RelayProcessRun[] }
 
 export type ReconciliationRun = {
   id: string
@@ -615,6 +890,13 @@ export type PendingActionSummary = {
   context: string
   action_kind: string
   subject_kind: string
+  /// The community the action targets, when the payload names one. Absent on
+  /// an older tenant that does not project it.
+  subreddit?: string | null
+  /// What the content is called, when the payload names one.
+  title?: string | null
+  /// Which workflow template the action runs, when the payload names one.
+  template_id?: string | null
   approval_expires_at: string | null
 }
 
@@ -939,6 +1221,7 @@ export const NOTIFIER_EVENTS = [
   'runtime.degraded',
   'runtime.stale',
   'runtime.recovered',
+  'approvals.pending',
 ] as const
 export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
 // Human-readable labels for each event — the dotted internals read as
@@ -949,6 +1232,7 @@ export const NOTIFIER_EVENT_LABELS: Record<NotifierEvent, string> = {
   'runtime.degraded': 'Runtime degraded',
   'runtime.stale': 'Runtime stale',
   'runtime.recovered': 'Runtime recovered',
+  'approvals.pending': 'Approvals waiting',
 }
 
 export type DiscoveredEndpoint = {
@@ -956,6 +1240,21 @@ export type DiscoveredEndpoint = {
   name: string
   urlHost: string
   active: boolean
+}
+
+/// One queued notification in the control plane's notifier outbox. `phase`
+/// is the server-rolled state: `accepted` (pending or already sent), `failed`
+/// (dead after retries), `unknown` for anything else.
+export type NotifierOutboxItem = {
+  id: string
+  event: string
+  status: string
+  phase: 'accepted' | 'failed' | 'unknown' | string
+  attempts: number
+  lastError: string | null
+  channel: { id: string; label: string; kind: NotifierKind }
+  createdAt: string
+  updatedAt: string
 }
 
 export type PlatformHealthEntry = {
@@ -1006,6 +1305,14 @@ export interface PortfolioSettingsReadModel {
   settings: Record<string, string>
   overridden: string[]
   editable_keys: string[]
+}
+
+// A tenant-held credential the operator can see exists — the masked hint and
+// when it was set. The value itself is never returned by any read.
+export interface TenantSecret {
+  name: string
+  masked_hint: string
+  updated_at: string
 }
 
 export interface FanbaseBlock {
@@ -1202,9 +1509,96 @@ export type ReplyTriageEntry = {
   classification_result: string
   classified_disposition: string | null
   human_review_reason: string | null
+  proposed_fee_minor: number | null
+  proposed_currency: string | null
+  proposed_opportunity_id: string | null
   confidence_basis_points: number
   matched_rules: string[]
   classified_at: string
+}
+
+export type NegotiationsView = {
+  live: NegotiationEntry[]
+  settled: NegotiationEntry[]
+}
+
+export type NegotiationEntry = {
+  opportunity_id: string
+  title: string
+  organization: string
+  contact_email: string | null
+  opportunity_kind: string
+  opportunity_status: string
+  state: string
+  currency: string
+  /** What the promoter has on the table right now. */
+  offered_fee_minor: number
+  /** The frozen ladder: below walk_away the answer is no. */
+  walk_away_minor: number
+  target_minor: number
+  opening_ask_minor: number
+  /** Which input produced the walk-away — cost, market, counterparty_history. */
+  floor_basis: string
+  prior_fee_minor: number | null
+  market_floor_minor: number | null
+  /** The agent's last ask, and how many it has made. */
+  countered_fee_minor: number | null
+  counter_rounds: number
+  responds_by: string
+  settled_at: string | null
+  settled_reason: string | null
+  /** The move parked in awaiting_approval — a drafted counter or accept. */
+  pending_move: {
+    action_id: string
+    kind: string
+    amount_minor: number | null
+    round: number
+  } | null
+}
+
+// --- Opportunity scout shortlist ---
+
+export type OpportunityShortlistEntry = {
+  opportunity_id: string
+  kind: string
+  source: string
+  external_key: string
+  title: string
+  organization: string
+  /** The link the finding stands on; null means it was never checkable. */
+  destination_url: string | null
+  source_observed_at: string | null
+  deadline: string | null
+  status: string
+  /** Why a terminal row closed; null while the row is live. */
+  status_reason: string | null
+  eligible: boolean
+  /** Money stays null when unknown — never 0, which would read as "free". */
+  expected_fee_minor: number | null
+  estimated_cost_minor: number | null
+  application_fee_minor: number | null
+  /** The row's own ISO currency for those amounts. */
+  currency: string
+  fit_basis_points: number
+  reputation_basis_points: number
+  confidence_basis_points: number
+  /** Why the row cannot be worked right now, when it cannot. */
+  stale_reason: string | null
+  latest_decision_id: string | null
+  latest_decision_kind: string | null
+  latest_decision_disposition: string | null
+  /** True when the cost figure came from the tour-economics engine. */
+  costed_from_logistics: boolean
+}
+
+export type OpportunityShortlist = {
+  generated_at: string
+  entries: OpportunityShortlistEntry[]
+  stale_count: number
+  closed_count: number
+  ineligible_count: number
+  /** Sections that could not be read this time. */
+  degraded: string[]
 }
 
 // --- Agent service types (proxied through control-plane) ---
@@ -1246,6 +1640,53 @@ export interface AgentModel {
    * Absent on older agent-service builds; treat undefined as unknown.
    */
   available?: boolean
+}
+
+/// One stored probe result per (provider, model) from the agent service's
+/// health checker. `status` is `ok`, `degraded` (reachable but refusing —
+/// rate limits, auth failures) or `down` (unreachable / 5xx); `cooldown`
+/// rows are written when a model is parked after repeated failures.
+export interface AgentProviderHealth {
+  provider: string
+  model_id: string
+  status: string
+  requests_remaining: number | null
+  last_checked_at: string
+  last_error: string | null
+  latency_ms: number | null
+}
+
+/// GET /agents/health — the agent service's `/health/providers` answer: the
+/// stored probe rows plus the full model catalog so every known model can be
+/// placed next to its health reading.
+export interface AgentHealthResponse {
+  models: Array<{
+    id: string
+    provider: string
+    name: string
+    context_window: number
+    best_for: string
+    requires_key: boolean
+    paid: boolean
+  }>
+  health: AgentProviderHealth[]
+}
+
+/// One reliability alert the agent service rolled up for the ops dashboard:
+/// a failed task, a dead webhook delivery or a down provider.
+export interface AgentServiceAlert {
+  severity: 'critical' | 'warning' | 'info' | string
+  category: string
+  message: string
+  detail?: unknown
+  occurred_at?: string
+}
+
+/// GET /agents/health/alerts — the service's own "what is broken right now"
+/// answer, sorted by recency upstream.
+export interface AgentHealthAlertsResponse {
+  alert_count: number
+  alerts: AgentServiceAlert[]
 }
 
 export interface PremiumModel {
@@ -1817,10 +2258,39 @@ export type TenantShow = {
   ends_at: string | null
   scan_count: number
   upcoming: boolean
+  /** `draft` is a show on the books but not announced — the list keeps it
+   *  visible so it never reads as live by accident. */
+  status: 'draft' | 'published' | 'cancelled' | 'completed'
 }
 
 export type TenantShowsResponse = {
   events: TenantShow[]
+}
+
+/** `POST /tenants/{slug}/shows` — a night typed in by hand. City is a pair:
+ * `city_name` + `city_country_code` arrive together or not at all; `publish`
+ * false keeps the show off the public site while every internal surface
+ * (checklists, gig planning, the T+7 report) already sees it. */
+export type ShowCreateInput = {
+  title: string
+  starts_at: string
+  doors_at?: string | null
+  ends_at?: string | null
+  venue?: string | null
+  venue_address?: string | null
+  city_name?: string | null
+  city_country_code?: string | null
+  city_region?: string | null
+  timezone?: string | null
+  ticket_url?: string | null
+  publish?: boolean
+}
+
+/** What upstream answers — the minted slug is the link target. */
+export type ShowCreateResult = {
+  event_id: string
+  slug: string
+  status: string
 }
 
 export type ShowTimelineState = 'done' | 'active' | 'due' | 'waiting' | 'skipped'
@@ -1878,6 +2348,38 @@ export type TenantShowTimelineResponse = {
     }>
   }
   steps: ShowTimelineStep[]
+}
+
+// ── The show's approve-once growth ladder (P.4) ─────────────────────────
+
+/** One rung of the ladder — the autopilot action the rung released, parks
+ * or already ran. `lever` is the stable snake_case key; the briefing is the
+ * same render the approval screen shows. */
+export type ShowLadderRung = {
+  action_id: string
+  lever: string
+  action_kind: string
+  status: 'awaiting_approval' | 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled'
+  available_at: string
+  approval_expires_at: string | null
+  /** `operator:show_ladder` means the approve-once path released it; a member
+   *  name means an individual approval; null while it still waits. */
+  approved_by: string | null
+  briefing: ActionBriefing | null
+}
+
+export type ShowGrowthLadderView = {
+  event_id: string
+  title: string
+  starts_at: string
+  event_status: string
+  /** `approved` while a live approval exists, `revoked` once the newest row
+   *  is closed, `none` when the operator was never asked. */
+  ladder_state: 'approved' | 'revoked' | 'none'
+  approved_at: string | null
+  approved_by: string | null
+  revoked_at: string | null
+  rungs: ShowLadderRung[]
 }
 
 // ── The shared night (4V.6b) ────────────────────────────────────────────
@@ -2029,8 +2531,13 @@ export type TenantShowHelpersResponse = {
     starts_at: string
     city: string | null
     country_code: string | null
+    /** The canonical city id — what an admit action needs to place a
+        beacon there. */
+    city_id: string | null
   }
-  degraded: Array<'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms'>
+  degraded: Array<
+    'city' | 'press' | 'rooms_and_promoters' | 'communities' | 'cold_rooms' | 'bill_mates' | 'venue_channel' | 'photographers'
+  >
   notes: string[]
   press: Array<{
     id: string
@@ -2048,6 +2555,10 @@ export type TenantShowHelpersResponse = {
     relationship_score: number
     /** Whether the target is joined to the shared venue registry. */
     venue_linked: boolean
+    /** P.6 — the address's cross-tenant reply record; null = not measured. */
+    counterparty_prior: CounterpartyPrior | null
+    /** P.6 — the linked room's play record; null when not venue-linked. */
+    venue_prior: VenuePrior | null
   }>
   communities: Array<{
     id: string
@@ -2063,7 +2574,45 @@ export type TenantShowHelpersResponse = {
     display_name: string
     /** The global capacity fact's raw text value, when one exists. */
     capacity: string | null
+    /** P.6 — the room's play record across every tenant; null = not
+        measured. Cold for this band is not cold for the registry. */
+    venue_prior: VenuePrior | null
   }>
+  /** The other bands on this bill who are not tenants — names, not
+      addresses. `on_roster` means a beacon already carries them. */
+  bill_mates: Array<{
+    act_slug: string
+    act_name: string
+    position: number
+    /** `peer` resolved to the registry; `unclaimed` not yet. Tenant acts
+        are omitted — the crossbill edge is already their channel. */
+    resolution: 'peer' | 'unclaimed' | string
+    on_roster: boolean
+    /** Bills shared with this band, tonight included. */
+    shared_bills: number
+  }>
+  /** The room the show is in — the venue's own channel. `venue_id` null
+      when the registry has not resolved the name yet. */
+  venue_channel: {
+    venue_id: string | null
+    display_name: string
+    /** A venue-kind beacon in this city already names this room. */
+    on_roster: boolean
+    /** The room's cross-tenant play record — null when unmatched or
+        the read did not run. */
+    venue_prior: VenuePrior | null
+  } | null
+  /** Photographer beacons in the show's city, warmest first. */
+  photographers: Array<{
+    id: string
+    display_name: string
+    verified: boolean
+    relationship_score: number
+    /** The governor remembers a touch — the band has written before. */
+    contacted_before: boolean
+  }>
+  /** Sections that hit the shortlist cap — "40 shown" is not "40 exist". */
+  truncated: string[]
 }
 
 export type VehicleProfile = {
@@ -2827,6 +3376,12 @@ export interface CyclePreview {
   northStarCurrent: number
   northStarThisMonth: number
   hasAnyConnectedPlatform: boolean
+  /// Discovery channels that produced nothing lately — serialized by the
+  /// tenant's CyclePreview (camelCase), surfaced by the brief as silence.
+  discoveryChannelsSilent?: string[]
+  /// What the brain expects the top-priority workflow to add.
+  topTemplateProjectedIncrementalFans?: number
+  topTemplateProjectedConfidence?: number
 }
 
 export interface CycleRunResult {
@@ -2896,7 +3451,12 @@ export interface AudiencePlaceInput {
 /// the public city list returns.
 export interface BeaconUpsertInput {
   beaconId?: string
+  /** The canonical city id — preferred over the slug, whose resolution
+      reads a fan-signal snapshot foreign and low-signal cities lack. */
+  cityId?: string
   citySlug?: string
+  /** Optimistic-concurrency version for edits; omitted (→ 0) for creates. */
+  expectedVersion?: number
   beaconKind: string
   displayName: string
   contactEmail?: string
@@ -3045,6 +3605,8 @@ export type CommandCenterTenantSummary = {
   displayName: string
   runtimeHealth: 'healthy' | 'degraded' | 'stale' | 'unknown'
   available: boolean
+  /** Enabled notifier channels — zero means events drop silently at fanout. */
+  enabledNotifierChannels: number
   attention: CommandCenterTenantAttention
   autopilot: CommandCenterTenantAutopilot
   learning: CommandCenterTenantLearning
@@ -3105,6 +3667,10 @@ export type CommandCenterReadModel = {
   }
   system: {
     platformServices: PlatformHealthEntry[]
+    notificationOutbox: {
+      dead7d: number
+      overduePending: number
+    }
   }
   learning: {
     totalOutcomes: number
@@ -3421,3 +3987,80 @@ export type GigPlanApproval =
   | { action_id: string; city: string; venue: string; recipients: string[]; opening_line: string }
   | { action_id: string; status: string }
   | { refused: string }
+
+// ---------------------------------------------------------------------------
+// Intelligence brief — the "are we getting anywhere" story in one read.
+// ---------------------------------------------------------------------------
+
+/// Whether the machinery that runs the brain is alive. Full WorkerSummary —
+/// the intelligence brief gets the whole liveness picture, not the
+/// `lease_age_seconds` subset the ops summary projects.
+export type WorkerVitals = {
+  lease_age_seconds: number
+  alive: boolean
+  /// Seconds since an autopilot cycle last finished. 999999 = never has.
+  cycle_age_seconds: number
+  /// Seconds since a decision was last evaluated. 999999 = never has.
+  decision_age_seconds: number
+  /// Fresh lease but no finished cycle in 30min — the crash-loop signal.
+  crash_looping: boolean
+}
+
+/// One community the brain wants to post to and cannot — nobody joined it.
+export type BlockedCommunity = {
+  community: string
+  member_count: number | null
+  discovered_at: string | null
+}
+
+/// The brain's own verdict, and — when it chose to do nothing — its reason.
+///
+/// Field names are snake_case because the tenant emits them that way and the
+/// Control Plane passes the object through wholesale: a field the tenant adds
+/// reaches this page without a matching Control Plane deploy.
+export type BrainSelfAssessment = {
+  /// `improving`, `learning`, `stagnant`, `regressing`, or `initializing`.
+  state: string
+  /// True only for `regressing` and `stagnant` — the verdicts that ask for a
+  /// person. A flat young system is `learning`, not a fault.
+  needs_attention?: boolean
+  /// Distinct days of North Star readings behind the verdict.
+  days_observed?: number
+  /// Consecutive finished cycles that produced no actions, counting back from
+  /// the latest. The count is what makes a silent brain legible: quiet since
+  /// the last check and quiet for three days straight are different things.
+  quiet_cycles?: number
+  /// Why the most recent quiet cycle stayed quiet, in the brain's own words
+  /// ("WAIT wins: VOI=0.85 > best_action_value=0.00"). The system may do
+  /// nothing — this is where it says so. Absent when no quiet cycle has a
+  /// recorded reason — the cycle is acting, or it predates the field.
+  latest_wait_reason?: string | null
+}
+
+/// One channel's backlog of drafted-but-unpublished posts.
+export type UnpublishedDraftChannel = {
+  channel: string
+  drafts: number
+  oldest_drafted_at: string | null
+}
+
+/// One read answering "is the brain working, what mode, what found, what
+/// plan, what needs you, what it did, what came of it."
+///
+/// Every field is a fact or a count — the human-language narrative is
+/// derived from them at read time, never stored.
+export type IntelligenceBrief = {
+  worker: WorkerVitals
+  brain: BrainSelfAssessment
+  posture: GrowthPostureView
+  cycle: CyclePreview
+  chief_of_staff: AutopilotChiefOfStaff
+  /// Pending approvals, excluding community-relay batch deliveries — the
+  /// In motion view owns those, so the operator is not asked twice.
+  needs_you: PendingActionSummary[]
+  awaiting_approval: number
+  /// Communities the brain wants but cannot reach.
+  blocked_communities: BlockedCommunity[]
+  /// Finished work nobody published.
+  unpublished_drafts: UnpublishedDraftChannel[]
+}

@@ -139,7 +139,8 @@ export const Shell: Component = () => {
   // tenant in the registry (Virya in practice, but resolved from the list
   // not hardcoded); tenant operators land on their own tenant. Only
   // redirects once per session (the flag is cleared on login/logout by
-  // auth.ts) and only from the bare `/` path.
+  // auth.ts) and only from the bare `/` path. The landing page is Today —
+  // the daily read — not the queue of things already waiting.
   createEffect(() => {
     if (!authState.profile()) return
     if (pathname() !== '/') return
@@ -149,7 +150,7 @@ export const Shell: Component = () => {
       : profile()?.tenantSlug
     if (!tenantSlug) return
     sessionStorage.setItem('cp-default-tenant', '1')
-    navigate({ to: `/tenants/${tenantSlug}/attention` as any })
+    navigate({ to: `/tenants/${tenantSlug}/operations` as any })
   })
 
   onMount(() => {

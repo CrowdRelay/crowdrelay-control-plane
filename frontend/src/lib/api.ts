@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, MeasurementLedger, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, OperationTimeline, OperatorAccount, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SentRecord, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentTask, AgentTaskResult, AgentSchedule, AgentTemplate, AgentWorkflow, AgentWorkflowTask, TaskSuggestion, AutomationEvent, AutomationRoutingItem, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, ChatAction, CommunityItem, CommunityObservationItem, CommunityEntityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DiscoveredEndpoint, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformConfigItem, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, ReplyTriageView, RetryResult, SentRecord, SignalOverview, TenantOperationsReadModel, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -122,6 +122,15 @@ type CreateTenantInput = {
   signalPlayStoreUrl?: string
   synesthesiaPlayStoreUrl?: string
   providerKeys?: Record<string, string>
+  teamMembers?: TeamMemberInput[]
+}
+
+/** One crew member collected during onboarding — routed to by the brain. */
+type TeamMemberInput = {
+  key?: string
+  name: string
+  email: string
+  skills: string[]
 }
 
 export const api = {
@@ -166,6 +175,8 @@ export const api = {
   // assembling itself in front of the operator across four round trips.
   notifiersOverview: (slug: string) =>
     request<NotifiersOverview>(`/tenants/${encodeURIComponent(slug)}/notifiers/overview`),
+  notifierOutbox: (slug: string) =>
+    request<{ items: NotifierOutboxItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/outbox`),
 
   notifierAutomationRouting: (slug: string) =>
     request<{ items: AutomationRoutingItem[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing`),
@@ -217,9 +228,17 @@ export const api = {
   executorCapabilities: (slug: string) => request<TenantExecutorCapabilities>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/capabilities`),
   measurement: (slug: string) => request<MeasurementLedger>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/measurement`),
   replyTriage: (slug: string) => request<ReplyTriageView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/reply-triage`),
+  negotiations: (slug: string) => request<NegotiationsView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/negotiations`),
+  recordOpportunityTerms: (slug: string, opportunityId: string, body: { position: 'offer' | 'withdrawn'; offered_fee_minor: number; currency: string; responds_by: string }) =>
+    request(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/team-opportunities/${encodeURIComponent(opportunityId)}/terms`, { method: 'POST', body: JSON.stringify(body), headers: { 'idempotency-key': crypto.randomUUID() } }),
+  opportunityShortlist: (slug: string) => request<OpportunityShortlist>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/opportunity-shortlist`),
   decisionEvidence: (slug: string, decisionId: string) => request<DecisionEvidence>(`/tenants/${encodeURIComponent(slug)}/operations/decisions/${encodeURIComponent(decisionId)}/evidence`),
   learningLoop: (slug: string) => request<LearningLoopEntry[]>(`/tenants/${encodeURIComponent(slug)}/operations/learning-loop`),
   learningProof: (slug: string) => request<LearningProof>(`/tenants/${encodeURIComponent(slug)}/operations/learning-proof`),
+  /** The intelligence brief — one read for the whole "is the brain working"
+   *  story. Replaces the fan-out of posture + preview + chief-of-staff +
+   *  attention the old tab layout required. */
+  intelligence: (slug: string) => request<IntelligenceBrief>(`/tenants/${encodeURIComponent(slug)}/operations/intelligence`),
   autopilotCyclePreview: (slug: string) => request<CyclePreview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/preview`),
   autopilotCycleRun: (slug: string) => request<CycleRunResult>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/cycle/run`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() } }),
   autopilotOverview: (slug: string) => request<AutopilotOverview>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot`),
@@ -273,6 +292,45 @@ export const api = {
     method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
   }),
   operationTimeline: (slug: string, requestId: string) => request<OperationTimeline>(`/tenants/${encodeURIComponent(slug)}/operations/timeline/${encodeURIComponent(requestId)}`),
+  operationActions: (slug: string, state?: string) => {
+    const qs = state ? `?limit=250&state=${encodeURIComponent(state)}` : '?limit=250'
+    return request<ActionLedgerEntry[]>(`/tenants/${encodeURIComponent(slug)}/operations/actions${qs}`)
+  },
+  operationTrace: (slug: string, traceId: string) => request<TraceTimeline>(`/tenants/${encodeURIComponent(slug)}/operations/trace/${encodeURIComponent(traceId)}`),
+  // Process runs: one pass of a pipeline over one subject, joined upstream
+  // into the step shape the process page renders — one call per view.
+  // `id` rides on every run and target so `reconcile: 'id'` keeps DOM
+  // identity across the poll — the route loader and the page must see the
+  // same shape, so the mapping lives here, not in the queryFn.
+  relayProcessRuns: async (slug: string) => {
+    const data = await request<RelayProcessRuns>(`/tenants/${encodeURIComponent(slug)}/operations/processes/relays`)
+    return { ...data, runs: data.runs.map(r => ({ ...r, id: r.source_id })) }
+  },
+  relayProcessRun: async (slug: string, sourceId: string) => {
+    const data = await request<RelayProcessRunDetail>(`/tenants/${encodeURIComponent(slug)}/operations/processes/relays/${encodeURIComponent(sourceId)}`)
+    return { ...data, targets: data.targets.map(t => ({ ...t, id: t.target_id })) }
+  },
+  // The batch ask's two answers — one approval per source, not one per
+  // community. Approve releases every parked delivery to the drip; revoke
+  // cancels what has not landed.
+  approveCommunityRelay: (slug: string, sourceId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/approve`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  revokeCommunityRelay: (slug: string, sourceId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/revoke`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  // The manual leg: the operator published the drafted post by hand —
+  // registering its URL turns the metrics poller on for it.
+  registerManualCommunityPost: (slug: string, postId: string, redditPostUrl: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-posts/${encodeURIComponent(postId)}/register-manual`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ reddit_post_url: redditPostUrl }),
+    }),
   signalOverview: (slug: string) => request<SignalOverview>(`/tenants/${encodeURIComponent(slug)}/operations/signal-overview`),
   listOutbox: (slug: string, params?: { limit?: number; status?: string }) => {
     const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)] as [string, string])).toString() : ''
@@ -362,6 +420,19 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ value }),
+    }),
+  // Tenant-held credentials: write-only. The list returns masked hints; a set
+  // sends the value once and the value never comes back.
+  tenantSecrets: (slug: string) =>
+    request<{ secrets: TenantSecret[] }>(`/tenants/${encodeURIComponent(slug)}/secrets`),
+  setTenantSecret: (slug: string, name: string, value: string) =>
+    request<TenantSecret>(`/tenants/${encodeURIComponent(slug)}/secrets/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
+  deleteTenantSecret: (slug: string, name: string) =>
+    request<{ name: string; removed: boolean }>(`/tenants/${encodeURIComponent(slug)}/secrets/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
     }),
   createFanbase: (slug: string, input: { name: string; sourceKind: string; fetchUrl?: string; consentAttestedBy?: string }) =>
     request<{ fanbaseId: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases`, {
@@ -469,6 +540,10 @@ export const api = {
     request<AgentTasksOverview>(`/tenants/${encodeURIComponent(slug)}/agents/tasks-overview`),
   agentProvidersOverview: (slug: string) =>
     request<AgentProvidersOverview>(`/tenants/${encodeURIComponent(slug)}/agents/providers-overview`),
+  agentHealth: (slug: string) =>
+    request<AgentHealthResponse>(`/tenants/${encodeURIComponent(slug)}/agents/health`),
+  agentHealthAlerts: (slug: string) =>
+    request<AgentHealthAlertsResponse>(`/tenants/${encodeURIComponent(slug)}/agents/health/alerts`),
   agentCreateSchedule: (slug: string, input: { template_id: string; model_id: string; prompt: string; interval_minutes: number }) =>
     request<{ schedule: AgentSchedule }>(`/tenants/${encodeURIComponent(slug)}/agents/schedules`, { method: 'POST', body: JSON.stringify(input) }),
   agentDeleteSchedule: (slug: string, id: string) =>
@@ -633,8 +708,14 @@ export const api = {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
     }),
+  uploadDriveContacts: (slug: string, fileName: string, csv: string) =>
+    request<{ staged: number; rows_read: number; rows_without_email: number }>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/upload`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ file_name: fileName, csv }),
+    }),
   promoteDriveContact: (slug: string, contactId: string, destination: 'fan' | 'beacon', kind?: string, city?: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
+    request<{ fan_outcome?: string; beacon_outcome?: string; opt_in_emailed?: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/gdrive-contacts/${contactId}/promote`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ destination, kind: kind ?? null, city: city ?? null }),
@@ -757,6 +838,30 @@ export const api = {
   /** §4h-11 — who could help with this show: candidates only, no contacts. */
   showHelpers: (slug: string, eventSlug: string) =>
     request<TenantShowHelpersResponse>(`/tenants/${encodeURIComponent(slug)}/shows/${encodeURIComponent(eventSlug)}/who-can-help`),
+  /** P.4 — the show's approve-once growth ladder: state plus every rung. */
+  showGrowthLadder: (slug: string, eventId: string) =>
+    request<ShowGrowthLadderView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder`),
+  /** P.4 — one yes over the whole ladder. */
+  approveShowGrowthLadder: (slug: string, eventId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/approve`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  /** P.4 — stop the rungs the ladder approval would still release. */
+  revokeShowGrowthLadder: (slug: string, eventId: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/revoke`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    }),
+  /** Add a show by hand — the path for a label that never ran Bandsintown or
+   * another sync source. Idempotent on the generated key; the answer's slug
+   * is the show's durable link. */
+  showCreate: (slug: string, input: ShowCreateInput, idempotencyKey: string) =>
+    request<ShowCreateResult>(`/tenants/${encodeURIComponent(slug)}/shows`, {
+      method: 'POST',
+      headers: { 'idempotency-key': idempotencyKey },
+      body: JSON.stringify(input),
+    }),
   /** Replace the night's whole bill in one write — the crossbill step's only
    * input. `position` is the row's order; `ticket_url` feeds per-act click
    * attribution. */
@@ -907,27 +1012,34 @@ export const api = {
   // observable and unchangeable. Payloads are snake_case: the tenant's write
   // contracts are, even though its responses are camelCase.
   upsertBeacon: (slug: string, beacon: BeaconUpsertInput) =>
-    request<{ beaconId: string }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons`, {
-      method: 'POST',
-      headers: { 'idempotency-key': crypto.randomUUID() },
-      body: JSON.stringify({
-        beacon_id: beacon.beaconId ?? null,
-        city_slug: beacon.citySlug ?? null,
-        beacon_kind: beacon.beaconKind,
-        display_name: beacon.displayName,
-        contact_email: beacon.contactEmail ?? null,
-        destination_url: beacon.destinationUrl ?? null,
-        source_url: beacon.sourceUrl ?? null,
-        active: beacon.active,
-        verified: beacon.verified,
-        accepts_outreach: beacon.acceptsOutreach,
-        do_not_contact: beacon.doNotContact,
-        relationship_score: beacon.relationshipScore,
-        relevance_basis_points: beacon.relevanceBasisPoints,
-        confidence_basis_points: beacon.confidenceBasisPoints,
-        metadata: {},
-      }),
-    }),
+    request<{ beacon_id: string; version: number; replayed: boolean; operation_id: string }>(
+      `/tenants/${encodeURIComponent(slug)}/operations/beacons`,
+      {
+        method: 'POST',
+        headers: { 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({
+          beacon_id: beacon.beaconId ?? null,
+          city_id: beacon.cityId ?? null,
+          city_slug: beacon.citySlug ?? null,
+          beacon_kind: beacon.beaconKind,
+          display_name: beacon.displayName,
+          contact_email: beacon.contactEmail ?? null,
+          destination_url: beacon.destinationUrl ?? null,
+          source_url: beacon.sourceUrl ?? null,
+          active: beacon.active,
+          verified: beacon.verified,
+          accepts_outreach: beacon.acceptsOutreach,
+          do_not_contact: beacon.doNotContact,
+          relationship_score: beacon.relationshipScore,
+          relevance_basis_points: beacon.relevanceBasisPoints,
+          confidence_basis_points: beacon.confidenceBasisPoints,
+          metadata: {},
+          // Required upstream: 0 is create-intent, a positive value is the
+          // CAS version for an edit. The console only creates for now.
+          expected_version: beacon.expectedVersion ?? 0,
+        }),
+      },
+    ),
   batchInviteBeacons: (slug: string, beaconIds: string[], options?: { ttlDays?: number; radiusKm?: number; locale?: string }) =>
     request<{ created: number; skipped: number; invitations: { beaconId: string; displayName: string; inviteUrl: string }[] }>(`/tenants/${encodeURIComponent(slug)}/operations/beacons/signal-invites/batch`, {
       method: 'POST',
@@ -963,6 +1075,15 @@ export const api = {
         disposition: input.disposition,
         occurred_at: input.occurredAt,
       }),
+    }),
+
+  // P.1 — the industry list as an audience, and the one-person invitation.
+  dualRoleContacts: (slug: string) =>
+    request<DualRoleReview>(`/tenants/${encodeURIComponent(slug)}/operations/contacts/dual-role`),
+  inviteToLatarnik: (slug: string, beaconId: string) =>
+    request<LatarnikInviteResult>(`/tenants/${encodeURIComponent(slug)}/operations/contacts/${encodeURIComponent(beaconId)}/latarnik-invite`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
     }),
 
   // --- Release Campaigns ---

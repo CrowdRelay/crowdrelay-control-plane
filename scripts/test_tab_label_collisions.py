@@ -50,7 +50,9 @@ PAGE_SOURCES = sorted((FRONTEND / "pages").glob("*.tsx"))
 # Labels that name the same concept twice and are allowed to repeat:
 # - shows: the band nav item for /tenants/$slug/shows and the breadcrumb page
 #   label for that same destination — one concept, two label sites.
-ALLOWED_DUPLICATES: set[str] = {"shows"}
+# - beacons: the operator nav item for /tenants/$slug/beacons and the show
+#   page's owner link that jumps to that same page — one concept, two sites.
+ALLOWED_DUPLICATES: set[str] = {"shows", "beacons"}
 
 
 def labels(text: str) -> list[str]:

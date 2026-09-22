@@ -210,9 +210,10 @@ async fn command_center(
         }));
     }
 
-    // Fan out per-tenant summaries and the platform-health query concurrently
-    // — they are independent, so running them in parallel shortens TTI.
-    let (per_tenant, platform_health) = tokio::join!(
+    // Fan out per-tenant summaries, the platform-health query and the
+    // notifier outbox health concurrently — they are independent, so
+    // running them in parallel shortens TTI.
+    let (per_tenant, platform_health, outbox_health) = tokio::join!(
         async {
             let mut per_tenant = Vec::with_capacity(handles.len());
             for handle in handles {
@@ -238,11 +239,14 @@ async fn command_center(
             per_tenant
         },
         state.store.list_platform_health(),
+        state.store.notification_outbox_health(),
     );
 
     let platform_health = platform_health?;
+    let outbox_health = outbox_health?;
 
-    let projected = aggregate_command_center_totals(&per_tenant, now, &platform_health);
+    let projected =
+        aggregate_command_center_totals(&per_tenant, now, &platform_health, &outbox_health);
     cache_set(
         &state.read_model_cache,
         CACHE_KEY.to_owned(),
@@ -266,6 +270,7 @@ fn aggregate_command_center_totals(
     per_tenant: &[Value],
     now: chrono::DateTime<chrono::Utc>,
     platform_health: &[crate::model::PlatformHealthRow],
+    outbox_health: &crate::store::NotificationOutboxHealth,
 ) -> Value {
     // Aggregate global totals from per-tenant projections.
     let mut needs_you = 0u64;
@@ -453,7 +458,7 @@ fn aggregate_command_center_totals(
             "unknown": outcomes_unknown,
             "waitingForObservation": outcomes_waiting,
         },
-        "system": system_block(platform_health),
+        "system": system_block(platform_health, outbox_health),
         "learning": {
             "reportingTenants": learning_reporting,
             "totalOutcomes": learning_total,
@@ -499,8 +504,21 @@ fn aggregate_command_center_totals(
 /// permanently empty field as if it were system state. The block is a named
 /// function so that contract is testable and a future addition has to justify
 /// itself against a test rather than being appended to an inline literal.
-fn system_block(platform_health: &[crate::model::PlatformHealthRow]) -> Value {
-    json!({ "platformServices": platform_health })
+fn system_block(
+    platform_health: &[crate::model::PlatformHealthRow],
+    outbox_health: &crate::store::NotificationOutboxHealth,
+) -> Value {
+    json!({
+        "platformServices": platform_health,
+        // The control plane's own outbox — the one notifier channel that
+        // cannot report its own failure. Tenant-side dead deliveries are
+        // already aggregated under `attention.deadDeliveries`; these counts
+        // are the fleet's own dispatch loop.
+        "notificationOutbox": {
+            "dead7d": outbox_health.dead_7d,
+            "overduePending": outbox_health.overdue_pending,
+        },
+    })
 }
 
 /// Fetch one tenant's command-center sections: attention, autopilot, learning,
@@ -914,6 +932,10 @@ fn build_per_tenant_summary(
         "displayName": display_name,
         "runtimeHealth": runtime_health,
         "available": available,
+        // Control-plane-side config the upstream sections cannot see: with
+        // no enabled notifier channel every event fans out to zero rows and
+        // approvals wait with nobody told. Local fact, never null.
+        "enabledNotifierChannels": tenant.enabled_notifier_channels,
         "attention": attention,
         "autopilot": autopilot,
         "learning": learning,
@@ -2682,11 +2704,14 @@ mod tests {
                 placement: "dedicated".to_owned(),
                 placement_cluster: None,
                 placement_database: None,
+                team_members: serde_json::Value::Array(vec![]),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             },
             runtime: None,
             runtime_health: crate::model::RuntimeHealth::Unknown,
+            billing: None,
+            enabled_notifier_channels: 1,
         }
     }
 
@@ -3049,24 +3074,37 @@ mod tests {
     /// the top-level `system` block. The per-tenant guard above would not have
     /// caught `system.releaseConvergence` coming back.
     ///
-    /// `platformServices` is the only key with a source — the platform health
-    /// table the runtime observer writes. Any key added here must be backed by
-    /// something the container can actually compute; an empty string or a null
-    /// standing in for "we never implemented this" reads to an operator as
-    /// authoritative system state.
+    /// `platformServices` is backed by the platform health table the runtime
+    /// observer writes, `notificationOutbox` by the outbox table the
+    /// dispatcher writes. Any key added here must be backed by something the
+    /// container can actually compute; an empty string or a null standing in
+    /// for "we never implemented this" reads to an operator as authoritative
+    /// system state.
     #[test]
     fn command_center_system_block_exposes_only_sourced_fields() {
-        let block = system_block(&[]);
+        let block = system_block(
+            &[],
+            &crate::store::NotificationOutboxHealth {
+                dead_7d: 2,
+                overdue_pending: 3,
+            },
+        );
         let object = block.as_object().expect("system block is an object");
-        let keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        keys.sort_unstable();
         assert_eq!(
             keys,
-            vec!["platformServices"],
+            vec!["notificationOutbox", "platformServices"],
             "system block must expose only fields with an authoritative source"
         );
         assert!(
             object["platformServices"].is_array(),
             "platformServices must be the platform health list, not a placeholder"
+        );
+        assert_eq!(
+            object["notificationOutbox"],
+            json!({ "dead7d": 2, "overduePending": 3 }),
+            "notificationOutbox must project the real outbox counts"
         );
     }
 
@@ -3127,7 +3165,15 @@ mod tests {
             "objectives": {"available": false},
         }));
 
-        let rolled = aggregate_command_center_totals(&per_tenant, chrono::Utc::now(), &[]);
+        let rolled = aggregate_command_center_totals(
+            &per_tenant,
+            chrono::Utc::now(),
+            &[],
+            &crate::store::NotificationOutboxHealth {
+                dead_7d: 0,
+                overdue_pending: 0,
+            },
+        );
 
         assert_eq!(rolled["attention"]["needsYou"], json!(2));
         assert_eq!(rolled["attention"]["awaitingApproval"], json!(1));

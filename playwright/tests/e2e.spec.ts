@@ -177,10 +177,11 @@ const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
   { path: '/tenants', name: 'tenants' },
-  { path: '/tenants/virya', name: 'tenant-detail' },
+  { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
+  { path: '/tenants/virya/in-motion', name: 'in-motion' },
   { path: '/tenants/virya/audience', name: 'audience' },
   { path: '/tenants/virya/content', name: 'content' },
   { path: '/tenants/virya/content/material', name: 'content-material' },
@@ -228,6 +229,36 @@ test.describe('Control Plane E2E @e2e', () => {
       await navigateAndCheck(page, sub.name, sub.path, collectors)
     })
   }
+
+  // The bare tenant URL is the tenant, not a settings page — Today is the
+  // daily read and `/tenants/:slug` lands on it. `?tab=` URLs stay on the
+  // tenant page (Settings).
+  test('Bare tenant URL lands on Today @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForURL('**/tenants/virya/operations', { timeout: 10000 })
+    expect(page.url()).toContain('/tenants/virya/operations')
+  })
+
+  test('Tenant ?tab=profile stays on the settings surface @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya?tab=profile')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(1000)
+    expect(page.url()).toContain('/tenants/virya')
+    expect(page.url()).not.toContain('/operations')
+  })
+
+  // The process view: the run list loads in one call and renders either run
+  // cards, the honest empty state, or the failure card — never a blank page.
+  test('In motion page renders the process view @e2e', async ({ page }) => {
+    await page.goto('/tenants/virya/in-motion')
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await expect(page.getByRole('heading', { name: 'In motion' })).toBeVisible({ timeout: 10000 })
+    // With a backend the run list or the empty state renders; without one the
+    // failure card does. Either is a rendered answer — a blank is the bug.
+    const content = page.getByText(/Post relays|No relays yet|did not load|unavailable|no longer exists|Retry/i)
+    await expect(content.first()).toBeVisible({ timeout: 10000 })
+  })
 
   // Test that navigating between pages doesn't accumulate errors
   test('Full navigation sweep — no accumulated errors @e2e', async ({ page }) => {

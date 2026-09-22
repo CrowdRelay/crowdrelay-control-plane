@@ -265,6 +265,9 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(plan, dict) or plan.get("mode") != "local_docker_compose":
         raise ProvisionError("invalid_plan", "unsupported provisioning plan")
     schema = plan.get("schema")
+    # Schema 5 adds tenant placement (dedicated vs shared_pg) and teamMembers —
+    # the bump exists so an older provisioner rejects the plan instead of
+    # silently dropping the crew or misplacing the database.
     if schema not in (3, 4, 5):
         raise ProvisionError("invalid_plan", "unsupported provisioning plan schema")
 
@@ -314,8 +317,38 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
             raise ProvisionError("invalid_plan", "branding palette shape is invalid")
         if any(not isinstance(value, str) or not HEX_COLOR.fullmatch(value) for value in palette.values()):
             raise ProvisionError("invalid_plan", "branding palette colors are invalid")
+    members = plan.get("teamMembers")
+    if members is not None:
+        # The roster is rendered verbatim into CROWDRELAY_TEAM_MEMBERS_JSON,
+        # which lands in tenant.env — one bad control character in a member
+        # field would break the env file the compose stack parses, so the
+        # shape check here is also the env-injection check.
+        if not isinstance(members, list) or len(members) > 32:
+            raise ProvisionError("invalid_plan", "teamMembers must be a list of at most 32 members")
+        seen_emails: set[str] = set()
+        for member in members:
+            if not isinstance(member, dict):
+                raise ProvisionError("invalid_plan", "teamMembers entries must be objects")
+            key = member.get("key")
+            if key is not None and (not isinstance(key, str) or not re.fullmatch(r"[a-z0-9_-]{2,48}", key)):
+                raise ProvisionError("invalid_plan", "teamMembers key is invalid")
+            name = member.get("name")
+            if not isinstance(name, str) or not (1 <= len(name) <= 80) or any(ch in "\r\n\x00" for ch in name):
+                raise ProvisionError("invalid_plan", "teamMembers name is invalid")
+            email = member.get("email")
+            if not isinstance(email, str) or "@" not in email or any(ch in "\r\n\x00 " for ch in email):
+                raise ProvisionError("invalid_plan", "teamMembers email is invalid")
+            # Two members on one email collapse onto a single member row in
+            # CrowdRelay's bootstrap and fight over its routing profile.
+            normalized_email = email.strip().lower()
+            if normalized_email in seen_emails:
+                raise ProvisionError("invalid_plan", "teamMembers emails must be unique")
+            seen_emails.add(normalized_email)
+            skills = member.get("skills")
+            if not isinstance(skills, list) or not skills or any(not isinstance(skill, str) for skill in skills):
+                raise ProvisionError("invalid_plan", "teamMembers skills must be a non-empty list")
 
-    if schema >= 4:
+    if schema in (4, 5):
         profile = plan.get("regionalProfile")
         required = {"countryCode", "region", "locale", "timezone", "currency", "dateFormat", "numberFormat", "dataRegion"}
         if not isinstance(profile, dict) or set(profile) != required:
@@ -573,6 +606,13 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_WORKSPACE_SLUG": plan["workspaceSlug"],
         "CROWDRELAY_TENANT_DISPLAY_NAME": plan["displayName"],
         "CROWDRELAY_PUBLIC_SITE_BASE_URL": plan.get("publicSiteBaseUrl") or "",
+        # Community executor drafts Reddit posts that link smart links
+        # (/l/{slug}) — served by the tenant's public site, which proxies to
+        # the API. The executor hard-fails without this on any non-Virya
+        # workspace; fall back to the API base so a site-less tenant still
+        # resolves its own links rather than another band's.
+        "CROWDRELAY_PUBLIC_ORIGIN": plan.get("publicSiteBaseUrl")
+            or plan["crowdRelayBaseUrl"],
         "CROWDRELAY_DEFAULT_COUNTRY_CODE": plan["defaultCountryCode"],
         "CROWDRELAY_REDIRECT_REFRESH_INTERVAL_MS": "15000",
         "CROWDRELAY_CLICK_CHANNEL_CAPACITY": "2048",
@@ -590,8 +630,11 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
         "CROWDRELAY_BOOTSTRAP_FILE": "/run/crowdrelay/bootstrap.json",
         "RUST_LOG": "info,crowdrelay=info",
     }
-    if plan.get("schema") >= 4:
-        profile = plan["regionalProfile"]
+    # Presence-gated, not schema-gated: a non-Virya tenant refuses to boot
+    # without CROWDRELAY_TENANT_DATA_REGION, so any plan that carries a
+    # regional profile must have it rendered regardless of schema number.
+    profile = plan.get("regionalProfile")
+    if isinstance(profile, dict):
         values.update({
             "CROWDRELAY_TENANT_REGION": profile["region"],
             "CROWDRELAY_TENANT_LOCALE": profile["locale"],
@@ -631,6 +674,14 @@ def create_runtime_env(plan: dict[str, Any]) -> str:
             value = provider_keys.get(plan_key)
             if isinstance(value, str) and value.strip():
                 values[env_key] = value.strip()
+    # Crew roster — safe_plan already shape-checked it; compact JSON keeps the
+    # whole roster on one env-file line. CrowdRelay's config parser owns the
+    # member-level grammar (email normalization, TeamSkill vocabulary).
+    team_members = plan.get("teamMembers")
+    if isinstance(team_members, list) and team_members:
+        values["CROWDRELAY_TEAM_MEMBERS_JSON"] = json.dumps(
+            team_members, separators=(",", ":")
+        )
     return "".join(f"{key}={value}\n" for key, value in values.items())
 
 
@@ -1346,7 +1397,7 @@ def process_claim(config: Config, claim: dict[str, Any]) -> None:
         raise ProvisionError("invalid_claim", "Control Plane returned an invalid claim")
     job_id = str(job.get("id") or "")
     plan = safe_plan(job)
-    if plan.get("schema") >= 4:
+    if plan.get("schema") in (4, 5):
         planned_region = plan["regionalProfile"]["dataRegion"]
         agent_region = config_data_region(config)
         if agent_region != planned_region:

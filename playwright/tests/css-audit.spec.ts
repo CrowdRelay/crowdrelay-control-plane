@@ -182,7 +182,7 @@ const BOUNDED_OVERFLOW_SELECTORS = [
 const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
-  { path: '/tenants/virya', name: 'tenant-detail' },
+  { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },

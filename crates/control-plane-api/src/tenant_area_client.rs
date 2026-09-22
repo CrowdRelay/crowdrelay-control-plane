@@ -480,6 +480,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 "/v1/control-plane/ops/summary"
                     | "/v1/control-plane/ops/signal-overview"
                     | "/v1/control-plane/ops/attention"
+                    | "/v1/control-plane/ops/intelligence"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"
                     | "/v1/control-plane/ops/delivery-results"
@@ -487,6 +488,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/overview"
                     | "/v1/control-plane/autopilot/growth"
                     | "/v1/control-plane/autopilot/next-best-actions"
+                    | "/v1/control-plane/autopilot/opportunity-shortlist"
                     | "/v1/control-plane/autopilot/scorecard"
                     | "/v1/control-plane/autopilot/measurement"
                     | "/v1/control-plane/autopilot/reply-triage"
@@ -522,9 +524,14 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/tenant-settings"
                     | "/v1/control-plane/tenant-settings/north-stars"
                     | "/v1/control-plane/tenant-settings/intents"
+                    // Tenant-held credentials: the masked inventory. The
+                    // value itself is never readable — only the hint.
+                    | "/v1/control-plane/secrets"
                     | "/v1/control-plane/fanbases"
                     | "/v1/control-plane/fanbases/connections"
                     | "/v1/control-plane/gdrive/contacts"
+                    // P.1: the industry list read as an audience.
+                    | "/v1/control-plane/contacts/dual-role"
                     // §4h-12: the band's listing + representation contacts.
                     | "/v1/control-plane/listing"
                     | "/v1/control-plane/attestations"
@@ -537,10 +544,17 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
                     | "/v1/control-plane/ops/actions"
+                    // Process runs: one pass of a pipeline over one subject,
+                    // joined upstream into the step shape the process pages
+                    // render. The community relay is the first kind.
+                    | "/v1/control-plane/processes/relays"
                     | "/v1/control-plane/community-intelligence/communities"
                     | "/v1/control-plane/events"
                     | "/v1/control-plane/audience-graph/places"
                     | "/v1/control-plane/autopilot/cycle/preview"
+                    // P.7: the negotiation table — live terms, the ladder
+                    // they were argued from, and the move parked for approval.
+                    | "/v1/control-plane/autopilot/negotiations"
                     // 4G.3: the band's gig plan — proposals, passed-over
                     // cities and the reasons behind both.
                     | "/v1/control-plane/gig-plan"
@@ -556,6 +570,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path.starts_with("/v1/control-plane/autopilot/booking-discovery/candidates?")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "")
                 || uuid_segment_between(path, "/v1/control-plane/ops/actions/", "")
+                || uuid_segment_between(path, "/v1/control-plane/processes/relays/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "")
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/journey")
                 || safe_segment_between(path, "/v1/control-plane/audience/segments/", "/preview")
@@ -571,6 +586,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/recipients",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/decisions/", "/evidence")
+                // P.4: the show's approve-once growth ladder — the approval
+                // row's state plus every rung's position. Read-only.
+                || uuid_segment_between(path, "/v1/control-plane/autopilot/events/", "/growth-ladder")
                 // What the action actually sent — the words and the
                 // addresses. Read-only like the ledger entry beside it;
                 // upstream 404s when the action never emitted.
@@ -620,13 +638,50 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/autopilot/content-sources"
                     | "/v1/control-plane/autopilot/beacon-network"
                     | "/v1/control-plane/autopilot/cycle/run"
+                    // Manual show entry: the label that never ran a sync
+                    // source types the night in by hand.
+                    | "/v1/control-plane/events"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
                 || one_safe_segment(path, "/v1/control-plane/ecosystem/flags/")
                 || one_safe_segment(path, "/v1/control-plane/autopilot/policies/")
+                // P.7: recording the promoter's position — the same
+                // canonical write the admin route runs, carried through the
+                // proxy with its idempotency key.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/team-opportunities/",
+                    "/terms",
+                )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/approve")
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/actions/", "/cancel")
+                // The relay spread's one ask: approve releases every parked
+                // delivery to the drip, revoke cancels what has not landed.
+                // Both are per-source writes upstream owns end-to-end.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/community-relays/",
+                    "/approve",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/community-relays/",
+                    "/revoke",
+                )
+                // P.4: one yes (or one stop) over a show's whole growth
+                // ladder — the canonical admin writes, carried through the
+                // proxy with their idempotency keys.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/events/",
+                    "/growth-ladder/approve",
+                )
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/autopilot/events/",
+                    "/growth-ladder/revoke",
+                )
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/decisions/",
@@ -662,6 +717,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     "/signal-state",
                 )
                 || uuid_segment_between(path, "/v1/control-plane/autopilot/beacons/", "/reply")
+                // P.1: the one-person, once-ever invitation — upstream
+                // recomputes eligibility at the click.
+                || uuid_segment_between(path, "/v1/control-plane/contacts/", "/latarnik-invite")
                 // Approving a gig proposal queues the outreach — the band's
                 // yes, carried through with its idempotency key (4G.4).
                 || path == "/v1/control-plane/gig-plan/approve"
@@ -687,6 +745,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/fanbases"
                 || path == "/v1/control-plane/fanbases/connections"
                 || path == "/v1/control-plane/gdrive/scan"
+                // P.2: the operator's own sheet uploads through the same
+                // staging path the connectors feed.
+                || path == "/v1/control-plane/gdrive/contacts/upload"
                 // §4h-12: save is a POST on the same path as the read —
                 // publish/unlist/rotate-token are the only transitions, and
                 // an approach is the band asking, queued for approval.
@@ -741,6 +802,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(path, "/v1/control-plane/fanbases/", "/ingest")
                 || fan_tag_path(path)
                 || uuid_segment_between(path, "/v1/control-plane/audience/fans/", "/referral-code")
+                // The process page's manual leg: a drafted Reddit post the
+                // operator published by hand registers its URL so the metrics
+                // poller can pick the post up. Same write the community
+                // surfaces use, carried through with its idempotency key.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/community-posts/",
+                    "/register-manual",
+                )
                 // 4V.6b: the shared night's writes — contribute one kind,
                 // mint the organiser link, and the billed act's own confirm.
                 || uuid_segment_between(path, "/v1/control-plane/nights/", "/contributions")
@@ -753,6 +823,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
             // whole-resource replacements — PUT is their truthful verb.
             safe_segment_between(path, "/v1/control-plane/events/", "/acts")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/counterparty")
+                // Tenant-held credentials: write-only set. The name segment
+                // is bounded upstream by its own allowlist; the value rides
+                // the body and is never echoed back.
+                || one_safe_segment(path, "/v1/control-plane/secrets/")
         }
         "PATCH" => {
             // The connection's scan boundary — the tenant choosing what the
@@ -771,6 +845,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 // organiser link — both leave the row as the audit.
                 || uuid_segment_between(path, "/v1/control-plane/nights/", "/organiser-link")
                 || night_contribution_path(path)
+                // Unsetting a tenant credential — same name segment the PUT
+                // writes.
+                || one_safe_segment(path, "/v1/control-plane/secrets/")
         }
         _ => false,
     }
@@ -1628,6 +1705,13 @@ mod tests {
             "GET",
             "/v1/control-plane/events/friday%2Fnight/scan"
         ));
+        // Manual show entry — the write beside the list read; a trailing
+        // segment keeps the POST literal honest.
+        assert!(valid_operations_request("POST", "/v1/control-plane/events"));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/events/friday-night"
+        ));
         assert!(valid_operations_request(
             "GET",
             &format!("/v1/control-plane/ops/deliveries/{id}")
@@ -1635,6 +1719,50 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/ops/operations/request-1234"
+        ));
+        // Process runs: the list is literal, the run is uuid-bounded like
+        // the trace and deliveries siblings; an escape or extra tail fails.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/processes/relays"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/processes/relays/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/processes/relays/not-a-uuid"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/processes/relays/{id}/targets")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/processes/relays"
+        ));
+        // The relay batch's two answers — uuid-bounded like every write; a
+        // non-uuid source, a missing tail, or a GET on the write path fails.
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/approve")
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/revoke")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/community-relays/not-a-uuid/approve"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            &format!("/v1/control-plane/autopilot/community-relays/{id}/approve")
         ));
         // The sent record: what an action said and to whom. UUID-bounded like
         // the approve/cancel siblings; a non-uuid id or a missing tail fails.
@@ -1697,8 +1825,32 @@ mod tests {
             "POST",
             &format!("/v1/control-plane/nights/{id}/acts/bravo-act")
         ));
-        // The show setup writes are the allowlist's only PUTs — the bill and
-        // the counterparty, both slug-parameterized like the event reads.
+        // Tenant-held credentials: the masked list is a fixed-path GET; the
+        // writes are name-segment PUT/DELETE with no read-back — a GET on a
+        // named secret, a bare-name write, or a trailing segment all fail.
+        assert!(valid_operations_request("GET", "/v1/control-plane/secrets"));
+        assert!(valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets/stripe_secret_key"
+        ));
+        assert!(valid_operations_request(
+            "DELETE",
+            "/v1/control-plane/secrets/stripe_webhook_secret"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/secrets/stripe_secret_key"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets"
+        ));
+        assert!(!valid_operations_request(
+            "PUT",
+            "/v1/control-plane/secrets/stripe_secret_key/extra"
+        ));
+        // The show setup writes — the bill and the counterparty, both
+        // slug-parameterized like the event reads.
         assert!(valid_operations_request(
             "PUT",
             "/v1/control-plane/events/friday-night/acts"
@@ -1751,6 +1903,65 @@ mod tests {
         assert!(valid_operations_request(
             "POST",
             &format!("/v1/control-plane/community-intelligence/communities/{id}/membership")
+        ));
+        // P.1: the dual-role read is a fixed path; the invitation is
+        // uuid-bounded with its tail anchored, and fails closed on a
+        // non-uuid id, a missing tail or a trailing segment.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/contacts/dual-role"
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}/latarnik-invite")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/contacts/not-a-uuid/latarnik-invite"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}/latarnik-invite/extra")
+        ));
+        // P.7: the negotiation read is a fixed path; the position write is
+        // uuid-bounded with its tail anchored.
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/autopilot/negotiations"
+        ));
+        assert!(valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/team-opportunities/{id}/terms")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/autopilot/team-opportunities/not-a-uuid/terms"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/autopilot/team-opportunities/{id}/terms/extra")
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            &format!("/v1/control-plane/contacts/{id}")
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/contacts/dual-role/extra"
+        ));
+        // P.2: the sheet upload is a fixed POST path — a tail or the wrong
+        // verb fails closed.
+        assert!(valid_operations_request(
+            "POST",
+            "/v1/control-plane/gdrive/contacts/upload"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/gdrive/contacts/upload/extra"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/gdrive/contacts/upload"
         ));
         // Query-string list endpoints are now valid for paginated browsing.
         assert!(valid_operations_request(

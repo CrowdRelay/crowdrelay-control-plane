@@ -99,16 +99,24 @@ class CrowdRelaySide(unittest.TestCase):
         self.assertIn("community_intelligence_routes::control_plane_routes()", source)
 
     def test_authority_layer_grants_the_control_plane_token(self) -> None:
-        """Without this the request is rejected 401 by enforce_privileged_namespace."""
+        """Without this the request is rejected 401 by enforce_privileged_namespace.
+
+        The grant is a namespace prefix, not a per-path list: every
+        `/v1/control-plane/` path inherits ControlPlane authority, so a new
+        route cannot be silently unauthenticated. The gate asserts the
+        boundary is still a prefix and the paths live under it — a hand-added
+        list here once went stale while the routes were live."""
         source = read(CROWDRELAY / "crates/crowdrelay-api/src/lib.rs")
         start = source.index("fn is_control_plane_management_path(")
-        body = source[start : source.index("\nasync fn", start)]
-        self.assertIn(f'"{BASE}"', body)
-        self.assertIn(f'"{BASE}/"', body)
-        self.assertIn('"/observations"', body)
-        self.assertIn('"/entities"', body)
-        self.assertIn('"/membership"', body)
-        self.assertIn('"/intro-draft"', body)
+        body = source[start : source.index("\n}", start)]
+        self.assertIn('path.starts_with("/v1/control-plane/")', body)
+        routes = self.routes()
+        for path in (BASE,):
+            self.assertTrue(
+                path.startswith("/v1/control-plane/"),
+                f"{path} sits outside the ControlPlane prefix grant",
+            )
+        self.assertIn(f'"{BASE}"', routes)
 
 
 if __name__ == "__main__":

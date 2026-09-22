@@ -58,12 +58,16 @@ pub struct TenantRow {
     pub archetype: String,
     /// Which database infrastructure the provisioned stack runs against:
     /// `dedicated` (own postgres container) or `shared_pg` (own database and
-    /// role on the shared tenants cluster). See migration 0026.
+    /// role on the shared tenants cluster). See migration 0031.
     pub placement: String,
     /// Shared-cluster identifier; set iff placement == "shared_pg".
     pub placement_cluster: Option<String>,
     /// The tenant's database name on the shared cluster; set iff shared_pg.
     pub placement_database: Option<String>,
+    /// The crew roster collected at onboarding — `[{key,name,email,skills}]`.
+    /// Re-rendered into `CROWDRELAY_TEAM_MEMBERS_JSON` on every deploy so the
+    /// roster survives redeploys; empty array means no crew was declared.
+    pub team_members: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -78,6 +82,12 @@ pub struct RuntimeStatusRow {
     pub deployed_sha: Option<String>,
     pub outbox_pending: Option<i64>,
     pub queue_lag: Option<i64>,
+    /// Autopilot asks waiting on a human approval when the tenant last
+    /// reported. Drives `approvals.pending` notifications on every rise.
+    pub awaiting_approval: Option<i64>,
+    /// The tenant's fan-graph level (`activated_fans_30d`) at report time.
+    /// The first report that carries it freezes the guarantee baseline.
+    pub north_star_fans: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
     pub checked_at: Option<DateTime<Utc>>,
 }
@@ -143,6 +153,98 @@ impl RuntimeHealth {
     }
 }
 
+/// Where the tenant's subscription stands. `trialing` and `active` are both
+/// live money states; `past_due` is grace; `canceled` churned, `refunded` is
+/// the guarantee paid out — the two endings are deliberately not the same
+/// state, because a refund is owed money and a cancellation is not.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BillingState {
+    Trialing,
+    Active,
+    PastDue,
+    Canceled,
+    Refunded,
+}
+
+impl BillingState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Trialing => "trialing",
+            Self::Active => "active",
+            Self::PastDue => "past_due",
+            Self::Canceled => "canceled",
+            Self::Refunded => "refunded",
+        }
+    }
+
+    pub fn parse(state: &str) -> Option<Self> {
+        match state {
+            "trialing" => Some(Self::Trialing),
+            "active" => Some(Self::Active),
+            "past_due" => Some(Self::PastDue),
+            "canceled" => Some(Self::Canceled),
+            "refunded" => Some(Self::Refunded),
+            _ => None,
+        }
+    }
+
+    /// The next state after a billing webhook event, or `None` when the
+    /// event does not move the machine. Terminal `refunded` accepts nothing
+    /// but a fresh subscription — a refund then a straggler `payment_failed`
+    /// must not resurrect the subscription as merely behind.
+    pub fn apply(current: Option<Self>, event: &str, in_trial: bool) -> Option<Self> {
+        match event {
+            // A new subscription resets the machine from wherever it stood.
+            "subscription_started" => Some(if in_trial {
+                Self::Trialing
+            } else {
+                Self::Active
+            }),
+            "payment_succeeded" => match current {
+                Some(Self::Refunded) => None,
+                _ => Some(Self::Active),
+            },
+            "payment_failed" => match current {
+                Some(Self::Trialing) | Some(Self::Active) | Some(Self::PastDue) | None => {
+                    Some(Self::PastDue)
+                }
+                Some(Self::Canceled) | Some(Self::Refunded) => None,
+            },
+            "subscription_canceled" => match current {
+                Some(Self::Refunded) => None,
+                _ => Some(Self::Canceled),
+            },
+            "subscription_refunded" => Some(Self::Refunded),
+            _ => None,
+        }
+    }
+}
+
+/// One billing webhook event as the store consumes it — the fields the
+/// subscription machine and its audit row need, already validated.
+#[derive(Debug, Clone)]
+pub struct BillingEventInput {
+    pub event: String,
+    pub provider: String,
+    pub provider_customer_id: Option<String>,
+    pub provider_subscription_id: Option<String>,
+    pub subscription_started_at: Option<DateTime<Utc>>,
+    pub trial_ends_at: Option<DateTime<Utc>>,
+    pub current_period_ends_at: Option<DateTime<Utc>>,
+}
+
+/// The tenant's subscription as a read model — no provider ids, those belong
+/// to audit rows, not the console surface.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BillingView {
+    pub state: BillingState,
+    pub subscription_started_at: DateTime<Utc>,
+    pub trial_ends_at: Option<DateTime<Utc>>,
+    pub current_period_ends_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TenantSummary {
@@ -150,6 +252,12 @@ pub struct TenantSummary {
     pub tenant: TenantRow,
     pub runtime: Option<RuntimeStatusRow>,
     pub runtime_health: RuntimeHealth,
+    pub billing: Option<BillingView>,
+    /// Enabled notifier channels — the fanout `enqueue_event_tx` writes to.
+    /// Zero means every notification event for this tenant is dropped at
+    /// fanout: approvals wait with nobody told. Not nullable: the count is
+    /// a local fact the container always knows.
+    pub enabled_notifier_channels: i64,
 }
 
 #[derive(Debug, FromRow)]
@@ -178,6 +286,7 @@ pub struct TenantSummaryJoinRow {
     pub placement: String,
     pub placement_cluster: Option<String>,
     pub placement_database: Option<String>,
+    pub team_members: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub runtime_tenant_id: Option<Uuid>,
@@ -187,8 +296,15 @@ pub struct TenantSummaryJoinRow {
     pub runtime_deployed_sha: Option<String>,
     pub runtime_outbox_pending: Option<i64>,
     pub runtime_queue_lag: Option<i64>,
+    pub runtime_awaiting_approval: Option<i64>,
+    pub runtime_north_star_fans: Option<i64>,
     pub runtime_last_heartbeat_at: Option<DateTime<Utc>>,
     pub runtime_checked_at: Option<DateTime<Utc>>,
+    pub billing_state: Option<String>,
+    pub billing_subscription_started_at: Option<DateTime<Utc>>,
+    pub billing_trial_ends_at: Option<DateTime<Utc>>,
+    pub billing_current_period_ends_at: Option<DateTime<Utc>>,
+    pub enabled_notifier_channels: i64,
 }
 
 impl TenantSummaryJoinRow {
@@ -201,6 +317,8 @@ impl TenantSummaryJoinRow {
             deployed_sha: self.runtime_deployed_sha,
             outbox_pending: self.runtime_outbox_pending,
             queue_lag: self.runtime_queue_lag,
+            awaiting_approval: self.runtime_awaiting_approval,
+            north_star_fans: self.runtime_north_star_fans,
             last_heartbeat_at: self.runtime_last_heartbeat_at,
             checked_at: self.runtime_checked_at,
         });
@@ -231,11 +349,24 @@ impl TenantSummaryJoinRow {
                 placement: self.placement,
                 placement_cluster: self.placement_cluster,
                 placement_database: self.placement_database,
+                team_members: self.team_members,
                 created_at: self.created_at,
                 updated_at: self.updated_at,
             },
             runtime,
             runtime_health,
+            billing: self
+                .billing_state
+                .as_deref()
+                .and_then(BillingState::parse)
+                .zip(self.billing_subscription_started_at)
+                .map(|(state, subscription_started_at)| BillingView {
+                    state,
+                    subscription_started_at,
+                    trial_ends_at: self.billing_trial_ends_at,
+                    current_period_ends_at: self.billing_current_period_ends_at,
+                }),
+            enabled_notifier_channels: self.enabled_notifier_channels,
         }
     }
 }
@@ -263,7 +394,74 @@ pub struct RuntimeReportRequest {
     pub deployed_sha: Option<String>,
     pub outbox_pending: Option<i64>,
     pub queue_lag: Option<i64>,
+    /// Autopilot asks parked on `awaiting_approval` at report time. Absent on
+    /// a CrowdRelay that predates the gauge; absent is not zero.
+    pub awaiting_approval: Option<i64>,
+    /// The tenant's fan-graph level (`activated_fans_30d`). Absent on a
+    /// CrowdRelay that predates the gauge; absent is not zero — an unmeasured
+    /// report must not freeze a guarantee baseline.
+    pub north_star_fans: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
+}
+
+/// The ninety-day guarantee as stored: one row, frozen at the first measured
+/// fan-graph report. The verdict is derived on read — a stored verdict could
+/// disagree with the numbers behind it, and the refund question is exactly
+/// where that disagreement must be impossible.
+#[derive(Debug, Clone, Serialize, FromRow, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TenantGuaranteeRow {
+    pub tenant_id: Uuid,
+    pub metric_key: String,
+    pub baseline_value: i64,
+    pub baseline_captured_at: DateTime<Utc>,
+    pub deadline: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Where the guarantee stands. `unmeasured` until the first fan-graph report
+/// lands, `tracking` while the clock runs, then the terminal pair.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GuaranteeState {
+    Unmeasured,
+    Tracking,
+    /// The deadline passed and the fan graph grew — no refund is owed.
+    Kept,
+    /// The deadline passed and the fan graph did not grow — the contract says
+    /// refund every month paid.
+    RefundOwed,
+}
+
+impl GuaranteeState {
+    /// The verdict as a pure function of the two facts that decide it.
+    /// `refund_owed` covers "the deadline passed and the graph did not grow"
+    /// *and* "the deadline passed with nothing measured": the contract cannot
+    /// be judged kept on a number nobody saw.
+    pub fn derive(elapsed: bool, current: Option<i64>, baseline: i64) -> Self {
+        if !elapsed {
+            Self::Tracking
+        } else if current.is_some_and(|value| value > baseline) {
+            Self::Kept
+        } else {
+            Self::RefundOwed
+        }
+    }
+}
+
+/// The refund decision as a read model: the frozen baseline, the latest
+/// reported level, and the state derived from both against the deadline.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuaranteeView {
+    pub state: GuaranteeState,
+    pub metric_key: String,
+    pub baseline_value: Option<i64>,
+    pub baseline_captured_at: Option<DateTime<Utc>>,
+    pub deadline: Option<DateTime<Utc>>,
+    pub current_value: Option<i64>,
+    pub current_captured_at: Option<DateTime<Utc>>,
+    pub days_remaining: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -339,6 +537,25 @@ pub struct CreateTenantRequest {
     /// provisioning plan when deployCrowdrelay=true.
     #[serde(default)]
     pub provider_keys: Option<serde_json::Value>,
+    /// The crew the tenant operates with. Elastic — however many members the
+    /// wizard collects — and persisted on the tenant row so every redeploy
+    /// plan re-renders `CROWDRELAY_TEAM_MEMBERS_JSON`.
+    #[serde(default)]
+    pub team_members: Option<Vec<TeamMemberRequest>>,
+}
+
+/// One crew member collected during onboarding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TeamMemberRequest {
+    /// Stable routing identity (`viryaos_team_profiles.member_key`). Optional —
+    /// position supplies `member_{n}` when absent. Never serialized as `null`:
+    /// the stored roster feeds CrowdRelay's `key?: string` entries.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    pub name: String,
+    pub email: String,
+    pub skills: Vec<String>,
 }
 
 const fn default_true() -> bool {
@@ -582,6 +799,8 @@ mod tests {
             deployed_sha: Some("0123456789abcdef".to_owned()),
             outbox_pending: Some(0),
             queue_lag: Some(0),
+            awaiting_approval: Some(0),
+            north_star_fans: Some(0),
             last_heartbeat_at: Some(observed_at),
             checked_at: Some(observed_at),
         }
@@ -747,5 +966,123 @@ mod tests {
         assert_ne!(provisioning_phase("running"), "completed");
         // Only "succeeded" maps to "completed".
         assert_eq!(provisioning_phase("succeeded"), "completed");
+    }
+
+    #[test]
+    fn guarantee_verdict_is_tracking_until_the_deadline() {
+        // Growth, decline, and silence alike are still tracking while the
+        // ninety days run — the contract has no early verdict.
+        assert_eq!(
+            GuaranteeState::derive(false, Some(100), 10),
+            GuaranteeState::Tracking
+        );
+        assert_eq!(
+            GuaranteeState::derive(false, Some(0), 10),
+            GuaranteeState::Tracking
+        );
+        assert_eq!(
+            GuaranteeState::derive(false, None, 10),
+            GuaranteeState::Tracking
+        );
+    }
+
+    #[test]
+    fn guarantee_verdict_requires_strict_growth() {
+        // The contract reads "your fan graph has not grown" — equal to the
+        // baseline is not growth, and neither is a decline.
+        assert_eq!(
+            GuaranteeState::derive(true, Some(11), 10),
+            GuaranteeState::Kept
+        );
+        assert_eq!(
+            GuaranteeState::derive(true, Some(10), 10),
+            GuaranteeState::RefundOwed
+        );
+        assert_eq!(
+            GuaranteeState::derive(true, Some(3), 10),
+            GuaranteeState::RefundOwed
+        );
+    }
+
+    #[test]
+    fn guarantee_verdict_counts_silence_as_not_grown() {
+        // A deadline that passed with no measured level cannot be judged
+        // kept — the number nobody saw is not a defence for either side.
+        assert_eq!(
+            GuaranteeState::derive(true, None, 10),
+            GuaranteeState::RefundOwed
+        );
+    }
+
+    #[test]
+    fn billing_trial_start_is_trialing_and_paid_start_is_active() {
+        assert_eq!(
+            BillingState::apply(None, "subscription_started", true),
+            Some(BillingState::Trialing)
+        );
+        assert_eq!(
+            BillingState::apply(None, "subscription_started", false),
+            Some(BillingState::Active)
+        );
+    }
+
+    #[test]
+    fn billing_payment_failed_moves_only_live_states_to_past_due() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "payment_failed", false),
+            Some(BillingState::PastDue)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Trialing), "payment_failed", false),
+            Some(BillingState::PastDue)
+        );
+        // A failure landing after the money went back must not resurrect
+        // the subscription as merely behind.
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "payment_failed", false),
+            None
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Canceled), "payment_failed", false),
+            None
+        );
+    }
+
+    #[test]
+    fn billing_refunded_is_terminal_for_everything_but_a_new_subscription() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "payment_succeeded", false),
+            None
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "subscription_canceled", false),
+            None
+        );
+        // A genuinely new subscription resets the machine — the provider
+        // sends subscription_started, not payment_succeeded, for it.
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Refunded), "subscription_started", false),
+            Some(BillingState::Active)
+        );
+    }
+
+    #[test]
+    fn billing_recognized_events_move_and_unknown_events_do_not() {
+        assert_eq!(
+            BillingState::apply(Some(BillingState::PastDue), "payment_succeeded", false),
+            Some(BillingState::Active)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "subscription_canceled", false),
+            Some(BillingState::Canceled)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "subscription_refunded", false),
+            Some(BillingState::Refunded)
+        );
+        assert_eq!(
+            BillingState::apply(Some(BillingState::Active), "invoice_created", false),
+            None
+        );
     }
 }
