@@ -181,7 +181,7 @@ export function ListingPanel(props: { slug: string }) {
       await Promise.all([listing.refetch(), targets.refetch()])
       // A queued approach lands on Attention's decision queue and the
       // operations KPI strip — invalidate so both catch it on next visit.
-      refreshQueries(['tenant-operations', props.slug], ['tenant-operator-attention-snapshot', props.slug])
+      refreshQueries(['tenant-today', props.slug], ['tenant-operator-attention-snapshot', props.slug])
     } catch (e) {
       setError(errorMessage(e, 'That could not be saved.'))
     } finally {

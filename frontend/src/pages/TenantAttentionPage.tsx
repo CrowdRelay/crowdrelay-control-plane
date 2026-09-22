@@ -154,11 +154,11 @@ export function TenantAttentionPage() {
   }))
 
   // The ranked decision queue lives in the operations read model. Identical
-  // observer options to the other 'tenant-operations' consumers: a shared key
+  // observer options to the other 'tenant-today' consumers: a shared key
   // with mismatched retry rules lets the first mount win.
   const operations = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
-    queryFn: () => api.tenantOperations(params().slug),
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,

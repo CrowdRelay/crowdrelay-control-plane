@@ -1,11 +1,15 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
+import { api } from '../lib/api'
+import { errorMessage } from '../lib/format'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { Dialog } from './Dialog'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
+import { Input } from './ui/input'
 import { ErrorCard } from './layout'
+import { toast } from './app/toast'
 
 const formatDateTime = (iso: string | null) => {
   if (!iso) return '—'
@@ -27,12 +31,47 @@ const detailToString = (detail: unknown): string => {
 }
 
 export function FanDetailDrawer(props: {
+  slug: string
   fan: FanDetail | null
   journey: FanJourneyEntry[]
   loading: boolean
   error: string | null
   onClose: () => void
+  /** Re-fetches the fan detail after a tag write — the tags list lives in the
+   * detail payload, so the drawer cannot patch it locally. */
+  onRefresh: () => void
 }) {
+  const [tagInput, setTagInput] = createSignal('')
+  const [tagBusy, setTagBusy] = createSignal<string | null>(null)
+
+  const addTag = async () => {
+    const tag = tagInput().trim().toLowerCase()
+    if (!tag || tagBusy() !== null || !props.fan) return
+    setTagBusy(tag)
+    try {
+      await api.addFanTag(props.slug, props.fan.fan.id, tag)
+      setTagInput('')
+      props.onRefresh()
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not add the tag'))
+    } finally {
+      setTagBusy(null)
+    }
+  }
+
+  const removeTag = async (tag: string) => {
+    if (tagBusy() !== null || !props.fan) return
+    setTagBusy(tag)
+    try {
+      await api.removeFanTag(props.slug, props.fan.fan.id, tag)
+      props.onRefresh()
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not remove the tag'))
+    } finally {
+      setTagBusy(null)
+    }
+  }
+
   return <Dialog
     open={props.fan !== null}
     onClose={props.onClose}
@@ -54,14 +93,38 @@ export function FanDetailDrawer(props: {
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
           </div>
-          <Show when={props.fan!.tags.length > 0}>
-            <div class="fan-drawer-tags">
-              <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Tags</h4>
-              <div class="flex flex-wrap gap-1.5">
-                <For each={props.fan!.tags}>{tag => <Badge class="free-chip text-success-foreground text-xs px-1 rounded-md uppercase tracking-wider">{tag}</Badge>}</For>
-              </div>
+          {/* Tags are the operator's own labels — always render the section
+              so the add control is reachable on an untagged fan too. */}
+          <div class="fan-drawer-tags">
+            <h4 class="text-sm text-muted-foreground uppercase tracking-wider mb-2">Tags</h4>
+            <div class="flex flex-wrap gap-1.5 items-center">
+              <For each={props.fan!.tags}>{tag => (
+                <span class="inline-flex items-center gap-0.5">
+                  <Badge class="free-chip text-success-foreground text-xs px-1 rounded-md uppercase tracking-wider">{tag}</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove tag ${tag}`}
+                    disabled={tagBusy() !== null}
+                    onClick={() => void removeTag(tag)}
+                  >×</Button>
+                </span>
+              )}</For>
+              <Input
+                type="text"
+                class="h-7 w-28 px-2 py-0.5 text-xs"
+                placeholder="add tag"
+                value={tagInput()}
+                onInput={e => setTagInput(e.currentTarget.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void addTag() }}
+                disabled={tagBusy() !== null}
+              />
+              <Button writes variant="ghost" size="sm" class="h-6 px-1.5 text-xs" disabled={tagBusy() !== null || !tagInput().trim()} onClick={() => void addTag()}>
+                {tagBusy() !== null ? '…' : 'Add'}
+              </Button>
             </div>
-          </Show>
+          </div>
           <Show when={props.fan!.ticket_purchases.length > 0}>
             <div class="fan-drawer-section">
               <h4>Ticket purchases</h4>

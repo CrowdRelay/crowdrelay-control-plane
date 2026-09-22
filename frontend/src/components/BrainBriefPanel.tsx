@@ -147,7 +147,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
   const invalidateParked = () => {
     void queryClient.invalidateQueries({ queryKey: ['intelligence-brief', props.slug] })
     void queryClient.invalidateQueries({ queryKey: ['tenant-operator-attention-snapshot', props.slug] })
-    void queryClient.invalidateQueries({ queryKey: ['tenant-operations', props.slug] })
+    void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })
   }
 
   const approve = async (action: PendingActionSummary) => {

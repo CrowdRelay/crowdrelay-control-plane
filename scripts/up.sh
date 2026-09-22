@@ -256,6 +256,7 @@ BASE="http://127.0.0.1:8090/api/v1"
 endpoints=(
   "overview|/overview"
   "tenants|/tenants"
+  "today|/tenants/virya/today"
   "operations summary|/tenants/virya/operations/summary"
   "attention|/tenants/virya/operations/attention"
   "outbox|/tenants/virya/operations/outbox"

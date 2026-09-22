@@ -11,12 +11,13 @@ import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { RuntimeSwitchesPanel } from '../components/RuntimeSwitchesPanel'
 import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
+import { StandingApprovalsPanel } from '../components/StandingApprovalsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, KpiStrip, KpiCard } from '../components/layout'
 import { Button } from '../components/app/button'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
-import type { TenantOperationsReadModel } from '../lib/types'
+import type { TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const TABS = ['overview', 'policies', 'runtime'] as const
@@ -29,8 +30,8 @@ export function TenantHealthPage() {
   // The id list makes `?tab=` deep links land on the right tab.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('overview', [...TABS])
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
-    queryFn: () => api.tenantOperations(params().slug),
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -49,7 +50,7 @@ export function TenantHealthPage() {
   const refresh = () => model.refetch()
   const refreshAll = () => { void model.refetch(); void overview.refetch() }
   const refreshing = () => model.isFetching || overview.isFetching
-  const d = (): TenantOperationsReadModel | undefined => model.data
+  const d = (): TenantTodayReadModel | undefined => model.data
   const summary = () => d()?.summary
   const deadJobs = () => {
     const s = summary()
@@ -124,14 +125,10 @@ export function TenantHealthPage() {
       </TabPanel>
 
       <TabPanel active={activeTab()} id="policies" visited={isVisited('policies')}>
-        <AuthorityPoliciesPanel
-          slug={params().slug}
-          degraded={d()?.degraded ?? []}
-          sections={d()?.sections}
-          freshness={d()?.freshness}
-          fetchedAt={d()?.fetchedAt}
-          refresh={refresh}
-        />
+        <AuthorityPoliciesPanel slug={params().slug} />
+        {/* The policies say how much it may do; the standing grants say where
+            it never has to ask — same question, so same tab. */}
+        <StandingApprovalsPanel slug={params().slug} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>

@@ -25,7 +25,7 @@ import { buttonVariants } from '../components/app/button'
 import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
-import type { TenantOperationsReadModel } from '../lib/types'
+import type { TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const TONE_DOT = {
@@ -46,7 +46,7 @@ export function TenantOperationsPage() {
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('replies')
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
-    queryFn: () => api.tenantOperations(params().slug),
+    queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -57,7 +57,7 @@ export function TenantOperationsPage() {
   }))
   const refresh = () => void model.refetch()
 
-  const d = (): TenantOperationsReadModel | undefined => model.error ? undefined : model.data
+  const d = (): TenantTodayReadModel | undefined => model.error ? undefined : model.data
   const growth = () => d()?.growth
   const autopilot = () => d()?.autopilot
   const summary = () => d()?.summary
@@ -356,9 +356,11 @@ export function TenantOperationsPage() {
           label={authState.isPlatformLevel() ? 'Autopilot' : 'The brain'}
           icon={<Bot class="size-4" aria-hidden="true" />}
           action={<Show when={authState.isPlatformLevel()}>
-            {/* The switches live on Health, which the band's map does not
-                carry — for the band the widget ends at the counts. */}
-            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Settings</Link>
+            {/* The switches live on Health → Policies, which the band's
+                map does not carry — for the band the widget ends at the
+                counts. The link lands on the policies tab, not the status
+                page the operator then has to leave again. */}
+            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} search={{ tab: 'policies' }} class="font-medium text-primary underline-offset-4 hover:underline">Settings</Link>
           </Show>}
         >
           <div class="flex items-center gap-2">

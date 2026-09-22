@@ -1015,7 +1015,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantOperationsSection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources'
+export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'next_show_timeline'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -1058,7 +1058,7 @@ export type SectionFreshness = {
 
 export type SectionFreshnessMap = Record<string, SectionFreshness | undefined>
 
-export type TenantOperationsReadModel = {
+export type TenantTodayReadModel = {
   id: string
   summary: OperationsSummary | null
   flags: FeatureFlag[] | null
@@ -1071,9 +1071,16 @@ export type TenantOperationsReadModel = {
   audience: AudienceOverview | null
   growth_metrics: GrowthMetricTrendsResponse | null
   acquisition_sources: AcquisitionSources | null
+  // The default tab's queue — replies waiting on a person.
+  reply_triage: ReplyTriageView | null
+  // "The next night" — the show list, and the nearest upcoming night's own
+  // timeline. The timeline key only exists when a next show does: a night
+  // that is never due is absent, not degraded.
+  shows: TenantShowsResponse | null
+  next_show_timeline?: TenantShowTimelineResponse | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
-  degraded: TenantOperationsSection[]
+  degraded: TenantTodaySection[]
   // Per-section verdict, including the ones that succeeded.
   sections: SectionVerdicts
   // Per-section fact freshness. observedAt is propagated from upstream
@@ -3976,8 +3983,11 @@ export type CityVenueRow = {
   last_played_at: string | null
   next_show_at: string | null
   /** §12-1 verdict on the room's evidence: `worth_contact` carries a
-   *  because-list sentence, `insufficient_evidence` the honest refusal. */
-  assessment: 'worth_contact' | 'insufficient_evidence'
+   *  because-list sentence, `insufficient_evidence` the honest refusal,
+   *  `closed` a room on record as shut. `not_assessed` is the degraded
+   *  read — the tenant's own facts could not be loaded, so no verdict is
+   *  claimed rather than a confident wrong one. */
+  assessment: 'worth_contact' | 'insufficient_evidence' | 'closed' | 'not_assessed'
   /** The one-sentence answer in the tenant's crew locale. */
   assessment_sentence: string
 }

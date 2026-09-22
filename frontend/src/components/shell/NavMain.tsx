@@ -44,7 +44,7 @@ export function NavLink(props: {
               to={props.item.path as any}
               params={props.params as any}
               search={props.item.search as any}
-              activeOptions={{ exact: props.item.exact, includeSearch: props.item.searchSensitive ?? false }}
+              activeOptions={{ exact: props.item.exact }}
               class={ACTIVE}
             >
               <NavIcon name={props.item.icon} />

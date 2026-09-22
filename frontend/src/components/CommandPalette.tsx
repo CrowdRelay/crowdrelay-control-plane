@@ -52,7 +52,8 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
   { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
-  { suffix: '/shows', label: 'Shows', icon: 'area' },
+  { suffix: '/shows', label: 'Shows', icon: 'shows' },
+  { suffix: '/content', label: 'Content', icon: 'content' },
   { suffix: '/beacons', label: 'Beacons', icon: 'beacons' },
   { suffix: '/area', label: 'AREA', icon: 'area' },
 ]
@@ -65,7 +66,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
   { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence?tab=decisions' },
   { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=growth' },
-  { id: 'q-goal', label: 'Change the brain goal (north star)', keywords: 'brain goal north star metric target objective intelligence', suffix: '/intelligence?tab=overview' },
+  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=overview' },
   // Dead deliveries live on the queues tab, which the band's attention page
   // does not carry — naming it here would land them where the thing is not.
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
@@ -74,6 +75,9 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=growth' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
+  // The authority sliders live one level in on Health — the band map does not
+  // carry Health, so the entry stays operator-only like the page it opens.
+  { id: 'q-policies', label: 'Open autopilot policies', keywords: 'autopilot policies rules authority autonomy sliders watch suggest ask alone health', suffix: '/health?tab=policies', platform: true },
 ]
 
 // The band's palette mirrors the band's sidebar — the process destinations
@@ -154,7 +158,10 @@ export const CommandPalette: Component = () => {
     const names = visible.length > 0 ? visible.map(t => t.slug) : [profile()?.tenantSlug].filter((s): s is string => Boolean(s))
     const platform = isPlatformLevel()
     const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix))
-    const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix) && !qe.platform)
+    // A query entry's suffix carries its `?tab=` deep link; the band check
+    // cares about the destination page, so the param is stripped first —
+    // otherwise every tabbed entry is silently dropped for a band session.
+    const queryEntries = platform ? QUERY_ENTRIES : QUERY_ENTRIES.filter(qe => BAND_SUFFIXES.has(qe.suffix.split('?')[0] ?? qe.suffix) && !qe.platform)
     for (const slug of names) {
       for (const page of subpages) {
         const label = page.label
@@ -167,7 +174,7 @@ export const CommandPalette: Component = () => {
           kind: 'navigate',
           perform: () => page.suffix === ''
             ? navigate({ to: '/tenants/$slug', params: { slug }, search: page.search })
-            : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug } }),
+            : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug }, search: page.search }),
         })
       }
       // Query-oriented entries — natural-language labels for common operator questions

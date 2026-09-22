@@ -240,11 +240,18 @@ export function FanTablePanel(props: {
       </div>
     </Show>
     <FanDetailDrawer
+      slug={props.slug}
       fan={selectedFan()}
       journey={journey()}
       loading={loadingDetail()}
       error={detailError()}
       onClose={() => setSelectedFan(null)}
+      onRefresh={() => {
+        const id = selectedFan()?.fan.id
+        if (!id) return
+        // Silent re-fetch — the drawer stays open and swaps the detail.
+        void api.fanDetail(props.slug, id).then(setSelectedFan).catch(() => {})
+      }}
     />
 
     <Dialog

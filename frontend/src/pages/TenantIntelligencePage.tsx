@@ -44,8 +44,8 @@ export function TenantIntelligencePage() {
   // The id list makes `?tab=` deep links land on the right tab.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
-    queryFn: () => api.tenantOperations(params().slug),
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -112,7 +112,7 @@ export function TenantIntelligencePage() {
     />
 
     {/* The brief is the default tab and answers from its own read model —
-        it must not wait on tenant-operations, an unrelated channel whose
+        it must not wait on tenant-today, an unrelated channel whose
         failure would hide the one thing this page exists to say. The other
         seven tabs are evidence surfaces and keep the shared gate. */}
     <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>

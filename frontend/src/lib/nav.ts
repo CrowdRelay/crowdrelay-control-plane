@@ -9,11 +9,10 @@ export type NavItem = {
   label: string
   exact: boolean
   icon: string
-  /// Query the link carries — e.g. a deep link into a page's tab.
+  /// Query the link carries — e.g. a deep link into a page's tab. Matching
+  /// stays path-based: one path owns one item, so any `?tab=` on the page
+  /// keeps its nav item lit.
   search?: Record<string, string>
-  /// Compare the URL query when deciding "active" so two links sharing one
-  /// path (Today vs Settings → `/tenants/$slug`) highlight exactly one.
-  searchSensitive?: boolean
   /// Further `?tab=` values the breadcrumb names this item for — the page's
   /// other tabs that belong under the same heading.
   matchTabs?: string[]
@@ -49,7 +48,7 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true, matchTabs: ['deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['deployment', 'access'] },
     ],
   },
 ]
@@ -77,7 +76,7 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, searchSensitive: true, matchTabs: ['deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['deployment', 'access'] },
     ],
   },
   {
@@ -146,7 +145,6 @@ export const currentPageLabel = (pathname: string, slug: string | undefined, pla
       const itemSuffix = item.path.replace('/tenants/$slug', '')
       if (!(itemSuffix ? suffix.startsWith(itemSuffix) : suffix === '')) return false
       if (item.search?.tab != null) return search?.tab === item.search.tab || (search?.tab != null && (item.matchTabs ?? []).includes(search.tab))
-      if (item.searchSensitive) return search?.tab == null
       return true
     }
     const match = tenantNavItems(platformLevel).find(matches)

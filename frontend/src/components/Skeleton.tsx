@@ -251,7 +251,7 @@ export const SkeletonOpportunityBoard: Component = () => (
   </div>
 )
 
-/** Skeleton for OperationsPanel flag list — single-column switch rows */
+/** Skeleton for RuntimeSwitchesPanel flag list — single-column switch rows */
 export const SkeletonFlagList: Component = () => (
   <div class="flex flex-col mt-3">
     {Array.from({ length: 4 }, () => (

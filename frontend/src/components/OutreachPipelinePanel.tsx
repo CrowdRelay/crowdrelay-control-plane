@@ -8,6 +8,7 @@ import { errorMessage } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
+import { BookingAgentsPanel } from './BookingAgentsPanel'
 import { TabBar, ErrorCard } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
@@ -28,7 +29,7 @@ const toneToVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'wa
   tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
 export function OutreachPipelinePanel(props: { slug: string }) {
-  const [tab, setTab] = createSignal<'outreach' | 'booking'>('outreach')
+  const [tab, setTab] = createSignal<'outreach' | 'booking' | 'agents'>('outreach')
   const [error, setError] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
   const [showAllOutreach, setShowAllOutreach] = createSignal(false)
@@ -86,6 +87,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
         // is the contacts the agent raised.
         { id: 'outreach', label: 'Contacts', count: () => outreach.data?.length ?? 0 },
         { id: 'booking', label: 'Booking', count: () => booking.data?.length ?? 0 },
+        // The screened registry is operator-facing: the band asks, the
+        // platform brokers the send. Kept off the band map on purpose.
+        { id: 'agents', label: 'Agents' },
       ]}
     />
 
@@ -93,7 +97,10 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       <ErrorCard>{error()}</ErrorCard>
     </Show>
 
-    <Show when={tab() === 'outreach'} fallback={
+    <Show when={tab() === 'agents'}>
+      <BookingAgentsPanel slug={props.slug} />
+    </Show>
+    <Show when={tab() === 'booking'}>
       <>
       <Show when={booking.error}><ErrorCard>Booking pipeline unavailable: {errorMessage(booking.error, 'We couldn\'t reach the booking pipeline. Try refreshing.')}</ErrorCard></Show>
       <Show when={booking.data} fallback={<SkeletonRows count={3} />}>
@@ -151,7 +158,8 @@ export function OutreachPipelinePanel(props: { slug: string }) {
         </Show>
       </Show>
       </>
-    }>
+    </Show>
+    <Show when={tab() === 'outreach'}>
       <>
       <Show when={outreach.error}><ErrorCard>Outreach pipeline unavailable: {errorMessage(outreach.error, 'We couldn\'t reach the outreach pipeline. Try refreshing.')}</ErrorCard></Show>
       <Show when={outreach.data} fallback={<SkeletonRows count={3} />}>

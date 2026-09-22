@@ -12,7 +12,7 @@ import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Alert } from './app/alert'
 import { cn } from '../lib/cn'
 import { Button } from './app/button'
-import { ArrowRight } from 'lucide-solid'
+import { ArrowRight, ChevronDown } from 'lucide-solid'
 
 const MAX_VISIBLE_ENTRIES = 10
 
@@ -64,8 +64,68 @@ const outcomeClass = (assessment: string): string => {
 const outcomeLabel = (assessment: string): string =>
   assessment.replaceAll('_', ' ')
 
+// The raw evidence the evaluator persisted with the decision: what it read
+// (input_snapshot), which rules applied (policy_snapshot), and what it
+// recommended before the disposition was recorded. Fetched on demand — one
+// request per opened card, so a 60-entry list does not fetch 60 payloads.
+// Snapshots are raw JSON rendered as-is; the read model guarantees the shape,
+// never fabricates a nicer one.
+function DecisionEvidenceView(props: { slug: string; decisionId: string }) {
+  const evidence = useQuery(() => ({
+    queryKey: ['decision-evidence', props.slug, props.decisionId],
+    queryFn: () => api.decisionEvidence(props.slug, props.decisionId),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  }))
+  return (
+    <div class="mt-2 border-t border-border pt-2">
+      <Show when={evidence.isPending}>
+        <p class="text-xs text-muted-foreground m-0">Reading the record…</p>
+      </Show>
+      <Show when={evidence.error}>
+        <p class="text-xs text-destructive m-0">The evidence for this decision could not be read.</p>
+      </Show>
+      <Show when={evidence.data}>{e => (
+        <div class="space-y-2">
+          <div class="flex justify-between gap-2 text-xs">
+            <span class="text-muted-foreground">Subject</span>
+            <span class="text-foreground break-all text-right">{e().subject_kind.replaceAll('_', ' ')} · {e().subject_id}</span>
+          </div>
+          <Show when={e().recommendation && Object.keys(e().recommendation).length > 0}>
+            <div>
+              <span class="text-xs text-muted-foreground">Recommended</span>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().recommendation, null, 2)}</pre>
+            </div>
+          </Show>
+          <Show when={e().input_snapshot && Object.keys(e().input_snapshot).length > 0}>
+            <div>
+              <span class="text-xs text-muted-foreground">What it read</span>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().input_snapshot, null, 2)}</pre>
+            </div>
+          </Show>
+          <Show when={e().policy_snapshot && Object.keys(e().policy_snapshot).length > 0}>
+            <div>
+              <span class="text-xs text-muted-foreground">Rules it applied</span>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().policy_snapshot, null, 2)}</pre>
+            </div>
+          </Show>
+        </div>
+      )}</Show>
+    </div>
+  )
+}
+
 export function LearningLoopPanel(props: { slug: string }) {
   const [showAll, setShowAll] = createSignal(false)
+  const [expandedEvidence, setExpandedEvidence] = createSignal<Set<string>>(new Set())
+  const toggleEvidence = (id: string) => {
+    setExpandedEvidence((curr) => {
+      const next = new Set(curr)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   const model = useQuery(() => ({
     queryKey: ['learning-loop', props.slug],
     queryFn: () => api.learningLoop(props.slug),
@@ -151,6 +211,21 @@ export function LearningLoopPanel(props: { slug: string }) {
                 </div>
                 <Show when={entry.reason}>
                   <p class="text-xs text-muted-foreground italic border-t border-border pt-2">{entry.reason}</p>
+                </Show>
+                {/* The card answers what it decided; the persisted evidence
+                    record answers why — the exact inputs and policy that
+                    produced the disposition. Fetched only on expand. */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-auto px-0 py-1 text-xs text-muted-foreground"
+                  onClick={() => toggleEvidence(entry.decision_id)}
+                >
+                  {expandedEvidence().has(entry.decision_id) ? 'Hide evidence' : 'Why it decided'}
+                  <ChevronDown size={12} class="transition-transform" classList={{ 'rotate-180': expandedEvidence().has(entry.decision_id) }} aria-hidden="true" />
+                </Button>
+                <Show when={expandedEvidence().has(entry.decision_id)}>
+                  <DecisionEvidenceView slug={props.slug} decisionId={entry.decision_id} />
                 </Show>
               </div>
 

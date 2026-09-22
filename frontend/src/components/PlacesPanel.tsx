@@ -187,12 +187,17 @@ export function PlacesPanel(props: { slug: string }) {
       </Card>
 
       <Card>
-        <PanelTitle icon={<SectionIcon name="map-pin" />}>Rooms</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
-          {authState.isPlatformLevel()
-            ? "Every room any tenant's played or completed show has marked, with what it draws. Aggregated across tenants — the count of contributors never names one."
-            : "Every room any act's played or completed show has marked, with what it draws. Aggregated across acts — the count of contributors never names one."}
-        </p>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <PanelTitle icon={<SectionIcon name="map-pin" />}>Rooms</PanelTitle>
+            <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
+              {authState.isPlatformLevel()
+                ? "Every room any tenant's played or completed show has marked, with what it draws. Aggregated across tenants — the count of contributors never names one."
+                : "Every room any act's played or completed show has marked, with what it draws. Aggregated across acts — the count of contributors never names one."}
+            </p>
+          </div>
+          <VerifyRegistryButton slug={props.slug} />
+        </div>
         <Show when={venues.error}>
           <SectionFailureCard
             error={venues.error}
@@ -246,6 +251,19 @@ export function PlacesPanel(props: { slug: string }) {
                               {row.assessment_sentence}
                             </p>
                           </Show>
+                          <Show when={row.assessment === 'closed'}>
+                            <p class="m-0 mt-1 max-w-xs text-xs leading-relaxed font-normal text-warning-foreground">
+                              {row.assessment_sentence}
+                            </p>
+                          </Show>
+                          {/* not_assessed — the tenant's own facts could not
+                              be read, so the sentence says so rather than
+                              claiming a verdict the read could not support. */}
+                          <Show when={row.assessment === 'not_assessed'}>
+                            <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/60">
+                              {row.assessment_sentence}
+                            </p>
+                          </Show>
                         </TableCell>
                         <TableCell class="text-xs text-muted-foreground">
                           <Link
@@ -282,5 +300,67 @@ export function PlacesPanel(props: { slug: string }) {
         </Show>
       </Card>
     </>
+  )
+}
+
+/** "Verify the registry" — the delegation loop run the other way.
+ *
+ *  The registry's entries are claims the world made; this button hands all
+ *  three lists — rooms, bands, booking agents — to the operator's AI as a
+ *  paste-ready prompt: is each entry still alive, and which active ones are
+ *  missing. The answer sheets land back through the Drive intake upstream —
+ *  a closed room stops being proposed, a dead band retires, an inactive
+ *  agent deactivates. Fetched lazily: the brief only exists to
+ *  be copied, so it is not part of the page's standing payload. */
+function VerifyRegistryButton(props: { slug: string }) {
+  const [copied, setCopied] = createSignal(false)
+  const [failed, setFailed] = createSignal(false)
+  // Null brief is an answer, not an error: no rooms on record means there is
+  // nothing to verify.
+  const [empty, setEmpty] = createSignal(false)
+
+  const copy = () => {
+    const clipboard = navigator.clipboard
+    if (!clipboard) {
+      setFailed(true)
+      return
+    }
+    void api
+      .registryVerificationBrief(props.slug)
+      .then(({ brief }) => {
+        setFailed(false)
+        // Null brief is an answer, not an error: nothing on record means
+        // there is nothing to verify.
+        if (!brief) {
+          setEmpty(true)
+          return
+        }
+        setEmpty(false)
+        return clipboard.writeText(brief).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        })
+      })
+      .catch(() => setFailed(true))
+  }
+
+  return (
+    <div class="shrink-0">
+      <Button variant="outline" size="sm" class="h-7 px-2 text-xs" onClick={copy}>
+        {copied() ? 'Copied' : 'Copy verification brief'}
+      </Button>
+      <Show when={failed()}>
+        <p class="mt-1 max-w-xs text-xs text-destructive">
+          {authState.isPlatformLevel()
+            ? 'Could not fetch or copy the brief — check clipboard permissions.'
+            : 'Could not fetch or copy the brief — try again in a moment.'}
+        </p>
+      </Show>
+      <Show when={empty() && !failed()}>
+        <p class="mt-1 max-w-xs text-xs text-muted-foreground">
+          Nothing on record to verify yet.
+        </p>
+      </Show>
+    </div>
   )
 }

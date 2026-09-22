@@ -8,7 +8,7 @@
 //!
 //! * Overview  -> [`overview`]   (`GET /tenants/{slug}/overview`)
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
-//! * Operations/Autopilot -> [`operations`] (`GET /tenants/{slug}/operations/overview`)
+//! * Today/Operations -> [`today`] (`GET /tenants/{slug}/today`)
 //! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
 //!
 //! Mutations stay on their own routes; nothing here writes.
@@ -41,7 +41,7 @@ const PRIVATE_NO_STORE: &str = "private, no-store";
 const READ_MODEL_CACHE_TTL: Duration = Duration::from_secs(5);
 
 /// In-process TTL cache for read model responses. Keyed by a string that
-/// combines the tenant slug and the model name (e.g. `"virya:operations"`).
+/// combines the tenant slug and the model name (e.g. `"virya:today"`).
 /// Only successful responses are cached; errors are never stored.
 ///
 /// Uses a `RwLock` so concurrent cache hits (the common case) do not
@@ -134,7 +134,7 @@ pub async fn prune_cache(cache: &ReadModelCache) {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/overview", get(overview))
-        .route("/tenants/{slug}/operations/overview", get(operations))
+        .route("/tenants/{slug}/today", get(today))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -1043,17 +1043,20 @@ async fn overview(
 
 /// Operations/Autopilot subpage.
 ///
-/// The nine upstream sections are fetched concurrently over the private tunnel
-/// and projected field by field. A section that fails is reported as `null` and
-/// named in `degraded`, so a broken Autopilot read cannot blank the queue
-/// metrics next to it. Only a snapshot where every section failed is an error.
-async fn operations(
+/// The eleven upstream sections are fetched concurrently over the private
+/// tunnel and projected field by field. A section that fails is reported as
+/// `null` and named in `degraded`, so a broken Autopilot read cannot blank the
+/// queue metrics next to it. Only a snapshot where every section failed is an
+/// error. `next_show_timeline` is the one dependent fetch: it waits on `shows`
+/// for the nearest upcoming event's slug, so it only exists when the night
+/// does. One browser call, one cached snapshot — the Today page.
+async fn today(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
-    let cache_key = format!("{slug}:operations");
+    let cache_key = format!("{slug}:today");
     if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
         return Ok(no_store(cached));
     }
@@ -1091,6 +1094,8 @@ async fn operations(
         audience,
         growth_metrics,
         acquisition_sources,
+        reply_triage,
+        shows,
     ) = tokio::join!(
         section("/v1/control-plane/ops/summary"),
         section("/v1/control-plane/ecosystem/flags"),
@@ -1105,9 +1110,37 @@ async fn operations(
         section("/v1/control-plane/audience/overview"),
         section("/v1/control-plane/autopilot/growth-metrics/trends"),
         section("/v1/control-plane/audience/acquisition-sources"),
+        // The default tab's queue — the replies waiting on a person.
+        section("/v1/control-plane/autopilot/reply-triage"),
+        // "The next night" block — the show list, then the nearest night's
+        // own timeline fetched below once its slug is known.
+        section("/v1/control-plane/events"),
     );
 
-    let projected = project_operations(
+    // The dependent hop: the nearest upcoming show's timeline can only be
+    // fetched once `shows` names it. No upcoming night means no section at
+    // all — absent is a fact, not a degradation.
+    let next_show_timeline = match next_upcoming_show_slug(shows.as_ref().ok()) {
+        Some(event_slug) => Some(
+            state
+                .area_client
+                .request_management(
+                    tenant.tenant.id,
+                    &target,
+                    ManagementRequest {
+                        method: "GET",
+                        path: &format!("/v1/control-plane/events/{event_slug}/timeline"),
+                        body: None,
+                        correlation_id: correlation(&headers),
+                        idempotency_key: None,
+                    },
+                )
+                .await,
+        ),
+        None => None,
+    };
+
+    let projected = project_today(
         &slug,
         state.runtime_stale_after_seconds,
         summary.as_ref(),
@@ -1119,6 +1152,9 @@ async fn operations(
         audience.as_ref(),
         growth_metrics.as_ref(),
         acquisition_sources.as_ref(),
+        reply_triage.as_ref(),
+        shows.as_ref(),
+        next_show_timeline.as_ref().map(Result::as_ref),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
@@ -1454,7 +1490,7 @@ fn collect_timestamps(
 ///
 /// The four upstream sections (roster KPIs, consent edges, fan sources and
 /// brand settings) are fetched concurrently over the private tunnel and
-/// projected like [`project_operations`]. A section that fails is reported as
+/// projected like [`project_today`]. A section that fails is reported as
 /// `null` and named in `degraded`, so a settings gap on an older CrowdRelay
 /// build cannot blank the roster KPIs next to it. Only a snapshot where every
 /// section failed is an error.
@@ -1536,7 +1572,7 @@ fn project_portfolio(
 ///
 /// The three upstream sections (overview KPIs, paginated fan list, segments)
 /// are fetched concurrently over the private tunnel and projected like the
-/// operations read model. A section that fails is reported as `null` and named
+/// today read model. A section that fails is reported as `null` and named
 /// in `degraded`, so a broken fan list cannot blank the KPI strip next to it.
 /// Only a snapshot where every section failed is an error.
 async fn audience(
@@ -1675,13 +1711,31 @@ fn project_audience(
     )
 }
 
+/// The nearest upcoming show's slug out of the events section — the page's
+/// "next night". `upcoming` is the upstream flag; `starts_at` ISO strings
+/// sort lexicographically, so the minimum is the soonest. A malformed event
+/// row skips itself rather than stranding the block.
+fn next_upcoming_show_slug(shows: Option<&Value>) -> Option<String> {
+    let events = shows?.get("events")?.as_array()?;
+    events
+        .iter()
+        .filter(|event| event.get("upcoming").and_then(Value::as_bool) == Some(true))
+        .filter_map(|event| {
+            let slug = event.get("slug")?.as_str()?;
+            let starts_at = event.get("starts_at")?.as_str()?;
+            Some((starts_at, slug))
+        })
+        .min_by(|a, b| a.0.cmp(b.0))
+        .map(|(_, slug)| slug.to_owned())
+}
+
 /// Re-project each section under its own contract name.
 ///
 /// Passing an upstream response through verbatim would let a CrowdRelay field
 /// addition enter the Control Plane contract unreviewed, and a section of the
 /// wrong JSON type is treated as a failed section rather than rendered.
 #[allow(clippy::too_many_arguments)]
-fn project_operations(
+fn project_today(
     slug: &str,
     runtime_stale_after_seconds: i64,
     summary: SectionResult<'_>,
@@ -1693,25 +1747,31 @@ fn project_operations(
     audience: SectionResult<'_>,
     growth_metrics: SectionResult<'_>,
     acquisition_sources: SectionResult<'_>,
+    reply_triage: SectionResult<'_>,
+    shows: SectionResult<'_>,
+    next_show_timeline: Option<SectionResult<'_>>,
 ) -> Result<Value, ApiError> {
-    project_sections(
-        slug,
-        runtime_stale_after_seconds,
-        "operations",
-        &[
-            section("summary", summary, Shape::Object),
-            section("flags", flags, Shape::Array),
-            section("autopilot", autopilot, Shape::Object),
-            section("growth", growth, Shape::Object),
-            section("opportunities", opportunities, Shape::Array),
-            // North Star fan-growth sections. Each is independently degraded
-            // so a missing audience endpoint does not blank signal KPIs.
-            section("signal", signal, Shape::Object),
-            section("audience", audience, Shape::Object),
-            section("growth_metrics", growth_metrics, Shape::Object),
-            section("acquisition_sources", acquisition_sources, Shape::Object),
-        ],
-    )
+    let mut sections = vec![
+        section("summary", summary, Shape::Object),
+        section("flags", flags, Shape::Array),
+        section("autopilot", autopilot, Shape::Object),
+        section("growth", growth, Shape::Object),
+        section("opportunities", opportunities, Shape::Array),
+        // North Star fan-growth sections. Each is independently degraded
+        // so a missing audience endpoint does not blank signal KPIs.
+        section("signal", signal, Shape::Object),
+        section("audience", audience, Shape::Object),
+        section("growth_metrics", growth_metrics, Shape::Object),
+        section("acquisition_sources", acquisition_sources, Shape::Object),
+        section("reply_triage", reply_triage, Shape::Object),
+        section("shows", shows, Shape::Object),
+    ];
+    // Only projected when a next night exists — the section list is also the
+    // verdict list, so a never-due fetch must not read as a gap.
+    if let Some(timeline) = next_show_timeline {
+        sections.push(section("next_show_timeline", timeline, Shape::Object));
+    }
+    project_sections(slug, runtime_stale_after_seconds, "today", &sections)
 }
 
 #[cfg(test)]
@@ -1758,10 +1818,47 @@ mod tests {
     fn acquisition_sources() -> Value {
         json!({"active_fans": 100, "tracked_fans": 42, "sources": []})
     }
-    /// Build the full 9-tuple of section values for project_operations,
-    /// with all sections Ok. Reduces boilerplate across the test suite.
-    /// Returns owned Values; callers wrap in ok() at the call site so
-    /// the borrows live as long as the project_operations call.
+    /// The today projection with the two queue/show sections answered
+    /// Ok-empty and no next night — the shape most tests here care about.
+    /// Named for the nine variable sections it still takes as arguments.
+    #[allow(clippy::too_many_arguments)]
+    fn project_today_base(
+        slug: &str,
+        runtime_stale_after_seconds: i64,
+        summary: SectionResult<'_>,
+        flags: SectionResult<'_>,
+        autopilot: SectionResult<'_>,
+        growth: SectionResult<'_>,
+        opportunities: SectionResult<'_>,
+        signal: SectionResult<'_>,
+        audience: SectionResult<'_>,
+        growth_metrics: SectionResult<'_>,
+        acquisition_sources: SectionResult<'_>,
+    ) -> Result<Value, ApiError> {
+        let rt = json!({"summary": {}, "needs_human": [], "recent_auto": []});
+        let sh = json!({"events": []});
+        project_today(
+            slug,
+            runtime_stale_after_seconds,
+            summary,
+            flags,
+            autopilot,
+            growth,
+            opportunities,
+            signal,
+            audience,
+            growth_metrics,
+            acquisition_sources,
+            ok(&rt),
+            ok(&sh),
+            None,
+        )
+    }
+
+    /// Build the nine variable section values for project_today_base, with
+    /// all Ok. Reduces boilerplate across the test suite. Returns owned
+    /// Values; callers wrap in ok() at the call site so the borrows live
+    /// as long as the project_today_base call.
     macro_rules! all_sections {
         () => {
             (
@@ -1781,7 +1878,7 @@ mod tests {
     #[test]
     fn projects_every_section_of_a_complete_snapshot() {
         let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -1840,7 +1937,7 @@ mod tests {
         );
         let error = timeout();
         let projected =
-            project_operations("virya", 300, s, Err(&error), a, g, o, sig, aud, gm, acq)
+            project_today_base("virya", 300, s, Err(&error), a, g, o, sig, aud, gm, acq)
                 .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["flags"], Value::Null);
@@ -1866,7 +1963,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2003,7 +2100,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&wrong_summary),
@@ -2049,7 +2146,7 @@ mod tests {
                 acquisition_sources(),
             );
             let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-            let projected = project_operations(
+            let projected = project_today_base(
                 "virya",
                 300,
                 ok(&bad), // summary expects an object
@@ -2088,7 +2185,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&json!({})), // summary: empty object is valid
@@ -2120,7 +2217,8 @@ mod tests {
             unreachable(),
         );
         let (sig_err, aud_err, gm_err, acq_err) = (timeout(), timeout(), timeout(), timeout());
-        let error = project_operations(
+        let (rt_err, sh_err) = (timeout(), unreachable());
+        let error = project_today(
             "virya",
             300,
             Err(&timed_out),
@@ -2132,6 +2230,9 @@ mod tests {
             Err(&aud_err),
             Err(&gm_err),
             Err(&acq_err),
+            Err(&rt_err),
+            Err(&sh_err),
+            None,
         )
         .expect_err("a fully failed snapshot must not render as an empty page");
 
@@ -2139,8 +2240,8 @@ mod tests {
             panic!("expected AllSectionsFailed, got {error:?}");
         };
         assert_eq!(detail.slug, "virya");
-        assert_eq!(detail.channel, "operations");
-        assert_eq!(detail.degraded.len(), 9);
+        assert_eq!(detail.channel, "today");
+        assert_eq!(detail.degraded.len(), 11);
         // Every section keeps its own state — no diagnosis disappears.
         assert_eq!(detail.verdicts["summary"]["state"], json!("timeout"));
         assert_eq!(detail.verdicts["flags"]["state"], json!("absent"));
@@ -2164,6 +2265,8 @@ mod tests {
             "audience",
             "growth_metrics",
             "acquisition_sources",
+            "reply_triage",
+            "shows",
         ] {
             assert!(
                 detail.verdicts[name]["remediation"].is_string(),
@@ -2175,7 +2278,7 @@ mod tests {
     #[test]
     fn a_snapshot_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_operations(
+        let error = project_today(
             "virya",
             300,
             Err(&e),
@@ -2187,6 +2290,9 @@ mod tests {
             Err(&e),
             Err(&e),
             Err(&e),
+            Err(&e),
+            Err(&e),
+            None,
         )
         .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
@@ -2195,7 +2301,7 @@ mod tests {
     #[test]
     fn drops_fields_the_control_plane_contract_does_not_name() {
         let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2225,10 +2331,104 @@ mod tests {
                 "growth_metrics",
                 "id",
                 "opportunities",
+                "reply_triage",
                 "sections",
+                "shows",
                 "signal",
                 "summary"
             ]
+        );
+    }
+
+    /// The one conditional section: when a next night exists its timeline is
+    /// a first-class section — value, verdict and freshness included.
+    #[test]
+    fn a_next_show_timeline_lands_when_the_night_exists() {
+        let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
+        let (rt, sh, tl) = (
+            json!({"summary": {}, "needs_human": [], "recent_auto": []}),
+            json!({"events": [{"slug": "friday", "upcoming": true, "starts_at": "2026-10-02T20:00:00Z"}]}),
+            json!({"event": {"slug": "friday"}, "steps": []}),
+        );
+        let projected = project_today(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            ok(&sig),
+            ok(&aud),
+            ok(&gm),
+            ok(&acq),
+            ok(&rt),
+            ok(&sh),
+            Some(ok(&tl)),
+        )
+        .expect("complete snapshot projects");
+        assert_eq!(projected["next_show_timeline"], tl);
+        assert_eq!(
+            projected["sections"]["next_show_timeline"]["state"],
+            json!("ok")
+        );
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    /// A failed timeline must not blank the eleven sections around it — it
+    /// degrades alone, named in `degraded`, value null.
+    #[test]
+    fn a_failed_next_show_timeline_degrades_alone() {
+        let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
+        let (rt, sh) = (
+            json!({"summary": {}, "needs_human": [], "recent_auto": []}),
+            json!({"events": [{"slug": "friday", "upcoming": true, "starts_at": "x"}]}),
+        );
+        let e = timeout();
+        let projected = project_today(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            ok(&sig),
+            ok(&aud),
+            ok(&gm),
+            ok(&acq),
+            ok(&rt),
+            ok(&sh),
+            Some(Err(&e)),
+        )
+        .expect("one bad section degrades, the rest still project");
+        assert_eq!(projected["next_show_timeline"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["next_show_timeline"]));
+        assert_eq!(projected["shows"], sh);
+    }
+
+    /// `next_upcoming_show_slug` picks the soonest `upcoming` event by
+    /// `starts_at`; past shows, malformed rows and a failed shows section
+    /// all mean no timeline fetch at all.
+    #[test]
+    fn next_upcoming_show_slug_picks_the_soonest_upcoming() {
+        let shows = json!({"events": [
+            {"slug": "later", "upcoming": true, "starts_at": "2026-10-09T20:00:00Z"},
+            {"slug": "sooner", "upcoming": true, "starts_at": "2026-10-02T20:00:00Z"},
+            {"slug": "past", "upcoming": false, "starts_at": "2026-01-01T20:00:00Z"},
+            {"slug": "no-starts-at", "upcoming": true},
+        ]});
+        assert_eq!(
+            next_upcoming_show_slug(Some(&shows)),
+            Some("sooner".to_owned())
+        );
+        assert_eq!(next_upcoming_show_slug(None), None);
+        assert_eq!(next_upcoming_show_slug(Some(&json!({"events": []}))), None);
+        assert_eq!(
+            next_upcoming_show_slug(Some(
+                &json!({"events": [{"slug": "past", "upcoming": false}]})
+            )),
+            None
         );
     }
 
@@ -2353,7 +2553,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2393,7 +2593,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2435,7 +2635,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2475,7 +2675,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2516,7 +2716,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2564,7 +2764,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2609,7 +2809,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),
@@ -2653,7 +2853,7 @@ mod tests {
             acquisition_sources(),
         );
         let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
-        let projected = project_operations(
+        let projected = project_today_base(
             "virya",
             300,
             ok(&s),

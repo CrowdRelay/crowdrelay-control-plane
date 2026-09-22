@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
-import type { TenantOperationsReadModel, TenantRuntimeSnapshot } from '../lib/types'
+import type { TenantTodayReadModel, TenantRuntimeSnapshot } from '../lib/types'
 
 // One plain line for the machine: silent while everything answers, loud
 // with the first broken thing when it does not. Detail lives on the Health
@@ -14,7 +14,7 @@ export function TenantStatusLine(props: {
   // Optional — without a snapshot the line fetches the heartbeat on mount
   // (same shape TenantRuntimePanel takes when it owns its own fetch).
   initial?: TenantRuntimeSnapshot
-  operations: TenantOperationsReadModel | undefined
+  operations: TenantTodayReadModel | undefined
 }) {
   // Same query key as TenantRuntimePanel so the line shares the heartbeat
   // cache — a visit to the Health page warms this line and vice versa.

@@ -118,8 +118,10 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
   // Tab ids carry the `ci-` prefix: this content now mounts inside the
   // Audience page's own 'communities' TabPanel, and a bare 'communities'
   // would emit `tab-communities`/`tabpanel-communities` twice on one page —
-  // duplicate ids cross-wire the aria-controls/labelledby pairs.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('ci-communities', ['ci-communities', 'ci-intelligence'])
+  // duplicate ids cross-wire the aria-controls/labelledby pairs. Its URL
+  // param is `subtab` for the same reason: writing `?tab=ci-intelligence`
+  // would evict the host page's own `?tab=communities`.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('ci-communities', ['ci-communities', 'ci-intelligence'], 'subtab')
   const [selectedPlaceId, setSelectedPlaceId] = createSignal<string | null>(null)
   const [draftFor, setDraftFor] = createSignal<string | null>(null)
   const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set())
