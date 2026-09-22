@@ -6258,7 +6258,10 @@ mod tests {
             "stripe_secret_key",
             "sk_live_f4ke-k3y-n0t-r34l"
         ));
-        assert!(valid_tenant_secret("stripe_secret_key", "rk_test_1234567890"));
+        assert!(valid_tenant_secret(
+            "stripe_secret_key",
+            "rk_test_1234567890"
+        ));
         assert!(valid_tenant_secret(
             "stripe_webhook_secret",
             "whsec_f4ke-s3cret9END00"
@@ -6267,11 +6270,23 @@ mod tests {
         assert!(valid_tenant_secret("stripe_secret_key", "rk_live_abc123"));
         // Wrong slot, wrong prefix, junk: all refused before the wire.
         assert!(!valid_tenant_secret("stripe_secret_key", "whsec_12345678"));
-        assert!(!valid_tenant_secret("stripe_webhook_secret", "sk_live_12345678"));
-        assert!(!valid_tenant_secret("stripe_secret_key", "pk_live_12345678"));
+        assert!(!valid_tenant_secret(
+            "stripe_webhook_secret",
+            "sk_live_12345678"
+        ));
+        assert!(!valid_tenant_secret(
+            "stripe_secret_key",
+            "pk_live_12345678"
+        ));
         assert!(!valid_tenant_secret("stripe_webhook_secret", "whsec_1")); // too short
-        assert!(!valid_tenant_secret("stripe_secret_key", "sk_live_with space"));
-        assert!(!valid_tenant_secret("nonsense", "sk_live_123456789012345678"));
+        assert!(!valid_tenant_secret(
+            "stripe_secret_key",
+            "sk_live_with space"
+        ));
+        assert!(!valid_tenant_secret(
+            "nonsense",
+            "sk_live_123456789012345678"
+        ));
         assert!(!valid_tenant_secret("stripe_secret_key", &"x".repeat(201)));
     }
 }
