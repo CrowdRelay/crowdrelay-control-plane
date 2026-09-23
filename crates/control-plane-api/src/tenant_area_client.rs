@@ -588,6 +588,10 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     // cities and the reasons behind both.
                     | "/v1/control-plane/gig-plan"
             ) || path.starts_with("/v1/control-plane/audience-graph/places?")
+                // The contacts list carries its segment filter in the
+                // query (`?segment=likely_fan`) — a question mark, not a
+                // path segment, so it cannot reach a sibling route.
+                || path.starts_with("/v1/control-plane/gdrive/contacts?")
                 || path.starts_with("/v1/control-plane/gig-plan?")
                 || path.starts_with("/v1/control-plane/ops/outbox?")
                 || path.starts_with("/v1/control-plane/ops/deliveries?")
@@ -789,6 +793,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 // P.2: the operator's own sheet uploads through the same
                 // staging path the connectors feed.
                 || path == "/v1/control-plane/gdrive/contacts/upload"
+                // F1: a whole segment promotes in one upstream transaction —
+                // the operator confirms the live count, the tenant re-counts.
+                || path == "/v1/control-plane/gdrive/contacts/promote-batch"
                 // §4h-12: save is a POST on the same path as the read —
                 // publish/unlist/rotate-token are the only transitions, and
                 // an approach is the band asking, queued for approval.
