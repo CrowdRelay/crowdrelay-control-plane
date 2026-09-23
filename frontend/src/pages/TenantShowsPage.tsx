@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { TenantShow } from '../lib/types'
-import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { BookingJourneyPanel } from '../components/BookingJourneyPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { EmptyState } from '../components/ui/empty-state'
@@ -15,18 +16,7 @@ import { Checkbox } from '../components/app/checkbox'
 import { Button } from '../components/app/button'
 import { Spinner } from '../components/Spinner'
 import { toast } from '../components/app/toast'
-import { formatTimestamp } from '../lib/format'
-
-/** "in 3d" / "in 5h" countdown for an upcoming start time — no shared
- * future-direction formatter exists; the lib helpers all render past-tense. */
-const untilLabel = (iso: string) => {
-  const ms = new Date(iso).getTime()
-  if (Number.isNaN(ms)) return ''
-  const hours = Math.round((ms - Date.now()) / 3_600_000)
-  if (hours <= 0) return 'now'
-  if (hours < 24) return `in ${hours}h`
-  return `in ${Math.round(hours / 24)}d`
-}
+import { formatIsoUntil, formatTimestamp } from '../lib/format'
 
 /** `/tenants/$slug/shows` — the gig list: next up first, then past shows,
  * newest first. The noun every show-day capability hangs off; the night
@@ -39,6 +29,11 @@ export function TenantShowsPage() {
     staleTime: 10_000,
     refetchOnWindowFocus: false,
   }))
+  // Two reads of the same noun: Nights is the list of dates, Booking is the
+  // pipeline that produced them. The booking model is an eight-section
+  // fan-out — it only fires once the tab mounts (visit, prefetch, or a
+  // ?tab=booking deep link), so the default page costs the shows list only.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('nights', ['nights', 'booking'])
   const [adding, setAdding] = createSignal(false)
 
   const upcoming = createMemo(() => (model.data?.events ?? []).filter(event => event.upcoming))
@@ -62,6 +57,19 @@ export function TenantShowsPage() {
         onClose={() => setAdding(false)}
       />
 
+      <TabBar
+        tabs={[
+          { id: 'nights', label: 'Nights' },
+          // "Booking" is taken — the tenant wizard's crew-skill option is
+          // parity-locked to TeamSkill upstream. The journey's own words.
+          { id: 'booking', label: 'Get booked' },
+        ]}
+        active={activeTab()}
+        onChange={switchTab}
+        onPrefetch={prefetch}
+      />
+
+      <TabPanel active={activeTab()} id="nights" visited={isVisited('nights')}>
       <Show when={model.error}>
         <SectionFailureCard
           error={model.error}
@@ -114,6 +122,11 @@ export function TenantShowsPage() {
           </>
         )}
       </Show>
+      </TabPanel>
+
+      <TabPanel active={activeTab()} id="booking" visited={isVisited('booking')}>
+        <BookingJourneyPanel slug={params().slug} />
+      </TabPanel>
     </PageShell>
   )
 }
@@ -350,7 +363,7 @@ function ShowRow(props: { show: TenantShow; slug: string }) {
       <div class="text-right shrink-0">
         <Show
           when={!props.show.upcoming}
-          fallback={<div class="text-sm font-medium text-foreground">{untilLabel(props.show.starts_at)}</div>}
+          fallback={<div class="text-sm font-medium text-foreground">{formatIsoUntil(props.show.starts_at)}</div>}
         >
           <div class="text-sm font-medium text-foreground tabular-nums">{props.show.scan_count}</div>
           <div class="text-xs text-muted-foreground">scans</div>

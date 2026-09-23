@@ -1119,6 +1119,43 @@ export type TenantTodayReadModel = {
   fetchedAt: string
 }
 
+export type TenantBookingSection =
+  | 'gig_plan'
+  | 'shortlist'
+  | 'booking_candidates'
+  | 'outreach_candidates'
+  | 'agents'
+  | 'reply_triage'
+  | 'negotiations'
+  | 'shows'
+
+/** `GET /tenants/{slug}/booking` — the whole book-a-show pipeline in one
+ * read model, sections in pipeline order: found → confirmed → approached →
+ * talking → booked. A missing section is `null` and named in `degraded`. */
+export type TenantBookingReadModel = {
+  id: string
+  // The planner's city picks, the passed-over list, and the track record
+  // those proposals produced. `null` when the gig-plan section is degraded.
+  gig_plan: GigPlanResponse | null
+  // The scout's shortlist — every tracked opportunity, live and closed.
+  shortlist: OpportunityShortlist | null
+  // Candidate queues waiting on a person's confirm before a letter exists.
+  booking_candidates: BookingCandidateView[] | null
+  outreach_candidates: OutreachCandidateView[] | null
+  // The agent registry — who the season door is open with.
+  agents: { agents: BookingAgent[] } | null
+  // Replies waiting on a human read.
+  reply_triage: ReplyTriageView | null
+  // Live terms conversations and moves parked for approval.
+  negotiations: NegotiationsView | null
+  // The nights themselves — what the pipeline already produced.
+  shows: TenantShowsResponse | null
+  degraded: TenantBookingSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
 export type PortfolioConsentStatus = 'proposed' | 'active' | 'paused' | 'revoked'
 export type PortfolioPurpose = 'cross_promote' | 'release_feature' | 'event_crossbill'
 

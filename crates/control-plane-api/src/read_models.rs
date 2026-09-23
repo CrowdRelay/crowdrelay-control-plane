@@ -9,6 +9,7 @@
 //! * Overview  -> [`overview`]   (`GET /tenants/{slug}/overview`)
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
 //! * Today/Operations -> [`today`] (`GET /tenants/{slug}/today`)
+//! * Booking -> [`booking`] (`GET /tenants/{slug}/booking`)
 //! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
 //! * Audience -> [`audience`] (`GET /tenants/{slug}/audience/model`)
 //! * Press   -> [`press_overview`] (`GET /tenants/{slug}/operations/press-overview`)
@@ -138,6 +139,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/tenants/{slug}/overview", get(overview))
         .route("/tenants/{slug}/today", get(today))
+        .route("/tenants/{slug}/booking", get(booking))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -1707,6 +1709,103 @@ fn path_segment(value: &str) -> Result<&str, ApiError> {
     } else {
         Err(ApiError::InvalidInput("invalid path segment".to_owned()))
     }
+}
+
+/// Booking pipeline subpage — the "get the next night" journey.
+///
+/// Eight upstream sections fan out concurrently over the private tunnel and
+/// project in pipeline order: what the scout found (`shortlist`), what a
+/// person still has to confirm (`booking_candidates`, `outreach_candidates`,
+/// `gig_plan` proposals, parked negotiation moves, `reply_triage`), who has
+/// been approached (`agents`, gig-plan letters), which terms conversations
+/// are live (`negotiations`), and which nights are already on the books
+/// (`shows`). A section that fails is `null` plus a named entry in
+/// `degraded`; only a snapshot where every section failed is an error. One
+/// browser call, one cached snapshot — the Shows page's Get booked tab.
+///
+/// No second wave: every stage is addressable without an id, so unlike
+/// [`today`] there is no dependent fetch.
+async fn booking(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:booking");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    let (
+        gig_plan,
+        shortlist,
+        booking_candidates,
+        outreach_candidates,
+        agents,
+        reply_triage,
+        negotiations,
+        shows,
+    ) = tokio::join!(
+        fetch("/v1/control-plane/gig-plan"),
+        fetch("/v1/control-plane/autopilot/opportunity-shortlist"),
+        // Admitted-only: the unfiltered list caps at 50 rows across every
+        // status, so the rows the gate needs could page themselves out.
+        fetch("/v1/control-plane/autopilot/booking-discovery/candidates?status=admitted&limit=100"),
+        fetch("/v1/control-plane/autopilot/outreach/candidates?status=admitted&limit=100"),
+        fetch("/v1/control-plane/booking-agents"),
+        fetch("/v1/control-plane/autopilot/reply-triage"),
+        fetch("/v1/control-plane/autopilot/negotiations"),
+        fetch("/v1/control-plane/events"),
+    );
+
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "booking",
+        &[
+            section("gig_plan", gig_plan.as_ref(), Shape::Object),
+            section("shortlist", shortlist.as_ref(), Shape::Object),
+            section(
+                "booking_candidates",
+                booking_candidates.as_ref(),
+                Shape::Array,
+            ),
+            section(
+                "outreach_candidates",
+                outreach_candidates.as_ref(),
+                Shape::Array,
+            ),
+            section("agents", agents.as_ref(), Shape::Object),
+            section("reply_triage", reply_triage.as_ref(), Shape::Object),
+            section("negotiations", negotiations.as_ref(), Shape::Object),
+            section("shows", shows.as_ref(), Shape::Object),
+        ],
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
 }
 
 /// Show subpage — one night, T-21→T+7.

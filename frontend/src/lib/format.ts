@@ -72,6 +72,21 @@ export const formatIsoAge = (iso: string) => {
   return `${Math.floor(hours / 24)}d ago`
 }
 
+/// Formats an ISO timestamp as a countdown ("in 3d", "in 5h", "now").
+/// Past timestamps render as the age — a deadline that already passed is
+/// "3d ago", not a negative countdown.
+export const formatIsoUntil = (iso: string) => {
+  const ms = new Date(iso).getTime()
+  if (Number.isNaN(ms)) return '—'
+  const diff = ms - Date.now()
+  if (diff <= 0) return formatIsoAge(iso)
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `in ${Math.max(1, mins)}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `in ${hours}h`
+  return `in ${Math.floor(hours / 24)}d`
+}
+
 /// Formats a epoch-ms timestamp as a relative age string ("just now", "5m ago").
 /// Used for per-panel "Updated Xm ago" labels from query.dataUpdatedAt.
 export const relativeTime = (timestamp: number | undefined): string => {

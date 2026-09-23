@@ -43,7 +43,12 @@ const metric = (value: number | undefined | null, suffix = '') =>
 // first figure here says how many are waiting and points there.
 export function TenantOperationsPage() {
   const params = useParams({ from: '/tenants/$slug/operations' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('replies')
+  // The valid list is what makes `?tab=` work both ways — without it a
+  // deep link or a Booking-journey drill-through lands on Replies and
+  // `switchTab` never writes the param back.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('replies', [
+    'replies', 'negotiations', 'outreach', 'press', 'releases', 'listing', 'plays',
+  ])
   const model = useQuery(() => ({
     queryKey: ['tenant-operations', params().slug],
     queryFn: () => api.tenantToday(params().slug),
