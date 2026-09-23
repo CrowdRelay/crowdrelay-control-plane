@@ -10,6 +10,9 @@
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
 //! * Today/Operations -> [`today`] (`GET /tenants/{slug}/today`)
 //! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
+//! * Audience -> [`audience`] (`GET /tenants/{slug}/audience/model`)
+//! * Press   -> [`press_overview`] (`GET /tenants/{slug}/operations/press-overview`)
+//! * Show    -> [`show_model`] (`GET /tenants/{slug}/shows/{event_slug}/model`)
 //!
 //! Mutations stay on their own routes; nothing here writes.
 
@@ -141,6 +144,7 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/press-overview",
             get(press_overview),
         )
+        .route("/tenants/{slug}/shows/{event_slug}/model", get(show_model))
 }
 
 /// Global, cross-tenant read models. These are platform-admin surfaces that
@@ -1690,6 +1694,200 @@ async fn press_overview(
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
+}
+
+/// A value the handler interpolates into an upstream path segment. The
+/// allowlist is the tunnel's own `safe_segment_between` one — `[a-z0-9_-]`,
+/// the shape `events.slug` carries — so a slug the upstream could never
+/// route is refused here instead of travelling to the tenant and back.
+fn path_segment(value: &str) -> Result<&str, ApiError> {
+    let ok = !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'-' | b'_'));
+    if ok {
+        Ok(value)
+    } else {
+        Err(ApiError::InvalidInput("invalid path segment".to_owned()))
+    }
+}
+
+/// Show subpage — one night, T-21→T+7.
+///
+/// The page's whole read side in one call. The timeline is the spine: the
+/// page cannot render without an event to name, so a dead or malformed
+/// timeline fails the request the way the standalone route's error did.
+/// Every panel's read is an independently degraded section — `helpers`,
+/// `growth_ladder`, `economics`, `tour_economics` and `shared_night` each
+/// come back `null` and named in `degraded` when the tenant could not
+/// answer, and a page whose spine answered still renders even when every
+/// panel is down.
+///
+/// Two waves keep it one upstream round trip deep: helpers and the
+/// economics sections answer concurrently with the timeline; the growth
+/// ladder and the shared night can only be asked once the timeline names
+/// the event's id and any shared-night link. `shared_night` only exists as
+/// a section when the venue registry linked one — an unlinked show is
+/// absent, not degraded. One browser call, one cached snapshot.
+async fn show_model(
+    State(state): State<AppState>,
+    Path((raw_slug, raw_event_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let event_slug = path_segment(&raw_event_slug)?;
+    let cache_key = format!("{slug}:show:{event_slug}");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let correlation_id = correlation(&headers);
+    let get = |path: String| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path: &path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+
+    // Wave 1 — everything answerable from the path alone.
+    let (timeline, helpers, economics, tour_economics) = tokio::join!(
+        get(format!("/v1/control-plane/events/{event_slug}/timeline")),
+        get(format!(
+            "/v1/control-plane/events/{event_slug}/who-can-help"
+        )),
+        get("/v1/control-plane/autopilot/show-economics".to_owned()),
+        get("/v1/control-plane/autopilot/tour-economics".to_owned()),
+    );
+
+    let timeline = timeline?;
+    let (event_id, night_target) = show_fan_out_targets(&timeline)?;
+
+    // Wave 2 — the reads only the timeline can address.
+    let (growth_ladder, shared_night) = tokio::join!(
+        get(format!(
+            "/v1/control-plane/autopilot/events/{event_id}/growth-ladder"
+        )),
+        async {
+            match night_target {
+                NightTarget::Linked(id) => {
+                    Some(get(format!("/v1/control-plane/nights/{id}")).await)
+                }
+                NightTarget::Malformed => Some(Err(ApiError::ContractMismatch(
+                    "the timeline's shared-night link is not a uuid",
+                ))),
+                NightTarget::Unlinked => None,
+            }
+        },
+    );
+
+    let projected = project_show(
+        &slug,
+        state.runtime_stale_after_seconds,
+        &timeline,
+        helpers.as_ref(),
+        growth_ladder.as_ref(),
+        economics.as_ref(),
+        tour_economics.as_ref(),
+        shared_night.as_ref().map(Result::as_ref),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// What wave 2 of the show fan-out can do with the timeline's
+/// shared-night link. Unlinked is a fact — no section at all; a link that
+/// is present but unusable is drift — the section degrades as a contract
+/// mismatch rather than smuggling a bad segment upstream or pretending the
+/// night does not exist.
+#[derive(Debug, PartialEq)]
+enum NightTarget<'a> {
+    Unlinked,
+    Linked(&'a str),
+    Malformed,
+}
+
+/// What wave 2 of the show fan-out needs from the timeline: the event id
+/// the growth ladder hangs off, and the venue-registry link the shared
+/// night hangs off when one was resolved. Both are interpolated into
+/// upstream paths, so they carry the same uuid shape the standalone routes
+/// require. An unusable event id is spine drift — the page cannot name its
+/// show — so it fails the model; an absent link is a fact.
+fn show_fan_out_targets(timeline: &Value) -> Result<(&str, NightTarget<'_>), ApiError> {
+    let event_id = timeline
+        .get("event")
+        .and_then(|event| event.get("id"))
+        .and_then(Value::as_str)
+        .filter(|id| uuid::Uuid::parse_str(id).is_ok());
+    let Some(event_id) = event_id else {
+        return Err(ApiError::ContractMismatch(
+            "show timeline answered without event.id",
+        ));
+    };
+    let night = match timeline
+        .get("event")
+        .and_then(|event| event.get("place_event_id"))
+    {
+        None | Some(Value::Null) => NightTarget::Unlinked,
+        Some(Value::String(id)) if id.is_empty() => NightTarget::Unlinked,
+        Some(Value::String(id)) if uuid::Uuid::parse_str(id).is_ok() => NightTarget::Linked(id),
+        Some(_) => NightTarget::Malformed,
+    };
+    Ok((event_id, night))
+}
+
+/// Project the show page's sections. The timeline reaches this projection
+/// only `Ok` — its failure ended the request before this ran — so the
+/// all-failed rule inside [`project_sections`] can never fire on a page that
+/// still has its show: a night with every panel down renders plus named
+/// gaps instead of an error card that throws the spine away with them.
+#[allow(clippy::too_many_arguments)]
+fn project_show(
+    slug: &str,
+    runtime_stale_after_seconds: i64,
+    timeline: &Value,
+    helpers: SectionResult<'_>,
+    growth_ladder: SectionResult<'_>,
+    economics: SectionResult<'_>,
+    tour_economics: SectionResult<'_>,
+    shared_night: Option<SectionResult<'_>>,
+) -> Result<Value, ApiError> {
+    // The page cannot name its show without event.id, and renders the steps
+    // ladder off `steps`. A timeline that lost either is drift — a failed
+    // request, not a partial page. `show_fan_out_targets` already proved the
+    // object carries event.id; what remains to assert is `steps`.
+    show_fan_out_targets(timeline)?;
+    if !timeline.get("steps").is_some_and(Value::is_array) {
+        return Err(ApiError::ContractMismatch("show timeline is missing steps"));
+    }
+    let mut sections = vec![
+        section("timeline", Ok(timeline), Shape::Object),
+        section("helpers", helpers, Shape::Object),
+        section("growth_ladder", growth_ladder, Shape::Object),
+        section("economics", economics, Shape::Object),
+        section("tour_economics", tour_economics, Shape::Object),
+    ];
+    // Only projected when the venue registry linked a night — the
+    // `next_show_timeline` convention: never-due is absent, not null.
+    if let Some(night) = shared_night {
+        sections.push(section("shared_night", night, Shape::Object));
+    }
+    project_sections(slug, runtime_stale_after_seconds, "show", &sections)
 }
 
 fn project_audience(
@@ -3385,5 +3583,292 @@ mod tests {
         assert_eq!(rolled["outcomes"]["reportingTenants"], json!(0));
         assert_eq!(rolled["learning"]["totalOutcomes"], json!(0));
         assert_eq!(rolled["learning"]["reportingTenants"], json!(0));
+    }
+
+    // ── The show page model ────────────────────────────────────────────
+    // `project_show` receives the spine only after the handler's `?`, so a
+    // transport-dead timeline is unrepresentable here; what these tests pin
+    // is the rest of the contract — spine drift is an error, every panel
+    // degrades on its own, and an unlinked night is absent rather than null.
+
+    fn show_timeline() -> Value {
+        json!({
+            "event": {
+                "id": "01933f2a-0000-7000-8000-000000000001",
+                "slug": "sanity-check-gorzow-2026",
+                "title": "Sanity check",
+                "place_event_id": "01933f2a-0000-7000-8000-000000000002"
+            },
+            "steps": [{"key": "announced", "state": "done"}]
+        })
+    }
+    fn helpers_value() -> Value {
+        json!({"event": {"city": "Gorzów"}, "press": [], "degraded": []})
+    }
+    fn ladder_value() -> Value {
+        json!({"event_id": "01933f2a-0000-7000-8000-000000000001", "ladder_state": "none", "rungs": []})
+    }
+    fn economics_value() -> Value {
+        json!({"shows": [{"event_id": "01933f2a-0000-7000-8000-000000000001"}]})
+    }
+    fn tour_value() -> Value {
+        json!({"policy": {"crew_size": 4}, "version": 3})
+    }
+    fn night_value() -> Value {
+        json!({"place_event_id": "01933f2a-0000-7000-8000-000000000002", "lens": "own_band"})
+    }
+
+    /// The six-section call with every panel Ok — boilerplate shared by the
+    /// show-model tests; callers override the results they care about.
+    fn project_show_all(
+        timeline: &Value,
+        helpers: SectionResult<'_>,
+        growth_ladder: SectionResult<'_>,
+        economics: SectionResult<'_>,
+        tour_economics: SectionResult<'_>,
+        shared_night: Option<SectionResult<'_>>,
+    ) -> Result<Value, ApiError> {
+        project_show(
+            "virya",
+            300,
+            timeline,
+            helpers,
+            growth_ladder,
+            economics,
+            tour_economics,
+            shared_night,
+        )
+    }
+
+    #[test]
+    fn show_model_projects_every_section_of_a_complete_snapshot() {
+        let (tl, h, l, e, t, n) = (
+            show_timeline(),
+            helpers_value(),
+            ladder_value(),
+            economics_value(),
+            tour_value(),
+            night_value(),
+        );
+        let projected = project_show_all(&tl, ok(&h), ok(&l), ok(&e), ok(&t), Some(ok(&n)))
+            .expect("a complete show snapshot projects");
+
+        assert_eq!(projected["id"], json!("virya"));
+        assert_eq!(projected["timeline"], tl);
+        assert_eq!(projected["helpers"], h);
+        assert_eq!(projected["growth_ladder"], l);
+        assert_eq!(projected["economics"], e);
+        assert_eq!(projected["tour_economics"], t);
+        assert_eq!(projected["shared_night"], n);
+        assert_eq!(projected["degraded"], json!([]));
+        for name in [
+            "timeline",
+            "helpers",
+            "growth_ladder",
+            "economics",
+            "tour_economics",
+            "shared_night",
+        ] {
+            assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
+        }
+        assert!(projected["fetchedAt"].is_string());
+    }
+
+    #[test]
+    fn show_model_unlinked_night_is_absent_not_degraded() {
+        let (tl, h, l, e, t) = (
+            show_timeline(),
+            helpers_value(),
+            ladder_value(),
+            economics_value(),
+            tour_value(),
+        );
+        let projected = project_show_all(&tl, ok(&h), ok(&l), ok(&e), ok(&t), None)
+            .expect("a show without a shared night projects");
+
+        // The `next_show_timeline` convention: a section that does not apply
+        // is absent entirely — no key, no verdict, no degraded entry.
+        assert!(projected.get("shared_night").is_none());
+        assert!(projected["sections"].get("shared_night").is_none());
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    #[test]
+    fn show_model_failed_panels_degrade_locally() {
+        let (tl, _h, l, e, t) = (
+            show_timeline(),
+            helpers_value(),
+            ladder_value(),
+            economics_value(),
+            tour_value(),
+        );
+        let timed_out = timeout();
+        let gone = ApiError::NotFound;
+        let projected = project_show_all(
+            &tl,
+            Err(&timed_out),
+            ok(&l),
+            ok(&e),
+            ok(&t),
+            Some(Err(&gone)),
+        )
+        .expect("dead panels degrade; the spine still renders");
+
+        assert_eq!(projected["timeline"], tl);
+        assert_eq!(projected["helpers"], Value::Null);
+        assert_eq!(projected["shared_night"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["helpers", "shared_night"]));
+        assert_eq!(projected["sections"]["helpers"]["state"], json!("timeout"));
+        assert_eq!(
+            projected["sections"]["shared_night"]["state"],
+            json!("absent")
+        );
+        assert!(projected["sections"]["helpers"]["remediation"].is_string());
+    }
+
+    #[test]
+    fn show_model_wrong_typed_section_is_contract_mismatch() {
+        let (tl, h, l, t) = (
+            show_timeline(),
+            helpers_value(),
+            ladder_value(),
+            tour_value(),
+        );
+        let bad = json!([]); // economics answers an array where an object is contracted
+        let projected = project_show_all(&tl, ok(&h), ok(&l), ok(&bad), ok(&t), None)
+            .expect("a wrong-typed panel degrades");
+
+        assert_eq!(projected["economics"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["economics"]));
+        assert_eq!(
+            projected["sections"]["economics"]["state"],
+            json!("contract_mismatch")
+        );
+    }
+
+    #[test]
+    fn show_model_every_panel_down_still_renders_the_night() {
+        // The deliberate divergence from the other models' all-failed rule:
+        // the spine is always Ok here, so every panel dead is a degraded
+        // page — the show still renders — never an error card.
+        let tl = show_timeline();
+        let e = timeout();
+        let projected = project_show_all(&tl, Err(&e), Err(&e), Err(&e), Err(&e), Some(Err(&e)))
+            .expect("all panels dead is a degraded page, not a failed one");
+
+        assert_eq!(projected["timeline"], tl);
+        assert_eq!(
+            projected["degraded"],
+            json!([
+                "helpers",
+                "growth_ladder",
+                "economics",
+                "tour_economics",
+                "shared_night"
+            ])
+        );
+    }
+
+    #[test]
+    fn show_model_spine_drift_fails_the_model() {
+        let (h, l, e, t, n) = (
+            helpers_value(),
+            ladder_value(),
+            economics_value(),
+            tour_value(),
+            night_value(),
+        );
+        for bad in [
+            json!({"steps": []}),                         // no event at all
+            json!({"event": {"slug": "x"}, "steps": []}), // event without id
+            json!({"event": {"id": "x"}}),                // no steps
+            json!({"event": {"id": "x"}, "steps": {}}),   // steps not an array
+            json!("not an object"),
+        ] {
+            let error = project_show_all(&bad, ok(&h), ok(&l), ok(&e), ok(&t), Some(ok(&n)))
+                .expect_err("spine drift must fail the model");
+            assert!(
+                matches!(error, ApiError::ContractMismatch(_)),
+                "{bad} must be a contract mismatch, got {error:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn show_model_wave_two_targets_come_from_the_timeline() {
+        let tl = show_timeline();
+        let (event_id, night) =
+            show_fan_out_targets(&tl).expect("a valid timeline names its event");
+        assert_eq!(event_id, "01933f2a-0000-7000-8000-000000000001");
+        assert_eq!(
+            night,
+            NightTarget::Linked("01933f2a-0000-7000-8000-000000000002")
+        );
+
+        // Null, absent and empty place_event_id all mean unlinked — no
+        // wave-2 night fetch either way.
+        let unlinked_links = [json!(null), json!("")];
+        for link in unlinked_links {
+            let tl = json!({"event": {"id": "01933f2a-0000-7000-8000-000000000001", "place_event_id": link}, "steps": []});
+            let (event_id, night) =
+                show_fan_out_targets(&tl).expect("unlinked still names its event");
+            assert_eq!(event_id, "01933f2a-0000-7000-8000-000000000001");
+            assert_eq!(night, NightTarget::Unlinked, "place_event_id={link}");
+        }
+        let no_key = json!({"event": {"id": "01933f2a-0000-7000-8000-000000000001"}, "steps": []});
+        assert_eq!(
+            show_fan_out_targets(&no_key).unwrap().1,
+            NightTarget::Unlinked
+        );
+
+        // A link that is present but not a uuid never reaches an upstream
+        // path — it degrades the night section instead of vanishing.
+        for bad in [
+            json!("../escape"),
+            json!("still-not-a-uuid"),
+            json!(42),
+            json!({"nested": "object"}),
+        ] {
+            let tl = json!({"event": {"id": "01933f2a-0000-7000-8000-000000000001", "place_event_id": bad}, "steps": []});
+            assert_eq!(
+                show_fan_out_targets(&tl).unwrap().1,
+                NightTarget::Malformed,
+                "place_event_id={bad}"
+            );
+        }
+
+        // The same rule on the spine: an event id that is not a uuid is
+        // drift, not a fetch — the standalone ladder route requires the
+        // same shape.
+        let bad_spine = json!({"event": {"id": "../events", "place_event_id": null}, "steps": []});
+        assert!(matches!(
+            show_fan_out_targets(&bad_spine),
+            Err(ApiError::ContractMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn path_segment_rejects_anything_that_escapes_its_segment() {
+        assert_eq!(
+            path_segment("sanity-check-gorzow-2026").expect("a real event slug passes"),
+            "sanity-check-gorzow-2026"
+        );
+        for bad in [
+            "",
+            "a/b",
+            "..",
+            ".",
+            "a b",
+            "a%2Fb",
+            "a\\b",
+            "a?b=1",
+            "a.b",
+            "a~b",
+            "Uppercase",
+        ] {
+            assert!(path_segment(bad).is_err(), "{bad:?} must be rejected");
+        }
+        let long = "a".repeat(129);
+        assert!(path_segment(&long).is_err(), "over-long segments rejected");
     }
 }

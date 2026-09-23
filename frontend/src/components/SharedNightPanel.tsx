@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { NightContributionKind, SharedNight } from '../lib/types'
 import { readOnly } from '../lib/read-only'
@@ -28,19 +28,13 @@ function ownKinds(night: SharedNight): Set<NightContributionKind> {
   return new Set((night.contributions?.own ?? []) as NightContributionKind[])
 }
 
-export function SharedNightPanel(props: { slug: string; placeEventId: string }) {
+export function SharedNightPanel(props: { slug: string; placeEventId: string; night: SharedNight | null }) {
   const queryClient = useQueryClient()
-  const night = useQuery(() => ({
-    queryKey: ['shared-night', props.slug, props.placeEventId],
-    queryFn: () => api.night(props.slug, props.placeEventId),
-    staleTime: 10_000,
-    refetchOnWindowFocus: false,
-  }))
   const [flash, setFlash] = createSignal('')
   const [copied, setCopied] = createSignal(false)
 
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['shared-night', props.slug, props.placeEventId] })
+    queryClient.invalidateQueries({ queryKey: ['tenant-show-page', props.slug] })
 
   const contribute = useMutation(() => ({
     mutationFn: (input: { kind: NightContributionKind; value: Record<string, unknown> }) =>
@@ -91,18 +85,14 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string }) 
 
   // The band-side lenses carry the edit surface; a co-billed read gets the
   // same block but only the public halves.
-  const bandSide = () => night.data?.lens === 'own_band' || night.data?.lens === 'roster'
+  const bandSide = () => props.night?.lens === 'own_band' || props.night?.lens === 'roster'
 
   return (
-    <Show when={night.data} fallback={
-      <Show when={!night.isLoading}>
-        <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Shared night</p>
-          <p class="mt-1 text-xs text-muted-foreground">
-            {night.error ? errorMessage(night.error, 'The shared night is unavailable.') : ''}
-          </p>
-        </div>
-      </Show>
+    <Show when={props.night} fallback={
+      <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Shared night</p>
+        <p class="mt-1 text-xs text-muted-foreground">The shared night is unavailable.</p>
+      </div>
     }>
       {data => (
         <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
