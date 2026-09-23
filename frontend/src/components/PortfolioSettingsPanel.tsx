@@ -25,6 +25,9 @@ const LABELS: Record<string, string> = {
   growth_cadence_moments_per_month: 'Serious moments per month',
   growth_cadence_fillers_enabled: 'Filler calendar',
   crew_locale: 'Language the crew reads',
+  join_ask_variants: 'Join-ask posts (your words)',
+  join_ask_cadence_days: 'Join-ask cadence (days)',
+  join_ask_platforms: 'Join-ask channels',
 }
 
 // The server grew three more editable keys than this panel had labels for, so
@@ -94,6 +97,19 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
   growth_cadence_fillers_enabled: {
     hint: 'Whether the machine schedules fillers between serious moments — demos, harvest output, catalogue rotation, show material, no spend and no gate. The quiet weeks fill themselves.',
     example: 'true',
+  },
+  join_ask_variants: {
+    hint: "One to five short posts asking followers to join the fanbase, as a JSON list of strings. The system rotates them onto the tenant's own channels and appends the tracked join link; it never rewrites them. Empty means the weekly ask is off.",
+    band: 'One to five short posts asking your followers to join, in your own words, as a JSON list of strings. We rotate them onto your own channels and add the join link — we never rewrite them. Empty means the weekly ask is off.',
+    example: '["Jesteśmy w Signal — koncerty w pobliżu i bilety pierwsi. Dołącz:", "Nowa muzyka najpierw dla ludzi z Signal. Wchodzisz?"]',
+  },
+  join_ask_cadence_days: {
+    hint: 'Minimum days between two join-asks on the same channel. One post per channel per ISO week at most, whatever this says. 3–30; absent means 7.',
+    example: '7',
+  },
+  join_ask_platforms: {
+    hint: 'Comma list of channels the join-ask goes to. Facebook and Instagram publish today; telegram and discord are accepted but held until their executor is wired. Absent means facebook,instagram.',
+    example: 'facebook,instagram',
   },
 }
 
