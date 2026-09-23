@@ -48,7 +48,7 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access'] },
     ],
   },
 ]
@@ -76,7 +76,7 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access'] },
     ],
   },
   {

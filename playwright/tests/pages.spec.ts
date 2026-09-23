@@ -15,6 +15,7 @@ const PAGES = [
   { path: '/login', name: 'login', title: /.+/i },
   { path: '/tenants', name: 'tenants', title: /.+/i },
   { path: '/tenants/virya?tab=profile', name: 'tenant-settings', title: /.+/i },
+  { path: '/tenants/virya?tab=workspace', name: 'tenant-workspace', title: /.+/i },
   { path: '/tenants/virya/operations', name: 'operations', title: /.+/i },
   { path: '/tenants/virya/audience', name: 'audience', title: /.+/i },
   { path: '/tenants/virya/attention', name: 'attention', title: /.+/i },

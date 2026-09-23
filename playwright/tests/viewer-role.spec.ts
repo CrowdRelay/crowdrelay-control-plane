@@ -79,6 +79,23 @@ test('the tenant settings page offers no write @viewer', async ({ page }) => {
   if (await edit.count() > 0) await expect(edit.first()).toBeDisabled()
 })
 
+test('the workspace tab offers no write @viewer', async ({ page }) => {
+  await assertViewerSession(page)
+  // Workspace holds the editable settings that moved out of Audience — every
+  // control on it is a write, so a viewer's inputs, selects and buttons are
+  // all disabled.
+  await page.goto(`/tenants/${SLUG}?tab=workspace`)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(1000)
+  for (const el of await page.locator('input, select, button').all()) {
+    // Tab buttons and the Refresh in the header are navigation, not writes.
+    const role = await el.getAttribute('role')
+    const ariaLabel = (await el.getAttribute('aria-label')) ?? ''
+    if (role === 'tab' || ariaLabel === 'Refresh') continue
+    await expect(el).toBeDisabled()
+  }
+})
+
 test('the command palette lists nothing that writes @viewer', async ({ page }) => {
   await assertViewerSession(page)
   await page.keyboard.press('ControlOrMeta+k')

@@ -7,8 +7,6 @@ import { AudienceOverviewPanel } from '../components/AudienceOverviewPanel'
 import { FanTablePanel } from '../components/FanTablePanel'
 import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { PortfolioPanel } from '../components/PortfolioPanel'
-import { PortfolioSettingsPanel } from '../components/PortfolioSettingsPanel'
-import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
 import { DriveContactsPanel } from '../components/DriveContactsPanel'
@@ -45,14 +43,12 @@ const PORTFOLIO_SECTION_LABEL: Record<string, string> = {
   overview: 'Roster KPIs',
   amplification: 'Amplification edges',
   fanbases: 'Fan sources',
-  settings: 'Brand settings',
 }
 
 const BAND_PORTFOLIO_SECTION_LABEL: Record<string, string> = {
   overview: 'Roster numbers',
   amplification: 'Amplification',
   fanbases: 'Fan sources',
-  settings: 'Settings',
 }
 
 function DegradedSections(props: { degraded: string[]; labels: Record<string, string>; bandLabels?: Record<string, string> }) {
@@ -94,8 +90,10 @@ export function AudiencePage() {
   }))
   const refresh = () => model.refetch()
 
-  // The merged-in portfolio model — fan sources, amplification consents,
-  // brand settings. Lazy: the Fans tab never pays for it.
+  // The merged-in portfolio model — fan sources and amplification consents.
+  // The settings it used to carry moved to the tenant page's Workspace tab;
+  // the keys it used to mount moved to Access. Lazy: the Fans tab never
+  // pays for it.
   const portfolio = useQuery(() => ({
     queryKey: ['tenant-portfolio', params().slug],
     queryFn: () => api.tenantPortfolio(params().slug),
@@ -229,7 +227,9 @@ export function AudiencePage() {
       <CommunityIntelligenceContent slug={params().slug} />
     </TabPanel>
 
-    {/* ── Label portfolio tab — roster KPIs, consent edges, settings ── */}
+    {/* ── Label portfolio tab — roster KPIs and consent edges. Settings and
+          keys moved to the tenant page: Workspace holds the editors, Access
+          holds the secrets. ── */}
     <TabPanel active={activeTab()} id="portfolio" visited={isVisited('portfolio')}>
       <Show when={portfolio.error}>
         <SectionFailureCard error={portfolio.error} fallback="Portfolio channel unavailable" onRetry={refreshPortfolio} />
@@ -248,17 +248,7 @@ export function AudiencePage() {
             onChanged={refreshPortfolio}
           />
         </Show>
-        <Show when={!data.degraded.includes('settings')}>
-          <PortfolioSettingsPanel
-            slug={params().slug}
-            model={data.settings ?? undefined}
-            onChanged={refreshPortfolio}
-          />
-        </Show>
       </>}</Show>
-      {/* Keys query their own channel — a degraded settings section, or a
-          portfolio channel that fails outright, must not take them down. */}
-      <TenantSecretsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }

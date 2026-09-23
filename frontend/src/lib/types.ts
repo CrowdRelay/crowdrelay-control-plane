@@ -1342,6 +1342,17 @@ export interface PortfolioSettingsReadModel {
   editable_keys: string[]
 }
 
+// What the media upload returns — the public URL is what `join_ask_image_url`
+// stores, minted from the tenant's public API origin so Meta and Telegram can
+// fetch it at publish time.
+export interface UploadedMedia {
+  id: string
+  url: string
+  contentType: string
+  byteLen: number
+  name: string
+}
+
 // A tenant-held credential the operator can see exists — the masked hint and
 // when it was set. The value itself is never returned by any read.
 export interface TenantSecret {
@@ -1367,14 +1378,13 @@ export interface FanbaseBlock {
   last_imported_pending: number | null
 }
 
-export type TenantPortfolioSection = 'overview' | 'amplification' | 'fanbases' | 'settings'
+export type TenantPortfolioSection = 'overview' | 'amplification' | 'fanbases'
 
 export type TenantPortfolioReadModel = {
   id: string
   overview: PortfolioOverview | null
   amplification: { consents: PortfolioConsent[] } | null
   fanbases: { fanbases: FanbaseBlock[] } | null
-  settings: PortfolioSettingsReadModel | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantPortfolioSection[]

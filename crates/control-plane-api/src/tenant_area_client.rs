@@ -129,6 +129,34 @@ pub(crate) struct ManagementRequest<'a> {
     pub idempotency_key: Option<&'a str>,
 }
 
+/// The media upload's parameters — a struct because the call carries the
+/// same routing fields as `ManagementRequest` plus the wire shape of a file,
+/// and eight positional arguments are where mistakes live.
+pub(crate) struct BinaryManagementRequest<'a> {
+    pub path: &'a str,
+    pub bytes: &'a [u8],
+    pub content_type: &'a str,
+    /// The original filename, display text only — rides upstream as
+    /// `X-Media-Name`.
+    pub file_name: Option<&'a str>,
+    pub correlation_id: Option<&'a str>,
+    pub idempotency_key: Option<&'a str>,
+}
+
+/// What goes on the wire after the request line and headers. JSON for every
+/// proxied call except the media upload, whose body is the file itself —
+/// packing a PNG into JSON would inflate it for no reason, and the upstream
+/// sniffs the bytes rather than trusting a declared type anyway.
+enum RequestBody<'a> {
+    None,
+    Json(&'a Value),
+    Binary {
+        bytes: &'a [u8],
+        content_type: &'a str,
+        file_name: Option<&'a str>,
+    },
+}
+
 impl TenantAreaClient {
     #[cfg(test)]
     #[must_use]
@@ -249,7 +277,7 @@ impl TenantAreaClient {
             base_url,
             method,
             path_and_query,
-            body,
+            body.map_or(RequestBody::None, RequestBody::Json),
             correlation_id,
             idempotency_key,
             &token,
@@ -292,7 +320,50 @@ impl TenantAreaClient {
             base_url,
             request.method,
             request.path,
-            request.body,
+            request.body.map_or(RequestBody::None, RequestBody::Json),
+            request.correlation_id,
+            request.idempotency_key,
+            &token,
+        )
+        .await
+    }
+
+    /// `POST` whose body is the caller's raw bytes — the media upload, the
+    /// one management call that is not JSON. The same allowlist, derived
+    /// token, idempotency-key and pooling rules as [`Self::request_management`];
+    /// only the wire shape differs, and `file_name` rides as `X-Media-Name`
+    /// because the filename is display text, not part of the resource.
+    pub async fn request_management_binary(
+        &self,
+        tenant_id: Uuid,
+        base_url: &str,
+        request: BinaryManagementRequest<'_>,
+    ) -> Result<Value, ApiError> {
+        if !valid_operations_request("POST", request.path)
+            || contains_request_whitespace(request.path)
+        {
+            return Err(ApiError::InvalidInput(
+                "invalid tenant operations request".to_owned(),
+            ));
+        }
+        if !request.idempotency_key.is_some_and(valid_idempotency_key) {
+            return Err(ApiError::InvalidInput(
+                "valid Idempotency-Key is required for tenant operation mutations".to_owned(),
+            ));
+        }
+        let token = self.derived_management_token(tenant_id)?;
+        let limiter = self.target_limiter(base_url).await;
+        let _permit = limiter.acquire().await;
+        request_authorized(
+            &self.pool,
+            base_url,
+            "POST",
+            request.path,
+            RequestBody::Binary {
+                bytes: request.bytes,
+                content_type: request.content_type,
+                file_name: request.file_name,
+            },
             request.correlation_id,
             request.idempotency_key,
             &token,
@@ -681,6 +752,9 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                     // Manual show entry: the label that never ran a sync
                     // source types the night in by hand.
                     | "/v1/control-plane/events"
+                    // The join-ask image: the operator's file goes up as its
+                    // own bytes; the upstream sniffs the type.
+                    | "/v1/control-plane/media"
             ) || uuid_segment_between(path, "/v1/control-plane/ops/outbox/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/deliveries/", "/retry")
                 || uuid_segment_between(path, "/v1/control-plane/ops/push/", "/retry")
@@ -925,7 +999,7 @@ async fn request_authorized(
     base_url: &str,
     method: &str,
     path_and_query: &str,
-    body: Option<&Value>,
+    body: RequestBody<'_>,
     correlation_id: Option<&str>,
     idempotency_key: Option<&str>,
     token: &str,
@@ -940,7 +1014,26 @@ async fn request_authorized(
 
     let address = format_host_port(host, port);
 
-    let body_text = body.map(Value::to_string).unwrap_or_default();
+    let (body_bytes, content_type, file_name) = match body {
+        RequestBody::None => (Vec::new(), None, None),
+        RequestBody::Json(value) => (
+            value.to_string().into_bytes(),
+            Some("application/json"),
+            None,
+        ),
+        RequestBody::Binary {
+            bytes,
+            content_type,
+            file_name,
+        } => (
+            bytes.to_vec(),
+            Some(content_type),
+            // A header value is ASCII visible text; anything else is either
+            // an injection attempt or a name the display can do without.
+            file_name
+                .filter(|name| !name.is_empty() && name.bytes().all(|b| matches!(b, 0x20..=0x7E))),
+        ),
+    };
     let host_header = host_header(host, target.port(), port);
     let mut request = format!(
         "{method} {path_and_query} HTTP/1.1\r\nHost: {host_header}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nAccept-Encoding: gzip, deflate\r\nConnection: keep-alive\r\n"
@@ -955,16 +1048,24 @@ async fn request_authorized(
         request.push_str(key);
         request.push_str("\r\n");
     }
-    if body.is_some() {
-        request.push_str("Content-Type: application/json\r\n");
+    if let Some(content_type) = content_type {
+        request.push_str("Content-Type: ");
+        request.push_str(content_type);
+        request.push_str("\r\n");
     }
-    if body.is_some() || matches!(method, "POST" | "PATCH") {
+    if let Some(name) = file_name {
+        request.push_str("X-Media-Name: ");
+        request.push_str(name);
+        request.push_str("\r\n");
+    }
+    if content_type.is_some() || matches!(method, "POST" | "PATCH") {
         request.push_str("Content-Length: ");
-        request.push_str(&body_text.len().to_string());
+        request.push_str(&body_bytes.len().to_string());
         request.push_str("\r\n");
     }
     request.push_str("\r\n");
-    request.push_str(&body_text);
+    let mut wire = request.into_bytes();
+    wire.extend_from_slice(&body_bytes);
 
     // Reuse a pooled keep-alive connection where one is available, and retry
     // once on a fresh connection when a *reused* one fails.
@@ -1003,7 +1104,7 @@ async fn request_authorized(
         loop {
             let attempt = async {
                 stream
-                    .write_all(request.as_bytes())
+                    .write_all(&wire)
                     .await
                     .map_err(|_| ApiError::Unreachable)?;
                 read_framed_response(&mut stream).await
@@ -2286,7 +2387,7 @@ mod tests {
                 &base,
                 "GET",
                 "/v1/control-plane/ops/summary",
-                None,
+                RequestBody::None,
                 None,
                 None,
                 "token",
@@ -2333,7 +2434,7 @@ mod tests {
             &format!("http://{address}"),
             "GET",
             "/v1/control-plane/ops/summary",
-            None,
+            RequestBody::None,
             None,
             None,
             "token",

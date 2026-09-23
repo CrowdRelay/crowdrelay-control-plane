@@ -183,6 +183,7 @@ const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
   { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
+  { path: '/tenants/virya?tab=workspace', name: 'tenant-workspace' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
