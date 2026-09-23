@@ -438,6 +438,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/gdrive-contacts/upload",
             axum::routing::post(gdrive_upload).layer(DefaultBodyLimit::max(MAX_UPLOAD_BODY_BYTES)),
         )
+        // Segment-wide fan promotion — the panel confirms a live count,
+        // upstream re-counts and refuses a stale one. This plane validates
+        // the envelope; consent posture and the count check stay upstream.
+        .route(
+            "/tenants/{slug}/operations/gdrive-contacts/promote-batch",
+            axum::routing::post(promote_drive_contacts_batch),
+        )
         .route(
             "/tenants/{slug}/operations/gdrive-contacts/{contact_id}/promote",
             axum::routing::post(promote_drive_contact),
@@ -4066,22 +4073,35 @@ async fn growth_posture(
 /// Google Drive contacts: the review queue every extracted address lands
 /// in. Nothing is classified upstream — the panel promotes or dismisses
 /// per destination, and fan/beacon outcomes stay independent because a
-/// beacon may also be a fan.
+/// beacon may also be a fan. `?segment=` filters to one upstream segment
+/// (likely_fan / likely_org / beacon / inactive / gone); an unknown name is
+/// refused upstream with a 400, which this plane passes through.
+#[derive(Debug, Deserialize)]
+struct GdriveContactsQuery {
+    segment: Option<String>,
+}
+
 async fn gdrive_contacts(
     State(state): State<AppState>,
     Path(slug): Path<String>,
+    Query(query): Query<GdriveContactsQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (_, value) = call(
-        &state,
-        &slug,
-        "GET",
-        "/v1/control-plane/gdrive/contacts",
-        None,
-        &headers,
-        None,
-    )
-    .await?;
+    let mut path = "/v1/control-plane/gdrive/contacts".to_owned();
+    if let Some(segment) = &query.segment {
+        // The vocabulary is upstream's; safe_segment only keeps a hostile
+        // string out of the forwarded URL — it never decides validity. A
+        // name that fails it is malformed input, not "no filter": silently
+        // widening to the whole queue would show contacts the operator did
+        // not ask to see under a chip that claims a count.
+        if !safe_segment(segment) {
+            return Err(ApiError::InvalidInput(
+                "segment must be a lowercase identifier".to_owned(),
+            ));
+        }
+        path = format!("{path}?segment={segment}");
+    }
+    let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "gdrive contacts")
 }
 
@@ -4183,6 +4203,88 @@ struct DriveContactOutcome {
     kind: Option<String>,
     /// City slug for booking kinds — booking candidates are city-scoped.
     city: Option<String>,
+}
+
+/// The batch-promote body the confirm dialog sends. `expected_count` is the
+/// number the operator saw and confirmed — upstream re-counts the segment
+/// and answers 409 when a scan moved it between fetch and click, so a stale
+/// count never widens a send. `reason` is the one line the executor prints
+/// in the opt-in invitation.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DriveContactsBatchPromote {
+    destination: String,
+    segment: String,
+    expected_count: i64,
+    reason: Option<String>,
+}
+
+async fn promote_drive_contacts_batch(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<DriveContactsBatchPromote>,
+) -> Result<Response, ApiError> {
+    if input.destination != "fan" {
+        return Err(ApiError::InvalidInput(
+            "batch promote only accepts destination 'fan' — beacons stay per-row".to_owned(),
+        ));
+    }
+    if !safe_segment(&input.segment) {
+        return Err(ApiError::InvalidInput(
+            "segment must be a lowercase identifier".to_owned(),
+        ));
+    }
+    if input.expected_count < 0 {
+        return Err(ApiError::InvalidInput(
+            "expected_count cannot be negative".to_owned(),
+        ));
+    }
+    let reason = input
+        .reason
+        .as_deref()
+        .map(str::trim)
+        .filter(|r| !r.is_empty());
+    if let Some(reason) = reason {
+        // Matches the upstream bound: the invitation is one line, not a
+        // letter — a longer one belongs in the n8n template itself.
+        if reason.chars().count() > 200 {
+            return Err(ApiError::InvalidInput(
+                "reason is one line — 200 characters at most".to_owned(),
+            ));
+        }
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = serde_json::json!({
+        "destination": "fan",
+        "segment": input.segment,
+        "expected_count": input.expected_count,
+        "reason": reason,
+    });
+    let (tenant, value) = call(
+        &state,
+        &slug,
+        "POST",
+        "/v1/control-plane/gdrive/contacts/promote-batch",
+        Some(&body),
+        &headers,
+        Some(&idempotency),
+    )
+    .await?;
+    let result: Result<Value, ApiError> = Ok(value.clone());
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.drive_contacts.batch_promoted",
+        "drive_contacts",
+        &input.segment,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(value, "drive contacts batch promote")
 }
 
 async fn promote_drive_contact(

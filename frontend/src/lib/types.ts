@@ -359,6 +359,34 @@ export type DriveContactsResponse = {
   contacts: DriveContact[]
   /** Null when the registry pass could not run — never reads as zeroes. */
   registry_summary: DriveRegistrySummary | null
+  /** Counted over the whole staging population upstream, one filtered
+      query — the rendered page is capped, so chip totals must come from
+      here. Null when the count pass failed: a missing number is null,
+      never 0, and a null count disables the bulk-promote path. */
+  segment_counts: DriveSegmentCounts | null
+}
+
+/** The upstream segments the contacts list can be filtered to. `decided`
+    is the count of rows no longer staged on either destination — there is
+    no chip for it, it only explains why the staged counts need not sum. */
+export type DriveSegmentCounts = {
+  likely_fan: number
+  likely_org: number
+  beacon: number
+  inactive: number
+  gone: number
+  decided: number
+}
+
+/** What a promote-batch call moved. Every counter is the upstream's own
+    number — rendered verbatim, never rounded into one "N promoted". */
+export type DriveBatchPromoteResult = {
+  promoted: number
+  imported_pending: number
+  confirmation_resent: number
+  already_active: number
+  skipped_suppressed: number
+  cooldown_skipped: number
 }
 
 // P.1 — one person, two roles. The industry list (beacons) joined to the
