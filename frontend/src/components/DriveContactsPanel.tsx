@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { api } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
@@ -8,7 +8,7 @@ import { buttonVariants } from './app/button'
 import { cn } from '../lib/cn'
 import { refreshQueries } from '../lib/refresh'
 import { errorMessage } from '../lib/format'
-import type { DriveContact } from '../lib/types'
+import type { DriveContact, DriveSegmentCounts } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
@@ -19,6 +19,8 @@ import { Spinner } from './Spinner'
 import { SectionIcon } from './SectionIcon'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
+import { Dialog } from './Dialog'
 
 const KIND_LABELS: Record<string, string> = {
   fan: 'Fan',
@@ -73,10 +75,22 @@ const formatSeen = (iso: string) => {
   return new Date(iso).toLocaleDateString()
 }
 
+// The upstream segment vocabulary — order is the panel's, the names are
+// the API's (`?segment=` values). `beacon` renders as "Press & venues"
+// because that is what the kind means to the operator.
+const SEGMENT_CHIPS: { value: string; label: string; count: (c: DriveSegmentCounts) => number }[] = [
+  { value: 'likely_fan', label: 'Likely fans', count: c => c.likely_fan },
+  { value: 'likely_org', label: 'Organisations', count: c => c.likely_org },
+  { value: 'beacon', label: 'Press & venues', count: c => c.beacon },
+  { value: 'inactive', label: 'Inactive', count: c => c.inactive },
+  { value: 'gone', label: 'Gone', count: c => c.gone },
+]
+
 export function DriveContactsPanel(props: { slug: string }) {
+  const [segment, setSegment] = createSignal<string | null>(null)
   const contacts = useQuery(() => ({
-    queryKey: ['gdrive-contacts', props.slug],
-    queryFn: () => api.gdriveContacts(props.slug),
+    queryKey: ['gdrive-contacts', props.slug, segment()],
+    queryFn: () => api.gdriveContacts(props.slug, segment() ?? undefined),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
     // A scan lands rows asynchronously — keep polling softly while any
@@ -96,6 +110,13 @@ export function DriveContactsPanel(props: { slug: string }) {
   const [batchConfirm, setBatchConfirm] = createSignal<'fans' | 'dismiss' | null>(null)
   const [batchProgress, setBatchProgress] = createSignal<{ done: number; total: number } | null>(null)
   const [uploading, setUploading] = createSignal(false)
+  // The promote-all dialog: the operator sees the live count, types the
+  // one line the opt-in mail carries, and confirms. The count travels as
+  // `expected_count` — the tenant re-counts and answers 409 on drift, so
+  // a scan between render and click never widens the send.
+  const [promoteAllOpen, setPromoteAllOpen] = createSignal(false)
+  const [promoteAllReason, setPromoteAllReason] = createSignal('')
+  const [promoteAllBusy, setPromoteAllBusy] = createSignal(false)
 
   const staged = createMemo(() =>
     (contacts.data?.contacts ?? []).filter(
@@ -263,6 +284,52 @@ export function DriveContactsPanel(props: { slug: string }) {
     }
   }
 
+  // Segment-wide fan promotion — one upstream call, one transaction. The
+  // hand-picked loop above stays for selections; this path is for the whole
+  // likely-fan cut and is the only way a count in the hundreds is sane.
+  const promoteAll = async () => {
+    const counts = contacts.data?.segment_counts
+    if (!counts) return
+    const expected = counts.likely_fan
+    setPromoteAllBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const result = await api.promoteDriveContactsBatch(
+        props.slug,
+        'likely_fan',
+        expected,
+        promoteAllReason(),
+      )
+      setPromoteAllOpen(false)
+      setPromoteAllReason('')
+      setSelected(new Set<string>())
+      refreshQueries(['gdrive-contacts', props.slug])
+      // The counters are the tenant's own — verbatim, never rounded into
+      // one "N promoted" that would hide the suppressed and the cooldowns.
+      const parts = [
+        `${result.imported_pending} pending`,
+        result.confirmation_resent > 0 ? `${result.confirmation_resent} re-sent` : null,
+        result.already_active > 0 ? `${result.already_active} already fans` : null,
+        result.skipped_suppressed > 0 ? `${result.skipped_suppressed} suppressed` : null,
+        result.cooldown_skipped > 0 ? `${result.cooldown_skipped} in cooldown` : null,
+      ].filter((p): p is string => p !== null)
+      setNotice(`Promoted ${result.promoted} contact${result.promoted === 1 ? '' : 's'} — ${parts.join(', ')}. The double opt-in emails are on their way.`)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // The segment moved between render and click — show the live
+        // numbers again instead of confirming a count that no longer is.
+        setError(errorMessage(err, 'The segment changed since this count — confirm again.'))
+        setPromoteAllOpen(false)
+        void contacts.refetch()
+      } else {
+        setError(errorMessage(err, 'The batch promote did not land — nothing was marked.'))
+      }
+    } finally {
+      setPromoteAllBusy(false)
+    }
+  }
+
   return (
     <section class="rounded-xl border border-border bg-card p-5">
       <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -334,6 +401,53 @@ export function DriveContactsPanel(props: { slug: string }) {
               </p>
             )}
           </Show>
+          {/* Segment chips — counted over the whole staging population
+              upstream, never inferred from the capped page. A null
+              segment_counts means the count pass failed; chips still
+              filter, but the promote-all path below stays closed because
+              there is no number to confirm. */}
+          <Show when={contacts.data?.segment_counts} keyed>
+            {counts => (
+              <div class="mt-3 flex items-center gap-1.5 flex-wrap" role="group" aria-label="Contact segments">
+                <Button
+                  size="xs"
+                  variant={segment() === null ? 'default' : 'outline'}
+                  onClick={() => setSegment(null)}
+                >
+                  All
+                </Button>
+                <For each={SEGMENT_CHIPS}>
+                  {chip => (
+                    <Button
+                      size="xs"
+                      variant={segment() === chip.value ? 'default' : 'outline'}
+                      onClick={() => setSegment(segment() === chip.value ? null : chip.value)}
+                    >
+                      {chip.label} · {chip.count(counts)}
+                    </Button>
+                  )}
+                </For>
+              </div>
+            )}
+          </Show>
+          {/* One click, one transaction: the whole likely-fan cut becomes
+              pending fans. The dialog makes the operator confirm the exact
+              number upstream will re-check — a count that drifted is a 409,
+              not a wider send. */}
+          <Show when={segment() === 'likely_fan' && (contacts.data?.segment_counts?.likely_fan ?? 0) > 0}>
+            <div class="mt-3 flex items-center gap-2">
+              <Button
+                writes
+                size="sm"
+                disabled={contacts.data?.segment_counts == null || promoteAllBusy()}
+                onClick={() => setPromoteAllOpen(true)}
+              >
+                <Show when={promoteAllBusy()}><Spinner /></Show>
+                Promote all {contacts.data?.segment_counts?.likely_fan} likely fans
+              </Button>
+              <span class="text-xs text-muted-foreground">Every one gets the double opt-in email — they confirm themselves.</span>
+            </div>
+          </Show>
           <Show when={staged().length > 0}>
             <div class="mt-4 flex items-center gap-3 flex-wrap rounded-md border border-border/50 bg-background/40 px-3 py-2">
               <Checkbox
@@ -389,6 +503,44 @@ export function DriveContactsPanel(props: { slug: string }) {
           </div>
         </Show>
       </Show>
+
+      <Dialog
+        open={promoteAllOpen()}
+        onClose={() => setPromoteAllOpen(false)}
+        label="Promote likely fans"
+        title={`Promote ${contacts.data?.segment_counts?.likely_fan ?? 0} likely fans`}
+        description="Each address becomes a pending fan and gets the double opt-in email — nobody is subscribed without confirming. Suppressed addresses are skipped and stay staged."
+        footer={
+          <>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPromoteAllOpen(false)} disabled={promoteAllBusy()}>
+              Cancel
+            </Button>
+            <Button
+              writes
+              type="button"
+              size="sm"
+              disabled={promoteAllBusy() || contacts.data?.segment_counts == null}
+              onClick={() => void promoteAll()}
+            >
+              <Show when={promoteAllBusy()}><Spinner /></Show>
+              Confirm {contacts.data?.segment_counts?.likely_fan ?? 0}
+            </Button>
+          </>
+        }
+      >
+        <label class="block text-xs font-medium text-muted-foreground" for="promote-all-reason">
+          One line for the opt-in email — why they're hearing from you (optional)
+        </label>
+        <Textarea
+          id="promote-all-reason"
+          class="mt-1.5"
+          rows={2}
+          maxLength={200}
+          value={promoteAllReason()}
+          onInput={e => setPromoteAllReason(e.currentTarget.value)}
+          placeholder="Moving our contact list to Signal — confirm if you still want to hear from us"
+        />
+      </Dialog>
     </section>
   )
 }
