@@ -396,7 +396,7 @@ test.describe('Control Plane E2E @e2e', () => {
         url: page.url(),
         expected: 'Timeline renders without error cards',
         actual: `${errorCards} error card(s) visible`,
-        fix_hint: 'Check the /tenants/{slug}/shows/{event_slug} proxy and upstream /v1/control-plane/events/{slug}/timeline',
+        fix_hint: 'Check the /tenants/{slug}/shows/{event_slug}/model read model and its upstream fan-out (timeline is the spine)',
       })
     }
   })

@@ -42,6 +42,7 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}/agents/suggestions`, method: 'GET', name: 'agent-suggestions' },
   { path: `/api/v1/tenants/${SLUG}/agents/schedules`, method: 'GET', name: 'agent-schedules' },
   { path: `/api/v1/tenants/${SLUG}/portfolio/fanbases/connections`, method: 'GET', name: 'fanbase-connections' },
+  { path: `/api/v1/tenants/${SLUG}/shows/sanity-check-gorzow-2026/model`, method: 'GET', name: 'show-page-model' },
   { path: '/healthz/ready', method: 'GET', name: 'healthz-ready' },
 ]
 

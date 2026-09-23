@@ -44,10 +44,11 @@ function lineupActs(timeline: { steps: ShowTimelineStep[] }): LineupAct[] {
 export function TenantShowPage() {
   const params = useParams({ from: '/tenants/$slug/shows/$eventSlug' })
   const model = useQuery(() => ({
-    queryKey: ['tenant-show-timeline', params().slug, params().eventSlug],
-    queryFn: () => api.showTimeline(params().slug, params().eventSlug),
+    queryKey: ['tenant-show-page', params().slug, params().eventSlug],
+    queryFn: () => api.showModel(params().slug, params().eventSlug),
     staleTime: 10_000,
     refetchOnWindowFocus: false,
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
   return (
@@ -67,7 +68,7 @@ export function TenantShowPage() {
             <PageHeader eyebrow="SHOW" title="Show" />
             <SectionFailureCard
               error={model.error}
-              fallback="Show timeline unavailable"
+              fallback="The show could not be loaded"
               onRetry={() => void model.refetch()}
             />
           </Show>
@@ -81,15 +82,15 @@ export function TenantShowPage() {
           <>
             <PageHeader
               eyebrow="SHOW"
-              title={data().event.title}
-              description={`${formatTimestamp(data().event.starts_at)}${data().event.venue ? ` · ${data().event.venue}` : ''}${data().event.venue_address ? ` · ${data().event.venue_address}` : ''}`}
+              title={data().timeline.event.title}
+              description={`${formatTimestamp(data().timeline.event.starts_at)}${data().timeline.event.venue ? ` · ${data().timeline.event.venue}` : ''}${data().timeline.event.venue_address ? ` · ${data().timeline.event.venue_address}` : ''}`}
             />
             {/* Venue knowledge lives on the show: what the room is to us —
                 the relationship record, not a lookup. */}
-            <Show when={(data().event.venue_knowledge ?? []).length > 0}>
+            <Show when={(data().timeline.event.venue_knowledge ?? []).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The room</p>
-                <For each={data().event.venue_knowledge ?? []}>
+                <For each={data().timeline.event.venue_knowledge ?? []}>
                   {v => (
                     <div class="mt-1 text-xs text-muted-foreground">
                       <span class="text-foreground">{v.name}</span>
@@ -107,10 +108,10 @@ export function TenantShowPage() {
             {/* The lineup — who else plays, in running order, with each
                 act's own ticket link. Read-side view of the bill the setup
                 panel edits (4V.5b). */}
-            <Show when={lineupActs(data()).length > 0}>
+            <Show when={lineupActs(data().timeline).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
                 <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who's playing</p>
-                <For each={lineupActs(data())}>
+                <For each={lineupActs(data().timeline)}>
                   {(act, index) => (
                     <div class="mt-1 flex items-baseline gap-2 text-xs text-muted-foreground">
                       <span class="w-4 shrink-0 text-right tabular-nums">{index() + 1}.</span>
@@ -136,24 +137,24 @@ export function TenantShowPage() {
                 date. Renders only when the venue registry resolved a link;
                 the block's own lens is the tenant workspace's, derived
                 upstream (4V.6b). */}
-            <Show when={data().event.place_event_id}>
+            <Show when={data().timeline.event.place_event_id}>
               {placeEventId => (
-                <SharedNightPanel slug={params().slug} placeEventId={placeEventId()} />
+                <SharedNightPanel slug={params().slug} placeEventId={placeEventId()} night={data().shared_night ?? null} />
               )}
             </Show>
-            <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data()} />
+            <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data().timeline} />
             {/* The money — predicted vs settled cost and where the estimate
                 was wrong. Renders nothing until a fee opens the ledger. */}
-            <ShowEconomicsPanel slug={params().slug} eventId={data().event.id} />
+            <ShowEconomicsPanel eventId={data().timeline.event.id} economics={data().economics} tour={data().tour_economics} />
             {/* P.4 — the approve-once growth ladder: one yes covers the whole
                 T-21→T+7 sequence, each rung still gated on its own evidence. */}
-            <ShowGrowthLadderPanel slug={params().slug} eventId={data().event.id} />
+            <ShowGrowthLadderPanel slug={params().slug} eventId={data().timeline.event.id} ladder={data().growth_ladder} />
             {/* §4h-11 — who could help with this show: the staging queue
                 read against a date rather than as an inventory. Candidates,
                 never instructions — no row carries a contact address. */}
-            <ShowHelpersPanel slug={params().slug} eventSlug={params().eventSlug} />
+            <ShowHelpersPanel slug={params().slug} eventSlug={params().eventSlug} helpers={data().helpers} />
             <div class="flex flex-col gap-2">
-              <For each={data().steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
+              <For each={data().timeline.steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
             </div>
           </>
         )}
@@ -401,22 +402,15 @@ function HelperGroup(props: { section: HelperSection; slug: string; count: numbe
   )
 }
 
-function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
-  // The same degraded-read convention every read model on the console uses:
-  // a 200 with a section named in `degraded` is not an error, so nothing
-  // retries it by default — whileIncomplete keeps asking until it fills.
-  const helpers = useQuery(() => ({
-    queryKey: ['tenant-show-helpers', props.slug, props.eventSlug],
-    queryFn: () => api.showHelpers(props.slug, props.eventSlug),
-    staleTime: 10_000,
-    refetchOnWindowFocus: false,
-    refetchInterval: whileIncomplete(hasDegradedSections),
-  }))
+function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: TenantShowHelpersResponse | null }) {
+  // `helpers` is this panel's section of the page model: `null` means the
+  // upstream could not answer, and the page-level retry keeps polling the
+  // whole model until the section fills or gives up.
   const queryClient = useQueryClient()
-  const city = () => helpers.data?.event.city ?? null
-  const country = () => helpers.data?.event.country_code ?? null
-  const noCity = () => (helpers.data?.degraded ?? []).includes('city')
-  const sectionDegraded = (s: HelperSection) => (helpers.data?.degraded ?? []).includes(s)
+  const city = () => props.helpers?.event.city ?? null
+  const country = () => props.helpers?.event.country_code ?? null
+  const noCity = () => (props.helpers?.degraded ?? []).includes('city')
+  const sectionDegraded = (s: HelperSection) => (props.helpers?.degraded ?? []).includes(s)
   const rowLink = "mt-0.5 block truncate text-xs text-muted-foreground hover:text-foreground"
   const audienceSearch = (s: HelperSection) => ({ tab: HELPER_TAB[s] })
   const [admitting, setAdmitting] = createSignal<string | null>(null)
@@ -426,7 +420,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
   // research, never a contact to mail. The same rule the researched-import
   // carries ("approve them before inviting") is what makes this one click.
   const admit = (name: string, kind: 'scene_partner' | 'venue') => {
-    const cityId = helpers.data?.event.city_id
+    const cityId = props.helpers?.event.city_id
     if (!cityId || admitting()) return
     setAdmitting(name)
     setAdmitNote(null)
@@ -445,8 +439,12 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
       })
       .then(() => {
         setAdmitNote(`${name} is on the roster — unverified. Find their channel before outreach.`)
-        void queryClient.invalidateQueries({ queryKey: ['tenant-show-helpers', props.slug, props.eventSlug] })
-        void queryClient.invalidateQueries({ queryKey: ['beacon-'] })
+        void queryClient.invalidateQueries({ queryKey: ['tenant-show-page', props.slug, props.eventSlug] })
+        // Beacon queries key by slug under a `beacon-*` first element —
+        // `['beacon-']` alone would match nothing.
+        void queryClient.invalidateQueries({
+          predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].startsWith('beacon-') && q.queryKey[1] === props.slug,
+        })
       })
       .catch((error: unknown) =>
         setAdmitNote(
@@ -459,14 +457,11 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string }) {
   return (
     <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
       <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who can help</p>
-      <Show when={helpers.error}>
+      <Show when={props.helpers === null}>
         <p class="mt-1 text-xs text-muted-foreground">The candidate list could not be loaded.</p>
       </Show>
-      <Show when={!helpers.data && !helpers.error}>
-        <p class="mt-1 text-xs text-muted-foreground">Checking who could help…</p>
-      </Show>
-      <Show when={helpers.data}>
-        {(data: () => TenantShowHelpersResponse) => (
+      <Show when={props.helpers}>
+        {data => (
           <>
             {/* A city-less show has no local anybody — one line for the whole
                 card rather than four identical empties. */}

@@ -1,6 +1,5 @@
 import { Show } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
-import { api } from '../lib/api'
+import type { ShowEconomicsResponse, TourEconomicsSummary } from '../lib/types'
 import { formatTimestamp } from '../lib/format'
 import { Badge } from './app/badge'
 
@@ -20,21 +19,8 @@ const money = (minor: number | null | undefined) =>
 const marginTone = (minor: number | null | undefined) =>
   minor == null ? 'text-muted-foreground' : minor >= 0 ? 'text-success-foreground' : 'text-destructive'
 
-export function ShowEconomicsPanel(props: { slug: string; eventId: string }) {
-  const economics = useQuery(() => ({
-    queryKey: ['show-economics', props.slug],
-    queryFn: () => api.showEconomics(props.slug),
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
-  const tour = useQuery(() => ({
-    queryKey: ['tour-economics', props.slug],
-    queryFn: () => api.tourEconomics(props.slug),
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
-  }))
-
-  const entry = () => economics.data?.shows.find(s => s.event_id === props.eventId)
+export function ShowEconomicsPanel(props: { eventId: string; economics: ShowEconomicsResponse | null; tour: TourEconomicsSummary | null }) {
+  const entry = () => props.economics?.shows.find(s => s.event_id === props.eventId)
   const settled = () => entry()?.settled_at != null
   const margin = () => settled() ? entry()!.settled_net_margin_minor : entry()?.predicted_net_margin_minor
 
@@ -67,16 +53,16 @@ export function ShowEconomicsPanel(props: { slug: string; eventId: string }) {
             <p class="mt-0.5 text-xs text-muted-foreground italic">Fix: {e().worst_line_remedy}</p>
           </Show>
         </Show>
-        <Show when={tour.data}>
+        <Show when={props.tour}>
           <details class="mt-2">
             <summary class="cursor-pointer text-xs text-muted-foreground">What the estimate assumes</summary>
             <p class="mt-1 text-xs text-muted-foreground">
-              {`Crew of ${tour.data!.policy.crew_size}, ${tour.data!.policy.max_vehicles} vehicle${tour.data!.policy.max_vehicles === 1 ? '' : 's'}, `}
-              {`fuel €${(tour.data!.policy.fuel_price_minor_per_litre / 100).toFixed(2)}/L, `}
-              {`rooms €${Math.round(tour.data!.policy.accommodation_minor_per_room_night / 100)}/night, `}
-              {`per diem €${Math.round(tour.data!.policy.per_diem_minor_per_person_day / 100)}/person-day, `}
-              {`overnight past ${tour.data!.policy.overnight_threshold_km} km, `}
-              {`€${Math.round(tour.data!.policy.fixed_overhead_minor / 100)} fixed per show.`}
+              {`Crew of ${props.tour!.policy.crew_size}, ${props.tour!.policy.max_vehicles} vehicle${props.tour!.policy.max_vehicles === 1 ? '' : 's'}, `}
+              {`fuel €${(props.tour!.policy.fuel_price_minor_per_litre / 100).toFixed(2)}/L, `}
+              {`rooms €${Math.round(props.tour!.policy.accommodation_minor_per_room_night / 100)}/night, `}
+              {`per diem €${Math.round(props.tour!.policy.per_diem_minor_per_person_day / 100)}/person-day, `}
+              {`overnight past ${props.tour!.policy.overnight_threshold_km} km, `}
+              {`€${Math.round(props.tour!.policy.fixed_overhead_minor / 100)} fixed per show.`}
             </p>
           </details>
         </Show>

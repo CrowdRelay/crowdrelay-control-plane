@@ -42,8 +42,10 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
   const [counterpartyEmail, setCounterpartyEmail] = createSignal(props.timeline.event.counterparty_email ?? '')
   const [flash, setFlash] = createSignal('')
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['tenant-show-timeline', props.slug, props.eventSlug] })
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['tenant-show-page', props.slug, props.eventSlug] })
+    void queryClient.invalidateQueries({ queryKey: ['tenant-show-timeline', props.slug, props.eventSlug] })
+  }
 
   const saveBill = useMutation(() => ({
     mutationFn: () =>

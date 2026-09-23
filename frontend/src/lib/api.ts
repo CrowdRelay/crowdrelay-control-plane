@@ -1,4 +1,4 @@
-import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentSchedule, AgentWorkflow, AgentWorkflowTask, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, CommunityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, SentRecord, SignalOverview, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, ShowEconomicsResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowHelpersResponse, ShowGrowthLadderView, TourEconomicsSummary, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret, StandingApproval, BookingAgent, GuaranteeView, TenantTodayReadModel } from './types'
+import type { AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentSchedule, AgentWorkflow, AgentWorkflowTask, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, CommunityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, SentRecord, SignalOverview, TenantOverviewReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowPageModel, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret, StandingApproval, BookingAgent, GuaranteeView, TenantTodayReadModel } from './types'
 
 export class ApiError extends Error {
   constructor(
@@ -836,10 +836,6 @@ export const api = {
     request<AcquisitionChannels>(`/tenants/${encodeURIComponent(slug)}/operations/acquisition-channels`),
   fanSources: (slug: string) =>
     request<FanSourcesResponse>(`/tenants/${encodeURIComponent(slug)}/operations/fan-sources`),
-  tourEconomics: (slug: string) =>
-    request<TourEconomicsSummary>(`/tenants/${encodeURIComponent(slug)}/operations/tour-economics`),
-  showEconomics: (slug: string) =>
-    request<ShowEconomicsResponse>(`/tenants/${encodeURIComponent(slug)}/operations/show-economics`),
   shows: (slug: string) =>
     request<TenantShowsResponse>(`/tenants/${encodeURIComponent(slug)}/shows`),
   showTimeline: (slug: string, eventSlug: string) =>
@@ -857,12 +853,11 @@ export const api = {
         recipients: r.recipients ?? {},
         honesty_contract: r.honesty_contract ?? {},
       })),
-  /** §4h-11 — who could help with this show: candidates only, no contacts. */
-  showHelpers: (slug: string, eventSlug: string) =>
-    request<TenantShowHelpersResponse>(`/tenants/${encodeURIComponent(slug)}/shows/${encodeURIComponent(eventSlug)}/who-can-help`),
-  /** P.4 — the show's approve-once growth ladder: state plus every rung. */
-  showGrowthLadder: (slug: string, eventId: string) =>
-    request<ShowGrowthLadderView>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder`),
+  /** The show page's whole read side in one call — the timeline spine plus
+   *  every panel's section, fanned out server-side. A section the tenant
+   *  could not answer comes back `null` and named in `degraded`. */
+  showModel: (slug: string, eventSlug: string) =>
+    request<TenantShowPageModel>(`/tenants/${encodeURIComponent(slug)}/shows/${encodeURIComponent(eventSlug)}/model`),
   /** P.4 — one yes over the whole ladder. */
   approveShowGrowthLadder: (slug: string, eventId: string) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/approve`, {
@@ -905,8 +900,6 @@ export const api = {
   // One venue's night across tenants. The read answers in the tenant
   // workspace's own lens — which lens is upstream's derivation from the
   // workspace's relationship, never a parameter this call could pick.
-  night: (slug: string, placeEventId: string) =>
-    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}`),
   /** Publish or replace one contributed kind for the tenant's workspace —
    *  explicit, revocable, audited; the default is contribute nothing. */
   nightContribute: (slug: string, placeEventId: string, kind: NightContributionKind, value: Record<string, unknown>) =>

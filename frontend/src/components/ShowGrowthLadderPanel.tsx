@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { ShowLadderRung } from '../lib/types'
+import type { ShowGrowthLadderView, ShowLadderRung } from '../lib/types'
 import { readOnly } from '../lib/read-only'
 import { errorMessage, formatTimestamp } from '../lib/format'
 import { Button } from './ui/button'
@@ -46,16 +46,10 @@ function rungState(rung: ShowLadderRung): string {
   return rung.status.replaceAll('_', ' ')
 }
 
-export function ShowGrowthLadderPanel(props: { slug: string; eventId: string }) {
+export function ShowGrowthLadderPanel(props: { slug: string; eventId: string; ladder: ShowGrowthLadderView | null }) {
   const queryClient = useQueryClient()
-  const ladder = useQuery(() => ({
-    queryKey: ['show-growth-ladder', props.slug, props.eventId],
-    queryFn: () => api.showGrowthLadder(props.slug, props.eventId),
-    staleTime: 10_000,
-    refetchOnWindowFocus: false,
-  }))
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['show-growth-ladder', props.slug, props.eventId] })
+    queryClient.invalidateQueries({ queryKey: ['tenant-show-page', props.slug] })
 
   const approve = useMutation(() => ({
     mutationFn: () => api.approveShowGrowthLadder(props.slug, props.eventId),
@@ -73,7 +67,7 @@ export function ShowGrowthLadderPanel(props: { slug: string; eventId: string }) 
         <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Growth ladder
         </p>
-        <Show when={ladder.data}>
+        <Show when={props.ladder}>
           {view => (
             <Badge
               variant={
@@ -90,16 +84,11 @@ export function ShowGrowthLadderPanel(props: { slug: string; eventId: string }) 
         </Show>
       </div>
 
-      <Show when={ladder.isPending}>
-        <p class="mt-1 text-xs text-muted-foreground">Checking the ladder…</p>
-      </Show>
-      <Show when={ladder.isError}>
-        <p class="mt-1 text-xs text-muted-foreground">
-          {errorMessage(ladder.error, "Couldn't check the ladder — it fills in on its own.")}
-        </p>
+      <Show when={props.ladder === null}>
+        <p class="mt-1 text-xs text-muted-foreground">Couldn't check the ladder — it fills in on its own.</p>
       </Show>
 
-      <Show when={ladder.data}>
+      <Show when={props.ladder}>
         {view => (
           <>
             <p class="mt-1 text-xs text-muted-foreground">

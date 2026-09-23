@@ -2731,6 +2731,36 @@ export type TourEconomicsSummary = {
   [key: string]: unknown
 }
 
+// ── The show page read model ────────────────────────────────────────────
+// `GET /tenants/{slug}/shows/{eventSlug}/model` — the page's whole read
+// side in one server-side fan-out. `timeline` is the spine: it is always
+// present on a 200, because a page with no show is a failed request, not a
+// partial one. Every panel's section is independently degraded — `null`
+// means "couldn't check", `degraded`/`sections` name which and why.
+// `shared_night` only exists when the venue registry linked a night: an
+// unlinked show is absent, not degraded.
+export type TenantShowPageSection =
+  | 'timeline'
+  | 'helpers'
+  | 'growth_ladder'
+  | 'economics'
+  | 'tour_economics'
+  | 'shared_night'
+
+export type TenantShowPageModel = {
+  id: string
+  timeline: TenantShowTimelineResponse
+  helpers: TenantShowHelpersResponse | null
+  growth_ladder: ShowGrowthLadderView | null
+  economics: ShowEconomicsResponse | null
+  tour_economics: TourEconomicsSummary | null
+  shared_night?: SharedNight | null
+  degraded: TenantShowPageSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
 export type ChiefOfStaffAttentionItem = {
   kind: string
   subject_kind: string
