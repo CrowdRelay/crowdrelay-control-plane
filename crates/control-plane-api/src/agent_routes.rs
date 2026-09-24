@@ -179,6 +179,47 @@ pub fn router() -> Router<AppState> {
         )
 }
 
+/// The agent service's answer as (status, body). An empty body — a 204, or an
+/// error the service's proxy wrote no JSON for — is `None`, not a parse
+/// failure: reading every answer as JSON turned a successful 204 write into
+/// "agent service returned invalid JSON" (503), and an HTML 404 from a missing
+/// resource into the same, so the operator saw an outage where there was a
+/// success or a plain "not found".
+async fn agent_answer(
+    response: reqwest::Response,
+) -> Result<(StatusCode, Option<Value>), ApiError> {
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("agent service body unreadable: {e}")))?;
+    if bytes.iter().all(u8::is_ascii_whitespace) {
+        return Ok((status, None));
+    }
+    match serde_json::from_slice::<Value>(&bytes) {
+        Ok(value) => Ok((status, Some(value))),
+        Err(_) if !status.is_success() => Ok((status, None)),
+        Err(e) => Err(ApiError::Unavailable(format!(
+            "agent service returned invalid JSON: {e}"
+        ))),
+    }
+}
+
+/// Reply to the browser with the agent service's status and, when it sent
+/// one, its body.
+fn relay(status: StatusCode, body: Option<Value>) -> Response {
+    match body {
+        Some(body) => (
+            status,
+            [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+            Json(body),
+        )
+            .into_response(),
+        None => (status, [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)]).into_response(),
+    }
+}
+
 async fn proxy_get(
     state: &AppState,
     slug: &str,
@@ -223,16 +264,16 @@ async fn proxy_get_value(
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
-    let status =
-        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = response
-        .json()
-        .await
-        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
+    let (status, body) = agent_answer(response).await?;
+    if status == StatusCode::NOT_FOUND {
+        // A task, template or workflow id the service does not know — the
+        // console says "no longer exists", not "the tenant returned an error".
+        return Err(ApiError::NotFound);
+    }
     if !status.is_success() {
         return Err(ApiError::UpstreamError(status.as_u16()));
     }
-    Ok(body)
+    body.ok_or_else(|| ApiError::Unavailable("agent service returned no body".to_owned()))
 }
 
 async fn proxy_post(
@@ -263,18 +304,8 @@ async fn proxy_post(
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
-    let status =
-        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let response_body: Value = response
-        .json()
-        .await
-        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
-    Ok((
-        status,
-        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        Json(response_body),
-    )
-        .into_response())
+    let (status, body) = agent_answer(response).await?;
+    Ok(relay(status, body))
 }
 
 async fn proxy_delete(
@@ -302,21 +333,8 @@ async fn proxy_delete(
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
-    let status =
-        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    if status == StatusCode::NO_CONTENT {
-        return Ok((status, [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)]).into_response());
-    }
-    let body: Value = response
-        .json()
-        .await
-        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
-    Ok((
-        status,
-        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        Json(body),
-    )
-        .into_response())
+    let (status, body) = agent_answer(response).await?;
+    Ok(relay(status, body))
 }
 
 async fn list_templates(
@@ -1007,18 +1025,8 @@ async fn chat(
         .send()
         .await
         .map_err(|e| ApiError::Unavailable(format!("agent service unreachable: {e}")))?;
-    let status =
-        StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let response_body: Value = response
-        .json()
-        .await
-        .map_err(|e| ApiError::Unavailable(format!("agent service returned invalid JSON: {e}")))?;
-    Ok((
-        status,
-        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
-        Json(response_body),
-    )
-        .into_response())
+    let (status, body) = agent_answer(response).await?;
+    Ok(relay(status, body))
 }
 
 /// Streaming chatbot endpoint — proxies SSE from the agent service to the
@@ -1086,4 +1094,48 @@ async fn chat_stream(
         .header("x-accel-buffering", "no")
         .body(axum::body::Body::from_stream(stream))
         .map_err(|_| ApiError::Unavailable("failed to build SSE response".to_owned()))
+}
+
+#[cfg(test)]
+mod agent_answer_tests {
+    use super::*;
+
+    fn response(status: u16, body: &'static str) -> reqwest::Response {
+        reqwest::Response::from(
+            axum::http::Response::builder()
+                .status(status)
+                .body(body)
+                .expect("response"),
+        )
+    }
+
+    #[tokio::test]
+    async fn an_empty_success_is_a_success_without_a_body() {
+        let (status, body) = agent_answer(response(204, "")).await.expect("204 reads");
+        assert_eq!(status, StatusCode::NO_CONTENT);
+        assert!(body.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_non_json_error_keeps_its_status() {
+        let (status, body) = agent_answer(response(404, "<html>Not Found</html>"))
+            .await
+            .expect("an error body that is not JSON is not a parse failure");
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(body.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_json_success_carries_its_body() {
+        let (status, body) = agent_answer(response(200, r#"{"ok":true}"#))
+            .await
+            .expect("json");
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, Some(serde_json::json!({"ok": true})));
+    }
+
+    #[tokio::test]
+    async fn a_malformed_success_is_still_refused() {
+        assert!(agent_answer(response(200, "not json")).await.is_err());
+    }
 }
