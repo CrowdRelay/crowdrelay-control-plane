@@ -181,6 +181,18 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         not_reported.push("failed_sends");
         Value::Null
     });
+    // The worker outputs the admission gate refused — kind and reason, not
+    // just the watchdog's aggregate. Optional for the same reason as the
+    // sections above: a CrowdRelay that predates it serves a valid
+    // snapshot, and an empty list here would claim the gate refused
+    // nothing when the tenant never reported the section.
+    let rejected_agent_outcomes = snapshot
+        .get("rejected_agent_outcomes")
+        .cloned()
+        .unwrap_or_else(|| {
+            not_reported.push("rejected_agent_outcomes");
+            json!([])
+        });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -205,6 +217,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     if !failed_sends.is_null() {
         expect_object(&failed_sends, "failed_sends")?;
     }
+    expect_array(&rejected_agent_outcomes, "rejected_agent_outcomes")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -223,6 +236,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "brain": brain,
         "lapsed_approvals": lapsed_approvals,
         "failed_sends": failed_sends,
+        "rejected_agent_outcomes": rejected_agent_outcomes,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -271,6 +285,9 @@ mod tests {
                 "items": [{"action_id": "a", "action_kind": "gig_proposal", "context": "c", "error_kind": "executor_unavailable", "finished_at": "2026-09-01T11:00:00Z", "attempt_count": 3, "recipients": ["promoter@club.example"]}],
                 "total": 1
             },
+            "rejected_agent_outcomes": [
+                {"id": "o", "kind": "press_pitch", "rejection_reason": "confidence out of range", "task_id": "t", "created_at": "2026-09-01T12:00:00Z"}
+            ],
         })
     }
 

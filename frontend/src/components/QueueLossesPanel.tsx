@@ -3,7 +3,7 @@ import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp } from '../lib/format'
 import { labelOr, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS } from '../lib/opportunity-labels'
-import type { FailedSend, FailedSends, LapsedApprovals, SentRecord } from '../lib/types'
+import type { FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord } from '../lib/types'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -249,6 +249,80 @@ export function FailedSendsPanel(props: {
               …and {total() - items().length} more the list omits — the count above is every failure in the window.
             </span>
           </Show>
+        </div>
+      </Show>
+    </Show>
+  </Card>
+}
+
+// The worker output the brain declined — the admission gate's own list.
+//
+// Rejection is the system working: the deterministic worker refuses LLM
+// output that fails verification, and that refusal is how the brain stays
+// unpolluted. What the operator needs is the feed, not a count — a burst of
+// rejections on one worker means its output drifted from the contract the
+// gate enforces, which is a prompt or a contract to fix, and the watchdog's
+// aggregate never said which.
+
+const OUTCOME_KIND_LABELS: Record<string, string> = {
+  press_pitch: 'press pitch',
+  social_post: 'social post',
+  audience_segments: 'audience segments',
+  outreach_targets: 'outreach targets',
+  campaign_insight: 'campaign insight',
+  release_plan_note: 'release plan note',
+  generic_insight: 'generic insight',
+}
+
+export function RejectedOutcomesPanel(props: {
+  outcomes: RejectedAgentOutcome[] | undefined
+  notReported: string[]
+}) {
+  const reported = () => !props.notReported.includes('rejected_agent_outcomes')
+  const items = () => props.outcomes ?? []
+  const platform = authState.isPlatformLevel
+
+  return <Card flat class="space-y-4">
+    <div>
+      <PanelTitle icon={<SectionIcon name="shield" />}>What the brain declined</PanelTitle>
+      <p class="text-muted-foreground text-sm mt-1">
+        Worker output the admission gate refused in the last 7 days — in the gate's own words.
+      </p>
+    </div>
+
+    <Show when={reported() && props.outcomes !== undefined} fallback={
+      <div class="p-4 border border-border rounded-lg bg-background text-left">
+        <EmptyState
+          label="Not reported"
+          hint={platform()
+            ? 'This tenant does not publish rejected outcomes — the console cannot show what it was never told.'
+            : 'Nothing is reported yet — this space stays empty until there is something to show.'}
+        />
+      </div>
+    }>
+      <Show when={items().length > 0} fallback={
+        <p class="text-muted-foreground text-sm">Nothing refused in the window — every worker output passed the gate.</p>
+      }>
+        <KpiStrip class="mb-0">
+          <KpiCard label="Refused in the window" value={items().length} tone="warn" />
+        </KpiStrip>
+
+        <div class="flex flex-col gap-2">
+          <For each={items()}>{outcome =>
+            <div class="rounded-md border border-border bg-background px-3 py-2 text-sm">
+              <div class="flex items-center gap-2 flex-wrap">
+                <strong class="text-foreground">{OUTCOME_KIND_LABELS[outcome.kind] ?? outcome.kind.replace(/_/g, ' ')}</strong>
+                <span class="text-xs text-muted-foreground">{formatTimestamp(outcome.created_at)}</span>
+              </div>
+              <Show when={outcome.rejection_reason} fallback={
+                <span class="block mt-1 text-xs text-muted-foreground">Refused before reasons were recorded — the outcome row is the only trace.</span>
+              }>
+                <span class="block mt-1 text-xs text-muted-foreground">
+                  The gate said: <span class="text-foreground">{outcome.rejection_reason}</span>
+                </span>
+              </Show>
+            </div>
+          }</For>
         </div>
       </Show>
     </Show>

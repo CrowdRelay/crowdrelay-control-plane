@@ -558,6 +558,7 @@ export type RelayTargetState =
   | 'expired'
   | 'queued'
   | 'posting'
+  | 'rate_limited'
   | 'posted'
   | 'manual'
   | 'failed'
@@ -578,6 +579,9 @@ export type RelayTarget = {
   image_url: string | null
   approval_expires_at: string | null
   post_status: string | null
+  /// When a `rate_limited` delivery retries — the "why still posting"
+  /// answer the state word alone cannot give.
+  rate_limited_until: string | null
   reddit_post_url: string | null
   posted_at: string | null
   score: number | null
@@ -652,6 +656,9 @@ export type RelayProcessRun = {
   expired: number
   queued: number
   posting: number
+  /// Deferred on Reddit's 429 backoff — counted apart from `posting`
+  /// because a parked delivery is a different fact from one in flight.
+  rate_limited: number
   posted: number
   manual: number
   failed: number
@@ -882,6 +889,27 @@ export type FailedSends = {
   items: FailedSend[]
   /// Every failed send in the window, including any the capped list omitted.
   total: number
+}
+
+/// An LLM worker's result the admission gate refused.
+///
+/// The agents service writes outcomes; the deterministic worker rejects the
+/// ones that fail verification. A rejection is the system working — but a
+/// burst is the worker's output drifting from the contract the gate
+/// enforces, which used to be visible only as an aggregate inside a
+/// watchdog alert: something was refused, never which output or why.
+export type RejectedAgentOutcome = {
+  id: string
+  /// Which worker produced the refused output (`press_pitch`,
+  /// `audience_segments`, …).
+  kind: string
+  /// The gate's own words for the refusal. `null` means the row predates
+  /// reason capture — a rejection without its reason is still a rejection.
+  rejection_reason: string | null
+  /// The agents-service task that produced it — the trace handle into
+  /// `ops/trace` for the full decision chain.
+  task_id: string
+  created_at: string
 }
 
 /// One action, as the world outside received it — the words it carried and
@@ -1128,6 +1156,10 @@ export type TenantAttentionReadModel = {
   /// Outward sends that failed in the window, named — the recipients the
   /// counts cannot identify. Same null/not_reported convention as above.
   failed_sends?: FailedSends | null
+  /// LLM worker results the admission gate refused in the last week,
+  /// newest first — the rejection kind and the gate's own reason, not just
+  /// the watchdog's aggregate. Absent means the tenant does not publish it.
+  rejected_agent_outcomes?: RejectedAgentOutcome[]
   /// Sections whose value above is a placeholder the Control Plane
   /// substituted, not something the tenant measured.
   not_reported?: string[]
