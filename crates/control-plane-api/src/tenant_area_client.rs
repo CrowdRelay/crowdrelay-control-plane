@@ -576,6 +576,7 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 "/v1/control-plane/ops/summary"
                     | "/v1/control-plane/ops/signal-overview"
                     | "/v1/control-plane/ops/attention"
+                    | "/v1/control-plane/ops/action-states"
                     | "/v1/control-plane/ops/intelligence"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"

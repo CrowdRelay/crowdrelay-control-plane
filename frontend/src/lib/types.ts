@@ -3983,16 +3983,22 @@ export type CommunityIntroDraft = {
 /// Per-tenant attention projection in the command center.
 export type CommandCenterTenantAttention = {
   available: boolean
-  needsYou: number
-  awaitingApproval: number
+  /// Counts whose source section the tenant does not publish are null —
+  /// named in `notReported` — never a zero nobody measured.
+  needsYou: number | null
+  awaitingApproval: number | null
   openFindings: number
-  criticalAlerts: number
+  criticalAlerts: number | null
   deadDeliveries: number
   /// Drafted posts waiting for a person to publish, summed across channels.
   /// null when the tenant does not report the queue — not the same as zero.
   unpublishedDrafts: number | null
   /// Per-channel breakdown behind `unpublishedDrafts`, for the card detail.
   unpublishedDraftChannels: { channel: string; drafts: number; oldest_drafted_at: string | null }[] | null
+  /// Sections the tenant does not publish — the attention snapshot's
+  /// placeholders, named so the row can say "not reported" instead of a
+  /// substituted zero.
+  notReported: string[]
   /// The brain's self-assessment, passed through wholesale from the tenant —
   /// snake_case keys, because the tenant emits them that way and the
   /// projection must not rename what it does not own.

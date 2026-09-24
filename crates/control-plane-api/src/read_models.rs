@@ -655,7 +655,16 @@ async fn fetch_tenant_command_summary(
     }
 
     TenantCommandData {
-        attention: attention.as_ref().ok().and_then(|v| v.as_object()).cloned(),
+        // The raw attention snapshot goes through the dedicated endpoint's
+        // own projection so `not_reported` means the same thing here as on
+        // the tenant page: a substituted placeholder is named, and the
+        // per-tenant summary below nulls the counts it never measured. A
+        // snapshot that fails the contract degrades the whole section.
+        attention: attention
+            .as_ref()
+            .ok()
+            .and_then(|v| crate::attention_routes::project(slug, v).ok())
+            .and_then(|v| v.as_object().cloned()),
         autopilot: autopilot.as_ref().ok().and_then(|v| v.as_object()).cloned(),
         learning: learning.as_ref().ok().and_then(|v| v.as_array()).cloned(),
         outcomes: outcomes.as_ref().ok().and_then(|v| v.as_object()).cloned(),
@@ -694,27 +703,52 @@ fn build_per_tenant_summary(
 
     // ── attention ──
     let att = data.attention.as_ref();
+    // The attention snapshot arrives already run through
+    // `attention_routes::project`, which substitutes placeholders for the
+    // sections the tenant does not publish and names each one in
+    // `not_reported`. A placeholder count is not a measurement — a field
+    // sourced from a named placeholder goes out null so the aggregate never
+    // sums it and the per-tenant row can say "not reported" instead of the
+    // zero nobody counted.
+    let not_reported = |key: &str| {
+        att.and_then(|a| a.get("not_reported"))
+            .and_then(|v| v.as_array())
+            .is_some_and(|names| names.iter().any(|n| n.as_str() == Some(key)))
+    };
     let attention = json!({
         "available": att.is_some(),
-        "needsYou": att.and_then(|a| a.get("needs_you")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
-        "awaitingApproval": att.and_then(|a| a.get("awaiting_approval")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "needsYou": if not_reported("needs_you") { Value::Null } else {
+            json!(att.and_then(|a| a.get("needs_you")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0))
+        },
+        "awaitingApproval": if not_reported("awaiting_approval") { Value::Null } else {
+            json!(att.and_then(|a| a.get("awaiting_approval")).and_then(|v| v.as_u64()).unwrap_or(0))
+        },
         "openFindings": att.and_then(|a| a.get("findings")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
-        "criticalAlerts": att.and_then(|a| a.get("alerts")).and_then(|v| v.as_array()).map(|a| {
-            a.iter().filter(|alert| {
-                alert.get("active").and_then(|v| v.as_bool()) == Some(true)
-                    && alert.get("severity").and_then(|v| v.as_str()) == Some("critical")
-            }).count() as u64
-        }).unwrap_or(0),
+        "criticalAlerts": if not_reported("alerts") { Value::Null } else {
+            json!(att.and_then(|a| a.get("alerts")).and_then(|v| v.as_array()).map(|a| {
+                a.iter().filter(|alert| {
+                    alert.get("active").and_then(|v| v.as_bool()) == Some(true)
+                        && alert.get("severity").and_then(|v| v.as_str()) == Some("critical")
+                }).count() as u64
+            }).unwrap_or(0))
+        },
         "deadDeliveries": att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
         // Drafted posts waiting for a person to publish them — the one queue
-        // blocked on the operator. The upstream attention model already
-        // carries the per-channel array; projecting it here saves the
-        // overview page a second per-tenant fetch. Absent field (an older
-        // CrowdRelay) stays null — "does not report" is not "zero drafts".
-        "unpublishedDrafts": att.and_then(|a| a.get("unpublished_drafts")).and_then(|v| v.as_array()).map(|channels| {
-            channels.iter().map(|c| c.get("drafts").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>()
-        }),
-        "unpublishedDraftChannels": att.and_then(|a| a.get("unpublished_drafts")).cloned().unwrap_or(Value::Null),
+        // blocked on the operator. The projected snapshot substitutes `[]`
+        // and names "unpublished_drafts" in `not_reported` when the tenant
+        // does not publish the queue; the placeholder must stay null here or
+        // "does not report" would read as "zero drafts".
+        "unpublishedDrafts": if not_reported("unpublished_drafts") { Value::Null } else {
+            att.and_then(|a| a.get("unpublished_drafts")).and_then(|v| v.as_array()).map(|channels| {
+                json!(channels.iter().map(|c| c.get("drafts").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>())
+            }).unwrap_or(Value::Null)
+        },
+        "unpublishedDraftChannels": if not_reported("unpublished_drafts") { Value::Null } else {
+            att.and_then(|a| a.get("unpublished_drafts")).cloned().unwrap_or(Value::Null)
+        },
+        // The placeholder names, passed through so the per-tenant row names
+        // what it could not measure instead of going quiet.
+        "notReported": att.and_then(|a| a.get("not_reported")).cloned().unwrap_or_else(|| json!([])),
     });
 
     // ── autopilot ──
