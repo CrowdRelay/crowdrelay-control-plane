@@ -811,14 +811,26 @@ async fn unpark_tenant(
         .await?
         .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
 
-    // Set status to active first so `target` resolves.
+    // Resolve the management URL before the status flip. `target()` refuses
+    // parked tenants — calling it after committing `active` means a missing
+    // URL row or transient DB error leaves the tenant active in CP but
+    // parked upstream, and every recovery path (unpark retry → not parked →
+    // conflict; re-park → snapshot overwritten with the parked envelope)
+    // closes behind it. The URL read itself does not need active status.
+    let target_url = state
+        .store
+        .latest_management_url(tenant_id)
+        .await?
+        .ok_or_else(|| {
+            ApiError::Unavailable(
+                "tenant has no successful local CrowdRelay management target".to_owned(),
+            )
+        })?;
+
     state
         .store
         .set_status(&slug, "active", actor, request_id(&headers))
         .await?;
-
-    // Resolve the management target (tenant is now active).
-    let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
 
     // Restore the envelope from the snapshot. CrowdRelay's
     // GrowthEnvelopeRequest uses snake_case with deny_unknown_fields.
@@ -1045,11 +1057,22 @@ async fn billing_webhook(
         .load_park_snapshot(tenant_id)
         .await?
         .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
+    // Same ordering as unpark_tenant: resolve the management URL before
+    // committing `active` — a failed lookup after the flip wedges the tenant
+    // (webhook retries no-op on non-parked status).
+    let target_url = state
+        .store
+        .latest_management_url(tenant_id)
+        .await?
+        .ok_or_else(|| {
+            ApiError::Unavailable(
+                "tenant has no successful local CrowdRelay management target".to_owned(),
+            )
+        })?;
     state
         .store
         .set_status(&slug, "active", actor, request_id(&headers))
         .await?;
-    let (_, target_url) = crate::area_routes::target(&state, &slug).await?;
     let restore_body = json!({
         "agent_enabled": snapshot.agent_enabled,
         "dry_run": snapshot.dry_run,

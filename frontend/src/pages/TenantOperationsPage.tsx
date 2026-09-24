@@ -134,7 +134,9 @@ export function TenantOperationsPage() {
       .sort((a, b) => a.position - b.position)
       .slice(0, 3),
   )
-  const needsYouCount = () => autopilot()?.needs_you.length ?? 0
+  // needs_you can be absent on older tenants — optional-chain the field
+  // itself, not just the section (same guard as brain-cycle.ts / Shell).
+  const needsYouCount = () => autopilot()?.needs_you?.length ?? 0
   const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
 
   // "The change this month" has two honest readings already in the
