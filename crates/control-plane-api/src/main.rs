@@ -15,6 +15,7 @@ mod read_models;
 mod routes;
 mod runtime_routes;
 mod store;
+mod surface_routes;
 mod tenant_area_client;
 mod validation;
 mod waitlist_routes;
@@ -346,6 +347,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(superadmin_area)
         .merge(scoped(attention_routes::router()))
         .merge(scoped(operations_routes::router()))
+        .merge(scoped(surface_routes::router()))
         .merge(scoped(agent_routes::router()))
         .merge(scoped(read_models::router()))
         .merge(
