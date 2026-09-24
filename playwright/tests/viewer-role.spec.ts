@@ -87,7 +87,12 @@ test('the workspace tab offers no write @viewer', async ({ page }) => {
   await page.goto(`/tenants/${SLUG}?tab=workspace`)
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(1000)
-  for (const el of await page.locator('input, select, button').all()) {
+  // Scoped to the route's own content (`data-key` wraps the router Outlet) —
+  // the site header inside #main-content holds global chrome (sidebar
+  // trigger, palette button, breadcrumbs) that is correctly enabled.
+  const controls = await page.locator('#main-content [data-key] input, #main-content [data-key] select, #main-content [data-key] button').all()
+  expect(controls.length, 'the workspace tab must render controls for this sweep to mean anything').toBeGreaterThan(0)
+  for (const el of controls) {
     // Tab buttons and the Refresh in the header are navigation, not writes.
     const role = await el.getAttribute('role')
     const ariaLabel = (await el.getAttribute('aria-label')) ?? ''
