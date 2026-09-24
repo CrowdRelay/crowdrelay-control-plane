@@ -1,8 +1,9 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { ArrowRight } from 'lucide-solid'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
+import { authState } from '../lib/auth'
 import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, money } from '../lib/format'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { toast } from './app/toast'
@@ -68,19 +69,38 @@ export function BookingJourneyPanel(props: { slug: string }) {
   const degraded = (name: TenantBookingSection) => (model.data?.degraded ?? []).includes(name)
 
   // ── Stage membership ────────────────────────────────────────────────
+  // Found is a ranking, not a feed: best fit first, confidence breaks the
+  // tie, freshest sighting breaks that.
   const watching = createMemo(() =>
-    (model.data?.shortlist?.entries ?? []).filter(e => stillFound(e.status)),
+    (model.data?.shortlist?.entries ?? [])
+      .filter(e => stillFound(e.status))
+      .sort((a, b) =>
+        b.fit_basis_points - a.fit_basis_points
+        || b.confidence_basis_points - a.confidence_basis_points
+        || (b.source_observed_at ?? '').localeCompare(a.source_observed_at ?? ''),
+      ),
   )
+  const [shownFound, setShownFound] = createSignal(10)
   // Rows the shortlist already sent — an application out is an approach,
   // and "they replied" is the strongest approach signal there is.
   const applied = createMemo(() =>
     (model.data?.shortlist?.entries ?? []).filter(e => SENT.has(e.status)),
   )
+  // Confirmed ids leave the gate between the mutation and the refetch —
+  // excluded here so the count never briefly lies.
+  const [confirmed, setConfirmed] = createSignal<ConfirmedEntry[]>([])
+  const confirmedIds = createMemo(() => new Set(confirmed().map(c => c.id)))
+  const byFitDesc = <T extends { fit_basis_points: number }>(a: T, b: T) =>
+    b.fit_basis_points - a.fit_basis_points
   const waitingBooking = createMemo(() =>
-    (model.data?.booking_candidates ?? []).filter(c => c.status === 'admitted'),
+    (model.data?.booking_candidates ?? [])
+      .filter(c => c.status === 'admitted' && !confirmedIds().has(c.candidate_id))
+      .sort(byFitDesc),
   )
   const waitingOutreach = createMemo(() =>
-    (model.data?.outreach_candidates ?? []).filter(c => c.status === 'admitted'),
+    (model.data?.outreach_candidates ?? [])
+      .filter(c => c.status === 'admitted' && !confirmedIds().has(c.id))
+      .sort(byFitDesc),
   )
   const proposals = createMemo(() => model.data?.gig_plan?.proposals ?? [])
   const outcomes = createMemo(() => model.data?.gig_plan?.track_record.proposals ?? [])
@@ -161,25 +181,81 @@ export function BookingJourneyPanel(props: { slug: string }) {
   // The one cheap answer a card may carry in place: confirming a screened
   // candidate is a yes/no a person gives in a click — the same carry-out
   // the attention inbox performs. Everything else links to its owner.
+  //
+  // Confirm only ever files a contact — nothing is sent — and upstream only
+  // accepts an email route with a named city, so the cards below say that
+  // before the click and refuse in words when it cannot succeed.
+  const [pendingIds, setPendingIds] = createSignal<ReadonlySet<string>>(new Set())
+  const [cardErrors, setCardErrors] = createSignal<Readonly<Record<string, string>>>({})
   const confirm = useMutation(() => ({
-    // The two queues answer with different bodies — the journey only needs
-    // success/failure, so the union collapses to void.
-    mutationFn: async (input: { kind: 'booking' | 'outreach'; id: string }) => {
-      if (input.kind === 'booking') await api.confirmBookingCandidate(props.slug, input.id)
-      else await api.confirmOutreachCandidate(props.slug, input.id)
+    mutationFn: async (input: {
+      kind: 'booking' | 'outreach'
+      id: string
+      name: string
+      citySlug: string | null
+    }) => {
+      const result = input.kind === 'booking'
+        ? await api.confirmBookingCandidate(props.slug, input.id)
+        : await api.confirmOutreachCandidate(props.slug, input.id)
+      return { input, result }
     },
-    onSuccess: async () => {
-      toast.success('Confirmed — it joins the approached list.')
+    onMutate: input => {
+      setPendingIds(ids => new Set(ids).add(input.id))
+      setCardErrors(prev => {
+        if (!(input.id in prev)) return prev
+        const next = { ...prev }
+        delete next[input.id]
+        return next
+      })
+    },
+    onSuccess: async ({ input, result }) => {
+      // A promotion that replayed or filed nothing still answers 200 — the
+      // card reads what actually happened, not "it worked".
+      if (input.kind === 'outreach' && result.target_id === null) {
+        setCardErrors(prev => ({ ...prev, [input.id]: 'Upstream left it waiting — nothing was saved.' }))
+        return
+      }
+      setConfirmed(list => [
+        ...list,
+        { kind: input.kind, id: input.id, name: input.name, citySlug: input.citySlug, replayed: result.replayed },
+      ])
+      toast.success(input.kind === 'booking'
+        ? `Confirmed: ${input.name} saved as a ${input.citySlug} booking contact.`
+        : `Confirmed: ${input.name} saved as a contact.`)
       // The same candidates sit in Today's queue and the attention
       // snapshot — the server cache already cleared (the mutation handler
       // invalidates the tenant); these keys clear the browser's copies.
+      // Places and the city funnel join them: a city that just gained a
+      // booking contact is a city whose plan can move.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] }),
         queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] }),
         queryClient.invalidateQueries({ queryKey: ['tenant-operator-attention-snapshot', props.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['tenant-places', props.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['city-funnel', props.slug] }),
       ])
     },
-    onError: error => toast.error(errorMessage(error, 'The confirm did not go through')),
+    // A refusal is an answer and belongs on the card it came from — keyed
+    // by candidate id so one failure does not mark every card.
+    onError: (error, input) => {
+      const status = error instanceof ApiError ? error.status : undefined
+      const message = status === 409
+        ? "Couldn't confirm: upstream refused it (it needs an email route and a city, and must still be waiting)."
+        : status === 404
+          ? 'Already handled elsewhere.'
+          : errorMessage(error, 'The confirm did not go through')
+      setCardErrors(prev => ({ ...prev, [input.id]: message }))
+      if (status === 404) {
+        void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })
+      }
+    },
+    onSettled: (_data, _error, input) => {
+      setPendingIds(ids => {
+        const next = new Set(ids)
+        next.delete(input.id)
+        return next
+      })
+    },
   }))
 
   return (
@@ -215,7 +291,7 @@ export function BookingJourneyPanel(props: { slug: string }) {
               description="Everything the pipeline cannot move past until a person says so — screened routes to confirm, plans to approve, moves parked mid-negotiation, replies nobody has read."
             >
               <Show
-                when={waitingCount() > 0}
+                when={waitingCount() > 0 || confirmed().length > 0}
                 fallback={
                   <p class="text-sm text-muted-foreground">
                     {gateDown()
@@ -225,11 +301,20 @@ export function BookingJourneyPanel(props: { slug: string }) {
                 }
               >
                 <div class="flex flex-col gap-2">
+                  {/* Confirmed rows leave `admitted` on the next refetch, so
+                      the proof of the click lives here — in page state —
+                      not in the queue that no longer carries the row. */}
+                  <Show when={confirmed().length > 0}>
+                    <p class="text-xs font-medium text-muted-foreground">Just confirmed</p>
+                    <For each={confirmed()}>
+                      {c => <ConfirmedCard slug={props.slug} entry={c} />}
+                    </For>
+                  </Show>
                   <For each={waitingBooking()}>
-                    {c => <CandidateCard candidate={c} confirming={confirm.isPending} onConfirm={() => confirm.mutate({ kind: 'booking', id: c.candidate_id })} />}
+                    {c => <CandidateCard candidate={c} confirming={pendingIds().has(c.candidate_id)} error={cardErrors()[c.candidate_id]} onConfirm={() => confirm.mutate({ kind: 'booking', id: c.candidate_id, name: c.display_name, citySlug: c.city_slug })} />}
                   </For>
                   <For each={waitingOutreach()}>
-                    {c => <OutreachCard candidate={c} confirming={confirm.isPending} onConfirm={() => confirm.mutate({ kind: 'outreach', id: c.id })} />}
+                    {c => <OutreachCard candidate={c} confirming={pendingIds().has(c.id)} error={cardErrors()[c.id]} onConfirm={() => confirm.mutate({ kind: 'outreach', id: c.id, name: c.display_name, citySlug: null })} />}
                   </For>
                   <For each={proposals()}>
                     {p => <ProposalCard slug={props.slug} proposal={p} />}
@@ -260,12 +345,19 @@ export function BookingJourneyPanel(props: { slug: string }) {
                   fallback={<p class="text-sm text-muted-foreground">Nothing on the watch list — the scout has no live candidates.</p>}
                 >
                   <div class="flex flex-col gap-2">
-                    <For each={watching().slice(0, 8)}>
+                    <For each={watching().slice(0, shownFound())}>
                       {e => <ShortlistCard slug={props.slug} entry={e} />}
                     </For>
-                    <Show when={watching().length > 8}>
-                      <DrillLink slug={props.slug} to="outreach" label={`All ${watching().length} on the shortlist`} />
-                    </Show>
+                    <div class="flex items-center gap-4">
+                      <Show when={watching().length > shownFound()}>
+                        <Button variant="outline" size="sm" onClick={() => setShownFound(n => n + 20)}>
+                          Show more
+                        </Button>
+                      </Show>
+                      <Show when={watching().length > 10}>
+                        <DrillLink slug={props.slug} to="outreach" label={`All ${watching().length} on the shortlist`} />
+                      </Show>
+                    </div>
                   </div>
                 </Show>
               </Show>
@@ -366,12 +458,41 @@ export function BookingJourneyPanel(props: { slug: string }) {
 
 // ── Cards ────────────────────────────────────────────────────────────
 
-function CandidateCard(props: { candidate: BookingCandidateView; confirming: boolean; onConfirm: () => void }) {
+/** A row the operator already said yes to — kept in page state because the
+ *  admitted queue stops carrying it the moment upstream files it. */
+type ConfirmedEntry = {
+  kind: 'booking' | 'outreach'
+  id: string
+  name: string
+  citySlug: string | null
+  replayed: boolean
+}
+
+/// Upstream confirm files only an email route into a booking target — the
+/// refusal is an answer, so the card says it instead of offering a click
+/// that can only 409.
+function bookingRefusal(c: BookingCandidateView): string | null {
+  if (c.route_kind !== 'email') {
+    return `Only an email route can be saved as a booking contact. This one is a ${c.route_kind}.`
+  }
+  if (c.city_slug == null) {
+    return "No city named, so it can't be filed under a city yet."
+  }
+  return null
+}
+
+function CandidateCard(props: {
+  candidate: BookingCandidateView
+  confirming: boolean
+  error?: string
+  onConfirm: () => void
+}) {
   const c = () => props.candidate
+  const platform = authState.isPlatformLevel()
   return (
     <JourneyCard
       title={c().display_name}
-      badge={{ label: 'route to confirm', tone: 'warn' }}
+      badge={bookingRefusal(c()) === null ? { label: 'to confirm', tone: 'warn' } : { label: "can't file yet", tone: 'muted' }}
       meta={<>
         {c().target_kind.replaceAll('_', ' ')}
         {c().city_slug ? ` · ${c().city_slug}` : ''}
@@ -379,31 +500,102 @@ function CandidateCard(props: { candidate: BookingCandidateView; confirming: boo
         {` · via ${c().source}`}
       </>}
       action={
-        <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
-          {props.confirming && <Spinner />} Confirm route
-        </Button>
+        <Show when={bookingRefusal(c()) === null}>
+          <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
+            {props.confirming && <Spinner />} Confirm
+          </Button>
+        </Show>
       }
-    />
+    >
+      {/* The consequence is read before the click, not learned after it —
+          or the refusal, which is the same sentence's other half. */}
+      <p class="mt-1 text-xs text-muted-foreground">
+        {bookingRefusal(c()) ?? (platform
+          ? `Confirm adds ${c().display_name} as a booking contact for ${c().city_slug}. The gig planner can write to them. Nothing is sent.`
+          : `Confirm saves ${c().display_name} as someone who books shows in ${c().city_slug}. Nothing is sent.`)}
+      </p>
+      <Show when={props.error}>
+        {e => <p class="mt-1 text-xs text-destructive">{e()}</p>}
+      </Show>
+    </JourneyCard>
   )
 }
 
-function OutreachCard(props: { candidate: OutreachCandidateView; confirming: boolean; onConfirm: () => void }) {
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
+
+function OutreachCard(props: {
+  candidate: OutreachCandidateView
+  confirming: boolean
+  error?: string
+  onConfirm: () => void
+}) {
   const c = () => props.candidate
+  const platform = authState.isPlatformLevel()
   const meta = () => [
     c().target_kind.replaceAll('_', ' '),
     c().pitch_class?.replaceAll('_', ' '),
     `fit ${confidencePercent(c().fit_basis_points)}`,
     c().follower_count != null ? `${c().follower_count!.toLocaleString()} followers` : null,
   ].filter(Boolean).join(' · ')
+  // Only an email route becomes an outreach contact — for a form or a
+  // handle there is nothing to file, and the button would lie.
+  const confirmable = () => c().route_kind === 'email'
   return (
     <JourneyCard
       title={c().display_name}
-      badge={{ label: 'route to confirm', tone: 'warn' }}
+      badge={confirmable() ? { label: 'to confirm', tone: 'warn' } : { label: 'apply by hand', tone: 'muted' }}
       meta={meta()}
       action={
-        <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
-          {props.confirming && <Spinner />} Confirm route
-        </Button>
+        <Show when={confirmable()}>
+          <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
+            {props.confirming && <Spinner />} Confirm
+          </Button>
+        </Show>
+      }
+    >
+      <p class="mt-1 text-xs text-muted-foreground">
+        {confirmable()
+          ? platform
+            ? `Confirm adds ${c().display_name} to outreach contacts. Nothing is sent.`
+            : `Confirm saves ${c().display_name} as a contact. Nothing is sent.`
+          : `${c().route_kind} route: nothing to save. Apply by hand.`}
+        {' '}
+        <Show when={!confirmable() && isHttpUrl(c().source_reference)}>
+          <a href={c().source_reference} target="_blank" rel="noopener" class="underline underline-offset-2">
+            {c().source_reference}
+          </a>
+        </Show>
+      </p>
+      <Show when={props.error}>
+        {e => <p class="mt-1 text-xs text-destructive">{e()}</p>}
+      </Show>
+    </JourneyCard>
+  )
+}
+
+function ConfirmedCard(props: { slug: string; entry: ConfirmedEntry }) {
+  const c = () => props.entry
+  return (
+    <JourneyCard
+      title={c().name}
+      badge={{ label: 'confirmed', tone: 'good' }}
+      meta={c().kind === 'booking'
+        ? c().replayed
+          ? 'Already a booking contact'
+          : `Added to ${c().citySlug}'s booking contacts`
+        : c().replayed
+          ? 'Already a contact'
+          : 'Added to outreach contacts'}
+      action={
+        <Show when={c().kind === 'booking' && c().citySlug}>
+          <Link
+            to="/tenants/$slug/cities/$cityId"
+            params={{ slug: props.slug, cityId: c().citySlug! }}
+            class={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Open {c().citySlug}
+          </Link>
+        </Show>
       }
     />
   )
