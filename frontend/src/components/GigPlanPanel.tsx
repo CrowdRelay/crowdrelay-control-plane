@@ -9,7 +9,7 @@ import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './app/card'
-import type { GigPlanReasonScore } from '../lib/types'
+import type { GigPlanReasonScore, GigPlanResponse } from '../lib/types'
 import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from './GigPlanProposalCard'
 
 // What to book next, and why — the output of 4G.
@@ -41,7 +41,7 @@ const REASON_LABEL: Record<string, string> = {
   room_is_active: 'room is active',
 }
 
-export function GigPlanPanel(props: { slug: string }) {
+export function GigPlanPanel(props: { slug: string; initialPlan?: GigPlanResponse | null }) {
   const { approve, approvingCityId, approvalResult, approveError } = useGigPlanApproval(() => props.slug)
   // '' means the stored intent — no override rides the request.
   const [intentOverride, setIntentOverride] = createSignal('')
@@ -60,6 +60,10 @@ export function GigPlanPanel(props: { slug: string }) {
     queryFn: () => api.gigPlan(props.slug, intentOverride() || undefined),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
+    // A caller that already holds the stored-intent plan (the Places read
+    // model carries it) seeds the cache — no second fetch for the same
+    // answer. Overrides always fetch for real.
+    initialData: intentOverride() === '' && props.initialPlan != null ? props.initialPlan : undefined,
   }))
 
   return (

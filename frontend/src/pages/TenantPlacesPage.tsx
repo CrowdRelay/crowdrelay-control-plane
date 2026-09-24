@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -49,6 +49,37 @@ const BAND_SECTION_LABEL: Record<string, string> = {
   audience_places: 'Where fans gather',
   gig_plan: 'The plan',
   area_cities: 'AREA cities',
+}
+
+/** The first screen's row budget — every list shows its top slice and a
+ *  "Show N more" button unwinds the rest, so a registry of hundreds never
+ *  taxes the first paint or the read-model payload's layout work. */
+const TOP_ROWS = 10
+
+function useTopRows<T>(rows: () => readonly T[]) {
+  const [expanded, setExpanded] = createSignal(false)
+  const visible = createMemo(() => (expanded() ? rows() : rows().slice(0, TOP_ROWS)))
+  const hidden = createMemo(() => Math.max(0, rows().length - TOP_ROWS))
+  return {
+    visible,
+    hidden,
+    expanded,
+    toggle: () => setExpanded(e => !e),
+  }
+}
+
+/** The "Show N more / Show fewer" toggle a sliced list puts after its table
+ *  or chips — invisible until the list actually overflows. */
+function ShowMoreRow(props: { hidden: number; expanded: boolean; onToggle: () => void }) {
+  return (
+    <Show when={props.hidden > 0 || props.expanded}>
+      <div class="mt-3 flex justify-center">
+        <Button variant="ghost" size="sm" onClick={props.onToggle}>
+          {props.expanded ? 'Show fewer' : `Show ${props.hidden} more`}
+        </Button>
+      </div>
+    </Show>
+  )
 }
 
 export function TenantPlacesPage() {
@@ -170,14 +201,44 @@ export function TenantPlacesPage() {
       />
 
       {/* The plan's working surface: proposals to approve, the intent
-          override, the passed-over list and the track record. It fetches its
-          own `?intent=` variants — the read model carries the default plan
-          only to mark the funnel. */}
+          override, the passed-over list and the track record. It mounts when
+          it scrolls near — its intent and plan queries stay out of the
+          page's single read-model paint, and the model's gig_plan seeds the
+          plan query so the default view has nothing left to fetch. */}
       <div id="plan" class="scroll-mt-4">
-        <GigPlanPanel slug={params().slug} />
+        <LazyGigPlan slug={params().slug} initialPlan={data.gig_plan} />
       </div>
     </>}</Show>
   </PageShell>
+}
+
+/** Mounts GigPlanPanel when it approaches the viewport. Until then the page
+ *  pays only the read model — the panel's own queries (intents, plan) wait
+ *  for the operator to actually scroll to the working surface. */
+function LazyGigPlan(props: { slug: string; initialPlan: TenantPlacesReadModel['gig_plan'] }) {
+  const [near, setNear] = createSignal(false)
+  let sentinel: HTMLDivElement | undefined
+  onMount(() => {
+    if (near()) return
+    const io = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          setNear(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '600px' },
+    )
+    if (sentinel) io.observe(sentinel)
+    onCleanup(() => io.disconnect())
+  })
+  return (
+    <div ref={sentinel}>
+      <Show when={near()} fallback={<SkeletonSection titleWidth="180px" lines={5} minHeight="220px" />}>
+        <GigPlanPanel slug={props.slug} initialPlan={props.initialPlan} />
+      </Show>
+    </div>
+  )
 }
 
 /** The plan's picks as a strip above the funnel — the answer to "where does
@@ -225,13 +286,14 @@ function CitiesCard(props: {
   planCities: Set<string> | null
 }) {
   const [order, setOrder] = createSignal<'organise' | 'activity'>('organise')
-  const rows = createMemo(() => {
+  const ordered = createMemo(() => {
     const list = props.rows ?? []
     if (order() === 'organise') return list
     return [...list].sort(
       (a, b) => b.active_30d - a.active_30d || b.fans - a.fans || a.city_slug.localeCompare(b.city_slug),
     )
   })
+  const top = useTopRows(ordered)
 
   return (
     <Card class="mb-4">
@@ -294,7 +356,7 @@ function CitiesCard(props: {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={rows()}>
+                <For each={top.visible()}>
                   {(row: CityFunnelRow) => {
                     const band = organiseBand(row.organise_score_bp)
                     return (
@@ -333,6 +395,7 @@ function CitiesCard(props: {
                 </For>
               </TableBody>
             </Table>
+            <ShowMoreRow hidden={top.hidden()} expanded={top.expanded()} onToggle={top.toggle} />
           </Show>
         )}
       </Show>
@@ -343,6 +406,7 @@ function CitiesCard(props: {
 /** The shared venue registry — every room a completed show has marked,
  *  aggregated across acts. `contributors` is a count and never names one. */
 function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded: boolean }) {
+  const top = useTopRows(() => props.rows ?? [])
   return (
     <Card class="mb-4">
       <div class="flex items-start justify-between gap-3">
@@ -384,7 +448,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={rows()}>
+                <For each={top.visible()}>
                   {(row: CityVenueRow) => (
                     <TableRow>
                       <TableCell class="text-foreground">
@@ -448,6 +512,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
                 </For>
               </TableBody>
             </Table>
+            <ShowMoreRow hidden={top.hidden()} expanded={top.expanded()} onToggle={top.toggle} />
           </Show>
         )}
       </Show>
@@ -459,6 +524,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
  *  place is where fans already gather, not a person: press and amplifier
  *  contacts live under Audience → Contacts. */
 function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boolean }) {
+  const top = useTopRows(() => props.places ?? [])
   return (
     <Card class="mb-4">
       <PanelTitle icon={<SectionIcon name="target" />}>Where fans gather online</PanelTitle>
@@ -493,7 +559,7 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={places()}>
+                <For each={top.visible()}>
                   {(p: AudiencePlace) => (
                     <TableRow>
                       <TableCell class="text-foreground">
@@ -513,6 +579,7 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
                 </For>
               </TableBody>
             </Table>
+            <ShowMoreRow hidden={top.hidden()} expanded={top.expanded()} onToggle={top.toggle} />
           </Show>
         )}
       </Show>
@@ -524,6 +591,7 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
  *  itself stays on the operator AREA page; this row answers "does a drop
  *  have somewhere to land" for the cities the funnel just ranked. */
 function AreaCitiesCard(props: { slug: string; items: { id: string; slug: string; name: string; countryCode: string; region: string | null; moderationStatus: string }[] | null; degraded: boolean }) {
+  const top = useTopRows(() => props.items ?? [])
   return (
     <Show when={!props.degraded && props.items && props.items.length > 0}>
       <Card flat class="mb-4">
@@ -532,7 +600,7 @@ function AreaCitiesCard(props: { slug: string; items: { id: string; slug: string
           Cities registered for AREA drops — where a drop has somewhere to land.
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
-          <For each={props.items}>
+          <For each={top.visible()}>
             {city => (
               <span class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
                 <span class="text-foreground">{city.name}</span>
@@ -546,6 +614,7 @@ function AreaCitiesCard(props: { slug: string; items: { id: string; slug: string
             )}
           </For>
         </div>
+        <ShowMoreRow hidden={top.hidden()} expanded={top.expanded()} onToggle={top.toggle} />
       </Card>
     </Show>
   )
