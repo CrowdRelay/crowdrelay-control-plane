@@ -76,8 +76,12 @@ export function TenantHealthPage() {
   }))
   // The panels this feeds mutate queues and switches the delivery model
   // also reads — a today-only refetch would leave the sibling tab stale.
-  const refresh = () => Promise.all([model.refetch(), delivery.refetch()])
-  const refreshAll = () => { void model.refetch(); void overview.refetch(); void delivery.refetch() }
+  // `refetch()` on a disabled query fires anyway — `enabled` only gates
+  // automatic fetching. Gate the delivery fan-out on isFetched so a
+  // Status-tab Refresh or a queue mutation does not pay the 5-call
+  // upstream cost for a tab never visited (same idiom as AudiencePage).
+  const refresh = () => Promise.all([model.refetch(), ...(delivery.isFetched ? [delivery.refetch()] : [])])
+  const refreshAll = () => { void model.refetch(); void overview.refetch(); if (delivery.isFetched) void delivery.refetch() }
   const refreshing = () => model.isFetching || overview.isFetching || delivery.isFetching
   const d = (): TenantTodayReadModel | undefined => model.data
   const summary = () => d()?.summary

@@ -929,7 +929,7 @@ async fn fan_sources(
     Query(params): Query<ListQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/ops/fan-sources", &params);
+    let path = build_list_path("/v1/control-plane/ops/fan-sources", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     object_no_store(value, "fan sources")
 }
@@ -976,7 +976,7 @@ async fn list_actions(
     Query(params): Query<ActionLedgerQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_action_ledger_path(&params);
+    let path = build_action_ledger_path(&params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "action ledger")
 }
@@ -3313,7 +3313,7 @@ async fn list_outbox(
     Query(params): Query<ListQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/ops/outbox", &params);
+    let path = build_list_path("/v1/control-plane/ops/outbox", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "outbox list")
 }
@@ -3325,7 +3325,7 @@ async fn list_deliveries(
     Query(params): Query<ListQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/ops/deliveries", &params);
+    let path = build_list_path("/v1/control-plane/ops/deliveries", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "deliveries list")
 }
@@ -3338,7 +3338,7 @@ async fn list_delivery_results(
     Query(params): Query<ListQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/ops/delivery-results", &params);
+    let path = build_list_path("/v1/control-plane/ops/delivery-results", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     // Upstream wraps the list in { "results": [...] }; the panel contract is
     // the same bare array every other operations list returns.
@@ -3434,20 +3434,28 @@ struct ListQuery {
     status: Option<String>,
 }
 
-fn build_list_path(base: &str, params: &ListQuery) -> String {
+fn build_list_path(base: &str, params: &ListQuery) -> Result<String, ApiError> {
     let mut query = Vec::new();
     if let Some(limit) = params.limit {
         query.push(format!("limit={limit}"));
     }
     if let Some(status) = &params.status {
-        if !status.is_empty() && safe_segment(status) {
+        // A non-empty but invalid filter must not silently drop — the
+        // upstream call would go out unfiltered and the operator would see
+        // all rows believing a filter applied.
+        if !status.is_empty() {
+            if !safe_segment(status) {
+                return Err(ApiError::InvalidInput(format!(
+                    "invalid status filter '{status}'"
+                )));
+            }
             query.push(format!("status={status}"));
         }
     }
     if query.is_empty() {
-        base.to_owned()
+        Ok(base.to_owned())
     } else {
-        format!("{base}?{}", query.join("&"))
+        Ok(format!("{base}?{}", query.join("&")))
     }
 }
 
@@ -3457,20 +3465,25 @@ struct ActionLedgerQuery {
     state: Option<String>,
 }
 
-fn build_action_ledger_path(params: &ActionLedgerQuery) -> String {
+fn build_action_ledger_path(params: &ActionLedgerQuery) -> Result<String, ApiError> {
     let mut query = Vec::new();
     if let Some(limit) = params.limit {
         query.push(format!("limit={limit}"));
     }
     if let Some(state) = &params.state {
-        if !state.is_empty() && safe_segment(state) {
+        if !state.is_empty() {
+            if !safe_segment(state) {
+                return Err(ApiError::InvalidInput(format!(
+                    "invalid state filter '{state}'"
+                )));
+            }
             query.push(format!("state={state}"));
         }
     }
     if query.is_empty() {
-        "/v1/control-plane/ops/actions".to_owned()
+        Ok("/v1/control-plane/ops/actions".to_owned())
     } else {
-        format!("/v1/control-plane/ops/actions?{}", query.join("&"))
+        Ok(format!("/v1/control-plane/ops/actions?{}", query.join("&")))
     }
 }
 
@@ -3817,7 +3830,7 @@ async fn audience_fans(
     Query(params): Query<ListQuery>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/audience/fans", &params);
+    let path = build_list_path("/v1/control-plane/audience/fans", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "audience fans")
 }
@@ -5664,7 +5677,7 @@ async fn outreach_candidates(
     headers: HeaderMap,
     Query(params): Query<ListQuery>,
 ) -> Result<Response, ApiError> {
-    let path = build_list_path("/v1/control-plane/autopilot/outreach/candidates", &params);
+    let path = build_list_path("/v1/control-plane/autopilot/outreach/candidates", &params)?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "outreach candidates")
 }
@@ -5712,7 +5725,7 @@ async fn booking_candidates(
     let path = build_list_path(
         "/v1/control-plane/autopilot/booking-discovery/candidates",
         &params,
-    );
+    )?;
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "booking candidates")
 }

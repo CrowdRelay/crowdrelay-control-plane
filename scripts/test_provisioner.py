@@ -174,6 +174,22 @@ class ProvisionerContractTests(unittest.TestCase):
         with self.assertRaises(provisioner.ProvisionError):
             provisioner.safe_plan(job)
 
+    def test_safe_plan_rejects_provider_keys_with_control_characters(self):
+        # providerKeys values are written verbatim into tenant.env — a
+        # newline in a value emits an extra VAR=value line that can shadow
+        # .env secrets under compose env_file precedence.
+        job = valid_job()
+        job["plan"]["providerKeys"] = {"bandsintown": "key\nPOSTGRES_PASSWORD=pwned"}
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+        job = valid_job()
+        job["plan"]["providerKeys"] = {"spotifyClientSecret": "abc\rdef"}
+        with self.assertRaises(provisioner.ProvisionError):
+            provisioner.safe_plan(job)
+        job = valid_job()
+        job["plan"]["providerKeys"] = {"bandsintown": "clean-key-123"}
+        provisioner.safe_plan(job)
+
     def test_safe_plan_accepts_schema5_roster_plan(self):
         # Schema 5 = schema 4 plus placement + teamMembers. A roster tenant's
         # plan must claim and validate like a schema-4 plan — the bump exists
