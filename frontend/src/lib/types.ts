@@ -2504,8 +2504,13 @@ export type ChannelPerformance = {
   attribution: ChannelAttribution
   signups: number
   activated_30d: number
+  /// Over the people who stayed — read it beside `departed`, or a channel
+  /// that lost most of its arrivals can show a perfect rate over the rest.
   activation_basis_points: number | null
   best_action: string | null
+  /// Arrived through this channel, then left (unsubscribed or suppressed).
+  /// Optional: an older CrowdRelay does not report it, and absent is not zero.
+  departed?: number
   [key: string]: unknown
 }
 
@@ -2521,6 +2526,7 @@ export type AcquisitionChannels = {
     remedy: string
     signups: number
     activated_30d: number
+    departed?: number
   }>
   [key: string]: unknown
 }
