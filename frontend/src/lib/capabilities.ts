@@ -90,7 +90,7 @@ const EXPECTED_VERSION: Field = {
 export const SURFACE_CAPABILITIES: Capability[] = [
   // ── Aggregate ──────────────────────────────────────────────────────
   {
-    id: 'import-fans', pillar: 'aggregate', home: { path: '/audience?tab=contacts', section: 'Import a mailing list' }, title: 'Import a mailing list',
+    id: 'import-fans', pillar: 'aggregate', gap: 'Deliberately not placed. The Contacts tab uploads the same list into review first — the onboarding path says contacts land in a waiting room and are promoted one by one, not imported in one click. This route skips that review.', title: 'Import a mailing list',
     purpose: 'Bring an existing list in. Every address lands pending and gets the double opt-in email; nobody becomes an active fan without confirming.',
     actions: [{
       label: 'Import', method: 'POST', path: 'portfolio/import-fans',
@@ -109,30 +109,30 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       {
         label: 'Set rules', method: 'PUT', path: 'audience-graph/places/{place_id}/rules', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'self_promo_ratio_percent', label: 'Self-promo ratio %', kind: 'number' },
-          { name: 'contact_channel', label: 'Contact channel', kind: 'text' },
-          { name: 'contact_target', label: 'Contact target', kind: 'text' },
-          { name: 'requires_approval', label: 'Posts need mod approval', kind: 'bool' },
-          { name: 'cooldown_days', label: 'Cooldown days', kind: 'number' },
-          { name: 'rules_summary', label: 'Rules in a sentence', kind: 'textarea' },
+          { name: 'selfPromoRatioPercent', label: 'Self-promo ratio %', kind: 'number' },
+          { name: 'contactChannel', label: 'Contact channel', kind: 'text' },
+          { name: 'contactTarget', label: 'Contact target', kind: 'text' },
+          { name: 'requiresApproval', label: 'Posts need mod approval', kind: 'bool' },
+          { name: 'cooldownDays', label: 'Cooldown days', kind: 'number' },
+          { name: 'rulesSummary', label: 'Rules in a sentence', kind: 'textarea' },
           { name: 'verified', label: 'Verified', kind: 'bool' },
         ],
       },
       {
         label: 'Add evidence', method: 'POST', path: 'audience-graph/places/{place_id}/evidence', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'evidence_kind', label: 'Kind', kind: 'select', required: true, options: ['scan', 'mention', 'sample_post', 'mod_contact', 'manual_note'] },
+          { name: 'evidenceKind', label: 'Kind', kind: 'select', required: true, options: ['scan', 'mention', 'sample_post', 'mod_contact', 'manual_note'] },
           { name: 'method', label: 'How it was found', kind: 'text', required: true },
-          { name: 'confidence_bp', label: 'Confidence (basis points)', kind: 'number' },
+          { name: 'confidenceBp', label: 'Confidence (basis points)', kind: 'number' },
           { name: 'payload', label: 'Detail', kind: 'json' },
         ],
       },
       {
         label: 'Advance outreach', method: 'POST', path: 'audience-graph/places/{place_id}/outreach/advance', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'from_stage', label: 'From', kind: 'select', required: true, options: STAGES() },
-          { name: 'to_stage', label: 'To', kind: 'select', required: true, options: STAGES() },
-          { name: 'outcome_notes', label: 'Notes', kind: 'textarea' },
+          { name: 'fromStage', label: 'From', kind: 'select', required: true, options: STAGES() },
+          { name: 'toStage', label: 'To', kind: 'select', required: true, options: STAGES() },
+          { name: 'outcomeNotes', label: 'Notes', kind: 'textarea' },
         ],
       },
     ],
@@ -222,11 +222,11 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   },
   {
     id: 'release-recipient', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'Release campaign recipients' }, title: 'Release campaign recipient',
-    purpose: 'Mark where one beacon stands in a release campaign.',
+    purpose: 'Where one physical parcel stands: prepared, sent, delivered or cancelled.',
     actions: [{
       label: 'Update recipient', method: 'POST', path: 'autopilot/beacon-release-campaigns/{campaign_id}/recipients/{beacon_id}',
       paramSources: { campaign_id: 'text', beacon_id: 'text' },
-      fields: [{ name: 'status', label: 'Status', kind: 'text', required: true }],
+      fields: [{ name: 'status', label: 'Parcel', kind: 'select', required: true, options: ['prepared', 'sent', 'delivered', 'cancelled'] }],
     }],
   },
   {
@@ -315,7 +315,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         label: 'Propose', method: 'POST', path: 'portfolio/amplification',
         fields: [
           { name: 'toWorkspaceId', label: 'Other act (workspace id)', kind: 'uuid', required: true },
-          { name: 'purpose', label: 'Purpose', kind: 'text', required: true },
+          { name: 'purpose', label: 'Purpose', kind: 'select', required: true, options: ['cross_promote', 'release_feature', 'event_crossbill'] },
           { name: 'scope', label: 'Scope', kind: 'select', options: ['all_active', 'double_opt_in'] },
           { name: 'maxCampaignsPerMonth', label: 'Max campaigns / month', kind: 'number', initial: 2 },
           { name: 'cooldownDays', label: 'Cooldown days', kind: 'number', initial: 21 },
@@ -325,7 +325,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         label: 'Run campaign', method: 'POST', path: 'portfolio/amplification/{consent_id}/campaign', paramSources: { consent_id: 'text' },
         confirm: 'This emails real fans of the other act.',
         fields: [
-          { name: 'campaign_reference', label: 'Reference', kind: 'text', required: true },
+          { name: 'campaignReference', label: 'Reference', kind: 'text', required: true },
           { name: 'subject', label: 'Subject', kind: 'text', required: true },
           { name: 'text', label: 'Text', kind: 'textarea', required: true },
           { name: 'limit', label: 'At most', kind: 'number' },
@@ -352,9 +352,9 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         fields: [
           { name: 'slug', label: 'Slug', kind: 'text', required: true },
           { name: 'name', label: 'Name', kind: 'text', required: true },
-          { name: 'channel', label: 'Channel', kind: 'text', required: true, hint: 'e.g. email, push' },
-          { name: 'segment_slug', label: 'Segment', kind: 'text', required: true },
-          { name: 'template_key', label: 'Template', kind: 'text', required: true },
+          { name: 'channel', label: 'Channel', kind: 'select', required: true, options: ['email', 'push', 'in_app'] },
+          { name: 'segment_slug', label: 'Who it goes to', kind: 'text', required: true, hint: 'a segment from the list above' },
+          { name: 'template_key', label: 'Template', kind: 'text', required: true, hint: 'the message template the sender renders' },
           { name: 'subject', label: 'Subject', kind: 'text' },
           { name: 'content', label: 'Content', kind: 'json' },
         ],
@@ -516,7 +516,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     id: 'reward-fulfillments', pillar: 'convert', home: { path: '/operations', section: 'Prizes to send' }, title: 'Prizes to send',
     purpose: 'Winners whose prize has not gone out yet.',
     read: { path: 'reward-fulfillments' },
-    actions: [{ label: 'Mark', method: 'POST', path: 'reward-fulfillments/{winner_id}', rowParams: { winner_id: 'winner_id' }, fields: [{ name: 'status', label: 'Status', kind: 'text', required: true, hint: 'e.g. shipped, delivered' }, { name: 'note', label: 'Note', kind: 'text' }] }],
+    actions: [{ label: 'Mark', method: 'POST', path: 'reward-fulfillments/{winner_id}', rowParams: { winner_id: 'winner_id' }, fields: [{ name: 'status', label: 'The prize is', kind: 'select', required: true, options: ['prepared', 'delivered', 'cancelled'] }, { name: 'note', label: 'Note', kind: 'text' }] }],
   },
   {
     id: 'booking-targets', pillar: 'convert', gap: 'Adding a booking contact needs the city id, and recording its reply needs the booking-target id. No console read carries either: the funnel keys cities by slug, and gig-plan letters and confirmed candidates do not return the target they wrote to.', title: 'Venues, promoters and festivals',

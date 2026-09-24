@@ -1,3 +1,4 @@
+import { CommunityHouseRulesPanel } from '../components/CommunityHouseRulesPanel'
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -519,6 +520,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
         <Show when={selectedPlaceId()}>
           <SectionTitle eyebrow={authState.isPlatformLevel() ? 'COMMUNITY' : undefined} title={selectedCommunity()?.name ?? 'Community'} action={<Button variant="ghost" size="sm" onClick={() => { setSelectedPlaceId(null); switchTab('ci-communities') }}>Back to directory</Button>} />
+
+          <CommunityHouseRulesPanel slug={props.slug} placeId={selectedPlaceId()!} />
 
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
