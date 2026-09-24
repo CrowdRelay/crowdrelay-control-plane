@@ -54,6 +54,8 @@ export type NeedsYouItem = {
   tenant?: { slug: string; displayName: string }
   to: string
   params?: { slug: string }
+  /** Query for the destination — a `?tab=` inside `to` is not parsed. */
+  search?: Record<string, string>
 }
 
 const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
@@ -91,7 +93,7 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
     items.push({ ...attention('runtime', t.runtimeHealth === 'degraded' ? 0 : 2, `Runtime ${healthLabel(t.runtimeHealth)}`), to: '/tenants/$slug/health' })
   }
   if (t.enabledNotifierChannels === 0) {
-    items.push({ ...attention('notifier', 1, 'No notification channel', 'Approvals and alerts fan out to zero channels — nobody is told.'), to: '/tenants/$slug?tab=destinations' })
+    items.push({ ...attention('notifier', 1, 'No notification channel', 'Approvals and alerts fan out to zero channels — nobody is told.'), to: '/tenants/$slug', search: { tab: 'destinations' } })
   }
   return items
 }
@@ -235,6 +237,7 @@ export function NeedsYouCard(props: { ov: OverviewModel; loading: boolean }) {
                 <Link
                   to={item.to}
                   params={item.params ?? {}}
+                  search={item.search as never}
                   data-slot="needs-you-item"
                   class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >

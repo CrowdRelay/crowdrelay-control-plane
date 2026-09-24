@@ -1,7 +1,9 @@
 import { For, Show } from 'solid-js'
 import { useNavigate } from '@tanstack/solid-router'
 import { authState } from '../lib/auth'
+import { cn } from '../lib/cn'
 import { Button } from './app/button'
+import type { processMapLive } from '../lib/process-map-live'
 
 type Zone = 'src' | 'intel' | 'auth' | 'exec' | 'out' | 'learn'
 
@@ -50,27 +52,41 @@ const NODES: MapNode[] = [
 
   // ── INTELLIGENCE (deterministic Rust) ──
   { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention?tab=decisions' },
-  { id: 'scorecard', x: 315, y: 228, w: 270, h: 56, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence?tab=standing' },
+  { id: 'scorecard', x: 315, y: 228, w: 270, h: 66, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence?tab=standing' },
   { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence?tab=decisions' },
 
   // ── AUTHORITY (what the disposition allows) ──
-  { id: 'auto', x: 660, y: 120, w: 220, h: 60, zone: 'auth', title: 'Auto-execute', desc: 'queued immediately' },
-  { id: 'approval', x: 660, y: 210, w: 220, h: 60, zone: 'auth', title: 'Awaiting approval', desc: 'a person decides · 72h', to: '/tenants/{slug}/attention' },
+  { id: 'auto', x: 660, y: 120, w: 220, h: 66, zone: 'auth', title: 'Auto-execute', desc: 'queued immediately' },
+  { id: 'approval', x: 660, y: 210, w: 220, h: 66, zone: 'auth', title: 'Awaiting approval', desc: 'a person decides · 72h', to: '/tenants/{slug}/attention' },
   { id: 'noaction', x: 660, y: 300, w: 220, h: 60, zone: 'auth', title: 'Observe · Deny', desc: 'recorded, never executed' },
 
   // ── EXECUTION ──
   { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations' },
   { id: 'workers', x: 955, y: 168, w: 290, h: 52, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
-  { id: 'outbox', x: 955, y: 238, w: 290, h: 52, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}?tab=destinations' },
+  { id: 'outbox', x: 955, y: 238, w: 290, h: 66, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}?tab=destinations' },
   { id: 'community', x: 955, y: 308, w: 290, h: 52, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },
-  { id: 'receipt', x: 955, y: 378, w: 290, h: 52, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention' },
+  { id: 'receipt', x: 955, y: 378, w: 290, h: 66, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention?tab=trace' },
 
   // ── OUTCOMES ──
-  { id: 'fans', x: 1320, y: 110, w: 250, h: 58, zone: 'out', title: 'Fanbase', desc: 'aggregated + attributed', to: '/tenants/{slug}' },
+  { id: 'fans', x: 1320, y: 110, w: 250, h: 58, zone: 'out', title: 'Fanbase', desc: 'aggregated + attributed', to: '/tenants/{slug}/audience' },
   { id: 'engagement', x: 1320, y: 192, w: 250, h: 58, zone: 'out', title: 'Engagement', desc: 'replies · posts · installs', to: '/tenants/{slug}/operations' },
-  { id: 'conversion', x: 1320, y: 274, w: 250, h: 58, zone: 'out', title: 'Conversion', desc: 'tickets · merch · attendance', to: '/tenants/{slug}' },
-  { id: 'metrics', x: 1320, y: 356, w: 250, h: 58, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence?tab=decisions' },
+  { id: 'conversion', x: 1320, y: 274, w: 250, h: 58, zone: 'out', title: 'Conversion', desc: 'tickets · merch · attendance', to: '/tenants/{slug}/audience' },
+  { id: 'metrics', x: 1320, y: 356, w: 250, h: 66, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence?tab=decisions' },
 ]
+
+/** The live value + detail appended to a mobile node row — the same fact
+ *  the desktop SVG draws under the node's description. */
+function MobileLive(props: { fact: () => { value: string; detail?: string | null; stuck?: boolean } | undefined }) {
+  return (
+    <Show when={props.fact()}>{fact => (
+      <span class={cn('ml-auto shrink-0 text-xs tabular-nums', fact().stuck ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+        <strong class={cn('font-semibold', !fact().stuck && 'text-foreground')}>{fact().value}</strong>
+        {fact().stuck && <span class="sr-only"> needs attention</span>}
+        <Show when={fact().detail}>{detail => <> · {detail()}</>}</Show>
+      </span>
+    )}</Show>
+  )
+}
 
 type Edge = { from: string; to: string; kind: Zone }
 
@@ -179,15 +195,36 @@ const ZONE_ORDER: Zone[] = ['src', 'intel', 'auth', 'exec', 'out']
 // Pre-compute edge paths once — no reactive overhead.
 const EDGES_RENDERED = EDGES.map(edge => ({ edge, d: edgePath(edge) }))
 
-export function ProcessMap(props: { slug: () => string }) {
+export function ProcessMap(props: {
+  slug: () => string
+  /** Live per-node facts from the tenant-brain read model — absent while
+   *  the model has not answered; a node with no entry renders its static
+   *  shape, which is the honest answer for blocks the model cannot see. */
+  live?: () => ReturnType<typeof processMapLive> | undefined
+}) {
   const navigate = useNavigate()
   const zoneLabel = (zone: Zone) => authState.isPlatformLevel() ? ZONE_LABEL[zone] : BAND_ZONE_LABEL[zone]
   const nodeTitle = (node: MapNode) => authState.isPlatformLevel() ? node.title : (BAND_NODE_TEXT[node.id]?.title ?? node.title)
   const nodeDesc = (node: MapNode) => authState.isPlatformLevel() ? node.desc : (BAND_NODE_TEXT[node.id]?.desc ?? node.desc)
+  const nodeFact = (node: MapNode) => props.live?.()?.nodes[node.id]
+  const nodeLabel = (node: MapNode) => {
+    const fact = nodeFact(node)
+    return nodeTitle(node)
+      + (fact ? `, ${fact.value}` : '')
+      + (fact?.stuck ? ', needs attention' : '')
+  }
 
   const open = (node: MapNode) => {
     if (!node.to) return
-    navigate({ to: node.to.replace('{slug}', props.slug()) })
+    // `to` strings carry `?tab=` — TanStack's `to` is a path template, not
+    // an href: the query must go through `search` or the destination route
+    // never matches during location build (and a stale `?search` from the
+    // current page would get glued on behind it).
+    const [path, query] = node.to.replace('{slug}', props.slug()).split('?')
+    void navigate({
+      to: path,
+      search: (query ? Object.fromEntries(new URLSearchParams(query)) : {}) as never,
+    })
   }
 
   return (
@@ -207,6 +244,7 @@ export function ProcessMap(props: { slug: () => string }) {
                     <span class="text-muted-foreground">•</span>
                     <span>{nodeTitle(node)}</span>
                     <Show when={nodeDesc(node)}><span class="text-xs text-muted-foreground">— {nodeDesc(node)}</span></Show>
+                    <MobileLive fact={() => nodeFact(node)} />
                   </div>
                 }>
                   <Button
@@ -218,6 +256,7 @@ export function ProcessMap(props: { slug: () => string }) {
                     <span class="text-muted-foreground">•</span>
                     <span>{nodeTitle(node)}</span>
                     <Show when={nodeDesc(node)}><span class="text-xs text-muted-foreground">— {nodeDesc(node)}</span></Show>
+                    <MobileLive fact={() => nodeFact(node)} />
                   </Button>
                 </Show>
               )}</For>
@@ -274,7 +313,7 @@ export function ProcessMap(props: { slug: () => string }) {
         {/* nodes */}
         <For each={NODES}>
           {(node) => (
-            <g class="pm-node-group" role="button" tabindex="0" aria-label={nodeTitle(node)} onClick={() => open(node)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(node) } }}>
+            <g class="pm-node-group" role="button" tabindex="0" aria-label={nodeLabel(node)} onClick={() => open(node)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(node) } }}>
               <rect
                 class="pm-node"
                 x={node.x}
@@ -282,14 +321,23 @@ export function ProcessMap(props: { slug: () => string }) {
                 width={node.w}
                 height={node.h}
                 rx="10"
-                style={{ stroke: ZONE_STROKE[node.zone] }}
+                style={{ stroke: nodeFact(node)?.stuck ? 'var(--color-destructive)' : ZONE_STROKE[node.zone] }}
               />
               <foreignObject x={node.x + 14} y={node.y + 6} width={node.w - 28} height={node.h - 12}>
                 <div class="pm-body">
                   <div class="pm-title">{nodeTitle(node)}</div>
                   <Show when={nodeDesc(node)}>
-                    <div class="pm-desc">{nodeDesc(node)}</div>
+                    {/* A live line adds a third row to a fixed-height node —
+                        the desc drops to one line so it still fits. */}
+                    <div class={cn('pm-desc', nodeFact(node) && 'pm-desc-live')}>{nodeDesc(node)}</div>
                   </Show>
+                  <Show when={nodeFact(node)}>{fact => (
+                    <div class={cn('pm-live', fact().stuck && 'pm-live-stuck')}>
+                      <strong>{fact().value}</strong>
+                      <Show when={fact().detail}>{detail => <span class="pm-live-detail">{detail()}</span>}</Show>
+                      <Show when={fact().stuck}><span class="sr-only">needs attention</span></Show>
+                    </div>
+                  )}</Show>
                 </div>
               </foreignObject>
             </g>
