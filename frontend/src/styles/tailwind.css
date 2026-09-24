@@ -309,6 +309,12 @@
   .pm-body { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 3px; pointer-events: none; }
   .pm-title { @apply text-sm font-bold text-foreground; }
   .pm-desc { @apply text-xs whitespace-pre-line text-muted-foreground; }
+  /* A live fact line joins the fixed-height node body — the desc drops to
+     one clipped line so title + desc + live still fit the rect. */
+  .pm-desc-live { @apply truncate whitespace-nowrap; }
+  .pm-live { @apply flex items-baseline gap-1 text-xs text-muted-foreground; }
+  .pm-live strong { @apply font-bold tabular-nums text-foreground; }
+  .pm-live-stuck, .pm-live-stuck strong { color: var(--color-destructive); }
   .pm-zone { fill: transparent; stroke: var(--color-border); stroke-dasharray: 5 5; }
   .pm-zone-intel { fill: color-mix(in srgb, var(--color-primary) 4%, transparent); }
   .pm-zone-auth { fill: color-mix(in srgb, var(--color-warning-foreground) 5%, transparent); }
