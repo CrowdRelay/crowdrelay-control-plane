@@ -178,6 +178,7 @@ const SUBPAGES = [
   { path: '/flow', name: 'flow' },
   { path: '/tenants', name: 'tenants' },
   { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
+  { path: '/tenants/virya?tab=workspace', name: 'tenant-workspace' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
@@ -260,6 +261,9 @@ test.describe('Control Plane E2E @e2e', () => {
     const settingsLink = page.getByRole('link', { name: 'Settings' }).first()
     // `aria-current` is the marker that survives the SidebarMenuButton `as`
     // composition — TanStack sets `data-status` too, but the wrapper drops it.
+    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+    await page.click('#tab-workspace')
+    await expect(page).toHaveURL(/tab=workspace/)
     await expect(settingsLink).toHaveAttribute('aria-current', 'page')
     await page.click('#tab-deployment')
     await expect(page).toHaveURL(/tab=deployment/)

@@ -1492,12 +1492,12 @@ fn collect_timestamps(
 
 /// Label Portfolio subpage.
 ///
-/// The four upstream sections (roster KPIs, consent edges, fan sources and
-/// brand settings) are fetched concurrently over the private tunnel and
-/// projected like [`project_today`]. A section that fails is reported as
-/// `null` and named in `degraded`, so a settings gap on an older CrowdRelay
-/// build cannot blank the roster KPIs next to it. Only a snapshot where every
-/// section failed is an error.
+/// The three upstream sections (roster KPIs, consent edges and fan sources)
+/// are fetched concurrently over the private tunnel and projected like
+/// [`project_today`]. A section that fails is reported as `null` and named
+/// in `degraded`. Only a snapshot where every section failed is an error.
+/// The settings section this model used to carry moved to the Workspace
+/// tab's own lean GET (`/tenants/{slug}/settings`).
 async fn portfolio(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
@@ -1532,11 +1532,10 @@ async fn portfolio(
         }
     };
 
-    let (overview, amplification, fanbases, settings) = tokio::join!(
+    let (overview, amplification, fanbases) = tokio::join!(
         section("/v1/control-plane/portfolio/overview"),
         section("/v1/control-plane/portfolio/amplification"),
         section("/v1/control-plane/fanbases"),
-        section("/v1/control-plane/tenant-settings"),
     );
 
     let projected = project_portfolio(
@@ -1545,7 +1544,6 @@ async fn portfolio(
         overview.as_ref(),
         amplification.as_ref(),
         fanbases.as_ref(),
-        settings.as_ref(),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
@@ -1557,7 +1555,6 @@ fn project_portfolio(
     overview: SectionResult<'_>,
     amplification: SectionResult<'_>,
     fanbases: SectionResult<'_>,
-    settings: SectionResult<'_>,
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
@@ -1567,7 +1564,6 @@ fn project_portfolio(
             section("overview", overview, Shape::Object),
             section("amplification", amplification, Shape::Object),
             section("fanbases", fanbases, Shape::Object),
-            section("settings", settings, Shape::Object),
         ],
     )
 }
@@ -2639,21 +2635,16 @@ mod tests {
     fn fanbases() -> Value {
         json!({"fanbases": []})
     }
-    fn settings() -> Value {
-        json!({"overrides": {}})
-    }
-
     #[test]
     fn portfolio_projects_a_complete_snapshot() {
-        let (o, a, f, s) = (roster_overview(), amplification(), fanbases(), settings());
-        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), ok(&f), ok(&s))
+        let (o, a, f) = (roster_overview(), amplification(), fanbases());
+        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), ok(&f))
             .expect("complete snapshot projects");
 
         assert_eq!(projected["id"], json!("virya"));
         assert_eq!(projected["overview"], roster_overview());
         assert_eq!(projected["amplification"], amplification());
         assert_eq!(projected["fanbases"], fanbases());
-        assert_eq!(projected["settings"], settings());
         assert_eq!(projected["degraded"], json!([]));
     }
 
@@ -2661,13 +2652,12 @@ mod tests {
     fn portfolio_degrades_one_section_without_blanking_the_rest() {
         let (o, a) = (roster_overview(), amplification());
         let e = unreachable();
-        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), Err(&e), Err(&e))
+        let projected = project_portfolio("virya", 300, ok(&o), ok(&a), Err(&e))
             .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["overview"], roster_overview());
         assert_eq!(projected["fanbases"], Value::Null);
-        assert_eq!(projected["settings"], Value::Null);
-        assert_eq!(projected["degraded"], json!(["fanbases", "settings"]));
+        assert_eq!(projected["degraded"], json!(["fanbases"]));
         assert_eq!(
             projected["sections"]["fanbases"]["state"],
             json!("unreachable")
@@ -2677,7 +2667,7 @@ mod tests {
     #[test]
     fn portfolio_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_portfolio("virya", 300, Err(&e), Err(&e), Err(&e), Err(&e))
+        let error = project_portfolio("virya", 300, Err(&e), Err(&e), Err(&e))
             .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
     }

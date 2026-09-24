@@ -69,6 +69,25 @@ control.crowdrelay.music {
             }
         }
 
+        # Machine-to-machine automation traffic (n8n → control plane): event
+        # ingestion plus the join-ask runtime pull. Bearer token auth, not
+        # Basic — the backend validates the automation token, and the catch-all
+        # proxy would overwrite it with the admin Bearer if this handle did not
+        # take the whole /api/v1/automation subtree.
+        @automation_ingest path /api/v1/automation/*
+        handle @automation_ingest {
+            reverse_proxy control-plane:8090 {
+                health_uri /healthz/ready
+                health_interval 15s
+                health_timeout 3s
+                transport http {
+                    dial_timeout 2s
+                    response_header_timeout 10s
+                    keepalive 60s
+                }
+            }
+        }
+
         # The SPA shell stays public so the styled login renders without a
         # browser-native credential dialog. Every other /api/v1/* call is gated
         # here; the runtime READ is admin-authoritative backend-side, so it is
@@ -78,6 +97,7 @@ control.crowdrelay.music {
         # when Caddy provisions or it refuses to start — fail closed either
         # way, and kept out of `docker inspect`.
         @api {
+            not path /api/v1/automation/*
             path /api/v1/*
             not path /api/v1/tenants/*/runtime
         }

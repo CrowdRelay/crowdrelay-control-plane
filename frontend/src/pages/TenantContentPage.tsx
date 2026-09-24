@@ -14,6 +14,8 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
 import { Button } from '../components/app/button'
+import { Input } from '../components/ui/input'
+import { toast } from '../components/app/toast'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
 import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar, ErrorCard } from '../components/layout'
@@ -329,6 +331,9 @@ export function TenantContentPage() {
                     <Show when={r.score != null}> · score {r.score}</Show>
                     <Show when={r.num_comments != null}> · {r.num_comments} comments</Show>
                   </div>
+                  <Show when={r.kind === 'social_post' && r.status === 'awaiting_manual_post'}>
+                    <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void results.refetch()} />
+                  </Show>
                 </li>
               )
             }}</For>
@@ -337,4 +342,52 @@ export function TenantContentPage() {
       </Show>
     </Section>
   </PageShell>
+}
+
+/// The close-out for a social post the operator published by hand: paste the
+/// URL where it landed and the row stops waiting — measurement picks it up
+/// from there. Without this the row sits at `awaiting_manual_post` forever
+/// and counts as live work the cadence never finishes.
+function ManualSocialPostRegister(props: { slug: string; post: DeliveryResult; onDone: () => void }) {
+  const [open, setOpen] = createSignal(false)
+  const [url, setUrl] = createSignal('')
+  const [busy, setBusy] = createSignal(false)
+  const register = async () => {
+    if (busy()) return
+    setBusy(true)
+    try {
+      await api.registerManualSocialPost(props.slug, props.post.id, url())
+      toast.success('Registered — the post is being measured')
+      props.onDone()
+    } catch (error) {
+      toast.error(errorMessage(error, 'That did not register'))
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }
+  return (
+    <Show
+      when={open()}
+      fallback={
+        <Button variant="link" class="mt-1 h-auto p-0 text-xs font-normal" writes onClick={() => setOpen(true)}>
+          posted it by hand? register the link
+        </Button>
+      }
+    >
+      <span class="mt-1 flex items-center gap-2">
+        <Input
+          type="url"
+          class="h-7 w-64 max-w-full text-xs"
+          placeholder="https://… where the post landed"
+          value={url()}
+          onInput={e => setUrl(e.currentTarget.value)}
+        />
+        <Button size="sm" variant="outline" writes disabled={busy() || !url().startsWith('https://')} onClick={() => void register()}>
+          <Show when={busy()}><Spinner /></Show>
+          Register
+        </Button>
+      </span>
+    </Show>
+  )
 }

@@ -22,6 +22,10 @@ use crate::{
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
+/// Matches CrowdRelay's `media::MAX_MEDIA_BODY_BYTES` — an image Meta will
+/// fetch for a post. The proxy bounds the body before it spends the upstream
+/// round trip.
+const MAX_MEDIA_BODY_BYTES: usize = 8 * 1024 * 1024;
 /// The sheet upload forwards up to 2 MiB of CSV inside a JSON envelope —
 /// the router-wide 8 KiB would refuse every real sheet before the
 /// upstream's own bounds could answer.
@@ -103,6 +107,10 @@ pub fn router() -> Router<AppState> {
             post(register_manual_community_post),
         )
         .route(
+            "/tenants/{slug}/operations/social-posts/{post_id}/register-manual",
+            post(register_manual_social_post),
+        )
+        .route(
             "/tenants/{slug}/operations/actions/{action_id}/sent",
             get(action_sent_record),
         )
@@ -169,6 +177,16 @@ pub fn router() -> Router<AppState> {
         .route(
             "/tenants/{slug}/portfolio/settings/{setting_key}",
             post(update_portfolio_setting),
+        )
+        // The Workspace tab's read: the editable settings alone, without the
+        // audience KPIs the portfolio fan-out used to carry alongside them.
+        .route("/tenants/{slug}/settings", get(tenant_settings))
+        // The join-ask image goes up as the file's own bytes — the one
+        // proxied call whose body is not JSON. 8 MiB is the upstream bound;
+        // the router-wide JSON limit would refuse every real screenshot.
+        .route(
+            "/tenants/{slug}/media",
+            post(upload_media).route_layer(DefaultBodyLimit::max(MAX_MEDIA_BODY_BYTES)),
         )
         // Tenant-held credentials: the masked inventory and the write-only
         // set/unset. The value goes up and never comes back — the list shows
@@ -1160,6 +1178,63 @@ async fn register_manual_community_post(
     // Upstream answers 204 No Content — a success shape object_no_store
     // would refuse as "invalid JSON", so this takes the mutation path.
     mutation_no_store(result, "manual post registration")
+}
+
+#[derive(Debug, Deserialize)]
+struct ManualSocialPostRegistration {
+    platform_post_url: String,
+}
+
+/// The manual leg for social posts — the operator published a drafted
+/// Facebook/Instagram/Telegram post by hand, and registering its URL closes
+/// the row and turns measurement on. Without this route an
+/// `awaiting_manual_post` social post could never be closed from the
+/// console: upstream and the tunnel both carried it, the proxy did not.
+/// Upstream owns the real URL check — this bounds the envelope only.
+async fn register_manual_social_post(
+    State(state): State<AppState>,
+    Path((slug, post_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<ManualSocialPostRegistration>,
+) -> Result<Response, ApiError> {
+    let post_id = uuid_segment(&post_id)?.to_owned();
+    let url = input.platform_post_url.trim();
+    if url.is_empty() || url.len() > 2048 || !url.starts_with("https://") {
+        return Err(ApiError::InvalidInput(
+            "a manual post needs its https post URL".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = json!({ "platform_post_url": url });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/social-posts/{post_id}/register-manual"),
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.social_post.registered_manual",
+        "social_post",
+        &post_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(result, "manual social post registration")
 }
 
 /// What the action actually sent — the words and the addresses it went to.
@@ -2553,13 +2628,17 @@ async fn update_portfolio_setting(
             "valid setting key is required".to_owned(),
         ));
     }
-    if !body.is_object()
-        || body
-            .get("value")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .is_none_or(str::is_empty)
-    {
+    if !body.is_object() || body.get("value").and_then(Value::as_str).is_none() {
+        return Err(ApiError::InvalidInput("value is required".to_owned()));
+    }
+    // Empty is a real statement only where upstream's grammar says so —
+    // `join_ask_image_url` clears the fixed image by writing "". Every other
+    // key keeps the non-empty guard here rather than round-tripping a refusal.
+    let empty_value = body
+        .get("value")
+        .and_then(Value::as_str)
+        .is_none_or(|v| v.trim().is_empty());
+    if empty_value && trimmed != "join_ask_image_url" {
         return Err(ApiError::InvalidInput("value is required".to_owned()));
     }
     let idempotency = idempotency_key(&headers)?.to_owned();
@@ -2614,6 +2693,81 @@ async fn update_portfolio_setting(
     .await;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     mutation_no_store(value, "portfolio setting update")
+}
+
+/// The tenant's editable settings — the Workspace tab's whole read. One
+/// upstream call, no audience KPIs carried along; the portfolio fan-out that
+/// used to serve this surface dropped its settings section when the editors
+/// moved here.
+async fn tenant_settings(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/tenant-settings",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "tenant settings")
+}
+
+/// `POST /tenants/{slug}/media` — the operator's file goes upstream as its
+/// own bytes. This proxy checks only that a body exists; CrowdRelay sniffs
+/// the image kind and applies its own bound, so what this surface promises
+/// is transport, not validation.
+async fn upload_media(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Response, ApiError> {
+    if body.is_empty() {
+        return Err(ApiError::InvalidInput("the media body is empty".to_owned()));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let file_name = headers
+        .get("x-media-name")
+        .and_then(|value| value.to_str().ok());
+    let content_type = headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream");
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management_binary(
+            tenant.tenant.id,
+            &target,
+            crate::tenant_area_client::BinaryManagementRequest {
+                path: "/v1/control-plane/media",
+                bytes: &body,
+                content_type,
+                file_name,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.media.uploaded",
+        "media",
+        file_name.unwrap_or(""),
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let value = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(value, "media upload")
 }
 
 // ─── Tenant-held secrets ────────────────────────────────────────────────────

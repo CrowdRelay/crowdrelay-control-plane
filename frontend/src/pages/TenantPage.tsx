@@ -13,6 +13,8 @@ import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
 import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
+import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
+import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { ErrorCard, PageHeader, PageShell, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
@@ -79,7 +81,16 @@ export function TenantPage() {
   // `?tab=today` redirect to in the router. The sidebar's Settings item
   // points at `?tab=profile`.
   const platformView = authState.isPlatformLevel()
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'deployment', 'access'])
+  // The band used to get no tab bar — a second sidebar entry it did not have
+  // meant Deployment and Access were platform-only in practice. Workspace
+  // (the editable settings, moved out of Audience) is exactly the surface a
+  // band operator drives themselves, so the bar now shows for both roles.
+  // The valid list is scoped by role too, so a pasted `?tab=deployment`
+  // link cannot mount a platform-only panel in a band session.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
+    'profile',
+    platformView ? ['profile', 'workspace', 'deployment', 'access'] : ['profile', 'workspace'],
+  )
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -479,27 +490,43 @@ export function TenantPage() {
         </Alert>
       </Show>
 
-      {/* The band's two sidebar entries point at Today and ?tab=profile, so
-          its view has no tab bar. Deployment and Access stay reachable by
-          ?tab= for everyone. */}
-      <Show when={platformView}>
-        <TabBar
-          active={activeTab()}
-          onChange={switchTab}
-          onPrefetch={prefetch}
-          tabs={[
-            { id: 'profile', label: 'Profile' },
-            { id: 'deployment', label: 'Deployment' },
-            { id: 'access', label: 'Access' },
-          ]}
-        />
-      </Show>
+      <TabBar
+        active={activeTab()}
+        onChange={switchTab}
+        onPrefetch={prefetch}
+        // One declaration per label — the collision gate counts literal
+        // `label:` occurrences, and a band-vs-platform split that repeats
+        // 'Profile' reads as two different concepts sharing a word.
+        tabs={[
+          { id: 'profile', label: 'Profile' },
+          { id: 'workspace', label: 'Workspace' },
+          ...(platformView
+            ? [
+                { id: 'deployment', label: 'Deployment' },
+                { id: 'access', label: 'Access' },
+              ]
+            : []),
+        ]}
+      />
 
       {/* Each tab body is one vertical rhythm. Sections draw a hairline and
           24px above their heading, but nothing below their content, so
           without the gap each section's last line sat on the next one's rule. */}
       <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
         <div class="space-y-8"><Settings /></div>
+      </TabPanel>
+
+      <TabPanel active={activeTab()} id="workspace" visited={isVisited('workspace')}>
+        <div class="space-y-8">
+          <WorkspaceSettingsPanel slug={t.slug} />
+          {/* The band keeps its API keys here because Access is a
+              platform-only tab — moving secrets there would take the write
+              away from the people who own the accounts. Platform sessions
+              see the same panel under Access. */}
+          <Show when={!platformView}>
+            <TenantSecretsPanel slug={t.slug} />
+          </Show>
+        </div>
       </TabPanel>
 
       <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
@@ -598,6 +625,12 @@ export function TenantPage() {
       <TabPanel active={activeTab()} id="access" visited={isVisited('access')}>
         <div class="space-y-8">
           <TenantOperatorsPanel slug={t.slug} />
+          {/* Tenant-held credentials moved here from Audience: the keys are
+              access material, not audience data. The band's copy lives on the
+              Workspace tab because this tab is platform-only. */}
+          <Show when={platformView}>
+            <TenantSecretsPanel slug={t.slug} />
+          </Show>
           <TenantAuditPanel items={model.data?.audit.items ?? []} />
 
           {/* Park, suspend and resume sat in the page header as one-click

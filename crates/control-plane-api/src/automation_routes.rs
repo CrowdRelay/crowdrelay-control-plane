@@ -112,12 +112,72 @@ fn decide_forward(message: &str, now: Instant) -> ForwardDecision {
     decide_forward_in(&mut state, message, now)
 }
 
-/// Machine-to-machine router: n8n posts events here. Authed via
-/// `require_automation` middleware (separate token from admin/telemetry).
+/// Machine-to-machine router: n8n posts events here, and pulls the join-ask
+/// runtime config from here. Authed via `require_automation` middleware
+/// (separate token from admin/telemetry).
 pub fn ingestion_router() -> Router<AppState> {
     Router::new()
         .route("/automation/events", post(ingest_event))
+        .route("/automation/tenants/{slug}/join-ask", get(join_ask_config))
         .layer(axum::extract::DefaultBodyLimit::max(MAX_EVENT_BODY_BYTES))
+}
+
+/// What n8n's join-ask workflow pulls at run time: the band's current texts,
+/// image, channels and cadence. Narrow on purpose — the automation token is
+/// not a management credential, so this answers the four keys the workflow
+/// reads and nothing else. CrowdRelay stays the source of truth and n8n
+/// never writes settings; that is why this is a pull, not a sync.
+async fn join_ask_config(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let target = crate::area_routes::target(&state, &slug).await?.1;
+    let value = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            crate::tenant_area_client::ManagementRequest {
+                method: "GET",
+                path: "/v1/control-plane/tenant-settings",
+                body: None,
+                correlation_id: None,
+                idempotency_key: None,
+            },
+        )
+        .await?;
+    let settings = value.get("settings").cloned().unwrap_or_else(|| json!({}));
+    let get = |key: &str| {
+        settings
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
+    // Typed values, not the stored spellings — the workflow consumes the
+    // list, not the comma-joined text, and a variants JSON parse failure
+    // reads as "feature off" exactly as it does to the evaluator.
+    let variants = get("join_ask_variants")
+        .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+        .unwrap_or_default();
+    let platforms = get("join_ask_platforms")
+        .map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let cadence_days = get("join_ask_cadence_days").and_then(|raw| raw.parse::<u32>().ok());
+    let image_url = get("join_ask_image_url");
+    Ok(json_no_store(json!({
+        "variants": variants,
+        "image_url": image_url,
+        "platforms": platforms,
+        "cadence_days": cadence_days,
+    })))
 }
 
 /// Operator-facing router: browse events, ack, retry, configure workflows.
