@@ -85,7 +85,12 @@ export function TenantPage() {
   // meant Deployment and Access were platform-only in practice. Workspace
   // (the editable settings, moved out of Audience) is exactly the surface a
   // band operator drives themselves, so the bar now shows for both roles.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'workspace', 'deployment', 'access'])
+  // The valid list is scoped by role too, so a pasted `?tab=deployment`
+  // link cannot mount a platform-only panel in a band session.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
+    'profile',
+    platformView ? ['profile', 'workspace', 'deployment', 'access'] : ['profile', 'workspace'],
+  )
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has

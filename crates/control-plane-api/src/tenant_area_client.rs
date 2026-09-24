@@ -39,17 +39,17 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Twelve because the widest fan-out is nine — the operations page — and a
 /// limit below the widest fan-out is not a limit, it is a queue. At four, that
 /// page ran in three waves and paid two extra round trips for nothing. At
-/// twelve it runs in one wave against connections that already exist, with
-/// headroom for a tenth and eleventh section before anyone has to think about
-/// this number again.
+/// twelve it runs in one wave against connections that already exist. The
+/// pool is the ceiling now — a thirteenth section must wait for a connection
+/// to free, so the next widen raises this number with it.
 ///
 /// The cost is twelve idle sockets per tenant, reclaimed after
 /// [`POOL_IDLE_TIMEOUT`]. That is the whole price of the fan-out being free.
 const POOL_MAX_PER_TARGET: usize = 12;
 
 /// The widest concurrent fan-out any handler makes against one target: the
-/// today page, which fetches eleven sections at once.
-const WIDEST_FAN_OUT: usize = 11;
+/// today page, which fetches twelve sections at once.
+const WIDEST_FAN_OUT: usize = 12;
 
 // A budget below the widest fan-out is not a budget, it is a queue: that page
 // would run in waves and pay a round trip per wave for nothing. Checked at
@@ -936,6 +936,15 @@ fn valid_operations_request(method: &str, path: &str) -> bool {
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/community-posts/",
+                    "/register-manual",
+                )
+                // The social-post manual leg — same shape as the community
+                // arm: a drafted Facebook/Instagram/Telegram post the
+                // operator published by hand registers its URL so the row
+                // closes and measurement picks it up.
+                || uuid_segment_between(
+                    path,
+                    "/v1/control-plane/social-posts/",
                     "/register-manual",
                 )
                 // 4V.6b: the shared night's writes — contribute one kind,

@@ -67,19 +67,67 @@ def extract_rust_allowlist(text: str) -> dict[str, set[str]]:
     return result
 
 
+def extract_all_path_literals(text: str) -> set[str]:
+    """Every `/v1/control-plane/` literal in the file, whatever function holds it.
+
+    Dynamic allowlist arms are implemented by helpers (`standing_approval_path`,
+    `fan_tag_path`, `night_confirm_path`) defined outside `valid_operations_request`
+    itself — the per-method block extraction cannot see them, but their path
+    literals are still the real coverage contract for prefix matching.
+    """
+    return set(re.findall(r'"(/v1/control-plane/[^"]+)"', text))
+
+
 def extract_backend_calls(text: str) -> set[tuple[str, str]]:
     """Extract (method, path) pairs from call() invocations in operations_routes.rs.
 
     Looks for patterns like:
         "GET",
         "/v1/control-plane/ops/summary",
+    and the request-struct fields the newer call sites use:
+        ManagementRequest { method: "POST", path: "/v1/..." }
+        ManagementRequest { method: "POST", path: &format!("/v1/.../{id}") }
+        BinaryManagementRequest { path: "/v1/...", method implied POST }
+    A templated `format!` call contributes its constant prefix — the
+    allowlist holds that same prefix inside its dynamic-arm literals
+    (uuid_segment_between et al.), so prefix equality is real coverage.
     """
     calls: set[tuple[str, str]] = set()
     # Match method + path pairs in call() arguments
     pattern = r'"(GET|POST|PUT|DELETE|PATCH)",\s*"(\/v1\/control-plane/[^"]+)"'
     for method, path in re.findall(pattern, text):
         calls.add((method, path))
+    # Request-struct call sites: `method:` then `path:` within the literal.
+    for m in re.finditer(r'method:\s*"(GET|POST|PUT|DELETE|PATCH)"', text):
+        window = text[m.start():m.start() + 500]
+        lit = re.search(r'path:\s*&?format!\(\s*"(/v1/control-plane/[^"{]*)', window)
+        lit = lit or re.search(r'path:\s*"(/v1/control-plane/[^"]+)"', window)
+        if lit:
+            calls.add((m.group(1), lit.group(1)))
+    # Binary requests carry no method field — they are always POST.
+    for m in re.finditer(r'BinaryManagementRequest\s*\{', text):
+        window = text[m.start():m.start() + 500]
+        lit = re.search(r'path:\s*"(/v1/control-plane/[^"]+)"', window)
+        if lit:
+            calls.add(("POST", lit.group(1)))
     return calls
+
+
+def allowlist_covers(allow_paths: set[str], path: str, all_literals: set[str] | None = None) -> bool:
+    """A call-site path is covered literally or by a dynamic arm's prefix.
+
+    `format!` extraction leaves the constant prefix (`.../social-posts/`);
+    the allowlist holds that prefix verbatim inside `uuid_segment_between`,
+    `starts_with`, or a helper function's literals, so a prefix hit on either
+    side is coverage. `all_literals` is the file-level set those helpers live
+    in — method-scoped alone would hide them.
+    """
+    if path in allow_paths:
+        return True
+    return any(
+        a == path or a.startswith(path) or path.startswith(a)
+        for a in allow_paths | (all_literals or set())
+    )
 
 
 def extract_router_paths(text: str) -> set[str]:
@@ -124,12 +172,13 @@ class ManagementRouteContract(unittest.TestCase):
         """Every backend call() to /v1/control-plane/ must be in the Rust allowlist."""
         text = TENANT_AREA_CLIENT.read_text()
         allowlist = extract_rust_allowlist(text)
+        all_literals = extract_all_path_literals(text)
         backend_calls = extract_backend_calls(OPERATIONS_ROUTES.read_text())
         self.assertTrue(backend_calls, "no backend calls found in operations_routes.rs")
 
         missing: list[str] = []
         for method, path in backend_calls:
-            if path not in allowlist.get(method, set()):
+            if not allowlist_covers(allowlist.get(method, set()), path, all_literals):
                 missing.append(f"{method} {path}")
         self.assertEqual(
             missing,
