@@ -2644,7 +2644,6 @@ async fn tenant_settings(
     object_no_store(value, "tenant settings")
 }
 
-
 // ─── Tenant-held secrets ────────────────────────────────────────────────────
 // The value crosses this surface once, inbound on the write. It is never
 // logged, never echoed into an audit row, and never readable back — the list
