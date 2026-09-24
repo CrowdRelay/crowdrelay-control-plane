@@ -22,10 +22,6 @@ use crate::{
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_OPERATIONS_BODY_BYTES: usize = 8 * 1024;
-/// Matches CrowdRelay's `media::MAX_MEDIA_BODY_BYTES` — an image Meta will
-/// fetch for a post. The proxy bounds the body before it spends the upstream
-/// round trip.
-const MAX_MEDIA_BODY_BYTES: usize = 8 * 1024 * 1024;
 /// The sheet upload forwards up to 2 MiB of CSV inside a JSON envelope —
 /// the router-wide 8 KiB would refuse every real sheet before the
 /// upstream's own bounds could answer.
@@ -177,13 +173,6 @@ pub fn router() -> Router<AppState> {
         // The Workspace tab's read: the editable settings alone, without the
         // audience KPIs the portfolio fan-out used to carry alongside them.
         .route("/tenants/{slug}/settings", get(tenant_settings))
-        // The join-ask image goes up as the file's own bytes — the one
-        // proxied call whose body is not JSON. 8 MiB is the upstream bound;
-        // the router-wide JSON limit would refuse every real screenshot.
-        .route(
-            "/tenants/{slug}/media",
-            post(upload_media).route_layer(DefaultBodyLimit::max(MAX_MEDIA_BODY_BYTES)),
-        )
         // Tenant-held credentials: the masked inventory and the write-only
         // set/unset. The value goes up and never comes back — the list shows
         // only the hint upstream computed at write time.
@@ -2570,14 +2559,13 @@ async fn update_portfolio_setting(
     if !body.is_object() || body.get("value").and_then(Value::as_str).is_none() {
         return Err(ApiError::InvalidInput("value is required".to_owned()));
     }
-    // Empty is a real statement only where upstream's grammar says so —
-    // `join_ask_image_url` clears the fixed image by writing "". Every other
-    // key keeps the non-empty guard here rather than round-tripping a refusal.
+    // Empty is never a valid setting value — every key upstream accepts is
+    // a value, and "clear by blank" is not in its grammar.
     let empty_value = body
         .get("value")
         .and_then(Value::as_str)
         .is_none_or(|v| v.trim().is_empty());
-    if empty_value && trimmed != "join_ask_image_url" {
+    if empty_value {
         return Err(ApiError::InvalidInput("value is required".to_owned()));
     }
     let idempotency = idempotency_key(&headers)?.to_owned();
@@ -2656,58 +2644,6 @@ async fn tenant_settings(
     object_no_store(value, "tenant settings")
 }
 
-/// `POST /tenants/{slug}/media` — the operator's file goes upstream as its
-/// own bytes. This proxy checks only that a body exists; CrowdRelay sniffs
-/// the image kind and applies its own bound, so what this surface promises
-/// is transport, not validation.
-async fn upload_media(
-    State(state): State<AppState>,
-    Path(slug): Path<String>,
-    headers: HeaderMap,
-    body: axum::body::Bytes,
-) -> Result<Response, ApiError> {
-    if body.is_empty() {
-        return Err(ApiError::InvalidInput("the media body is empty".to_owned()));
-    }
-    let idempotency = idempotency_key(&headers)?.to_owned();
-    let file_name = headers
-        .get("x-media-name")
-        .and_then(|value| value.to_str().ok());
-    let content_type = headers
-        .get(axum::http::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("application/octet-stream");
-    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
-    let result = state
-        .area_client
-        .request_management_binary(
-            tenant.tenant.id,
-            &target,
-            crate::tenant_area_client::BinaryManagementRequest {
-                path: "/v1/control-plane/media",
-                bytes: &body,
-                content_type,
-                file_name,
-                correlation_id: correlation(&headers),
-                idempotency_key: Some(&idempotency),
-            },
-        )
-        .await;
-    audit_result(
-        &state,
-        tenant.tenant.id,
-        "tenant.media.uploaded",
-        "media",
-        file_name.unwrap_or(""),
-        &headers,
-        &result,
-        None,
-    )
-    .await;
-    let value = result?;
-    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    object_no_store(value, "media upload")
-}
 
 // ─── Tenant-held secrets ────────────────────────────────────────────────────
 // The value crosses this surface once, inbound on the write. It is never
