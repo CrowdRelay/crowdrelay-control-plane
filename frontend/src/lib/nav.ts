@@ -41,6 +41,7 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
       // Needs you merged into Today: the strip on the daily page names the
       // parked asks, and the badge lands on this item. The page itself stays
       // reachable by URL — its queue/alerts/findings depth is still there.
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
       { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
@@ -69,6 +70,7 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
       { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
       { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
       { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
@@ -87,7 +89,6 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-      { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },

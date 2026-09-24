@@ -18,6 +18,7 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}`, method: 'GET', name: 'tenant-detail' },
   { path: `/api/v1/tenants/${SLUG}/overview`, method: 'GET', name: 'tenant-overview' },
   { path: `/api/v1/tenants/${SLUG}/today`, method: 'GET', name: 'today' },
+  { path: `/api/v1/tenants/${SLUG}/places`, method: 'GET', name: 'places-model' },
   { path: `/api/v1/tenants/${SLUG}/operations/summary`, method: 'GET', name: 'ops-summary' },
   { path: `/api/v1/tenants/${SLUG}/operations/flags`, method: 'GET', name: 'ops-flags' },
   { path: `/api/v1/tenants/${SLUG}/operations/growth`, method: 'GET', name: 'ops-growth' },

@@ -52,9 +52,12 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
   { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
+  { suffix: '/places', label: 'Places', icon: 'places' },
   { suffix: '/shows', label: 'Shows', icon: 'shows' },
   { suffix: '/content', label: 'Content', icon: 'content' },
-  { suffix: '/beacons', label: 'Beacons', icon: 'beacons' },
+  // The beacon roster folded into Audience → Contacts; the palette entry
+  // names the destination a person sees, not the route it rides.
+  { suffix: '/audience?tab=contacts', label: 'Contacts', icon: 'beacons' },
   { suffix: '/area', label: 'AREA', icon: 'area' },
 ]
 
@@ -82,7 +85,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // The band's palette mirrors the band's sidebar — the process destinations
 // only. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/audience', '/intelligence', '/content'])
+const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/places', '/audience', '/intelligence', '/content'])
 const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
 
 // Section order and headings. The list used to tag every row GO / JUMP /
@@ -157,7 +160,9 @@ export const CommandPalette: Component = () => {
     const visible = scopedTenants()
     const names = visible.length > 0 ? visible.map(t => t.slug) : [profile()?.tenantSlug].filter((s): s is string => Boolean(s))
     const platform = isPlatformLevel()
-    const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix))
+    // Tabbed suffixes normalize the same way QUERY_ENTRIES does — the band
+    // check cares about the destination page, not the `?tab=` deep link.
+    const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix.split('?')[0] ?? p.suffix))
     // A query entry's suffix carries its `?tab=` deep link; the band check
     // cares about the destination page, so the param is stripped first —
     // otherwise every tabbed entry is silently dropped for a band session.

@@ -424,9 +424,8 @@ function ProposalCard(props: { slug: string; proposal: GigPlanProposal }) {
       meta={meta()}
       action={
         <Link
-          to="/tenants/$slug/audience"
+          to="/tenants/$slug/places"
           params={{ slug: props.slug }}
-          search={{ tab: 'places' }}
           class={buttonVariants({ variant: 'outline', size: 'sm' })}
         >
           Review the plan

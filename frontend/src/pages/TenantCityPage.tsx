@@ -3,7 +3,7 @@ import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import type { CityFunnelRow, GigPlanOutcome, TenantShow } from '../lib/types'
+import type { GigPlanOutcome, TenantShow } from '../lib/types'
 import { PageShell, PageHeader, PanelTitle, KpiStrip, KpiCard } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -14,6 +14,7 @@ import { Badge } from '../components/app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from '../components/GigPlanProposalCard'
 import { formatTimestamp } from '../lib/format'
+import { count, draw, lastPlayed, organiseBand } from '../lib/organise'
 
 // N.12 — the city as its own object. Until now a city was a row on the
 // Places tab or a name in a proposal; this page is where one city opens.
@@ -28,29 +29,6 @@ import { formatTimestamp } from '../lib/format'
 // shows no rooms block, and a null stays a null — "—", never a fake zero.
 // Each section owns its own loading and failure state; a section whose
 // payload answered without this city is simply absent.
-
-const count = (value: number | null | undefined) =>
-  value == null ? '—' : value.toLocaleString()
-
-const draw = (value: number | null) => (value == null ? '—' : Math.round(value).toLocaleString())
-
-/** Months since the last show, with "never" kept distinct from "a long
- *  time" — a band that has never played a city and a band that played it two
- *  years ago need opposite things. */
-const lastPlayed = (row: CityFunnelRow) => {
-  if (row.last_show_at == null) return 'never played'
-  if (row.months_since_show == null) return 'played, date unclear'
-  if (row.months_since_show === 0) return 'this month'
-  return `${row.months_since_show} mo ago`
-}
-
-/** The organise score as a plain word — the same bands the funnel table
- *  uses, coarse because the score's own inputs are coarse. */
-const organiseBand = (bp: number): { label: string; variant: 'success' | 'warning' | 'muted' } => {
-  if (bp >= 6_000) return { label: 'organise now', variant: 'success' }
-  if (bp >= 3_000) return { label: 'worth a look', variant: 'warning' }
-  return { label: 'not yet', variant: 'muted' }
-}
 
 /** The venue registry's own identity rule — upstream `place_venue_key()` is
  *  `lower(btrim(name))` with inner whitespace collapsed, and a show marks a
@@ -234,7 +212,7 @@ export function TenantCityPage() {
           <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
             What the planner says about this city — a proposal to approve, the
             reason it passed, or what an approval produced.{' '}
-            <Link to="/tenants/$slug/audience" params={{ slug: slug() }} search={{ tab: 'places' }} class="underline underline-offset-2">
+            <Link to="/tenants/$slug/places" params={{ slug: slug() }} class="underline underline-offset-2">
               The whole plan lives under Places
             </Link>.
           </p>

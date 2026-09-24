@@ -48,8 +48,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const POOL_MAX_PER_TARGET: usize = 12;
 
 /// The widest concurrent fan-out any handler makes against one target: the
-/// today page, which fetches eleven sections at once.
-const WIDEST_FAN_OUT: usize = 11;
+/// today page, which fetches twelve sections at once — eleven metrics and
+/// the attention snapshot merged in from Needs-you.
+const WIDEST_FAN_OUT: usize = 12;
 
 // A budget below the widest fan-out is not a budget, it is a queue: that page
 // would run in waves and pay a round trip per wave for nothing. Checked at

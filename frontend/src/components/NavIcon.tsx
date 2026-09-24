@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import {
-  Activity, Bell, Brain, FileText, LayoutDashboard, LayoutGrid, MapPin, Plug, RadioTower,
+  Activity, Bell, Brain, FileText, LayoutDashboard, LayoutGrid, MapPin, MapPinned, Plug, RadioTower,
   Settings, SlidersHorizontal, Ticket, TriangleAlert, Users, Waypoints, Workflow, Zap, type LucideProps,
 } from 'lucide-solid'
 
@@ -14,6 +14,7 @@ const ICONS: Record<string, Component<LucideProps>> = {
   portfolio: LayoutGrid,
   notifiers: Bell,
   area: MapPin,
+  places: MapPinned,
   shows: Ticket,
   'fan-intel': Users,
   content: FileText,

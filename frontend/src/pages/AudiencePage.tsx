@@ -9,10 +9,8 @@ import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
-import { DriveContactsPanel } from '../components/DriveContactsPanel'
+import { ContactsPanel } from '../components/ContactsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
-import { PlacesPanel } from '../components/PlacesPanel'
-import { GigPlanPanel } from '../components/GigPlanPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
@@ -76,7 +74,7 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'places', 'sources', 'contacts', 'communities', 'portfolio'])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'contacts', 'communities', 'portfolio'])
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -139,12 +137,6 @@ export function AudiencePage() {
       onPrefetch={prefetch}
       tabs={[
         { id: 'fans', label: 'Fans' },
-        // Place sits next to Fans because it is the same question asked
-        // geographically — where the people already are, and what rooms are
-        // near them. It is not an operation you run, so it does not belong on
-        // Operations, and it is not a report, so it does not belong on
-        // Intelligence.
-        { id: 'places', label: 'Places' },
         { id: 'sources', label: 'Sources' },
         { id: 'contacts', label: 'Contacts' },
         { id: 'communities', label: 'Communities' },
@@ -152,7 +144,8 @@ export function AudiencePage() {
       ]}
     />
 
-    {/* ── Fans tab — KPIs, fan list, segments ── */}
+    {/* ── Fans tab — the funnel (sources → captured → activated →
+          retained → converted), then the people and their segments ── */}
     <TabPanel active={activeTab()} id="fans" visited={isVisited('fans')}>
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="Audience channel unavailable" onRetry={() => void refresh()} />
@@ -168,7 +161,7 @@ export function AudiencePage() {
       <Show when={model.data} keyed>{(data) => <>
         <DegradedSections degraded={data.degraded} labels={AUDIENCE_SECTION_LABEL} bandLabels={BAND_AUDIENCE_SECTION_LABEL} />
         <Show when={!data.degraded.includes('overview')}>
-          <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} onGoSources={() => switchTab('sources')} onGoCommunities={() => switchTab('communities')} />
+          <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} onGoSources={() => switchTab('sources')} onGoCommunities={() => switchTab('communities')} onGoContacts={() => switchTab('contacts')} />
         </Show>
         <Show when={!data.degraded.includes('fans')}>
           <FanTablePanel slug={params().slug} fans={data.fans ?? []} onImported={() => void refresh()} />
@@ -177,15 +170,6 @@ export function AudiencePage() {
           <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
         </Show>
       </>}</Show>
-    </TabPanel>
-
-    {/* ── Places tab — what to book, then the cities and rooms it reads ── */}
-    <TabPanel active={activeTab()} id="places" visited={isVisited('places')}>
-      {/* The plan sits above its evidence on purpose: the question the tab
-          answers is "what should I book", and the funnel and rooms below are
-          what that answer stands on. */}
-      <GigPlanPanel slug={params().slug} />
-      <PlacesPanel slug={params().slug} />
     </TabPanel>
 
     {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
@@ -217,9 +201,12 @@ export function AudiencePage() {
       </Show>
     </TabPanel>
 
-    {/* ── Contacts tab — Drive/Gmail imports awaiting review ── */}
+    {/* ── Contacts tab — one directory by kind: booking contacts,
+          amplifiers (the beacon roster + funnel), fan channels, and the
+          staged imports awaiting review. The old Beacons destination
+          redirects here. ── */}
     <TabPanel active={activeTab()} id="contacts" visited={isVisited('contacts')}>
-      <DriveContactsPanel slug={params().slug} />
+      <ContactsPanel slug={params().slug} />
     </TabPanel>
 
     {/* ── Communities tab — observation layer ── */}

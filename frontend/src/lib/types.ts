@@ -1239,6 +1239,38 @@ export type TenantBookingReadModel = {
   fetchedAt: string
 }
 
+export type TenantPlacesSection =
+  | 'city_funnel'
+  | 'city_venues'
+  | 'audience_places'
+  | 'gig_plan'
+  | 'area_cities'
+
+/** `GET /tenants/{slug}/places` — the "where to play next" read in one call:
+ * the city funnel in the organise ranking, the shared venue registry, the
+ * audience-graph gathering places, the gig plan's city facet (so the page
+ * can mark which funnel rows the planner already wants), and the AREA
+ * cities the tenant registered. `area_cities` rides a different upstream
+ * surface than the other four — a tenant whose AREA side cannot answer
+ * still gets the rest, with the section named in `degraded`. */
+export type TenantPlacesReadModel = {
+  id: string
+  // Ranked city funnel — `?order=organise` upstream. `null` when degraded.
+  city_funnel: CityFunnelRow[] | null
+  // The shared venue registry, aggregated across acts.
+  city_venues: CityVenueRow[] | null
+  // Online gathering places — the communities the audience graph knows.
+  audience_places: { places: AudiencePlace[] } | null
+  // The planner's current city picks — proposals, passed-over, track record.
+  gig_plan: GigPlanResponse | null
+  // Cities registered for AREA drops. Empty list is a real answer, not a gap.
+  area_cities: { items: AreaCity[] } | null
+  degraded: TenantPlacesSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
 export type PortfolioConsentStatus = 'proposed' | 'active' | 'paused' | 'revoked'
 export type PortfolioPurpose = 'cross_promote' | 'release_feature' | 'event_crossbill'
 
@@ -1460,17 +1492,6 @@ export interface PortfolioSettingsReadModel {
   settings: Record<string, string>
   overridden: string[]
   editable_keys: string[]
-}
-
-// What the media upload returns — the public URL is what `join_ask_image_url`
-// stores, minted from the tenant's public API origin so Meta and Telegram can
-// fetch it at publish time.
-export interface UploadedMedia {
-  id: string
-  url: string
-  contentType: string
-  byteLen: number
-  name: string
 }
 
 // A tenant-held credential the operator can see exists — the masked hint and
