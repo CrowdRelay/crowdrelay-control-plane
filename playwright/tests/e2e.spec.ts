@@ -308,6 +308,10 @@ test.describe('Control Plane E2E @e2e', () => {
 
   // Test that navigating between pages doesn't accumulate errors
   test('Full navigation sweep — no accumulated errors @e2e', async ({ page }) => {
+    // Sized to the sweep, not the default 30s: every page may wait up to 15s
+    // for network idle, and the list grows with the console. A fixed budget
+    // turned each new page into a timeout that reported nothing about errors.
+    test.setTimeout(SUBPAGES.length * 20_000)
     const sweepCollectors = setupErrorCollectors(page)
 
     for (const sub of SUBPAGES) {
