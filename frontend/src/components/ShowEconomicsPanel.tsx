@@ -1,13 +1,19 @@
 import { Show } from 'solid-js'
+import { useQueryClient } from '@tanstack/solid-query'
 import type { ShowEconomicsResponse, TourEconomicsSummary } from '../lib/types'
 import { formatTimestamp } from '../lib/format'
+import { capabilityAction } from '../lib/capabilities'
 import { Badge } from './app/badge'
+import { SurfaceAction } from './capabilities/SurfaceAction'
 
 // The show's cost ledger entry: what the night was predicted to cost, what it
 // actually cost, and where the estimate went wrong — the money half of the
 // learning loop. The `the_numbers` timeline step shows the headline; this is
-// the ledger underneath it. Nothing renders when no entry exists yet —
-// prediction only lands once a fee is offered.
+// the ledger underneath it. Before a fee is recorded the block is one line
+// and one action — the offer is what opens the ledger, and it used to be
+// recordable only with the admin credential, so on the console the money
+// never appeared at all. After the night, settling the real costs is the
+// write that teaches the estimate.
 //
 // Money arrives in minor units (cents); `/ 100` renders it as the major unit.
 // Currency symbol: the ledger is fee-denominated and the tenant's market is
@@ -19,13 +25,43 @@ const money = (minor: number | null | undefined) =>
 const marginTone = (minor: number | null | undefined) =>
   minor == null ? 'text-muted-foreground' : minor >= 0 ? 'text-success-foreground' : 'text-destructive'
 
-export function ShowEconomicsPanel(props: { eventId: string; economics: ShowEconomicsResponse | null; tour: TourEconomicsSummary | null }) {
+export function ShowEconomicsPanel(props: {
+  slug: string
+  eventSlug: string
+  eventId: string
+  /** The night has started — settling is offered only after it. */
+  played: boolean
+  economics: ShowEconomicsResponse | null
+  tour: TourEconomicsSummary | null
+}) {
+  const queryClient = useQueryClient()
   const entry = () => props.economics?.shows.find(s => s.event_id === props.eventId)
   const settled = () => entry()?.settled_at != null
   const margin = () => settled() ? entry()!.settled_net_margin_minor : entry()?.predicted_net_margin_minor
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['tenant-show-page', props.slug, props.eventSlug] })
 
   return (
-    <Show when={entry()}>{e => (
+    // `economics` null is "couldn't check" — the page's degraded strip names
+    // it; offering to record a fee over a ledger we could not read would
+    // invite a second entry.
+    <Show when={entry()} fallback={
+      <Show when={props.economics}>
+        <div class="rounded-lg border border-border bg-background px-4 py-3">
+          <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The money</p>
+          <p class="mt-1 text-xs text-muted-foreground">No fee recorded for this night — the cost estimate starts from the offer.</p>
+          <div class="mt-2">
+            <SurfaceAction
+              slug={props.slug}
+              size="xs"
+              action={capabilityAction('show-costs', 'Freeze prediction')}
+              label="Record the offer"
+              fixed={{ event_id: props.eventId }}
+              onDone={refresh}
+            />
+          </div>
+        </div>
+      </Show>
+    }>{e => (
       <div class="rounded-lg border border-border bg-background px-4 py-3">
         <div class="flex items-baseline justify-between gap-2">
           <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The money</p>
@@ -52,6 +88,18 @@ export function ShowEconomicsPanel(props: { eventId: string; economics: ShowEcon
           <Show when={e().worst_line_remedy}>
             <p class="mt-0.5 text-xs text-muted-foreground italic">Fix: {e().worst_line_remedy}</p>
           </Show>
+        </Show>
+        <Show when={props.played && !settled()}>
+          <div class="mt-2">
+            <SurfaceAction
+              slug={props.slug}
+              size="xs"
+              action={capabilityAction('show-costs', 'Settle')}
+              label="Settle the night"
+              fixed={{ event_id: props.eventId }}
+              onDone={refresh}
+            />
+          </div>
         </Show>
         <Show when={props.tour}>
           <details class="mt-2">

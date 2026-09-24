@@ -124,7 +124,6 @@ pub(crate) const SURFACE: &[Surface] = &[
     write("POST", "events/{event_id}/show-cost/settlement"),
     read("ecosystem/checklists/{event_slug}"),
     write("POST", "ecosystem/checklists/{event_slug}/{item_key}"),
-    read("event-qr/overview"),
     read_q("event-qr/campaigns", &["limit"]),
     write("POST", "event-qr/campaigns"),
     write("POST", "event-qr/campaigns/{campaign_id}/revoke"),
@@ -146,7 +145,6 @@ pub(crate) const SURFACE: &[Surface] = &[
     write("POST", "reward-campaigns"),
     write("POST", "reward-campaigns/{draw_id}/schedule"),
     write("POST", "reward-campaigns/{draw_id}/cancel"),
-    read("reward-draws"),
     read("reward-fulfillments"),
     write("POST", "reward-fulfillments/{winner_id}"),
     // Releases.
@@ -191,7 +189,6 @@ pub(crate) const SURFACE: &[Surface] = &[
         "autopilot/content-suggestions/{suggestion_id}/outcome",
     ),
     // Content spread and the manual publication legs.
-    read("autopilot/community-relays"),
     write(
         "POST",
         "autopilot/content-sources/{source_id}/relay-ladder/approve",
@@ -514,11 +511,28 @@ mod tests {
     /// allowlist, or the route is live upstream and dead here — the defect
     /// that left eleven routes, and the brain model's action-states section,
     /// refused before they left this process.
-    const DELIBERATELY_UNPROXIED: &[(&str, &str, &str)] = &[(
-        "POST",
-        "/v1/control-plane/autopilot/standing-approvals",
-        "a grant is written by the approve flow's remember opt-in, never from a form",
-    )];
+    const DELIBERATELY_UNPROXIED: &[(&str, &str, &str)] = &[
+        (
+            "POST",
+            "/v1/control-plane/autopilot/standing-approvals",
+            "a grant is written by the approve flow's remember opt-in, never from a form",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/event-qr/overview",
+            "the shows list carries scan counts and the gig page reads the campaigns list",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/reward-draws",
+            "a campaign row carries its winner and fulfilment counts; prizes to send list the winners",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/autopilot/community-relays",
+            "In motion reads relay runs through processes/relays, which is the process view of the same rows",
+        ),
+    ];
 
     fn crowdrelay_root() -> Option<std::path::PathBuf> {
         let root = std::env::var_os("CROWDRELAY_ROOT")

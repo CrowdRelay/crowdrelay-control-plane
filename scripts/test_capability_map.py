@@ -12,6 +12,13 @@ added to the table and not to the map would be the same defect one layer up.
 Both directions, keyed by `METHOD path`:
   - a SURFACE entry with no capability read or action is invisible;
   - a capability naming a path the table lacks 404s at the button.
+
+And placement, because a capability listed in a registry is still unreachable
+if no screen renders it. Every capability names a `home` — the page and section
+where the moment already is — or a `gap` saying why no screen can host it yet.
+A capability with a home must be referenced by a component or page other than
+the capabilities index (`capability('id')` / `capabilityAction('id', …)`), or
+the home is a claim nothing implements.
 """
 
 from __future__ import annotations
@@ -50,6 +57,34 @@ def capability_entries() -> set[str]:
     return entries
 
 
+FRONTEND = ROOT / "frontend/src"
+INDEX_PAGE = FRONTEND / "pages/TenantCapabilitiesPage.tsx"
+
+
+def capability_blocks() -> dict[str, str]:
+    """Each SURFACE_CAPABILITIES entry's source text, keyed by id."""
+    source = CAPABILITIES.read_text(encoding="utf-8")
+    body = source.split("export const SURFACE_CAPABILITIES", 1)[1].split(
+        "export const PAGE_CAPABILITIES", 1
+    )[0]
+    starts = [(m.start(), m.group(1)) for m in re.finditer(r"\bid: '([^']+)'", body)]
+    blocks = {}
+    for index, (start, cid) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else len(body)
+        blocks[cid] = body[start:end]
+    return blocks
+
+
+def wired_ids() -> set[str]:
+    ids = set()
+    for path in FRONTEND.rglob("*.tsx"):
+        if path == INDEX_PAGE:
+            continue
+        for match in re.finditer(r"capability(?:Action)?\(\s*'([^']+)'", path.read_text(encoding="utf-8")):
+            ids.add(match.group(1))
+    return ids
+
+
 class CapabilityMap(unittest.TestCase):
     def setUp(self) -> None:
         self.surface = surface_entries()
@@ -69,6 +104,28 @@ class CapabilityMap(unittest.TestCase):
             [],
             "proxied but invisible — add a read or action in capabilities.ts:\n  "
             + "\n  ".join(missing),
+        )
+
+    def test_every_capability_has_a_home_or_a_stated_gap(self) -> None:
+        unplaced = sorted(
+            cid
+            for cid, block in capability_blocks().items()
+            if ("home: {" in block) == ("gap: '" in block)
+        )
+        self.assertEqual(unplaced, [], f"need exactly one of home or gap: {unplaced}")
+
+    def test_every_homed_capability_is_rendered_somewhere(self) -> None:
+        wired = wired_ids()
+        unwired = sorted(
+            cid
+            for cid, block in capability_blocks().items()
+            if "home: {" in block and cid not in wired
+        )
+        self.assertEqual(
+            unwired,
+            [],
+            "these claim a home no component renders — build the placement or "
+            "state the gap:\n  " + "\n  ".join(unwired),
         )
 
     def test_every_capability_names_a_proxied_route(self) -> None:

@@ -474,9 +474,11 @@ export function TenantPage() {
         actions={<>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <StatusBadge status={t.status} tone={statusTone(t.status)} />
-          {/* The capability map — every feature, including those with no
-              page of their own yet. Not a sidebar destination on purpose. */}
-          <Link to="/tenants/$slug/capabilities" params={{ slug: t.slug }} class="text-sm font-medium text-foreground underline underline-offset-4">All capabilities</Link>
+          {/* The capability map — where each feature lives. Operator-only
+              and not a sidebar destination, on purpose. */}
+          <Show when={authState.isPlatformLevel()}>
+            <Link to="/tenants/$slug/capabilities" params={{ slug: t.slug }} class="text-sm font-medium text-foreground underline underline-offset-4">Where features live</Link>
+          </Show>
           <Button variant="outline" size="sm" onClick={refreshPage} disabled={refreshing()} aria-label="Refresh">
             <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
             Refresh
