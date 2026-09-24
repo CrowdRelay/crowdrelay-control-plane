@@ -16,7 +16,9 @@ import { Badge } from '../components/app/badge'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { toast } from '../components/app/toast'
-import { surface } from '../lib/surface'
+import { fillPath, surface } from '../lib/surface'
+import { capabilityAction } from '../lib/capabilities'
+import { TrackedLinksPanel } from '../components/TrackedLinksPanel'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
 import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar } from '../components/layout'
@@ -404,6 +406,7 @@ export function TenantContentPage() {
         </Show>
       </Show>
     </Section>
+    <TrackedLinksPanel slug={params().slug} />
   </PageShell>
 }
 
@@ -472,12 +475,13 @@ function ManualMessageRegister(props: { slug: string; post: DeliveryResult; onDo
     setBusy(true)
     try {
       const id = messageId().trim()
+      const action = telegram()
+        ? capabilityAction('manual-posts', 'Telegram posted')
+        : capabilityAction('manual-posts', 'Discord posted')
       await surface.write(
         props.slug,
         'POST',
-        telegram()
-          ? `telegram-posts/${encodeURIComponent(props.post.id)}/register-manual`
-          : `discord-posts/${encodeURIComponent(props.post.id)}/register-manual`,
+        fillPath(action.path, { telegram_post_id: props.post.id, discord_post_id: props.post.id })!,
         { message_id: telegram() ? Number(id) : id },
       )
       toast.success('Registered — the post is being measured')

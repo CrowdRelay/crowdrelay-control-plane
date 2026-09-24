@@ -12,6 +12,9 @@ import { Button } from '../components/app/button'
 import { ShowSetupPanel } from '../components/ShowSetupPanel'
 import { ShowGrowthLadderPanel } from '../components/ShowGrowthLadderPanel'
 import { ShowEconomicsPanel } from '../components/ShowEconomicsPanel'
+import { ShowSalesPanel } from '../components/show/ShowSalesPanel'
+import { ShowDoorPanel } from '../components/show/ShowDoorPanel'
+import { ShowChecklistPanel } from '../components/show/ShowChecklistPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
 import { formatTimestamp } from '../lib/format'
 import { ArrowLeft } from 'lucide-solid'
@@ -145,7 +148,21 @@ export function TenantShowPage() {
             <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data().timeline} />
             {/* The money — predicted vs settled cost and where the estimate
                 was wrong. Renders nothing until a fee opens the ledger. */}
-            <ShowEconomicsPanel eventId={data().timeline.event.id} economics={data().economics} tour={data().tour_economics} />
+            <ShowEconomicsPanel
+              slug={params().slug}
+              eventSlug={params().eventSlug}
+              eventId={data().timeline.event.id}
+              played={Date.parse(data().timeline.event.starts_at) <= Date.now()}
+              economics={data().economics}
+              tour={data().tour_economics}
+            />
+            {/* Tickets and merch — the sale and the merch table, read from
+                the sale itself. */}
+            <ShowSalesPanel slug={params().slug} eventSlug={params().eventSlug} eventId={data().timeline.event.id} />
+            {/* At the door — the QR code and the prize draw that turn the
+                room into reachable fans. */}
+            <ShowDoorPanel slug={params().slug} eventSlug={params().eventSlug} />
+            <ShowChecklistPanel slug={params().slug} eventSlug={params().eventSlug} />
             {/* P.4 — the approve-once growth ladder: one yes covers the whole
                 T-21→T+7 sequence, each rung still gated on its own evidence. */}
             <ShowGrowthLadderPanel slug={params().slug} eventId={data().timeline.event.id} ladder={data().growth_ladder} />

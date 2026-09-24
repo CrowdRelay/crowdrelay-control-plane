@@ -1,3 +1,5 @@
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -269,7 +271,17 @@ export function ContentSourcesPanel(props: { slug: string }) {
                 </ul>
               </Show>
             </div>
-            <Button variant="ghost" size="sm" writes onClick={() => openEdit(s)}>Edit</Button>
+            <div class="flex shrink-0 flex-col items-end gap-1">
+              <Button variant="ghost" size="sm" writes onClick={() => openEdit(s)}>Edit</Button>
+              {/* A synced post's whole spread — the push to our own fans and
+                  one relay per admitted community — answered with one yes,
+                  or stopped where it has not run. Per-community gates still
+                  apply; this removes only the repeated human ask. */}
+              <Show when={s.source_kind === 'social_post' && isLive(s)}>
+                <SurfaceAction slug={props.slug} size="xs" variant="ghost" action={capabilityAction('relay-ladder', 'Approve spread')} label="Yes to its whole spread" fixed={{ source_id: s.source_id }} />
+                <SurfaceAction slug={props.slug} size="xs" variant="ghost" action={capabilityAction('relay-ladder', 'Revoke spread')} label="Stop its spread" fixed={{ source_id: s.source_id }} />
+              </Show>
+            </div>
           </div>
         )}</For>
       </div>

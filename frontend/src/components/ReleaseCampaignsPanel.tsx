@@ -1,3 +1,5 @@
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -240,6 +242,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                         <TableHead>Status</TableHead>
                         <TableHead>Confirmed</TableHead>
                         <TableHead>Delivered</TableHead>
+                        <TableHead />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -251,6 +254,21 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                           <TableCell><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{r.status}</Badge></TableCell>
                           <TableCell>{formatTimestamp(r.confirmedAt)}</TableCell>
                           <TableCell>{formatTimestamp(r.deliveredAt)}</TableCell>
+                          <TableCell>
+                            {/* The parcel's own progress — only the person
+                                packing and posting it knows it moved. */}
+                            <Show when={r.status !== 'delivered' && r.status !== 'cancelled'}>
+                              <SurfaceAction
+                                slug={props.slug}
+                                size="xs"
+                                variant="ghost"
+                                action={capabilityAction('release-recipient', 'Update recipient')}
+                                label="Mark parcel"
+                                fixed={{ campaign_id: r.campaignId, beacon_id: r.beaconId }}
+                                onDone={() => refreshQueries(['release-campaigns', props.slug], ['release-recipients', props.slug])}
+                              />
+                            </Show>
+                          </TableCell>
                         </TableRow>
                       )}</For>
                     </TableBody>

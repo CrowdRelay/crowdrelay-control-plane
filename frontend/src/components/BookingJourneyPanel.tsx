@@ -15,6 +15,8 @@ import { SectionFailureCard } from './SectionFailureCard'
 import { SkeletonSection } from './Skeleton'
 import { Spinner } from './Spinner'
 import { JourneyCard, JourneyRail, type JourneyStageSpec } from './Journey'
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 import type {
   BookingAgent,
   BookingCandidateView,
@@ -335,6 +337,18 @@ export function BookingJourneyPanel(props: { slug: string }) {
               title="Found"
               count={degraded('shortlist') ? undefined : watching().length}
               description="What the scout is tracking — opportunities it has seen but not yet approached. A stale row says why it cannot be worked."
+              action={
+                // A person hears about a slot, a grant or a showcase before
+                // any scout does. Filing it puts it through the same
+                // shortlist, costing and refusal rules as a found one.
+                <SurfaceAction
+                  slug={props.slug}
+                  size="sm"
+                  action={capabilityAction('team-opportunities', 'I found one')}
+                  label="Add one you heard about"
+                  onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
+                />
+              }
             >
               <Show
                 when={!degraded('shortlist')}
@@ -683,6 +697,7 @@ function ReplyCard(props: { slug: string; entry: ReplyTriageEntry }) {
 }
 
 function ShortlistCard(props: { slug: string; entry: OpportunityShortlistEntry }) {
+  const queryClient = useQueryClient()
   const e = () => props.entry
   const meta = () => [
     e().organization,
@@ -698,6 +713,7 @@ function ShortlistCard(props: { slug: string; entry: OpportunityShortlistEntry }
         : { label: 'watching', tone: 'muted' }}
       meta={meta()}
       action={
+        <div class="flex items-center gap-1">
         <Link
           to="/tenants/$slug/operations"
           params={{ slug: props.slug }}
@@ -706,12 +722,26 @@ function ShortlistCard(props: { slug: string; entry: OpportunityShortlistEntry }
         >
           <ArrowRight class="size-3.5" aria-hidden="true" /> Shortlist
         </Link>
+        {/* Where the application actually stands — only a person knows it
+            left, came back, won or lost. A terminal answer needs its reason. */}
+        <SurfaceAction
+          slug={props.slug}
+          size="xs"
+          variant="ghost"
+          action={capabilityAction('team-opportunities', 'Progress')}
+          label="Mark progress"
+          fixed={{ opportunity_id: e().opportunity_id }}
+          initial={{ progress: 'package_ready' }}
+          onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
+        />
+        </div>
       }
     />
   )
 }
 
 function AppliedCard(props: { slug: string; entry: OpportunityShortlistEntry }) {
+  const queryClient = useQueryClient()
   const e = () => props.entry
   const meta = () => [
     e().organization,
@@ -726,6 +756,7 @@ function AppliedCard(props: { slug: string; entry: OpportunityShortlistEntry }) 
         : { label: 'application sent', tone: 'muted' }}
       meta={meta()}
       action={
+        <div class="flex items-center gap-1">
         <Link
           to="/tenants/$slug/operations"
           params={{ slug: props.slug }}
@@ -734,6 +765,19 @@ function AppliedCard(props: { slug: string; entry: OpportunityShortlistEntry }) 
         >
           <ArrowRight class="size-3.5" aria-hidden="true" /> Open
         </Link>
+        {/* Where the application actually stands — only a person knows it
+            left, came back, won or lost. A terminal answer needs its reason. */}
+        <SurfaceAction
+          slug={props.slug}
+          size="xs"
+          variant="ghost"
+          action={capabilityAction('team-opportunities', 'Progress')}
+          label="What happened"
+          fixed={{ opportunity_id: e().opportunity_id }}
+          initial={{ progress: 'replied' }}
+          onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
+        />
+        </div>
       }
     />
   )

@@ -1,3 +1,4 @@
+import { ComparableActsPanel } from '../components/ComparableActsPanel'
 import { For, Show, createMemo, createSignal, lazy, onCleanup, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
@@ -281,6 +282,8 @@ export function TenantPlacesPage() {
           degraded={data.degraded.includes('city_venues')}
         />
       </>}</Show>
+      {/* The acts whose past nights make a room provable — operator curation. */}
+      <ComparableActsPanel slug={params().slug} />
     </TabPanel>
 
     <TabPanel active={activeTab()} id="online" visited={isVisited('online')}>

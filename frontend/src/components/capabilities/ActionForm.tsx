@@ -12,7 +12,6 @@ import { NativeSelect } from '../ui/native-select'
 import { Alert } from '../app/alert'
 import { Spinner } from '../Spinner'
 import { toast } from '../app/toast'
-import { DataView } from './DataView'
 
 type Values = Record<string, string | boolean>
 
@@ -134,14 +133,19 @@ export function ActionForm(props: {
   slug: string
   action: CapabilityAction
   fixed?: Record<string, string>
-  onDone?: () => void
+  /** Field values the place already knows — the show a QR code is for, the
+   *  fan a code is minted for. Merged over the spec's own initial values. */
+  initial?: Record<string, string | boolean>
+  /** Fields the place supplies and the person should not retype. */
+  hidden?: string[]
+  onDone?: (response: unknown) => void
   onCancel?: () => void
 }) {
-  const [values, setValues] = createSignal<Values>(initialValues(props.action.fields))
+  const [values, setValues] = createSignal<Values>({ ...initialValues(props.action.fields), ...props.initial })
+  const visibleFields = () => (props.action.fields ?? []).filter(field => !(props.hidden ?? []).includes(field.name))
   const [params, setParams] = createSignal<Record<string, string>>({ ...props.fixed })
   const [busy, setBusy] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
-  const [result, setResult] = createSignal<unknown>(undefined)
   const [confirming, setConfirming] = createSignal(false)
   const askFor = () => pathParams(props.action.path).filter(name => !(props.fixed && name in props.fixed))
 
@@ -156,9 +160,8 @@ export function ActionForm(props: {
     try {
       const hasBody = (props.action.fields ?? []).length > 0
       const response = await surface.write(props.slug, props.action.method, path, hasBody ? built.body : undefined)
-      setResult(response ?? null)
       toast.success(`${props.action.label}: done`)
-      props.onDone?.()
+      props.onDone?.(response)
     } catch (caught) {
       setError(errorHeading(caught, `${props.action.label} failed`))
     } finally {
@@ -179,7 +182,7 @@ export function ActionForm(props: {
             onInput={(value) => setParams({ ...params(), [name]: value })}
           />
         )}</For>
-        <For each={props.action.fields ?? []}>{(field) => (
+        <For each={visibleFields()}>{(field) => (
           <FieldInput field={field} value={values()[field.name] ?? ''} onInput={(value) => setValues({ ...values(), [field.name]: value })} />
         )}</For>
       </div>
@@ -198,9 +201,6 @@ export function ActionForm(props: {
           <Button size="sm" variant="ghost" disabled={busy()} onClick={() => props.onCancel?.()}>Close</Button>
         </Show>
       </div>
-      <Show when={result() !== undefined && result() !== null}>
-        <DataView value={result()} />
-      </Show>
     </div>
   )
 }

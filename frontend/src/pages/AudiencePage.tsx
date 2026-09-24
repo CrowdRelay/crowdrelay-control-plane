@@ -9,6 +9,9 @@ import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
+import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
+import { FanMessagesPanel } from '../components/FanMessagesPanel'
+import { FanConversionPanel } from '../components/FanConversionPanel'
 import { ContactsPanel } from '../components/ContactsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
 import { SkeletonSection } from '../components/Skeleton'
@@ -169,6 +172,7 @@ export function AudiencePage() {
         <Show when={!data.degraded.includes('segments')}>
           <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
         </Show>
+        <FanMessagesPanel slug={params().slug} />
       </>}</Show>
     </TabPanel>
 
@@ -187,11 +191,13 @@ export function AudiencePage() {
         <Show when={!data.degraded.includes('fanbases')}>
           <FanSourcesPanel slug={params().slug} fanbases={data.fanbases?.fanbases} onChanged={refreshPortfolio} />
         </Show>
+        <ConnectionHealthPanel slug={params().slug} />
       </>}</Show>
       {/* Where they came from *and whether it converted* — the source-ROI
           read is what makes this the one page that answers "where do our
           fans come from". */}
       <AcquisitionChannelsPanel slug={params().slug} />
+      <FanConversionPanel slug={params().slug} />
       {/* Reddit cookie refresh — a fan source enabler, same home it had on
           the portfolio page. The cookies.txt recovery path is crew
           machinery: the account it revives is ours, so the band never sees

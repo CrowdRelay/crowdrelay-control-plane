@@ -1,3 +1,5 @@
+import { BoundsPanel } from '../components/BoundsPanel'
+import { PlatformAgreementPanel } from '../components/PlatformAgreementPanel'
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -155,6 +157,7 @@ export function TenantHealthPage() {
           />
         )}</Show>
         <ChiefOfStaffPanel slug={params().slug} />
+        <PlatformAgreementPanel slug={params().slug} />
       </TabPanel>
 
       {/* ── Delivery — the pipe as a journey: drafted → queued → wire →
@@ -184,6 +187,7 @@ export function TenantHealthPage() {
         {/* The policies say how much it may do; the standing grants say where
             it never has to ask — same question, so same tab. */}
         <StandingApprovalsPanel slug={params().slug} />
+        <BoundsPanel slug={params().slug} />
       </TabPanel>
 
       <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>

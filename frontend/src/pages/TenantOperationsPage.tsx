@@ -12,6 +12,9 @@ import { OutreachPipelinePanel } from '../components/OutreachPipelinePanel'
 import { OpportunityShortlistPanel } from '../components/OpportunityShortlistPanel'
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
+import { ReleasePlanPanel } from '../components/ReleasePlanPanel'
+import { OutreachWavesPanel } from '../components/OutreachWavesPanel'
+import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { BarList, DeltaBadge, Donut, Legend, Ring, StackBar, Widget, type Segment } from '../components/charts'
@@ -634,6 +637,10 @@ export function TenantOperationsPage() {
       </Section>
     </Show>
 
+    {/* Prizes owed to draw winners — a chore with a person on the other
+        end, so it sits with the week's moves. Silent when nothing is owed. */}
+    <PrizesToSendPanel slug={params().slug} />
+
     {/* Tab bar — static, renders immediately. Count callbacks return 0
         while data is pending, which is the correct placeholder. */}
     <TabBar
@@ -665,6 +672,7 @@ export function TenantOperationsPage() {
       <NegotiationsPanel />
     </TabPanel>
     <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
+      <OutreachWavesPanel slug={params().slug} />
       <OutreachPipelinePanel slug={params().slug} />
       <OpportunityShortlistPanel />
     </TabPanel>
@@ -672,6 +680,7 @@ export function TenantOperationsPage() {
       <PressRoomPanel slug={params().slug} />
     </TabPanel>
     <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
+      <ReleasePlanPanel slug={params().slug} />
       <ReleaseCampaignsPanel slug={params().slug} />
     </TabPanel>
     <TabPanel active={activeTab()} id="plays" visited={isVisited('plays')}>

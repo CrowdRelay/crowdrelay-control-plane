@@ -1,66 +1,75 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { PageShell, PageHeader, Section } from '../components/layout'
-import { CapabilityCard } from '../components/capabilities/CapabilityCard'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/app/badge'
+import { EmptyState } from '../components/ui/empty-state'
 import { authState } from '../lib/auth'
 import { PAGE_CAPABILITIES, PILLARS, SURFACE_CAPABILITIES, type Pillar } from '../lib/capabilities'
 
-/** `/tenants/$slug/capabilities` — everything the system can do, on one page.
+/** `/tenants/$slug/capabilities` — the map of where every feature lives.
  *
- * Not a sidebar destination: the console's plan is fewer places to look, not
- * more (`scripts/destination_count_ratchet.json`). This is the inventory a
- * person new to the system — the designer first — reads to learn what exists:
- * each capability that already has a designed home is named with a link to
- * it, and each that does not yet is usable right here, in a plain generic
- * form, until it gets one. Reached from Settings and the command palette. */
+ * An index, not a workplace. Every capability is used where its moment
+ * already is — the show, the city, the queue, the settings of the act — and
+ * this page only says where that is, with a link. It exists for the people
+ * who shape the console (the designer first) and for operators learning the
+ * system, so it is platform-level only and never in a band's sidebar or
+ * palette. Capabilities that no screen can host honestly yet are listed with
+ * the reason, because the gap is a finding, not a form. */
 export function TenantCapabilitiesPage() {
   const params = useParams({ from: '/tenants/$slug/capabilities' })
   const [filter, setFilter] = createSignal('')
   const matches = (text: string) => text.toLowerCase().includes(filter().trim().toLowerCase())
-  const surfaceFor = (pillar: Pillar) => createMemo(() =>
-    SURFACE_CAPABILITIES.filter(c => c.pillar === pillar && (matches(c.title) || matches(c.purpose))))
-  const pagesFor = (pillar: Pillar) => createMemo(() =>
-    PAGE_CAPABILITIES.filter(c => c.pillar === pillar && (matches(c.title) || matches(c.purpose))))
-  const href = (where: string) => `/tenants/${params().slug}${where}`
+  const href = (path: string) => {
+    // `<show>` stands for any one night: the map links to the list it is
+    // opened from.
+    const concrete = path.startsWith('/shows/<show>') ? '/shows' : path
+    return `/tenants/${params().slug}${concrete}`
+  }
+  const entries = (pillar: Pillar) => createMemo(() => [
+    ...PAGE_CAPABILITIES.filter(c => c.pillar === pillar).map(c => ({ title: c.title, purpose: c.purpose, where: c.where, section: null as string | null, gap: null as string | null, platformOnly: false })),
+    ...SURFACE_CAPABILITIES.filter(c => c.pillar === pillar).map(c => ({ title: c.title, purpose: c.purpose, where: c.home?.path ?? null, section: c.home?.section ?? null, gap: c.gap ?? null, platformOnly: c.platformOnly ?? false })),
+  ].filter(e => matches(e.title) || matches(e.purpose) || matches(e.section ?? '')))
 
   return (
     <PageShell>
-      <PageHeader
-        eyebrow="Everything in one place"
-        title="Capabilities"
-        description="Every feature the system has, grouped by what it does for the fans: find them, grow them, turn them into tickets and nights out, and the machinery that runs it all. Features with a page link to it; the rest work here until they get one."
-        actions={<Input class="w-64" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />}
-      />
-      <For each={PILLARS}>{(pillar) => {
-        const live = surfaceFor(pillar.id)
-        const pages = pagesFor(pillar.id)
-        return (
-          <Show when={live().length + pages().length > 0}>
-            <Section title={pillar.title} description={pillar.question} count={live().length + pages().length}>
-              <Show when={pages().length > 0}>
-                <ul class="mb-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <For each={pages()}>{(entry) => (
+      <Show when={authState.isPlatformLevel()} fallback={<EmptyState label="This map is for the people who run the console." />}>
+        <PageHeader
+          eyebrow="Where things live"
+          title="Capabilities"
+          description="Every feature, grouped by what it does for the fans, with the page and section where it is used. Nothing is operated from here."
+          actions={<Input class="w-64" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />}
+        />
+        <For each={PILLARS}>{(pillar) => {
+          const list = entries(pillar.id)
+          return (
+            <Show when={list().length > 0}>
+              <Section title={pillar.title} description={pillar.question} count={list().length}>
+                <ul class="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <For each={list()}>{(entry) => (
                     <li class="rounded-md border border-border p-3">
-                      <div class="flex items-center justify-between gap-2">
-                        <Link to={href(entry.where)} class="font-medium text-foreground underline-offset-4 hover:underline">{entry.title}</Link>
-                        <Badge variant="muted">has a page</Badge>
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <Show when={entry.where} fallback={<span class="font-medium text-foreground">{entry.title}</span>}>
+                          {where => <Link to={href(where())} class="font-medium text-foreground underline-offset-4 hover:underline">{entry.title}</Link>}
+                        </Show>
+                        <div class="flex gap-1">
+                          <Show when={entry.platformOnly}><Badge variant="muted">platform only</Badge></Show>
+                          <Show when={entry.gap}><Badge variant="warning">no home yet</Badge></Show>
+                        </div>
                       </div>
                       <p class="mt-0.5 text-sm text-muted-foreground">{entry.purpose}</p>
+                      <Show when={entry.where}>
+                        <p class="mt-1 text-xs text-muted-foreground">{entry.where}{entry.section ? ` · ${entry.section}` : ''}</p>
+                      </Show>
+                      <Show when={entry.gap}><p class="mt-1 text-xs text-muted-foreground">{entry.gap}</p></Show>
                     </li>
                   )}</For>
                 </ul>
-              </Show>
-              <div class="space-y-3">
-                <For each={live()}>{(capability) => (
-                  <CapabilityCard slug={params().slug} capability={capability} platformLevel={authState.isPlatformLevel()} />
-                )}</For>
-              </div>
-            </Section>
-          </Show>
-        )
-      }}</For>
+              </Section>
+            </Show>
+          )
+        }}</For>
+      </Show>
     </PageShell>
   )
 }

@@ -1,3 +1,6 @@
+import { AmplifyEdgeAction } from './AmplifyEdgeAction'
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -121,7 +124,12 @@ export function PortfolioPanel(props: {
       <KpiCard label="Amplified" value={metric(overview.deliveriesLast30d)} sub="last 30 days" />
     </KpiStrip>}</Show>
 
-    <div class="mt-6 pt-4 border-t border-border"><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />{authState.isPlatformLevel() ? 'Amplification edges' : 'Amplification agreements'}</h3></div>
+    <div class="mt-6 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-2">
+      <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="link" />{authState.isPlatformLevel() ? 'Amplification edges' : 'Amplification agreements'}</h3>
+      {/* An agreement is proposed by the act whose fans are asked — the
+          other act accepts or declines it here. */}
+      <SurfaceAction slug={props.slug} action={capabilityAction('amplification', 'Propose')} label="Propose an agreement" onDone={props.onChanged} />
+    </div>
     <Show when={sortedEdges().length}>
       <Table aria-label="Amplification edges">
         <TableHeader><TableRow>
@@ -151,6 +159,7 @@ export function PortfolioPanel(props: {
                     <Button writes variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Decline</Button>
                   </Show>
                   <Show when={edge.status === 'active'}>
+                    <AmplifyEdgeAction slug={props.slug} consentId={edge.id} onDone={props.onChanged} />
                     <Button writes size="sm" disabled={pendingId() !== null} onClick={() => decide.mutate({ id: edge.id, action: 'pause' })}>Pause</Button>
                     <Button writes variant="destructive" size="sm" disabled={pendingId() !== null} onClick={() => expand(edge.id)}>Revoke</Button>
                   </Show>

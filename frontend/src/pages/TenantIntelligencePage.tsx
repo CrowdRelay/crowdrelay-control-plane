@@ -1,3 +1,5 @@
+import { BrainCyclesPanel } from '../components/BrainCyclesPanel'
+import { ReachPanel } from '../components/ReachPanel'
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
@@ -214,6 +216,7 @@ export function TenantIntelligencePage() {
         three tabs are evidence surfaces and keep the shared gate. */}
     <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>
       <BrainBriefPanel slug={params().slug} />
+      <ReachPanel slug={params().slug} />
     </TabPanel>
 
     {/* Intelligence and Operations share the query key, so the skeleton
@@ -236,6 +239,7 @@ export function TenantIntelligencePage() {
         <GrowthObjectivesPanel slug={params().slug} />
         <GrowthPosturePanel slug={params().slug} />
         <RunBrainCyclePanel slug={params().slug} />
+        <BrainCyclesPanel slug={params().slug} />
         <GrowthIntelligencePanel slug={params().slug} />
         <ContentSourcesPanel slug={params().slug} />
       </TabPanel>

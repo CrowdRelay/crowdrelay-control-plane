@@ -61,10 +61,17 @@ export type Capability = {
     query?: Field[]
   }
   actions?: CapabilityAction[]
-  /** A Control Plane read under `/tenants/{slug}/` rather than the surface
-   *  proxy — capabilities the Control Plane itself owns (agents, notifiers)
-   *  that no page calls yet. */
-  tenantRead?: { path: string }
+  /** Where the capability lives: the page (route under `/tenants/$slug`,
+   *  with its tab) and the section a person finds it in. Placed where the
+   *  moment already is — the show, the city, the queue — never as a
+   *  destination of its own. */
+  home?: { path: string; section: string }
+  /** Set instead of `home` when no place can host it honestly yet, and why:
+   *  a write whose subject no read lists is a finding, not a form. */
+  gap?: string
+  /** Set when a Control Plane read model fetches this server-side and the
+   *  page draws it from there, so no component calls the surface directly. */
+  servedBy?: string
   /** Served to platform-level sessions only. */
   platformOnly?: boolean
 }
@@ -86,7 +93,7 @@ const EXPECTED_VERSION: Field = {
 export const SURFACE_CAPABILITIES: Capability[] = [
   // ── Aggregate ──────────────────────────────────────────────────────
   {
-    id: 'import-fans', pillar: 'aggregate', title: 'Import a mailing list',
+    id: 'import-fans', pillar: 'aggregate', gap: 'Deliberately not placed. The Contacts tab uploads the same list into review first — the onboarding path says contacts land in a waiting room and are promoted one by one, not imported in one click. This route skips that review.', title: 'Import a mailing list',
     purpose: 'Bring an existing list in. Every address lands pending and gets the double opt-in email; nobody becomes an active fan without confirming.',
     actions: [{
       label: 'Import', method: 'POST', path: 'portfolio/import-fans',
@@ -98,43 +105,43 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'place-detail', pillar: 'aggregate', title: 'A community, opened',
+    id: 'place-detail', pillar: 'aggregate', home: { path: '/audience?tab=communities', section: 'House rules and where we stand' }, title: 'A community, opened',
     purpose: 'One registered place: its rules, the evidence it is real, and where outreach stands.',
     read: { path: 'audience-graph/places/{place_id}', paramSources: { place_id: 'text' } },
     actions: [
       {
         label: 'Set rules', method: 'PUT', path: 'audience-graph/places/{place_id}/rules', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'self_promo_ratio_percent', label: 'Self-promo ratio %', kind: 'number' },
-          { name: 'contact_channel', label: 'Contact channel', kind: 'text' },
-          { name: 'contact_target', label: 'Contact target', kind: 'text' },
-          { name: 'requires_approval', label: 'Posts need mod approval', kind: 'bool' },
-          { name: 'cooldown_days', label: 'Cooldown days', kind: 'number' },
-          { name: 'rules_summary', label: 'Rules in a sentence', kind: 'textarea' },
+          { name: 'selfPromoRatioPercent', label: 'Self-promo ratio %', kind: 'number' },
+          { name: 'contactChannel', label: 'Contact channel', kind: 'text' },
+          { name: 'contactTarget', label: 'Contact target', kind: 'text' },
+          { name: 'requiresApproval', label: 'Posts need mod approval', kind: 'bool' },
+          { name: 'cooldownDays', label: 'Cooldown days', kind: 'number' },
+          { name: 'rulesSummary', label: 'Rules in a sentence', kind: 'textarea' },
           { name: 'verified', label: 'Verified', kind: 'bool' },
         ],
       },
       {
         label: 'Add evidence', method: 'POST', path: 'audience-graph/places/{place_id}/evidence', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'evidence_kind', label: 'Kind', kind: 'select', required: true, options: ['scan', 'mention', 'sample_post', 'mod_contact', 'manual_note'] },
+          { name: 'evidenceKind', label: 'Kind', kind: 'select', required: true, options: ['scan', 'mention', 'sample_post', 'mod_contact', 'manual_note'] },
           { name: 'method', label: 'How it was found', kind: 'text', required: true },
-          { name: 'confidence_bp', label: 'Confidence (basis points)', kind: 'number' },
+          { name: 'confidenceBp', label: 'Confidence (basis points)', kind: 'number' },
           { name: 'payload', label: 'Detail', kind: 'json' },
         ],
       },
       {
         label: 'Advance outreach', method: 'POST', path: 'audience-graph/places/{place_id}/outreach/advance', paramSources: { place_id: 'text' },
         fields: [
-          { name: 'from_stage', label: 'From', kind: 'select', required: true, options: STAGES() },
-          { name: 'to_stage', label: 'To', kind: 'select', required: true, options: STAGES() },
-          { name: 'outcome_notes', label: 'Notes', kind: 'textarea' },
+          { name: 'fromStage', label: 'From', kind: 'select', required: true, options: STAGES() },
+          { name: 'toStage', label: 'To', kind: 'select', required: true, options: STAGES() },
+          { name: 'outcomeNotes', label: 'Notes', kind: 'textarea' },
         ],
       },
     ],
   },
   {
-    id: 'peers', pillar: 'aggregate', title: 'Peer acts', platformOnly: true,
+    id: 'peers', pillar: 'aggregate', home: { path: '/places?tab=rooms', section: 'Comparable acts' }, title: 'Peer acts', platformOnly: true,
     purpose: 'Artists whose audiences overlap. The scanner proposes; a person confirms or refuses, and only confirmed peers are watched.',
     read: { path: 'content-engine/peers', query: [{ name: 'status', label: 'Status', kind: 'select', options: ['proposed', 'confirmed', 'rejected'] }] },
     actions: [
@@ -157,14 +164,14 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'connections', pillar: 'aggregate', title: 'Which connections actually work',
+    id: 'connections', pillar: 'aggregate', home: { path: '/audience?tab=sources', section: 'Which connections work' }, title: 'Which connections actually work',
     purpose: 'Every fanbase connection and what is known about it — last sync, last failure. Connected is not the same as working.',
     read: { path: 'ops/connections' },
   },
 
   // ── Grow ───────────────────────────────────────────────────────────
   {
-    id: 'smart-links', pillar: 'grow', title: 'Tracked links',
+    id: 'smart-links', pillar: 'grow', home: { path: '/content', section: 'Tracked links' }, title: 'Tracked links',
     purpose: 'Short links that count the click and carry it to signup, so a post can be credited with the fans it brought.',
     read: { path: 'smart-links' },
     actions: [{
@@ -179,7 +186,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'releases', pillar: 'grow', title: 'Release plan',
+    id: 'releases', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'Release plan' }, title: 'Release plan',
     purpose: 'The releases the brain plans around: date, tier, and whether assets, press and fan messages are ready.',
     read: { path: 'autopilot/releases' },
     actions: [
@@ -201,10 +208,10 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       { label: 'Editorial pitch done', method: 'POST', path: 'autopilot/releases/{release_id}/editorial-pitch', rowParams: { release_id: 'id' } },
     ],
   },
-  { id: 'release-ledger', pillar: 'grow', title: 'Release ledger', purpose: 'What each release milestone did and when.', read: { path: 'autopilot/release-ledger' } },
-  { id: 'release-outcomes', pillar: 'grow', title: 'Release outcomes', purpose: 'What each release measurably returned.', read: { path: 'autopilot/release-outcomes' } },
+  { id: 'release-ledger', pillar: 'operate', platformOnly: true, home: { path: '/health', section: 'Software releases' }, title: 'Software releases', purpose: 'Which backend and executor builds are live, and whether they drifted from what was attested.', read: { path: 'autopilot/release-ledger' } },
+  { id: 'release-outcomes', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'What releases returned' }, title: 'Release outcomes', purpose: 'What each release measurably returned.', read: { path: 'autopilot/release-outcomes' } },
   {
-    id: 'playlist-placements', pillar: 'grow', title: 'Playlist placements',
+    id: 'playlist-placements', pillar: 'grow', gap: 'A placement is recorded against an outreach opportunity, and no console read lists outreach opportunities with their ids.', title: 'Playlist placements',
     purpose: "Record a curator's claim, or what a public read of the playlist found. A claim counts for nothing until a read confirms it.",
     actions: [{
       label: 'Record', method: 'POST', path: 'autopilot/playlist-placements',
@@ -217,16 +224,16 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'release-recipient', pillar: 'grow', title: 'Release campaign recipient',
-    purpose: 'Mark where one beacon stands in a release campaign.',
+    id: 'release-recipient', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'Release campaign recipients' }, title: 'Release campaign recipient',
+    purpose: 'Where one physical parcel stands: prepared, sent, delivered or cancelled.',
     actions: [{
       label: 'Update recipient', method: 'POST', path: 'autopilot/beacon-release-campaigns/{campaign_id}/recipients/{beacon_id}',
       paramSources: { campaign_id: 'text', beacon_id: 'text' },
-      fields: [{ name: 'status', label: 'Status', kind: 'text', required: true }],
+      fields: [{ name: 'status', label: 'Parcel', kind: 'select', required: true, options: ['prepared', 'sent', 'delivered', 'cancelled'] }],
     }],
   },
   {
-    id: 'outreach-waves', pillar: 'grow', title: 'Outreach waves',
+    id: 'outreach-waves', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Waves waiting for one yes' }, title: 'Outreach waves',
     purpose: 'Batches of pitches the brain parked for one yes.',
     read: { path: 'autopilot/outreach-waves' },
     actions: [{
@@ -235,7 +242,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'outreach-targets', pillar: 'grow', title: 'Outreach targets',
+    id: 'outreach-targets', pillar: 'grow', gap: 'No console read lists outreach targets, so a press or playlist contact added here would vanish from view, and a reply has no row to attach to. Needs a targets read first.', title: 'Outreach targets',
     purpose: 'Playlists, press, radio, creators and labels the band pitches — add one you know, and file what they answered.',
     actions: [
       {
@@ -276,16 +283,15 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'relay-ladder', pillar: 'grow', title: "A post's relay spread",
+    id: 'relay-ladder', pillar: 'grow', home: { path: '/content/material', section: 'Each source' }, title: "A post's relay spread",
     purpose: "One yes releases a synced post's whole spread — push and every admitted community; revoke stops what has not run.",
     actions: [
       { label: 'Approve spread', method: 'POST', path: 'autopilot/content-sources/{source_id}/relay-ladder/approve', paramSources: { source_id: 'text' }, confirm: 'Approving posts to real communities.' },
       { label: 'Revoke spread', method: 'POST', path: 'autopilot/content-sources/{source_id}/relay-ladder/revoke', paramSources: { source_id: 'text' } },
     ],
   },
-  { id: 'community-relays', pillar: 'grow', title: 'Community relay batches', purpose: 'Every relay batch and its per-community deliveries.', read: { path: 'autopilot/community-relays' } },
   {
-    id: 'manual-posts', pillar: 'grow', title: 'Telegram and Discord, posted by hand',
+    id: 'manual-posts', pillar: 'grow', home: { path: '/content', section: 'Went out' }, title: 'Telegram and Discord, posted by hand',
     purpose: 'Every outbound channel drafts and waits for a person. After posting a draft yourself, register the message so the row closes and measurement starts.',
     actions: [
       { label: 'Telegram posted', method: 'POST', path: 'telegram-posts/{telegram_post_id}/register-manual', paramSources: { telegram_post_id: 'text' }, fields: [{ name: 'message_id', label: 'Telegram message id', kind: 'number', required: true }] },
@@ -293,7 +299,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'suggestion-outcome', pillar: 'grow', title: 'Content suggestion outcome',
+    id: 'suggestion-outcome', pillar: 'grow', gap: 'No read lists approved content suggestions after approval, so there is no row to report an outcome against. Needs an upstream read of approved, unreported suggestions.', title: 'Content suggestion outcome',
     purpose: 'Tell the brain what became of a suggestion — done, or done differently and how.',
     actions: [{
       label: 'Report outcome', method: 'POST', path: 'autopilot/content-suggestions/{suggestion_id}/outcome', paramSources: { suggestion_id: 'text' },
@@ -305,14 +311,14 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'amplification', pillar: 'grow', title: 'Cross-promotion with a labelmate',
+    id: 'amplification', pillar: 'grow', home: { path: '/audience?tab=portfolio', section: 'Cross-promotion' }, title: 'Cross-promotion with a labelmate',
     purpose: "Propose sharing consented audience with another act on the roster, preview who it would reach, and run the campaign once they accept.",
     actions: [
       {
         label: 'Propose', method: 'POST', path: 'portfolio/amplification',
         fields: [
           { name: 'toWorkspaceId', label: 'Other act (workspace id)', kind: 'uuid', required: true },
-          { name: 'purpose', label: 'Purpose', kind: 'text', required: true },
+          { name: 'purpose', label: 'Purpose', kind: 'select', required: true, options: ['cross_promote', 'release_feature', 'event_crossbill'] },
           { name: 'scope', label: 'Scope', kind: 'select', options: ['all_active', 'double_opt_in'] },
           { name: 'maxCampaignsPerMonth', label: 'Max campaigns / month', kind: 'number', initial: 2 },
           { name: 'cooldownDays', label: 'Cooldown days', kind: 'number', initial: 21 },
@@ -322,7 +328,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         label: 'Run campaign', method: 'POST', path: 'portfolio/amplification/{consent_id}/campaign', paramSources: { consent_id: 'text' },
         confirm: 'This emails real fans of the other act.',
         fields: [
-          { name: 'campaign_reference', label: 'Reference', kind: 'text', required: true },
+          { name: 'campaignReference', label: 'Reference', kind: 'text', required: true },
           { name: 'subject', label: 'Subject', kind: 'text', required: true },
           { name: 'text', label: 'Text', kind: 'textarea', required: true },
           { name: 'limit', label: 'At most', kind: 'number' },
@@ -330,17 +336,17 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       },
     ],
   },
-  { id: 'amplification-preview', pillar: 'grow', title: 'Who a cross-promotion reaches', purpose: 'Audience preview for one accepted consent.', read: { path: 'portfolio/amplification/{consent_id}/audience-preview', paramSources: { consent_id: 'text' } } },
-  { id: 'case-study', pillar: 'grow', title: 'Roster case study', purpose: 'One document to attach to a partner conversation.', read: { path: 'portfolio/case-study' } },
+  { id: 'amplification-preview', pillar: 'grow', home: { path: '/audience?tab=portfolio', section: 'Cross-promotion' }, title: 'Who a cross-promotion reaches', purpose: 'Audience preview for one accepted consent.', read: { path: 'portfolio/amplification/{consent_id}/audience-preview', paramSources: { consent_id: 'text' } } },
+  { id: 'case-study', pillar: 'grow', home: { path: '/proof', section: 'The roster story' }, title: 'Roster case study', purpose: 'One document to attach to a partner conversation.', read: { path: 'portfolio/case-study' } },
 
   // ── Convert ────────────────────────────────────────────────────────
-  { id: 'funnel', pillar: 'convert', title: 'Fan funnel', purpose: 'Where fans came from and how far they got.', read: { path: 'analytics/funnel' } },
-  { id: 'revenue', pillar: 'convert', title: 'Revenue', purpose: 'Paid orders, gross and refunded, per currency.', read: { path: 'analytics/revenue' } },
-  { id: 'referral-conversion', pillar: 'convert', title: 'Referral conversion', purpose: 'What fans bringing fans actually converted.', read: { path: 'analytics/referral-conversion' } },
-  { id: 'ad-conversion', pillar: 'convert', title: 'Ad conversion', purpose: 'Paid reach against the fans and tickets it produced.', read: { path: 'analytics/ad-conversion' } },
-  { id: 'ad-conversion-breakdown', pillar: 'convert', title: 'Ad conversion by campaign', purpose: 'The same, per campaign and creative.', read: { path: 'analytics/ad-conversion/breakdown' } },
+  { id: 'funnel', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Fan funnel', purpose: 'Where fans came from and how far they got.', read: { path: 'analytics/funnel' } },
+  { id: 'revenue', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Revenue', purpose: 'Paid orders, gross and refunded, per currency.', read: { path: 'analytics/revenue' } },
+  { id: 'referral-conversion', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Referral conversion', purpose: 'What fans bringing fans actually converted.', read: { path: 'analytics/referral-conversion' } },
+  { id: 'ad-conversion', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Ad conversion', purpose: 'Paid reach against the fans and tickets it produced.', read: { path: 'analytics/ad-conversion' } },
+  { id: 'ad-conversion-breakdown', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Ad conversion by campaign', purpose: 'The same, per campaign and creative.', read: { path: 'analytics/ad-conversion/breakdown' } },
   {
-    id: 'communications', pillar: 'convert', title: 'Fan messages',
+    id: 'communications', pillar: 'convert', home: { path: '/audience', section: 'Messages to fans' }, title: 'Fan messages',
     purpose: 'Campaigns to a segment of the fanbase: draft, schedule, cancel.',
     read: { path: 'communications/campaigns' },
     actions: [
@@ -349,9 +355,9 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         fields: [
           { name: 'slug', label: 'Slug', kind: 'text', required: true },
           { name: 'name', label: 'Name', kind: 'text', required: true },
-          { name: 'channel', label: 'Channel', kind: 'text', required: true, hint: 'e.g. email, push' },
-          { name: 'segment_slug', label: 'Segment', kind: 'text', required: true },
-          { name: 'template_key', label: 'Template', kind: 'text', required: true },
+          { name: 'channel', label: 'Channel', kind: 'select', required: true, options: ['email', 'push', 'in_app'] },
+          { name: 'segment_slug', label: 'Who it goes to', kind: 'text', required: true, hint: 'a segment from the list above' },
+          { name: 'template_key', label: 'Template', kind: 'text', required: true, hint: 'the message template the sender renders' },
           { name: 'subject', label: 'Subject', kind: 'text' },
           { name: 'content', label: 'Content', kind: 'json' },
         ],
@@ -361,17 +367,17 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'referral-code', pillar: 'convert', title: "A fan's referral code",
+    id: 'referral-code', pillar: 'convert', home: { path: '/audience', section: 'A fan, opened' }, title: "A fan's referral code",
     purpose: 'Mint (or read back) the code a fan shares to bring friends.',
     actions: [{ label: 'Get code', method: 'POST', path: 'audience/fans/{fan_id}/referral-code', paramSources: { fan_id: 'text' } }],
   },
   {
-    id: 'ticketing', pillar: 'convert', title: 'Ticket sale',
+    id: 'ticketing', pillar: 'convert', home: { path: '/shows/<show>', section: 'Tickets and merch' }, title: 'Ticket sale',
     purpose: 'Capacity, tiers and sales for one show. Price and capacity are set by the box office; this is the read. A show with no sale configured answers “not found”.',
     read: { path: 'events/{event_slug}/ticketing', paramSources: { event_slug: 'event_slug' } },
   },
   {
-    id: 'show-setup', pillar: 'convert', title: 'Support slots and festival',
+    id: 'show-setup', pillar: 'convert', home: { path: '/shows/<show>', section: 'Set up the night' }, title: 'Support slots and festival',
     purpose: 'How many support slots a night has open, and the festival it belongs to.',
     actions: [
       { label: 'Open support slots', method: 'PUT', path: 'events/{event_slug}/support-slots', paramSources: { event_slug: 'event_slug' }, fields: [{ name: 'open_support_slots', label: 'Open slots', kind: 'number' }] },
@@ -379,9 +385,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'show-costs', pillar: 'convert', title: 'Show costs',
-    purpose: 'Freeze the cost prediction before a show and settle the real numbers after, so the brain learns what a night costs.',
+    id: 'show-merch', pillar: 'convert', home: { path: '/shows/<show>', section: 'Tickets and merch' }, title: 'Merch at the night',
+    purpose: 'Orders tied to one show, what is waiting at the merch table, and what it took.',
     read: { path: 'events/{event_id}/commerce-summary', paramSources: { event_id: 'event_id' } },
+  },
+  {
+    id: 'show-costs', pillar: 'convert', home: { path: '/shows/<show>', section: 'The money' }, title: 'Show costs',
+    purpose: 'Freeze the cost prediction before a show and settle the real numbers after, so the brain learns what a night costs.',
     actions: [
       {
         label: 'Freeze prediction', method: 'POST', path: 'events/{event_id}/show-cost/prediction', paramSources: { event_id: 'event_id' },
@@ -407,7 +417,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'checklist', pillar: 'convert', title: 'Show checklist',
+    id: 'checklist', pillar: 'convert', home: { path: '/shows/<show>', section: 'The night’s checklist' }, title: 'Show checklist',
     purpose: "The night's operating checklist, item by item.",
     read: { path: 'ecosystem/checklists/{event_slug}', paramSources: { event_slug: 'event_slug' } },
     actions: [{
@@ -418,9 +428,8 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       ],
     }],
   },
-  { id: 'event-qr-overview', pillar: 'convert', title: 'Concert QR overview', purpose: 'Scans and signups from QR codes at shows.', read: { path: 'event-qr/overview' } },
   {
-    id: 'event-qr', pillar: 'convert', title: 'Concert QR campaigns',
+    id: 'event-qr', pillar: 'convert', home: { path: '/shows/<show>', section: 'At the door' }, title: 'Concert QR campaigns',
     purpose: 'A QR code for a night — where it hangs, whether it was announced from the stage, what it offers.',
     read: { path: 'event-qr/campaigns', query: [{ name: 'limit', label: 'Limit', kind: 'number' }] },
     actions: [
@@ -449,13 +458,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'merch', pillar: 'convert', title: 'Merch catalogue',
+    id: 'merch', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch catalogue',
     purpose: 'Products, variants and prices.',
     read: { path: 'merch/catalog' },
     actions: [{ label: 'Upsert products', method: 'POST', path: 'merch/catalog', fields: [{ name: 'products', label: 'Products', kind: 'json', required: true, hint: '[{"slug","name","currency","price_gross_minor","active","public","variants":[…]}]' }] }],
   },
   {
-    id: 'inventory', pillar: 'convert', title: 'Merch stock',
+    id: 'inventory', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch stock',
     purpose: 'What is on hand, whether stock is ready to sell, and every movement.',
     read: { path: 'merch/inventory/overview' },
     actions: [
@@ -472,19 +481,31 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       },
     ],
   },
-  { id: 'inventory-activation', pillar: 'convert', title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
-  { id: 'merch-recommendations', pillar: 'convert', title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
+  { id: 'inventory-activation', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
+  { id: 'merch-recommendations', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
   {
-    id: 'guardrails', pillar: 'convert', title: 'Price, allocation and spend guardrails',
-    purpose: 'The bounds the brain may move prices, ticket allocations and ad budgets within.',
+    id: 'guardrails', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: 'Ad spend ceiling',
+    purpose: 'The most the brain may spend on ads per day and per month, per currency.',
     actions: [
-      { label: 'Merch price bounds', method: 'POST', path: 'autopilot/merch-economics', fields: [{ name: 'product_id', label: 'Product', kind: 'uuid', required: true }, { name: 'minimum_price_minor', label: 'Min price', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_price_minor', label: 'Max price', kind: 'number', required: true, hint: MINOR }, { name: 'unit_cost_minor', label: 'Unit cost', kind: 'number', hint: MINOR }, EXPECTED_VERSION] },
-      { label: 'Ticket allocation bounds', method: 'POST', path: 'autopilot/ticket-allocation-guardrails', fields: [{ name: 'ticket_type_id', label: 'Ticket type', kind: 'uuid', required: true }, { name: 'minimum_capacity', label: 'Min', kind: 'number', required: true }, { name: 'maximum_capacity', label: 'Max', kind: 'number', required: true }, { name: 'step_capacity', label: 'Step', kind: 'number', required: true }, EXPECTED_VERSION] },
       { label: 'Ad spend ceiling', method: 'POST', path: 'autopilot/promotion-budget-guardrails', fields: [{ name: 'currency', label: 'Currency', kind: 'text', required: true, initial: 'EUR' }, { name: 'maximum_total_daily_budget_minor', label: 'Max daily', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_monthly_spend_minor', label: 'Max monthly', kind: 'number', required: true, hint: MINOR }, EXPECTED_VERSION] },
     ],
   },
   {
-    id: 'rewards', pillar: 'convert', title: 'Fan reward draws',
+    id: 'merch-price-bounds', pillar: 'convert', gap: 'Setting bounds the first time works, but no read returns the current bounds or their version, so a change would be refused as a conflict. Needs a read of merch economics per product.', title: 'Merch price bounds',
+    purpose: 'The range the brain may move one product’s price within.',
+    actions: [
+      { label: 'Merch price bounds', method: 'POST', path: 'autopilot/merch-economics', fields: [{ name: 'product_id', label: 'Product', kind: 'uuid', required: true }, { name: 'minimum_price_minor', label: 'Min price', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_price_minor', label: 'Max price', kind: 'number', required: true, hint: MINOR }, { name: 'unit_cost_minor', label: 'Unit cost', kind: 'number', hint: MINOR }, EXPECTED_VERSION] },
+    ],
+  },
+  {
+    id: 'ticket-bounds', pillar: 'convert', gap: 'Same as merch: no read returns a ticket type’s allocation bounds or version, so only the first write succeeds.', title: 'Ticket allocation bounds',
+    purpose: 'The capacity range the brain may move one ticket type within.',
+    actions: [
+      { label: 'Ticket allocation bounds', method: 'POST', path: 'autopilot/ticket-allocation-guardrails', fields: [{ name: 'ticket_type_id', label: 'Ticket type', kind: 'uuid', required: true }, { name: 'minimum_capacity', label: 'Min', kind: 'number', required: true }, { name: 'maximum_capacity', label: 'Max', kind: 'number', required: true }, { name: 'step_capacity', label: 'Step', kind: 'number', required: true }, EXPECTED_VERSION] },
+    ],
+  },
+  {
+    id: 'rewards', pillar: 'convert', home: { path: '/shows/<show>', section: 'At the door' }, title: 'Fan reward draws',
     purpose: 'Prize draws fans enter by referring and checking in. Create, schedule, cancel.',
     read: { path: 'reward-campaigns' },
     actions: [
@@ -506,15 +527,14 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       { label: 'Cancel', method: 'POST', path: 'reward-campaigns/{draw_id}/cancel', rowParams: { draw_id: 'id' } },
     ],
   },
-  { id: 'reward-draws', pillar: 'convert', title: 'Draw results', purpose: 'Every draw that ran and who won.', read: { path: 'reward-draws' } },
   {
-    id: 'reward-fulfillments', pillar: 'convert', title: 'Prizes to send',
+    id: 'reward-fulfillments', pillar: 'convert', home: { path: '/operations', section: 'Prizes to send' }, title: 'Prizes to send',
     purpose: 'Winners whose prize has not gone out yet.',
     read: { path: 'reward-fulfillments' },
-    actions: [{ label: 'Mark', method: 'POST', path: 'reward-fulfillments/{winner_id}', rowParams: { winner_id: 'winner_id' }, fields: [{ name: 'status', label: 'Status', kind: 'text', required: true, hint: 'e.g. shipped, delivered' }, { name: 'note', label: 'Note', kind: 'text' }] }],
+    actions: [{ label: 'Mark', method: 'POST', path: 'reward-fulfillments/{winner_id}', rowParams: { winner_id: 'winner_id' }, fields: [{ name: 'status', label: 'The prize is', kind: 'select', required: true, options: ['prepared', 'delivered', 'cancelled'] }, { name: 'note', label: 'Note', kind: 'text' }] }],
   },
   {
-    id: 'booking-targets', pillar: 'convert', title: 'Venues, promoters and festivals',
+    id: 'booking-targets', pillar: 'convert', gap: 'Adding a booking contact needs the city id, and recording its reply needs the booking-target id. No console read carries either: the funnel keys cities by slug, and gig-plan letters and confirmed candidates do not return the target they wrote to.', title: 'Venues, promoters and festivals',
     purpose: 'Who the band asks for shows: add one, file their reply, link venues, add festival editions.',
     actions: [
       {
@@ -555,7 +575,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'booking-policy', pillar: 'convert', title: "The manager's booking policy",
+    id: 'booking-policy', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: "The manager's booking policy",
     purpose: 'The rules the brain books under — fees, distances, how many asks.',
     read: { path: 'autopilot/manager-config/booking-policy' },
     actions: [{
@@ -569,7 +589,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'team-opportunities', pillar: 'convert', title: 'Opportunities the team found',
+    id: 'team-opportunities', pillar: 'convert', home: { path: '/shows?tab=booking', section: 'Found and Approached' }, title: 'Opportunities the team found',
     purpose: 'File an opening someone spotted — a slot, a grant, a showcase — and move it along as it progresses.',
     actions: [
       {
@@ -595,20 +615,16 @@ export const SURFACE_CAPABILITIES: Capability[] = [
 
   // ── Operate ────────────────────────────────────────────────────────
   {
-    id: 'cycles', pillar: 'operate', title: "The brain's last cycles",
+    id: 'cycles', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Recent cycles' }, title: "The brain's last cycles",
     purpose: 'Each autopilot cycle, newest first — and which ones ran degraded.',
     read: { path: 'ops/cycles', query: [{ name: 'state', label: 'Outcome', kind: 'text', hint: 'e.g. degraded' }, { name: 'limit', label: 'Limit', kind: 'number' }] },
   },
-  { id: 'action-states', pillar: 'operate', title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
-  { id: 'ecosystem', pillar: 'operate', title: 'Ecosystem health', purpose: 'The cross-app operating picture: flags, reconciliation, open findings.', read: { path: 'ecosystem/overview' } },
-  { id: 'findings', pillar: 'operate', title: 'Reconciliation findings', purpose: 'Where the apps disagree about the same fact.', read: { path: 'ecosystem/findings', query: [{ name: 'open_only', label: 'Open only', kind: 'select', options: ['true', 'false'] }, { name: 'limit', label: 'Limit', kind: 'number' }] } },
-  { id: 'reach', pillar: 'operate', title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
-  { id: 'agent-templates', pillar: 'operate', title: 'Agent templates', purpose: 'The drafting templates the agent service runs — what each writes and for which channel.', tenantRead: { path: 'agents/templates' } },
-  { id: 'agent-suggestions', pillar: 'operate', title: 'Agent suggestions', purpose: 'What the agent service suggests doing next.', tenantRead: { path: 'agents/suggestions' } },
-  { id: 'notifier-discovered', pillar: 'operate', title: 'Webhook endpoints already configured', purpose: 'Delivery targets the tenant already has, before a parallel notifier is added.', tenantRead: { path: 'notifiers/discovered' } },
-  { id: 'notifier-platform', pillar: 'operate', title: 'Platform notifier settings', purpose: 'The platform-wide notification configuration this tenant inherits.', tenantRead: { path: 'notifiers/platform-config' } },
+  { id: 'action-states', pillar: 'operate', servedBy: 'the brain read model (/tenants/{slug}/brain), which the process map and Intelligence draw', home: { path: '/intelligence?tab=standing', section: 'Where actions wait' }, title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
+  { id: 'ecosystem', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Ecosystem health', purpose: 'The cross-app operating picture: flags, reconciliation, open findings.', read: { path: 'ecosystem/overview' } },
+  { id: 'findings', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Reconciliation findings', purpose: 'Where the apps disagree about the same fact.', read: { path: 'ecosystem/findings', query: [{ name: 'open_only', label: 'Open only', kind: 'select', options: ['true', 'false'] }, { name: 'limit', label: 'Limit', kind: 'number' }] } },
+  { id: 'reach', pillar: 'operate', home: { path: '/intelligence?tab=brief', section: 'Who it reached' }, title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
   {
-    id: 'approvals', pillar: 'operate', title: 'Approve and assign actions',
+    id: 'approvals', pillar: 'operate', home: { path: '/attention', section: 'Needs you now' }, title: 'Approve and assign actions',
     purpose: 'Approve several parked actions at once, or hand one to a team member.',
     actions: [
       { label: 'Approve several', method: 'POST', path: 'autopilot/actions/approve', confirm: 'Approved actions run — some reach real people.', fields: [{ name: 'action_ids', label: 'Action ids', kind: 'lines', lines: 'strings', required: true, hint: 'one id per line' }] },
@@ -626,7 +642,7 @@ function STAGES(): readonly string[] {
 // tab) a person opens to use them.
 export const PAGE_CAPABILITIES: PageCapability[] = [
   // Aggregate
-  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/integrations' },
+  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/audience?tab=sources' },
   { pillar: 'aggregate', title: 'Fans', purpose: 'The fan table, one fan’s journey, tags.', where: '/audience' },
   { pillar: 'aggregate', title: 'Segments', purpose: 'Who is in each audience segment.', where: '/audience' },
   { pillar: 'aggregate', title: 'Contacts from Drive and Gmail', purpose: 'Scanned or uploaded contacts, promoted to fans or beacons in bulk.', where: '/audience?tab=contacts' },
@@ -661,3 +677,17 @@ export const PAGE_CAPABILITIES: PageCapability[] = [
   { pillar: 'operate', title: 'Automation', purpose: 'n8n events and workflow settings.', where: '/automation' },
   { pillar: 'operate', title: 'Settings', purpose: 'Profile, workspace settings, secrets, operators, destinations, deployment.', where: '?tab=profile' },
 ]
+
+/** A capability's write by label — for the panels that host it. Throws on a
+ *  miss so a renamed action fails the build's first render, not a click. */
+export function capabilityAction(id: string, label: string): CapabilityAction {
+  const action = capability(id).actions?.find(candidate => candidate.label === label)
+  if (!action) throw new Error(`capability ${id} has no action "${label}"`)
+  return action
+}
+
+export function capability(id: string): Capability {
+  const found = SURFACE_CAPABILITIES.find(candidate => candidate.id === id)
+  if (!found) throw new Error(`unknown capability ${id}`)
+  return found
+}

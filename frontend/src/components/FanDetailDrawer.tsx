@@ -1,4 +1,6 @@
-import { For, Show, createSignal } from 'solid-js'
+import { fillPath, surface } from '../lib/surface'
+import { capabilityAction } from '../lib/capabilities'
+import { For, Show, createEffect, createSignal, on } from 'solid-js'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/format'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
@@ -42,6 +44,24 @@ export function FanDetailDrawer(props: {
   onRefresh: () => void
 }) {
   const [tagInput, setTagInput] = createSignal('')
+  const [referralCode, setReferralCode] = createSignal<string | null>(null)
+  const [referralBusy, setReferralBusy] = createSignal(false)
+  // One drawer serves every fan; a code shown for the last one must not
+  // linger on the next.
+  createEffect(on(() => props.fan?.fan.id, () => setReferralCode(null)))
+  const loadReferralCode = async () => {
+    if (referralBusy() || !props.fan) return
+    setReferralBusy(true)
+    try {
+      const path = fillPath(capabilityAction('referral-code', 'Get code').path, { fan_id: props.fan.fan.id })!
+      const result = await surface.write<{ code: string }>(props.slug, 'POST', path)
+      setReferralCode(result.code)
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not get the referral code'))
+    } finally {
+      setReferralBusy(false)
+    }
+  }
   const [tagBusy, setTagBusy] = createSignal<string | null>(null)
 
   const addTag = async () => {
@@ -91,6 +111,18 @@ export function FanDetailDrawer(props: {
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Last activity</span><span>{formatDateTime(props.fan!.fan.last_activity_at)}</span></div>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Consented</span><span>{props.fan!.fan.consented ? 'Yes' : 'No'}</span></div>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Qualified referrals</span><span>{props.fan!.fan.qualified_referrals}</span></div>
+            {/* The code this fan shares to bring friends — minted on first
+                ask and stable after, so asking twice returns the same one. */}
+            <div class="flex items-center justify-between gap-3 py-2 border-b border-border">
+              <span class="text-muted-foreground">Referral code</span>
+              <Show when={referralCode()} fallback={
+                <Button writes variant="ghost" size="sm" class="h-6 px-1.5 text-xs" disabled={referralBusy()} onClick={() => void loadReferralCode()}>
+                  {referralBusy() ? '…' : 'Show code'}
+                </Button>
+              }>
+                <span class="font-mono text-xs">{referralCode()}</span>
+              </Show>
+            </div>
             <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-muted-foreground">Paid ticket orders</span><span>{props.fan!.fan.paid_ticket_orders}</span></div>
           </div>
           {/* Tags are the operator's own labels — always render the section

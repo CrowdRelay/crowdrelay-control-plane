@@ -5,6 +5,8 @@ import type { TenantShowTimelineResponse } from '../lib/types'
 import { readOnly } from '../lib/read-only'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 
 /** The two facts a night needs before the chain can work them: who is on the
  * bill (the crossbill step's only input — no bill, no shared audiences) and
@@ -226,6 +228,29 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
           </Show>
         </div>
       </fieldset>
+
+      {/* The two facts a booker asks before anything else: is there room on
+          the bill for a support act, and is this night part of a festival.
+          Each is one small whole-value write; the gig proposal and the
+          support-slot ask read them. */}
+      <div class="mt-4 flex flex-wrap items-start gap-2 border-t border-border pt-3">
+        <SurfaceAction
+          slug={props.slug}
+          size="xs"
+          action={capabilityAction('show-setup', 'Open support slots')}
+          label="Support slots open"
+          fixed={{ event_slug: props.eventSlug }}
+          onDone={() => { refresh(); setFlash('Support slots saved.') }}
+        />
+        <SurfaceAction
+          slug={props.slug}
+          size="xs"
+          action={capabilityAction('show-setup', 'Festival')}
+          label="Part of a festival"
+          fixed={{ event_slug: props.eventSlug }}
+          onDone={() => { refresh(); setFlash('Festival saved.') }}
+        />
+      </div>
 
       <Show when={flash()}>
         <p class="mt-2 text-xs text-muted-foreground">{flash()}</p>
