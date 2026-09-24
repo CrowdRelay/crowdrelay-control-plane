@@ -65,10 +65,10 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
   const items: NeedsYouItem[] = []
   const a = t.attention
   if (a.available) {
-    if (a.criticalAlerts > 0) items.push(attention('critical', 0, plural(a.criticalAlerts, 'critical alert')))
+    if ((a.criticalAlerts ?? 0) > 0) items.push(attention('critical', 0, plural(a.criticalAlerts!, 'critical alert')))
     if (a.deadDeliveries > 0) items.push({ ...attention('dead', 0, plural(a.deadDeliveries, 'dead delivery', 'dead deliveries'), 'Messages that will not be retried on their own.'), to: '/tenants/$slug/operations' })
-    if (a.needsYou > 0) items.push(attention('needs-you', 1, plural(a.needsYou, 'decision needs you', 'decisions need you')))
-    if (a.awaitingApproval > 0) items.push(attention('approval', 1, plural(a.awaitingApproval, 'action awaiting approval', 'actions awaiting approval')))
+    if ((a.needsYou ?? 0) > 0) items.push(attention('needs-you', 1, plural(a.needsYou!, 'decision needs you', 'decisions need you')))
+    if ((a.awaitingApproval ?? 0) > 0) items.push(attention('approval', 1, plural(a.awaitingApproval!, 'action awaiting approval', 'actions awaiting approval')))
     if ((a.unpublishedDrafts ?? 0) > 0) {
       const channels = (a.unpublishedDraftChannels ?? []).filter(c => c.drafts > 0).map(c => `${fmt(c.drafts)} on ${c.channel}`).join(' · ')
       items.push(attention('drafts', 1, plural(a.unpublishedDrafts!, 'post written, not published', 'posts written, not published'), channels || undefined))
@@ -335,7 +335,12 @@ export function NorthStarSkeleton() {
 
 const tenantNeedsYou = (t: CommandCenterTenantSummary | undefined) => {
   if (!t?.attention.available) return null
-  return t.attention.needsYou + t.attention.awaitingApproval + t.attention.criticalAlerts + (t.attention.unpublishedDrafts ?? 0)
+  // Every addend is null when the tenant does not publish its source
+  // section — a partial sum over reported counts, or null when nothing
+  // reported at all, never a fabricated zero.
+  const parts = [t.attention.needsYou, t.attention.awaitingApproval, t.attention.criticalAlerts, t.attention.unpublishedDrafts]
+  const reported = parts.filter((p): p is number => p != null)
+  return reported.length === 0 ? null : reported.reduce((sum, p) => sum + p, 0)
 }
 
 const inFlight = (t: CommandCenterTenantSummary | undefined) =>
@@ -406,22 +411,31 @@ export function TenantsTable(props: { rows: TenantRow[]; loading: boolean; ccLoa
 
 export function AutopilotSummary(props: { ov: OverviewModel }) {
   const cc = () => props.ov.cc()!
+  // reportingTenants is the coverage count — a tenant that failed to answer
+  // contributes nothing, so zeroes with nobody reporting are "unknown", not
+  // "idle". The fans strip next door already gates on the same field.
   const flying = () => cc().autopilot.queuedActions + cc().autopilot.processingActions
+  const reported = (n: number) => n > 0
   return (
     <CollapsibleSection
       title="Autopilot and learning"
-      badge={flying() > 0 ? `${plural(flying(), 'action')} in flight` : `${fmt(cc().autopilot.succeeded24h)} succeeded today`}
+      badge={!reported(cc().autopilot.reportingTenants)
+        ? 'no tenants reporting'
+        : flying() > 0 ? `${plural(flying(), 'action')} in flight` : `${fmt(cc().autopilot.succeeded24h)} succeeded today`}
       badgeTone={flying() > 0 ? 'good' : 'muted'}
     >
       <MetricRow min="9rem">
-        <Metric label="Queued" value={fmt(cc().autopilot.queuedActions)} />
-        <Metric label="Processing" value={fmt(cc().autopilot.processingActions)} />
-        <Metric label="Succeeded" value={fmt(cc().autopilot.succeeded24h)} tone={cc().autopilot.succeeded24h > 0 ? 'good' : 'default'} sub="last 24 hours" />
-        <Metric label="Failed" value={fmt(cc().autopilot.failed24h)} tone={cc().autopilot.failed24h > 0 ? 'bad' : 'default'} sub="last 24 hours" />
-        <Metric label="Outcomes resolved" value={fmt(cc().outcomes.resolved)} sub={
-          cc().outcomes.waitingForObservation > 0 ? `${fmt(cc().outcomes.waitingForObservation)} waiting for observation` : cc().outcomes.unknown > 0 ? `${fmt(cc().outcomes.unknown)} not measurable` : 'all measured'
+        <Metric label="Queued" value={fmt(reported(cc().autopilot.reportingTenants) ? cc().autopilot.queuedActions : null)} />
+        <Metric label="Processing" value={fmt(reported(cc().autopilot.reportingTenants) ? cc().autopilot.processingActions : null)} />
+        <Metric label="Succeeded" value={fmt(reported(cc().autopilot.reportingTenants) ? cc().autopilot.succeeded24h : null)} tone={cc().autopilot.succeeded24h > 0 ? 'good' : 'default'} sub="last 24 hours" />
+        <Metric label="Failed" value={fmt(reported(cc().autopilot.reportingTenants) ? cc().autopilot.failed24h : null)} tone={cc().autopilot.failed24h > 0 ? 'bad' : 'default'} sub="last 24 hours" />
+        <Metric label="Outcomes resolved" value={fmt(reported(cc().outcomes.reportingTenants) ? cc().outcomes.resolved : null)} sub={
+          !reported(cc().outcomes.reportingTenants) ? 'no tenants reporting'
+            : cc().outcomes.waitingForObservation > 0 ? `${fmt(cc().outcomes.waitingForObservation)} waiting for observation` : cc().outcomes.unknown > 0 ? `${fmt(cc().outcomes.unknown)} not measurable` : 'all measured'
         } />
-        <Metric label="Learning outcomes" value={fmt(cc().learning.totalOutcomes)} sub={`${fmt(cc().learning.admitted)} admitted · ${fmt(cc().learning.rejected)} rejected`} />
+        <Metric label="Learning outcomes" value={fmt(reported(cc().learning.reportingTenants) ? cc().learning.totalOutcomes : null)} sub={
+          reported(cc().learning.reportingTenants) ? `${fmt(cc().learning.admitted)} admitted · ${fmt(cc().learning.rejected)} rejected` : 'no tenants reporting'
+        } />
       </MetricRow>
     </CollapsibleSection>
   )

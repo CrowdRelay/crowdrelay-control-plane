@@ -63,6 +63,9 @@ export function TenantHealthPage() {
   const delivery = useQuery(() => ({
     queryKey: ['tenant-delivery', params().slug],
     queryFn: () => api.deliveryModel(params().slug),
+    // The delivery model is a 5-call upstream fan-out consumed only inside
+    // the Delivery tab — the default Status tab must not pay for it.
+    enabled: isVisited('delivery'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,

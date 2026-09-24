@@ -41,6 +41,25 @@ const TONE_DOT = {
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
 
+// The section names the degraded strip prints — operator words for the
+// `tenant-today` sections, with the raw key as the fallback.
+const OPS_SECTION_LABEL: Record<string, string> = {
+  summary: 'The queue summary',
+  flags: 'The health flags',
+  autopilot: 'Autopilot approvals',
+  growth: 'Growth',
+  opportunities: 'Opportunities',
+  signal: 'Signal',
+  audience: 'The audience',
+  growth_metrics: 'Growth metrics',
+  acquisition_sources: 'Acquisition sources',
+  reply_triage: 'Reply triage',
+  shows: 'Shows',
+  attention: 'Needs you',
+  next_show_timeline: 'The next show timeline',
+}
+const sectionLabel = (key: string) => OPS_SECTION_LABEL[key] ?? key
+
 // The machine's surfaces for one tenant: replies, outreach, press, releases
 // and the play ledger, each on its own tab. Decisions live on Needs you; the
 // first figure here says how many are waiting and points there.
@@ -167,6 +186,13 @@ export function TenantOperationsPage() {
   })
 
   // ── Widget data ──────────────────────────────────────────────────────
+  // A section named in `degraded` never answered — its count is absent, not
+  // zero. The waiting widget reads `autopilot` and `opportunities`, so when
+  // either is degraded the total is unknown and "nothing to decide" is a lie.
+  const waitingDegraded = () => {
+    const deg = d()?.degraded ?? []
+    return deg.includes('autopilot') || deg.includes('opportunities')
+  }
   const waitingTotal = () => needsYouCount() + awaitingApproval()
   const waitingSegments = (): Segment[] => [
     { key: 'needs-you', label: authState.isPlatformLevel() ? 'Autopilot approvals' : 'Approvals', value: needsYouCount(), class: 'bg-chart-1' },
@@ -294,6 +320,13 @@ export function TenantOperationsPage() {
     </Show>
 
     <Show when={model.data && !model.error}>
+      {/* A section the tenant could not answer is named here once, above the
+          widgets, so "0" below is never read as "checked and empty". */}
+      <For each={model.data!.degraded}>{section => (
+        <Alert tone="warning" role="status" class="mb-4">
+          <strong>{sectionLabel(section)}</strong> couldn't be checked right now — the rest of the page keeps working and it recovers on the next poll.
+        </Alert>
+      )}</For>
       {/* Four widgets: is anything mine, is anything broken, is work going
           out, is the autopilot working. Each draws its answer before it
           spells it out. */}
@@ -306,8 +339,8 @@ export function TenantOperationsPage() {
           </Show>}
         >
           <div class="flex items-baseline gap-2">
-            <span class={cn('text-3xl font-bold tabular-nums', waitingTotal() > 0 ? 'text-warning-foreground' : 'text-foreground')}>{waitingTotal()}</span>
-            <span class="text-sm text-muted-foreground">{waitingTotal() > 0 ? 'on Needs you' : 'nothing to decide'}</span>
+            <span class={cn('text-3xl font-bold tabular-nums', waitingTotal() > 0 ? 'text-warning-foreground' : 'text-foreground')}>{waitingDegraded() ? '—' : waitingTotal()}</span>
+            <span class="text-sm text-muted-foreground">{waitingDegraded() ? 'couldn\'t be checked' : waitingTotal() > 0 ? 'on Needs you' : 'nothing to decide'}</span>
           </div>
           <StackBar label="What is waiting" segments={waitingSegments()} class="mt-auto" />
           <Legend segments={waitingSegments()} />

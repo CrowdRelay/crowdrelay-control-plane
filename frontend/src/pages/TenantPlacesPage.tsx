@@ -110,21 +110,18 @@ export function TenantPlacesPage() {
   const params = useParams({ from: '/tenants/$slug/places' })
   const queryClient = useQueryClient()
 
-  // AREA is a paid game surface, not a read every tenant has: platform
-  // sessions always get the tab; a band session gets it only when the
-  // tenant is entitled or its app already reports AREA on. The probe shares
-  // the workspace's key, so opening the tab reuses this answer instead of
-  // asking again — and for a tenant without AREA it is the only AREA call
-  // the page ever makes.
+  // AREA routes sit behind require_platform_level upstream, so a band
+  // session's probe is a guaranteed 403 — `entitled`/`enabled` can never
+  // be observed by the sessions the || branch was written for. The tab is
+  // platform-only; the probe stays only to warm the workspace's cache key.
   const areaOverview = useQuery(() => ({
     queryKey: ['area-overview', params().slug],
     queryFn: () => api.areaOverview(params().slug),
+    enabled: authState.isPlatformLevel(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   }))
-  const areaVisible = () =>
-    authState.isPlatformLevel() ||
-    Boolean(areaOverview.data?.entitled || areaOverview.data?.enabled)
+  const areaVisible = () => authState.isPlatformLevel()
 
   // The valid list follows the entitlement: a band deep link `?tab=area`
   // on a tenant without AREA has nowhere valid to land, and the URL-follow
