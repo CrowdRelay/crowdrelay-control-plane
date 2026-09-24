@@ -245,12 +245,12 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
         <ErrorCard class="mb-4">{create.error instanceof Error ? create.error.message : 'Could not add the show'}</ErrorCard>
       </Show>
       <FieldGrid>
-        <Field label="Title" hint="As it appears on the poster — e.g. Virya live in Warszawa.">
+        <Field label="Title" hint="As it appears on the poster — e.g. Live in Warszawa.">
           <Input
             required maxlength="300" autocomplete="off"
             value={draft().title}
             onInput={e => set('title', e.currentTarget.value)}
-            placeholder="Virya live"
+            placeholder="Live in Warszawa"
           />
         </Field>
         <Field
