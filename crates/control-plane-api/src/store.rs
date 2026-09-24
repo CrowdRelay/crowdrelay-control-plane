@@ -1574,10 +1574,16 @@ impl Store {
         Ok(row.0)
     }
 
-    /// Platform health summary: (service_name, healthy, status) tuples.
-    pub async fn platform_health_summary(&self) -> Result<Vec<(String, bool, String)>, ApiError> {
-        let rows = sqlx::query_as::<_, (String, bool, String)>(
-            "SELECT service, healthy, status FROM control_plane_platform_health ORDER BY service",
+    /// Platform health summary: (service_name, healthy, last_status) tuples.
+    ///
+    /// The column is `last_status`, and nullable until a probe has run. This
+    /// used to select `status`, which the table has never had, so every call
+    /// failed and `/metrics` reported zero services.
+    pub async fn platform_health_summary(
+        &self,
+    ) -> Result<Vec<(String, bool, Option<String>)>, ApiError> {
+        let rows = sqlx::query_as::<_, (String, bool, Option<String>)>(
+            "SELECT service, healthy, last_status FROM control_plane_platform_health ORDER BY service",
         )
         .fetch_all(&self.pool)
         .await?;

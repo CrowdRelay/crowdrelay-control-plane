@@ -604,42 +604,48 @@ async fn metrics(
     let uptime = state.start_time.elapsed().as_secs();
     lines.push(format!("control_plane_uptime_seconds {uptime}"));
 
-    // Tenant count
-    lines.push("# HELP control_plane_tenants Total number of tenants.".to_owned());
-    lines.push("# TYPE control_plane_tenants gauge".to_owned());
-    let tenant_count = state.store.tenant_count().await.unwrap_or(0);
-    lines.push(format!("control_plane_tenants {tenant_count}"));
-
-    // Notification queue depth
-    lines.push(
-        "# HELP control_plane_notification_queue_depth Pending notifications in the outbox."
-            .to_owned(),
+    // A gauge whose read failed is left without a sample rather than
+    // reported as 0. Prometheus treats a missing sample as unknown; a 0 reads
+    // as "no tenants" or "every service down", and `unwrap_or(0)` here once
+    // hid a query that had failed on every scrape since it was written.
+    let mut gauge = |name: &str, help: &str, value: Option<usize>| {
+        lines.push(format!("# HELP {name} {help}"));
+        lines.push(format!("# TYPE {name} gauge"));
+        if let Some(value) = value {
+            lines.push(format!("{name} {value}"));
+        }
+    };
+    let tenant_count = state.store.tenant_count().await;
+    gauge(
+        "control_plane_tenants",
+        "Total number of tenants.",
+        tenant_count
+            .ok()
+            .and_then(|count| usize::try_from(count).ok()),
     );
-    lines.push("# TYPE control_plane_notification_queue_depth gauge".to_owned());
-    let pending = state.store.pending_notification_count().await.unwrap_or(0);
-    lines.push(format!("control_plane_notification_queue_depth {pending}"));
-
-    // Platform health services
-    lines.push(
-        "# HELP control_plane_platform_services_total Total configured platform services."
-            .to_owned(),
+    let pending = state.store.pending_notification_count().await;
+    gauge(
+        "control_plane_notification_queue_depth",
+        "Pending notifications in the outbox.",
+        pending.ok().and_then(|count| usize::try_from(count).ok()),
     );
-    lines.push("# TYPE control_plane_platform_services_total gauge".to_owned());
-    let services = state
-        .store
-        .platform_health_summary()
-        .await
-        .unwrap_or_default();
-    let healthy = services.iter().filter(|(_, h, _)| *h).count();
-    lines.push(format!(
-        "control_plane_platform_services_total {}",
-        services.len()
-    ));
-    lines.push(
-        "# HELP control_plane_platform_services_healthy Healthy platform services.".to_owned(),
+    let services = state.store.platform_health_summary().await;
+    if let Err(error) = &services {
+        tracing::warn!(%error, "metrics: platform health summary failed");
+    }
+    let services = services.ok();
+    gauge(
+        "control_plane_platform_services_total",
+        "Total configured platform services.",
+        services.as_ref().map(Vec::len),
     );
-    lines.push("# TYPE control_plane_platform_services_healthy gauge".to_owned());
-    lines.push(format!("control_plane_platform_services_healthy {healthy}"));
+    gauge(
+        "control_plane_platform_services_healthy",
+        "Healthy platform services.",
+        services
+            .as_ref()
+            .map(|rows| rows.iter().filter(|(_, healthy, _)| *healthy).count()),
+    );
 
     (
         [(
