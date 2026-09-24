@@ -1,5 +1,6 @@
 import { For, Show, type JSX } from 'solid-js'
 import { cn } from '../lib/cn'
+import { Button } from './app/button'
 import { StatusBadge } from './StatusBadge'
 import { ChevronRight } from 'lucide-solid'
 
@@ -45,12 +46,13 @@ export function JourneyRail(props: { stages: JourneyStageSpec[] }) {
               </li>
             </Show>
             <li>
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 disabled={!stage.anchor}
                 onClick={() => go(stage)}
                 class={cn(
-                  'flex h-full min-w-24 flex-col items-start gap-0.5 rounded-md border border-border bg-card px-3 py-2 text-left',
+                  'flex h-full min-w-24 flex-col items-start justify-start gap-0.5 rounded-md border border-border bg-card px-3 py-2 text-left font-normal whitespace-normal',
                   stage.anchor && 'transition-colors hover:bg-accent/40',
                   (stage.waiting ?? 0) > 0 && 'border-warning/50',
                 )}
@@ -71,7 +73,7 @@ export function JourneyRail(props: { stages: JourneyStageSpec[] }) {
                 <Show when={stage.detail}>
                   {detail => <span class="text-xs text-muted-foreground">{detail()}</span>}
                 </Show>
-              </button>
+              </Button>
             </li>
           </>
         )}
