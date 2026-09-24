@@ -1427,10 +1427,9 @@ async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool),
 
 /// Whether the status line names a response that never has a body.
 fn status_has_no_body(headers: &[u8]) -> bool {
-    let line = headers
-        .split(|byte| *byte == b'\n')
-        .next()
-        .unwrap_or_default();
+    let Some(line) = headers.split(|byte| *byte == b'\n').next() else {
+        return false;
+    };
     let code = line
         .split(|byte| *byte == b' ')
         .nth(1)
