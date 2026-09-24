@@ -1,11 +1,14 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
 import type { BookingAgent } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
+import { Dialog } from './Dialog'
+import { refreshQueries } from '../lib/refresh'
 import { SkeletonRows } from './Skeleton'
+import { Spinner } from './Spinner'
 import { ErrorCard } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
@@ -58,31 +61,118 @@ export function BookingAgentsPanel(props: { slug: string }) {
   }))
 
   const [pending, setPending] = createSignal<string | null>(null)
-  const [confirming, setConfirming] = createSignal<string | null>(null)
   const [replyFor, setReplyFor] = createSignal<string | null>(null)
   const [disposition, setDisposition] = createSignal('received')
   const [repliedOn, setRepliedOn] = createSignal(today())
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['booking-agents', props.slug] })
+  // The approach is a guided flow, not a click: the target is the row, then
+  // the operator shapes the letter with a note, then decides whether to
+  // approve it themselves or leave it parked on the board. Approving sends
+  // through a two-minute hold upstream — the dialog keeps that window
+  // visible instead of reporting "sent" the moment approve returns.
+  const [guideAgent, setGuideAgent] = createSignal<BookingAgent | null>(null)
+  const [guideStep, setGuideStep] = createSignal(0)
+  const [guideNote, setGuideNote] = createSignal('')
+  const [guideActionId, setGuideActionId] = createSignal<string | null>(null)
+  const [guideError, setGuideError] = createSignal<string | null>(null)
+  const [holdEndsAt, setHoldEndsAt] = createSignal<number | null>(null)
+  const [holdLeft, setHoldLeft] = createSignal(0)
 
-  const approach = async (agent: BookingAgent) => {
-    if (pending() !== null) return
-    if (confirming() !== agent.agent_id) {
-      setConfirming(agent.agent_id)
-      return
-    }
-    setConfirming(null)
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['booking-agents', props.slug] })
+  // A queued/approved/cancelled approach is the same parked action the
+  // decisions board, Today's attention queue and the brain/delivery models
+  // all list — the canonical set BrainBriefPanel.invalidateParked uses.
+  // Refetch-on-focus is off, so a missed key here leaves the action
+  // invisible (or stale "awaiting") until remount.
+  const invalidateParked = () =>
+    refreshQueries(
+      ['intelligence-brief', props.slug],
+      ['tenant-operator-attention-snapshot', props.slug],
+      ['tenant-today', props.slug],
+      ['tenant-brain', props.slug],
+      ['tenant-delivery', props.slug],
+    )
+
+  const openGuide = (agent: BookingAgent) => {
+    setGuideAgent(agent)
+    setGuideStep(0)
+    setGuideNote('')
+    setGuideActionId(null)
+    setGuideError(null)
+    setHoldEndsAt(null)
+  }
+
+  const queueApproach = async () => {
+    const agent = guideAgent()
+    if (!agent || pending() !== null) return
     setPending(agent.agent_id)
+    setGuideError(null)
     try {
-      await api.approachBookingAgent(props.slug, agent.agent_id)
+      const result = await api.approachBookingAgent(props.slug, agent.agent_id, guideNote().trim() || undefined)
+      setGuideActionId(result.action_id)
+      setGuideStep(1)
+      invalidateParked()
       await invalidate()
-      toast.success('Asked — the season letter is queued for approval on the board.')
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not queue the approach'))
+      setGuideError(errorMessage(error, 'Could not queue the approach'))
     } finally {
       setPending(null)
     }
   }
+
+  const approveApproach = async () => {
+    const id = guideActionId()
+    if (!id || pending() !== null) return
+    setPending(id)
+    setGuideError(null)
+    try {
+      await api.approveOpportunityAction(props.slug, id)
+      // Upstream parks outward actions for `hold_seconds` (120s) between
+      // approve and send — the window where cancel still works. The clock
+      // starts now; the worker's own `available_at` is the authority, so the
+      // countdown is labelled "about".
+      setHoldEndsAt(Date.now() + 120_000)
+      setGuideStep(2)
+      invalidateParked()
+      await invalidate()
+    } catch (error) {
+      setGuideError(errorMessage(error, 'Approval did not land'))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  const cancelApproach = async () => {
+    const id = guideActionId()
+    if (!id || pending() !== null) return
+    setPending(id)
+    setGuideError(null)
+    try {
+      await api.cancelOpportunityAction(props.slug, id)
+      toast.success('Cancelled — the letter never left.')
+      setGuideAgent(null)
+      invalidateParked()
+      await invalidate()
+    } catch (error) {
+      setGuideError(errorMessage(error, 'The cancel did not land — check the decisions board'))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  // The hold clock ticks while the dialog shows it. `holdEndsAt` is set the
+  // moment approve lands; at zero the letter is in the worker's hands and
+  // cancel is upstream's call, so the button goes away rather than lying.
+  createEffect(() => {
+    // Reading guideAgent ties the timer's life to the dialog — a closed
+    // dialog tears the interval down instead of ticking on a hidden hold.
+    const ends = guideAgent() !== null ? holdEndsAt() : null
+    if (ends === null) return
+    const tick = () => setHoldLeft(Math.max(0, Math.ceil((ends - Date.now()) / 1000)))
+    tick()
+    const timer = setInterval(tick, 1000)
+    onCleanup(() => clearInterval(timer))
+  })
 
   const fileReply = async (agent: BookingAgent) => {
     if (pending() !== null) return
@@ -90,6 +180,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
     try {
       await api.recordBookingAgentReply(props.slug, agent.agent_id, disposition(), `${repliedOn()}T00:00:00Z`)
       setReplyFor(null)
+      invalidateParked()
       await invalidate()
       toast.success('Reply filed — the season door is updated.')
     } catch (error) {
@@ -154,9 +245,9 @@ export function BookingAgentsPanel(props: { slug: string }) {
                             variant="ghost"
                             size="sm"
                             disabled={pending() !== null}
-                            onClick={() => void approach(agent)}
+                            onClick={() => openGuide(agent)}
                           >
-                            {pending() === agent.agent_id ? 'Queuing…' : confirming() === agent.agent_id ? 'Yes, queue the letter' : 'Ask to approach'}
+                            Approach…
                           </Button>
                         </Show>
                         <Show when={agent.approached_at || agent.approach_pending}>
@@ -205,6 +296,87 @@ export function BookingAgentsPanel(props: { slug: string }) {
           </Table>
         </Show>
       </Show>
+
+    {/* The approach guide — target chosen on the row, letter shaped here,
+        approved here, sent through the hold the dialog counts down. */}
+    <Dialog
+      open={guideAgent() !== null}
+      onClose={() => { if (pending() === null) setGuideAgent(null) }}
+      label="Approach agent"
+      title={`Approach ${guideAgent()?.name ?? 'agent'}`}
+      description={guideAgent()?.agency ?? 'independent'}
+      footer={<>
+        <Show when={guideStep() === 0}>
+          <Button variant="ghost" size="sm" onClick={() => setGuideAgent(null)}>Cancel</Button>
+          <Button writes size="sm" disabled={pending() !== null} onClick={() => void queueApproach()}>
+            {pending() !== null && <Spinner />} {pending() !== null ? 'Drafting…' : 'Draft the letter'}
+          </Button>
+        </Show>
+        <Show when={guideStep() === 1}>
+          <Button variant="ghost" size="sm" onClick={() => setGuideAgent(null)}>Leave it parked</Button>
+          <Button writes size="sm" disabled={pending() !== null} onClick={() => void approveApproach()}>
+            {pending() !== null && <Spinner />} {pending() !== null ? 'Approving…' : 'Approve and send'}
+          </Button>
+        </Show>
+        <Show when={guideStep() === 2}>
+          <Show when={holdLeft() > 0}>
+            <Button writes variant="ghost" size="sm" disabled={pending() !== null} onClick={() => void cancelApproach()}>
+              {pending() !== null ? 'Cancelling…' : 'Cancel the send'}
+            </Button>
+          </Show>
+          <Button size="sm" onClick={() => setGuideAgent(null)}>Done</Button>
+        </Show>
+      </>}
+    >
+      <Show when={guideError()}><ErrorCard class="mb-4">{guideError()}</ErrorCard></Show>
+      <ol class="mb-4 flex list-none items-center gap-2 p-0 text-xs">
+        <For each={['The letter', 'Your call', 'The send']}>{(label, i) => (
+          <li class={guideStep() === i() ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+            {label}{i() < 2 ? <span class="mx-1.5 text-border">·</span> : null}
+          </li>
+        )}</For>
+      </ol>
+
+      <Show when={guideStep() === 0}>
+        <div class="flex flex-col gap-3">
+          <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+            Asking drafts a season letter to {guideAgent()?.name ?? 'the agent'} — the band's evidence goes in,
+            and the draft waits on the decisions board for a person's approval. Nothing goes out unattended.
+          </p>
+          <label class="grid gap-1.5 text-sm text-muted-foreground">
+            <span>One line for the letter (optional)</span>
+            <Input
+              value={guideNote()}
+              onInput={e => setGuideNote(e.currentTarget.value)}
+              placeholder="e.g. looking at Central Europe for spring"
+            />
+            <small class="text-xs text-muted-foreground">Works into the draft — a season, a region, a reason to talk now.</small>
+          </label>
+        </div>
+      </Show>
+
+      <Show when={guideStep() === 1}>
+        <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+          The letter is drafted and parked. Approve it here and it goes out after the hold — or leave it parked
+          and it sits on the decisions board with the rest of the queue.
+        </p>
+      </Show>
+
+      <Show when={guideStep() === 2}>
+        <div class="flex flex-col gap-2">
+          <Show when={holdLeft() > 0} fallback={
+            <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+              The hold is over — the letter is in the worker's hands. The decisions board shows what it landed as.
+            </p>
+          }>
+            <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+              Approved. The letter goes out in about <strong class="text-foreground">{holdLeft()}s</strong> — until then
+              cancel still works. After that it is the send's own record.
+            </p>
+          </Show>
+        </div>
+      </Show>
+    </Dialog>
     </div>
   )
 }

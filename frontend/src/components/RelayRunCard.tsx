@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/solid-q
 import { ChevronDown, ExternalLink } from 'lucide-solid'
 import { api } from '../lib/api'
 import { writeGuard } from '../lib/read-only'
-import { confidencePercent, errorMessage, formatIsoAge } from '../lib/format'
+import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil } from '../lib/format'
 import { cn } from '../lib/cn'
 import { toast } from './app/toast'
 import { Button } from './app/button'
@@ -32,6 +32,7 @@ const STATE_LABEL: Record<RelayTargetState, string> = {
   expired: 'lapsed',
   queued: 'queued',
   posting: 'posting',
+  rate_limited: 'held by reddit',
   posted: 'posted',
   manual: 'needs a hand',
   failed: 'failed',
@@ -44,6 +45,7 @@ const STATE_TONE: Record<RelayTargetState, 'good' | 'warn' | 'bad' | 'muted'> = 
   expired: 'muted',
   queued: 'muted',
   posting: 'muted',
+  rate_limited: 'warn',
   posted: 'good',
   manual: 'warn',
   failed: 'bad',
@@ -112,6 +114,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
     await Promise.all([
       detail.refetch(),
       queryClient.invalidateQueries({ queryKey: ['relay-process-runs', props.slug] }),
+      queryClient.invalidateQueries({ queryKey: ['tenant-delivery', props.slug] }),
     ])
   }
 
@@ -181,7 +184,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
         <Step label="Going out">
           {run().batch_status === 'approved' && run().interval_seconds != null
             ? `dripping — ${cadence(run().interval_seconds!)}`
-            : run().deciding + run().queued + run().posting}
+            : run().deciding + run().queued + run().posting + run().rate_limited}
         </Step>
         <Step label="Posted">
           {run().posted + run().manual > 0
@@ -615,6 +618,13 @@ function TargetRow(props: {
           </Show>
           <Show when={props.state === 'failed' && t().error_kind}>
             <p class="mt-0.5 text-xs text-destructive">{t()!.error_kind}</p>
+          </Show>
+          {/* A deferred delivery is not stuck work — Reddit refused it and
+              the retry clock is the answer to "why is this still here". */}
+          <Show when={props.state === 'rate_limited'}>
+            <p class="mt-0.5 text-xs text-warning-foreground">
+              Reddit rate-limited this community{t().rate_limited_until ? ` — retries ${formatIsoUntil(t().rate_limited_until!)}` : ''}
+            </p>
           </Show>
           {/* The manual leg — the post exists, it just was not made through
               the machine. Registering the URL turns measurement on. */}

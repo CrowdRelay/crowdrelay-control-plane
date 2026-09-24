@@ -8,12 +8,13 @@ import { cn } from '../lib/cn'
 import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
+import { refreshQueries } from '../lib/refresh'
 import { errorMessage, relativeTime, formatTimestamp as observed } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
-import { LapsedApprovalsPanel, FailedSendsPanel } from '../components/QueueLossesPanel'
+import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -194,6 +195,7 @@ export function TenantAttentionPage() {
     // An inbox approve must not leave the same action listed on the
     // decisions board until its own refetch interval notices.
     await Promise.all([attention.refetch(), operations.refetch()])
+    refreshQueries(['tenant-brain', params().slug], ['tenant-delivery', params().slug])
   }
   const refreshing = () => attention.isFetching || operations.isFetching
 
@@ -383,6 +385,14 @@ export function TenantAttentionPage() {
           <FailedSendsPanel
             slug={params().slug}
             failed={attention.data?.failed_sends}
+            notReported={attention.data?.not_reported ?? []}
+          />
+          <RejectedOutcomesPanel
+            outcomes={attention.data?.rejected_agent_outcomes}
+            notReported={attention.data?.not_reported ?? []}
+          />
+          <BandNoticesPanel
+            notices={attention.data?.band_notices}
             notReported={attention.data?.not_reported ?? []}
           />
 

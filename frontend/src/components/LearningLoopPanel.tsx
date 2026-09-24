@@ -115,7 +115,7 @@ function DecisionEvidenceView(props: { slug: string; decisionId: string }) {
   )
 }
 
-export function LearningLoopPanel(props: { slug: string }) {
+export function LearningLoopPanel(props: { slug: string; data?: LearningLoopEntry[] }) {
   const [showAll, setShowAll] = createSignal(false)
   const [expandedEvidence, setExpandedEvidence] = createSignal<Set<string>>(new Set())
   const toggleEvidence = (id: string) => {
@@ -126,15 +126,19 @@ export function LearningLoopPanel(props: { slug: string }) {
       return next
     })
   }
+  // Fed from the brain read model on the Intelligence page — `data` present
+  // means the model already answered and this panel does not ask again.
+  const fed = () => props.data !== undefined
   const model = useQuery(() => ({
     queryKey: ['learning-loop', props.slug],
     queryFn: () => api.learningLoop(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    enabled: !fed(),
   }))
 
-  const entries = (): LearningLoopEntry[] => model.data ?? []
+  const entries = (): LearningLoopEntry[] => (fed() ? props.data : model.data) ?? []
   const total = () => entries().length
   const actionsCreated = () => entries().filter(e => e.action).length
   const executed = () => entries().filter(e => e.action?.status === 'succeeded').length
@@ -158,17 +162,17 @@ export function LearningLoopPanel(props: { slug: string }) {
     description="Each decision followed through to what it actually changed. A belief only counts once an outcome measures it."
     class="space-y-4"
   >
-    <Show when={model.error}>
+    <Show when={!fed() && model.error}>
       <Alert tone="warning" role="status">
         Learning loop data is temporarily unavailable.
       </Alert>
     </Show>
 
-    <Show when={!model.error && model.isPending}>
+    <Show when={!fed() && !model.error && model.isPending}>
       <SkeletonLearningLoop />
     </Show>
 
-    <Show when={model.data}>
+    <Show when={fed() || model.data}>
       <Show when={total() > 0} fallback={
         <EmptyState
           label="No decisions yet"

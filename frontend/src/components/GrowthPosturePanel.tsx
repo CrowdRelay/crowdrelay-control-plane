@@ -66,6 +66,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
         queryClient.invalidateQueries({ queryKey: ['growth-posture', props.slug] }),
         queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] }),
         queryClient.invalidateQueries({ queryKey: ['autopilot-overview', props.slug] }),
+        queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] }),
       ])
       toast.success(`Posture set to ${POSTURES.find(p => p.value === value)?.label ?? value}.`)
     },

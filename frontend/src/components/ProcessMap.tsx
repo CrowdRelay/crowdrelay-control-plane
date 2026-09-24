@@ -46,12 +46,12 @@ const NODES: MapNode[] = [
   { id: 'spotify', x: 30, y: 162, w: 230, h: 52, zone: 'src', title: 'Spotify', desc: 'artist + track metrics', to: '/tenants/{slug}/intelligence' },
   { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/audience?tab=sources' },
   { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/audience?tab=sources' },
-  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/beacons' },
+  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/audience?tab=contacts' },
 
   // ── INTELLIGENCE (deterministic Rust) ──
   { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention?tab=decisions' },
-  { id: 'scorecard', x: 315, y: 228, w: 270, h: 56, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence' },
-  { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence' },
+  { id: 'scorecard', x: 315, y: 228, w: 270, h: 56, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence?tab=standing' },
+  { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence?tab=decisions' },
 
   // ── AUTHORITY (what the disposition allows) ──
   { id: 'auto', x: 660, y: 120, w: 220, h: 60, zone: 'auth', title: 'Auto-execute', desc: 'queued immediately' },
@@ -69,7 +69,7 @@ const NODES: MapNode[] = [
   { id: 'fans', x: 1320, y: 110, w: 250, h: 58, zone: 'out', title: 'Fanbase', desc: 'aggregated + attributed', to: '/tenants/{slug}' },
   { id: 'engagement', x: 1320, y: 192, w: 250, h: 58, zone: 'out', title: 'Engagement', desc: 'replies · posts · installs', to: '/tenants/{slug}/operations' },
   { id: 'conversion', x: 1320, y: 274, w: 250, h: 58, zone: 'out', title: 'Conversion', desc: 'tickets · merch · attendance', to: '/tenants/{slug}' },
-  { id: 'metrics', x: 1320, y: 356, w: 250, h: 58, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence' },
+  { id: 'metrics', x: 1320, y: 356, w: 250, h: 58, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence?tab=decisions' },
 ]
 
 type Edge = { from: string; to: string; kind: Zone }

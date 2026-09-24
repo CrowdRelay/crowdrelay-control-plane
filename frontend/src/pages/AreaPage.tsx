@@ -40,13 +40,18 @@ const cloneDraft = (draft: AreaDropDraft): AreaDropDraft => JSON.parse(JSON.stri
 const slugPrefix = (slug: string) => (slug.normalize('NFKD').replace(/[^a-zA-Z]/g,'').toLowerCase().slice(0,3) || 'are').padEnd(3,'x')
 const finiteInput = (value: string, fallback: number) => { const parsed = Number(value); return value.trim() !== '' && Number.isFinite(parsed) ? parsed : fallback }
 const nullableInput = (value: string, fallback: number | null) => value.trim() === '' ? null : finiteInput(value, fallback ?? 0)
+// A required coordinate: blank means unset (null — the save gate says so),
+// garbage keeps the last value. `finiteInput` alone could not express the
+// first and `nullableInput` alone would write a fabricated 0 on garbage.
+const coordInput = (value: string, fallback: number | null): number | null =>
+  value.trim() === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : fallback)
 
 function defaultDraft(city: AreaCity, number: string): AreaDropDraft {
   const start = new Date(); start.setMinutes(0,0,0)
   const end = new Date(start); end.setDate(end.getDate() + 90)
   return {
     number, cityId: city.id, mapX: 50, mapY: 50,
-    approximateLat: city.latitude ?? 0, approximateLng: city.longitude ?? 0,
+    approximateLat: city.latitude ?? null, approximateLng: city.longitude ?? null,
     exactLat: null, exactLng: null, radiusMeters: 100, maxClaims: 25,
     startsAt: start.toISOString(), endsAt: end.toISOString(),
     clue: { en: '', pl: '' }, collectible: { line: '', track: '', edition: '', riddle: '' }, sortOrder: Number(number) || 0,
@@ -132,6 +137,7 @@ export function AreaPage() {
   }, onSuccess: async city => { await queryClient.invalidateQueries({queryKey:['area-cities',slug()]}); setNewCityId(city.id); setCreateCityOpen(false); setNewCity(value=>({...value,slug:'',name:'',region:'',latitude:'',longitude:''})); setFlash(`Canonical city ${city.name} created.`) } }))
   const save = useMutation(() => ({ mutationFn: () => {
     if (!selectedId() || !draft() || !detail.data) throw new Error('Editor is not ready.')
+    if (draft()!.approximateLat == null || draft()!.approximateLng == null) throw new Error('Public latitude and longitude are required — they are the hint fans see, not the spot itself.')
     return api.areaSaveDraft(slug(), selectedId()!, detail.data.summary.revision, draft()!)
   }, onSuccess: async item => { setDraft(cloneDraft(item.draft ?? item.published)); setValidation(null); await refresh(item.summary.id); setFlash('Draft saved. Live AREA is unchanged until Publish.') } }))
   const validate = useMutation(() => ({ mutationFn: async () => {
@@ -352,7 +358,7 @@ export function AreaPage() {
         <Show when={editorStep()==='city'}><p class="text-sm text-muted-foreground leading-relaxed mt-1">Which city this drop belongs to and where it sits in the list fans see. Nothing here is secret — the exact spot is set on the next step.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Search canonical city" hint="Filters the list below. Cities are shared across tenants; add one only if it is genuinely missing."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder={detail.data!.summary.city}/></Field>
-          <Field label="Canonical city"><NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? d.approximateLat,approximateLng:city?.longitude ?? d.approximateLng}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></Field>
+          <Field label="Canonical city"><NativeSelect value={draft()!.cityId} onChange={e=>{const id=e.currentTarget.value;const city=cities.data?.items.find(c=>c.id===id);setDraft(d=>d?({...d,cityId:id,approximateLat:city?.latitude ?? null,approximateLng:city?.longitude ?? null}):d)}}><Show when={!(cities.data?.items ?? []).some(city=>city.id===draft()!.cityId)}><option value={draft()!.cityId}>{detail.data!.summary.city} · current</option></Show><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name} · {city.countryCode}</option>}</For></NativeSelect></Field>
           <Field label="Drop number" hint="Up to three digits. Fans see it as the drop's identity in the game, so it should not be reused within a city."><Input maxlength="3" value={draft()!.number} onInput={e=>mutateDraft({number:e.currentTarget.value.replace(/\D/g,'').slice(0,3)})}/></Field>
           <Field label="Sort order" hint="Position in the list. Lower comes first; ties fall back to the drop number."><Input type="number" value={draft()!.sortOrder} onInput={e=>mutateDraft({sortOrder:finiteInput(e.currentTarget.value,draft()!.sortOrder)})}/></Field>
           <Field label="Illustration X (advanced)" hint="Where the pin sits on the illustrated map, 0–100 left to right. Not a coordinate — it moves artwork, not the drop."><Input type="number" min="0" max="100" value={draft()!.mapX} onInput={e=>mutateDraft({mapX:finiteInput(e.currentTarget.value,draft()!.mapX)})}/></Field>
@@ -364,8 +370,8 @@ export function AreaPage() {
           <LocationCanvas publicLat={draft()!.approximateLat} publicLng={draft()!.approximateLng} exactLat={draft()!.exactLat} exactLng={draft()!.exactLng} radiusMeters={draft()!.radiusMeters} onPick={(lat,lng)=>mutateDraft({exactLat:lat,exactLng:lng})}/>
           <p class="text-sm text-muted-foreground leading-relaxed mt-1">Two coordinates, two audiences. The <strong>public</strong> pair is what the app shows everyone — keep it at neighbourhood level. The <strong>exact</strong> pair never leaves this editor; it is only used server-side to decide whether a fan standing there is close enough to claim. Click the canvas to set it.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Public latitude" hint="Shown to fans. Round it — this is the hint, not the spot."><Input required type="number" step="0.000001" value={draft()!.approximateLat} onInput={e=>mutateDraft({approximateLat:finiteInput(e.currentTarget.value,draft()!.approximateLat)})}/></Field>
-            <Field label="Public longitude" hint="Shown to fans, same rounding."><Input required type="number" step="0.000001" value={draft()!.approximateLng} onInput={e=>mutateDraft({approximateLng:finiteInput(e.currentTarget.value,draft()!.approximateLng)})}/></Field>
+            <Field label="Public latitude" hint="Shown to fans. Round it — this is the hint, not the spot."><Input required type="number" step="0.000001" value={draft()!.approximateLat ?? ''} onInput={e=>mutateDraft({approximateLat:coordInput(e.currentTarget.value,draft()!.approximateLat)})}/></Field>
+            <Field label="Public longitude" hint="Shown to fans, same rounding."><Input required type="number" step="0.000001" value={draft()!.approximateLng ?? ''} onInput={e=>mutateDraft({approximateLng:coordInput(e.currentTarget.value,draft()!.approximateLng)})}/></Field>
             <Field label="Exact latitude" hint="Never published. Leave blank and the drop cannot be claimed."><Input type="number" step="0.000001" value={draft()!.exactLat ?? ''} onInput={e=>mutateDraft({exactLat:nullableInput(e.currentTarget.value,draft()!.exactLat)})}/></Field>
             <Field label="Exact longitude" hint="Never published, set together with the latitude."><Input type="number" step="0.000001" value={draft()!.exactLng ?? ''} onInput={e=>mutateDraft({exactLng:nullableInput(e.currentTarget.value,draft()!.exactLng)})}/></Field>
             <Field label="Claim radius (m)" hint="How close a fan must be to the exact point, 25–500 m. Tight is harder in a dense city; wide forgives GPS drift indoors."><Input type="number" min="25" max="500" value={draft()!.radiusMeters} onInput={e=>mutateDraft({radiusMeters:finiteInput(e.currentTarget.value,draft()!.radiusMeters)})}/></Field>

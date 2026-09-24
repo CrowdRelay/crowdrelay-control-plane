@@ -36,6 +36,9 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
     try {
       await operation()
       await refresh()
+      // The brain read model carries this same overview — a policy write
+      // that only refetches the local query leaves Intelligence stale.
+      void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
     } catch (error) {
       setMutationError(errorMessage(error, 'Tenant operation failed'))
     } finally {
@@ -76,6 +79,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
       // Reconcile with upstream in the background; the optimistic patch
       // already holds the correct visible state.
       void autopilot.refetch()
+      void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
     } catch (error) {
       setMutationError(errorMessage(error, 'Tenant operation failed'))
     } finally {

@@ -1,4 +1,4 @@
-import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
@@ -6,7 +6,7 @@ import { api } from '../lib/api'
 import { relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
-import { QueueInspectorPanel } from '../components/QueueInspectorPanel'
+import { DeliveryJourneyPanel } from '../components/DeliveryJourneyPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
 import { TenantRuntimePanel } from '../components/TenantRuntimePanel'
 import { RuntimeSwitchesPanel } from '../components/RuntimeSwitchesPanel'
@@ -14,13 +14,24 @@ import { AuthorityPoliciesPanel } from '../components/AuthorityPoliciesPanel'
 import { StandingApprovalsPanel } from '../components/StandingApprovalsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { Alert } from '../components/app/alert'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, KpiStrip, KpiCard } from '../components/layout'
 import { Button } from '../components/app/button'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
-import type { TenantTodayReadModel } from '../lib/types'
+import type { TenantDeliveryReadModel, TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
-const TABS = ['overview', 'policies', 'runtime'] as const
+const TABS = ['overview', 'delivery', 'policies', 'runtime'] as const
+
+// The section labels the delivery tab's degraded strip prints — a section
+// the tenant could not answer is named, never silently absent.
+const DELIVERY_SECTION_LABEL: Record<string, string> = {
+  summary: 'Queue depths',
+  outbox: 'The outbox',
+  deliveries: 'The deliveries',
+  attention: 'The dead queues',
+  delivery_results: 'The landed ledger',
+}
 
 // Is the tenant's machine well, and what may the autopilot do. Three tabs:
 // status, the authority policies, and the runtime switches. This is the only
@@ -47,9 +58,22 @@ export function TenantHealthPage() {
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))
-  const refresh = () => model.refetch()
-  const refreshAll = () => { void model.refetch(); void overview.refetch() }
-  const refreshing = () => model.isFetching || overview.isFetching
+  const delivery = useQuery(() => ({
+    queryKey: ['tenant-delivery', params().slug],
+    queryFn: () => api.deliveryModel(params().slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    // A dead section lands here as 200 with the section named in `degraded`
+    // — nothing retries it, so the queue view stays empty for the life of
+    // the page. Keep asking until it fills.
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  // The panels this feeds mutate queues and switches the delivery model
+  // also reads — a today-only refetch would leave the sibling tab stale.
+  const refresh = () => Promise.all([model.refetch(), delivery.refetch()])
+  const refreshAll = () => { void model.refetch(); void overview.refetch(); void delivery.refetch() }
+  const refreshing = () => model.isFetching || overview.isFetching || delivery.isFetching
   const d = (): TenantTodayReadModel | undefined => model.data
   const summary = () => d()?.summary
   const deadJobs = () => {
@@ -95,17 +119,25 @@ export function TenantHealthPage() {
           autopilot on. The header used to carry one badge for the first. */}
       <KpiStrip>
         <KpiCard label="Service health" value={operationalLabel(summary())} tone={operationalTone(summary()) === 'good' ? 'good' : operationalTone(summary()) === 'warn' ? 'warn' : operationalTone(summary()) === 'bad' ? 'bad' : 'default'} sub={summary() ? `p95 ${summary()!.http.p95_ms} ms` : 'no summary yet'} />
-        <KpiCard label="Dead deliveries" value={deadJobs()} tone={deadJobs() > 0 ? 'bad' : 'good'} sub={deadJobs() > 0 ? 'will not retry on their own' : 'every queue is draining'} />
-        <KpiCard label="Watchdog alerts" value={summary()?.watchdog.active_alerts ?? 0} tone={(summary()?.watchdog.critical_alerts ?? 0) > 0 ? 'bad' : (summary()?.watchdog.active_alerts ?? 0) > 0 ? 'warn' : 'good'} sub={`${summary()?.watchdog.critical_alerts ?? 0} critical`} />
-        <KpiCard label="Autopilot" value={d()?.autopilot?.runtime_enabled ? 'on' : 'off'} tone={d()?.autopilot?.runtime_enabled ? 'good' : 'default'} sub={d()?.autopilot ? `${d()!.autopilot!.queued_actions} queued` : 'not reported'} />
+        {/* A section that did not answer is `—`, never a fabricated zero —
+            "0 dead" and "queue didn't say" are different answers. */}
+        <KpiCard label="Dead deliveries" value={summary() ? deadJobs() : '—'} tone={summary() ? (deadJobs() > 0 ? 'bad' : 'good') : 'default'} sub={summary() ? (deadJobs() > 0 ? 'will not retry on their own' : 'every queue is draining') : 'not reported'} />
+        <KpiCard label="Watchdog alerts" value={summary() ? summary()!.watchdog.active_alerts : '—'} tone={summary() ? ((summary()!.watchdog.critical_alerts) > 0 ? 'bad' : (summary()!.watchdog.active_alerts) > 0 ? 'warn' : 'good') : 'default'} sub={summary() ? `${summary()!.watchdog.critical_alerts} critical` : 'not reported'} />
+        <KpiCard label="Autopilot" value={d()?.autopilot ? (d()!.autopilot!.runtime_enabled ? 'on' : 'off') : '—'} tone={d()?.autopilot?.runtime_enabled ? 'good' : 'default'} sub={d()?.autopilot ? `${d()!.autopilot!.queued_actions} queued` : 'not reported'} />
       </KpiStrip>
+    </Show>
 
-      <TabBar
+    {/* The tabs render regardless of the today model — every tab's content
+        answers from its own channel except the two panels that take today's
+        summary as a prop, and those gate on it alone. A dead today read
+        must not hide a working delivery view. */}
+    <TabBar
         active={activeTab()}
         onChange={switchTab}
         onPrefetch={prefetch}
         tabs={[
           { id: 'overview', label: 'Status' },
+          { id: 'delivery', label: 'Delivery' },
           { id: 'policies', label: 'Policies' },
           { id: 'runtime', label: 'Switches' },
         ]}
@@ -113,15 +145,38 @@ export function TenantHealthPage() {
 
       <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
         {/* The tenant-pushed heartbeat first, then what needs a hand, then the
-            autopilot's own report, then the queues the remediation points at. */}
+            autopilot's own report. */}
         <TenantRuntimePanel slug={params().slug} />
-        <SystemHealthPanel
-          slug={params().slug}
-          summary={d()?.summary ?? undefined}
-          onChanged={refresh}
-        />
+        <Show when={model.data}>{data => (
+          <SystemHealthPanel
+            slug={params().slug}
+            summary={data().summary ?? undefined}
+            onChanged={refresh}
+          />
+        )}</Show>
         <ChiefOfStaffPanel slug={params().slug} />
-        <QueueInspectorPanel slug={params().slug} />
+      </TabPanel>
+
+      {/* ── Delivery — the pipe as a journey: drafted → queued → wire →
+            landed, with the dead queues leading because they are the ask.
+            One read model feeds every row; retries invalidate it. ── */}
+      <TabPanel active={activeTab()} id="delivery" visited={isVisited('delivery')}>
+        <Show when={delivery.error}>
+          <SectionFailureCard error={delivery.error} fallback="Delivery channel unavailable" onRetry={() => void delivery.refetch()} />
+        </Show>
+        <Show when={delivery.data}>{(data: () => TenantDeliveryReadModel) => <>
+          <For each={data().degraded}>{section => (
+            <Alert tone="warning" role="status" class="mb-4">
+              <strong>{DELIVERY_SECTION_LABEL[section] ?? section}</strong> isn't available on the
+              connected tenant right now. The rest of the page keeps working — it recovers on the next poll.
+            </Alert>
+          )}</For>
+          <DeliveryJourneyPanel
+            slug={params().slug}
+            model={() => data()}
+            onRefresh={() => { void delivery.refetch(); void model.refetch() }}
+          />
+        </>}</Show>
       </TabPanel>
 
       <TabPanel active={activeTab()} id="policies" visited={isVisited('policies')}>
@@ -132,13 +187,14 @@ export function TenantHealthPage() {
       </TabPanel>
 
       <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
-        <RuntimeSwitchesPanel
-          slug={params().slug}
-          summary={d()?.summary ?? null}
-          refresh={refresh}
-          canRedeploy={overview.data?.platform?.capabilities?.canRedeploy}
-        />
+        <Show when={model.data}>{data => (
+          <RuntimeSwitchesPanel
+            slug={params().slug}
+            summary={data().summary ?? null}
+            refresh={refresh}
+            canRedeploy={overview.data?.platform?.capabilities?.canRedeploy}
+          />
+        )}</Show>
       </TabPanel>
-    </Show>
   </PageShell>
 }

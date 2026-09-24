@@ -109,6 +109,13 @@ export function DriveContactsPanel(props: { slug: string }) {
   const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set())
   const [batchConfirm, setBatchConfirm] = createSignal<'fans' | 'dismiss' | null>(null)
   const [batchProgress, setBatchProgress] = createSignal<{ done: number; total: number } | null>(null)
+  // Promoting a selection is a real send — every staged address becomes a
+  // pending fan and gets the double opt-in email. It goes through a review
+  // step that names exactly who and what, never a bare confirm click.
+  const [promoteReviewOpen, setPromoteReviewOpen] = createSignal(false)
+  // The rows the review was opened on — `runBatch` clears `selected` when it
+  // starts, so the dialog reads this snapshot, not the live selection.
+  const [promoteReviewRows, setPromoteReviewRows] = createSignal<DriveContact[]>([])
   const [uploading, setUploading] = createSignal(false)
   // The promote-all dialog: the operator sees the live count, types the
   // one line the opt-in mail carries, and confirms. The count travels as
@@ -232,8 +239,11 @@ export function DriveContactsPanel(props: { slug: string }) {
     }
   }
 
-  const runBatch = async (mode: 'fans' | 'dismiss') => {
-    if (batchConfirm() !== mode) {
+  // `confirmed` is the review dialog's path: it already asked, so arming the
+  // button a second time would only stall the run it just approved. The
+  // inline dismiss keeps its two-click arm.
+  const runBatch = async (mode: 'fans' | 'dismiss', confirmed = false) => {
+    if (!confirmed && batchConfirm() !== mode) {
       setBatchConfirm(mode)
       return
     }
@@ -459,12 +469,12 @@ export function DriveContactsPanel(props: { slug: string }) {
                 <Button
                   writes
                   size="xs"
-                  variant={batchConfirm() === 'fans' ? 'default' : 'outline'}
+                  variant="outline"
                   disabled={selectedFanStaged().length === 0 || batchProgress() !== null || busy() !== null}
-                  title="Every selected contact becomes a pending fan and gets the double opt-in email"
-                  onClick={() => void runBatch('fans')}
+                  title="Review the selection, then every staged address becomes a pending fan and gets the double opt-in email"
+                  onClick={() => { setPromoteReviewRows(selectedFanStaged()); setPromoteReviewOpen(true) }}
                 >
-                  {batchConfirm() === 'fans' ? `Confirm ${selectedFanStaged().length}` : `Make fans (${selectedFanStaged().length})`}
+                  Review & make fans ({selectedFanStaged().length})
                 </Button>
                 <Button
                   writes
@@ -503,6 +513,45 @@ export function DriveContactsPanel(props: { slug: string }) {
           </div>
         </Show>
       </Show>
+
+      {/* Selected batch — review first, promote second. The list names the
+          addresses the send will reach so a stray tick cannot hide behind a
+          count. */}
+      <Dialog
+        open={promoteReviewOpen()}
+        onClose={() => { if (batchProgress() === null) setPromoteReviewOpen(false) }}
+        label="Review before promoting"
+        title={`Make ${promoteReviewRows().length} contact${promoteReviewRows().length === 1 ? '' : 's'} fans`}
+        description="Each address becomes a pending fan and gets the double opt-in email — nobody is subscribed without confirming. Addresses that lost their staged state since the selection are skipped."
+        footer={
+          <>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPromoteReviewOpen(false)} disabled={batchProgress() !== null}>
+              Cancel
+            </Button>
+            <Button
+              writes
+              type="button"
+              size="sm"
+              disabled={promoteReviewRows().length === 0 || batchProgress() !== null}
+              onClick={() => void runBatch('fans', true).then(() => setPromoteReviewOpen(false))}
+            >
+              <Show when={batchProgress() !== null}><Spinner /></Show>
+              {batchProgress() ? `Promoting ${batchProgress()!.done}/${batchProgress()!.total}` : `Promote ${promoteReviewRows().length}`}
+            </Button>
+          </>
+        }
+      >
+        <ul class="m-0 max-h-56 list-none overflow-y-auto p-0">
+          <For each={promoteReviewRows().slice(0, 12)}>{contact => (
+            <li class="truncate border-b border-border/50 py-1.5 text-sm text-secondary-foreground last:border-0">
+              {contact.email ?? contact.display_name ?? contact.id}
+            </li>
+          )}</For>
+          <Show when={promoteReviewRows().length > 12}>
+            <li class="py-1.5 text-xs text-muted-foreground">…and {promoteReviewRows().length - 12} more</li>
+          </Show>
+        </ul>
+      </Dialog>
 
       <Dialog
         open={promoteAllOpen()}

@@ -52,9 +52,13 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
   { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
+  { suffix: '/places', label: 'Places', icon: 'places' },
+  { suffix: '/proof', label: 'Proof', icon: 'proof' },
   { suffix: '/shows', label: 'Shows', icon: 'shows' },
   { suffix: '/content', label: 'Content', icon: 'content' },
-  { suffix: '/beacons', label: 'Beacons', icon: 'beacons' },
+  // The beacon roster folded into Audience → Contacts; the palette entry
+  // names the destination a person sees, not the route it rides.
+  { suffix: '/audience?tab=contacts', label: 'Contacts', icon: 'beacons' },
   { suffix: '/area', label: 'AREA', icon: 'area' },
 ]
 
@@ -65,15 +69,16 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string; platform?: true }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
   { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence?tab=decisions' },
-  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=growth' },
-  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=overview' },
-  // Dead deliveries live on the queues tab, which the band's attention page
-  // does not carry — naming it here would land them where the thing is not.
-  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
+  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=standing' },
+  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=standing' },
+  // Dead deliveries live on Health's delivery tab — operator-only, same as
+  // the page it opens.
+  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/health?tab=delivery', platform: true },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
-  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=growth' },
+  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=decisions' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
+  { id: 'q-proof', label: 'Open the proof drawer', keywords: 'proof promoter send attest listing share link show report credentials agent label', suffix: '/proof' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
   // The authority sliders live one level in on Health — the band map does not
   // carry Health, so the entry stays operator-only like the page it opens.
@@ -82,7 +87,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // The band's palette mirrors the band's sidebar — the process destinations
 // only. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/audience', '/intelligence', '/content'])
+const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/places', '/audience', '/intelligence', '/content', '/proof'])
 const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
 
 // Section order and headings. The list used to tag every row GO / JUMP /
@@ -157,7 +162,9 @@ export const CommandPalette: Component = () => {
     const visible = scopedTenants()
     const names = visible.length > 0 ? visible.map(t => t.slug) : [profile()?.tenantSlug].filter((s): s is string => Boolean(s))
     const platform = isPlatformLevel()
-    const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix))
+    // Tabbed suffixes normalize the same way QUERY_ENTRIES does — the band
+    // check cares about the destination page, not the `?tab=` deep link.
+    const subpages = platform ? SUBPAGES : SUBPAGES.filter(p => BAND_SUFFIXES.has(p.suffix.split('?')[0] ?? p.suffix))
     // A query entry's suffix carries its `?tab=` deep link; the band check
     // cares about the destination page, so the param is stripped first —
     // otherwise every tabbed entry is silently dropped for a band session.
@@ -189,15 +196,32 @@ export const CommandPalette: Component = () => {
           perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
-      if (platform) list.push(
-        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, icon: () => <RefreshCw />, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
-        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, icon: () => <Trash2 />, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
-        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, icon: () => <ClipboardList />, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
-        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', icon: () => <Rocket />, confirm: true, perform: async () => { await api.deployTenant(slug) } },
-        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, icon: () => <CircleSlash />, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
-        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', icon: () => <Pause />, confirm: true, perform: async () => { await api.suspend(slug) } },
-        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, icon: () => <Play />, confirm: true, perform: async () => { await api.resume(slug) } },
-      )
+      if (platform) {
+        // Deploy authority splits on ownership: externally-owned tenants
+        // redeploy through `deployTenant` (the ecosystem-deploy workflow),
+        // provisioner-managed tenants get a `planned` job a platform admin
+        // approves via `reprovision`. Offering either to the wrong kind is
+        // a guaranteed 403 or a job nothing ever claims.
+        const t = visible.find(row => row.slug === slug)
+        list.push(
+          { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, icon: () => <RefreshCw />, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
+          { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, icon: () => <Trash2 />, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
+        )
+        if (t?.canProvision) list.push(
+          { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, icon: () => <ClipboardList />, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
+        )
+        if (t && !t.canProvision) list.push(
+          { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', icon: () => <Rocket />, confirm: true, perform: async () => { await api.deployTenant(slug) } },
+        )
+        if (t?.canProvision && authState.isAdmin()) list.push(
+          { id: `act-${slug}-approve`, label: `Approve deployment · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} approve provisioning deploy managed`, hint: 'hands the plan to the deploy agent', icon: () => <Rocket />, confirm: true, perform: async () => { await api.reprovisionTenant(slug) } },
+        )
+        list.push(
+          { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, icon: () => <CircleSlash />, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
+          { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', icon: () => <Pause />, confirm: true, perform: async () => { await api.suspend(slug) } },
+          { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, icon: () => <Play />, confirm: true, perform: async () => { await api.resume(slug) } },
+        )
+      }
     }
     return list
   })

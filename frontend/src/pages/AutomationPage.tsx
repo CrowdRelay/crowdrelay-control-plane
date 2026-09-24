@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
+import { Spinner } from '../components/Spinner'
 import { api } from '../lib/api'
 import { errorMessage, relativeTime } from '../lib/format'
 import { toast } from '../components/app/toast'
@@ -118,6 +119,24 @@ export function AutomationPage() {
     catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
     finally { setBusyId(null) }
   }
+  // n8n owns the workflows; the mirrored routing rows only appear after a
+  // sync. It lives here — routing is this tab's surface — not on
+  // Destinations, where it used to sit beside the channels it is not one of.
+  const [syncing, setSyncing] = createSignal(false)
+  const syncRouting = async () => {
+    if (syncing()) return
+    setSyncing(true)
+    try {
+      const result = await api.syncNotifierAutomationRouting(slug())
+      invalidate(slug())
+      toast.success(`Synced ${result.synced} workflow${result.synced === 1 ? '' : 's'}${result.skipped ? ` · ${result.skipped} skipped` : ''}.`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Sync failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const handleConfigUpdate = async (workflowId: string, input: { category?: string; discordEnabled?: boolean; muted?: boolean }) => {
     if (busyId()) return
     const scopeSlug = slug()
@@ -240,6 +259,7 @@ export function AutomationPage() {
         icon={<SectionIcon name="workflow" />}
         count={configs.data?.items.length}
         description="One row per workflow. Category sorts its events, and only real work is worth waking someone for. Discord forwards them to the crew channel. Muted keeps them recorded without counting as new. Changes save as you make them."
+        action={<Button writes variant="outline" size="sm" disabled={syncing()} onClick={() => void syncRouting()}>{syncing() && <Spinner />} {syncing() ? 'Syncing…' : 'Sync from n8n'}</Button>}
       >
         <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
         <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>

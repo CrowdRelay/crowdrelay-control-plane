@@ -81,8 +81,12 @@ export function useGigPlanApproval(slug: () => string) {
       setApprovingCityId(null)
       setApprovalResult({ cityId: proposal.city_id, result })
       // A queued approval changes what the plan can honestly say next —
-      // the city is no longer a gap while the letter is out.
+      // the city is no longer a gap while the letter is out. The places
+      // model marks the plan's cities in its funnel; the booking model's
+      // waiting-on-you rail holds the same proposals. Both carry it.
       await queryClient.invalidateQueries({ queryKey: ['gig-plan', slug()] })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-places', slug()] })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-booking', slug()] })
     },
     onError: (error, input) => {
       setApprovingCityId(null)

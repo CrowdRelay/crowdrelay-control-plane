@@ -91,7 +91,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
     setError(null)
     try {
       await api.setAutopilotPolicy(props.slug, policy, input)
-      refreshQueries(['autopilot-overview', props.slug])
+      refreshQueries(['autopilot-overview', props.slug], ['tenant-brain', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to update policy'))
     } finally {
@@ -105,7 +105,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
     try {
       await api.approveOpportunityAction(props.slug, action.id)
       setConfirming(null)
-      refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug])
+      refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug], ['tenant-brain', props.slug], ['tenant-delivery', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to approve action'))
     } finally {
@@ -119,7 +119,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
     try {
       await api.cancelOpportunityAction(props.slug, action.id)
       setConfirming(null)
-      refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug])
+      refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug], ['tenant-brain', props.slug])
     } catch (err) {
       setError(errorMessage(err, 'Failed to reject action'))
     } finally {

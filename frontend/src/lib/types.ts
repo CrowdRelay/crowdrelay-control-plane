@@ -156,7 +156,7 @@ export type AreaClue = { en:string; pl:string }
 export type AreaCollectible = { line:string; track:string; edition:string; riddle:string }
 export type AreaDropDraft = {
   number:string; cityId:string; mapX:number; mapY:number
-  approximateLat:number; approximateLng:number; exactLat:number|null; exactLng:number|null
+  approximateLat:number|null; approximateLng:number|null; exactLat:number|null; exactLng:number|null
   radiusMeters:number; maxClaims:number; startsAt:string; endsAt:string
   clue:AreaClue; collectible:AreaCollectible; sortOrder:number
 }
@@ -558,6 +558,7 @@ export type RelayTargetState =
   | 'expired'
   | 'queued'
   | 'posting'
+  | 'rate_limited'
   | 'posted'
   | 'manual'
   | 'failed'
@@ -578,6 +579,9 @@ export type RelayTarget = {
   image_url: string | null
   approval_expires_at: string | null
   post_status: string | null
+  /// When a `rate_limited` delivery retries — the "why still posting"
+  /// answer the state word alone cannot give.
+  rate_limited_until: string | null
   reddit_post_url: string | null
   posted_at: string | null
   score: number | null
@@ -652,6 +656,9 @@ export type RelayProcessRun = {
   expired: number
   queued: number
   posting: number
+  /// Deferred on Reddit's 429 backoff — counted apart from `posting`
+  /// because a parked delivery is a different fact from one in flight.
+  rate_limited: number
   posted: number
   manual: number
   failed: number
@@ -884,6 +891,42 @@ export type FailedSends = {
   total: number
 }
 
+/// An LLM worker's result the admission gate refused.
+///
+/// The agents service writes outcomes; the deterministic worker rejects the
+/// ones that fail verification. A rejection is the system working — but a
+/// burst is the worker's output drifting from the contract the gate
+/// enforces, which used to be visible only as an aggregate inside a
+/// watchdog alert: something was refused, never which output or why.
+export type RejectedAgentOutcome = {
+  id: string
+  /// Which worker produced the refused output (`press_pitch`,
+  /// `audience_segments`, …).
+  kind: string
+  /// The gate's own words for the refusal. `null` means the row predates
+  /// reason capture — a rejection without its reason is still a rejection.
+  rejection_reason: string | null
+  /// The agents-service task that produced it — the trace handle into
+  /// `ops/trace` for the full decision chain.
+  task_id: string
+  created_at: string
+}
+
+/// A notice the band is owed — a show task, a release report, a deal
+/// update. Its record is the durable outbox event itself, deduped per
+/// subject: `delivered` is whether the email behind it actually left, so a
+/// `false` row is an escalation that happened and nobody was told.
+export type BandNotice = {
+  id: string
+  /// The outbox event type minus the `crowdrelay.` prefix
+  /// (`show.task_attention_required`, `release.r3_report_due`, …).
+  kind: string
+  /// The emitted payload — which event, release or deal it concerns.
+  detail: Record<string, unknown>
+  delivered: boolean
+  created_at: string
+}
+
 /// One action, as the world outside received it — the words it carried and
 /// the addresses it went to. A 404 upstream means the action never emitted:
 /// nothing left, which is itself the answer.
@@ -1043,7 +1086,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'next_show_timeline'
+export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'attention' | 'next_show_timeline'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -1086,6 +1129,61 @@ export type SectionFreshness = {
 
 export type SectionFreshnessMap = Record<string, SectionFreshness | undefined>
 
+/// The needs-you snapshot, as `GET /tenants/{slug}/operations/attention`
+/// projects it — the same object embedded in the today model's `attention`
+/// section, so the page's strip and the Needs-you page read one shape.
+/// `not_reported` names the sections whose value is a placeholder rather
+/// than a measurement: an empty list beside a zero means the tenant really
+/// has nothing waiting; `awaiting_approval` listed there means it does not
+/// report approvals at all.
+export type TenantAttentionReadModel = {
+  id: string
+  summary: OperationsSummary
+  alerts: OpsAlert[]
+  dead_push: PushDeliveryItem[]
+  dead_outbox: OutboxItem[]
+  dead_deliveries: DeliveryItem[]
+  ecosystem: EcosystemOverview
+  findings: ReconciliationFinding[]
+  /// Pending autopilot actions awaiting human approval. Optional: an older
+  /// CrowdRelay may not publish this field — the control-plane projects
+  /// `[]` for backward compatibility. `[]` + healthy snapshot = genuinely
+  /// nothing needs approval. Absent field = degraded, not empty.
+  needs_you?: PendingActionSummary[]
+  /// Count of opportunities awaiting approval. Optional for the same reason.
+  awaiting_approval?: number
+  /// Drafted posts waiting for a person to publish them, per channel.
+  ///
+  /// The one queue where the system is blocked on the operator rather than the
+  /// reverse: every outbound channel drafts and waits. Optional for the same
+  /// reason as the fields above — absent means the tenant does not report the
+  /// queue, which is not the same as reporting an empty one.
+  unpublished_drafts?: UnpublishedDraftChannel[]
+  /// What the brain makes of its own recent performance, and — when it has
+  /// been doing nothing — why. `null` (or absent on an older tenant) means
+  /// the tenant does not report a self-assessment; the page prints
+  /// "not reported", never a healthy-looking verdict nobody measured.
+  brain?: BrainSelfAssessment | null
+  /// The approval queue's losses — asks that reached their deadline, and
+  /// what is about to. `null` (or absent on an older tenant) means the
+  /// tenant does not report the queue's losses; `not_reported` names it.
+  lapsed_approvals?: LapsedApprovals | null
+  /// Outward sends that failed in the window, named — the recipients the
+  /// counts cannot identify. Same null/not_reported convention as above.
+  failed_sends?: FailedSends | null
+  /// LLM worker results the admission gate refused in the last week,
+  /// newest first — the rejection kind and the gate's own reason, not just
+  /// the watchdog's aggregate. Absent means the tenant does not publish it.
+  rejected_agent_outcomes?: RejectedAgentOutcome[]
+  /// The show/release/opportunity escalations the band is owed, deduped per
+  /// subject — the durable record the escalation leaves behind. Absent
+  /// means the tenant does not publish it.
+  band_notices?: BandNotice[]
+  /// Sections whose value above is a placeholder the Control Plane
+  /// substituted, not something the tenant measured.
+  not_reported?: string[]
+}
+
 export type TenantTodayReadModel = {
   id: string
   summary: OperationsSummary | null
@@ -1106,6 +1204,10 @@ export type TenantTodayReadModel = {
   // that is never due is absent, not degraded.
   shows: TenantShowsResponse | null
   next_show_timeline?: TenantShowTimelineResponse | null
+  // The needs-you snapshot — the human gate the page's own strip renders.
+  // Re-projected server-side through the dedicated attention endpoint's
+  // contract, so `not_reported` means the same thing here as there.
+  attention: TenantAttentionReadModel | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantTodaySection[]
@@ -1116,6 +1218,164 @@ export type TenantTodayReadModel = {
   freshness: SectionFreshnessMap
   // When the server assembled this fan-out. The only freshness claim it can
   // honestly make about a live upstream read.
+  fetchedAt: string
+}
+
+export type TenantBookingSection =
+  | 'gig_plan'
+  | 'shortlist'
+  | 'booking_candidates'
+  | 'outreach_candidates'
+  | 'agents'
+  | 'reply_triage'
+  | 'negotiations'
+  | 'shows'
+
+/** `GET /tenants/{slug}/booking` — the whole book-a-show pipeline in one
+ * read model, sections in pipeline order: found → confirmed → approached →
+ * talking → booked. A missing section is `null` and named in `degraded`. */
+export type TenantBookingReadModel = {
+  id: string
+  // The planner's city picks, the passed-over list, and the track record
+  // those proposals produced. `null` when the gig-plan section is degraded.
+  gig_plan: GigPlanResponse | null
+  // The scout's shortlist — every tracked opportunity, live and closed.
+  shortlist: OpportunityShortlist | null
+  // Candidate queues waiting on a person's confirm before a letter exists.
+  booking_candidates: BookingCandidateView[] | null
+  outreach_candidates: OutreachCandidateView[] | null
+  // The agent registry — who the season door is open with.
+  agents: { agents: BookingAgent[] } | null
+  // Replies waiting on a human read.
+  reply_triage: ReplyTriageView | null
+  // Live terms conversations and moves parked for approval.
+  negotiations: NegotiationsView | null
+  // The nights themselves — what the pipeline already produced.
+  shows: TenantShowsResponse | null
+  degraded: TenantBookingSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantPlacesSection =
+  | 'city_funnel'
+  | 'city_venues'
+  | 'audience_places'
+  | 'gig_plan'
+  | 'area_cities'
+
+/** `GET /tenants/{slug}/places` — the "where to play next" read in one call:
+ * the city funnel in the organise ranking, the shared venue registry, the
+ * audience-graph gathering places, the gig plan's city facet (so the page
+ * can mark which funnel rows the planner already wants), and the AREA
+ * cities the tenant registered. `area_cities` rides a different upstream
+ * surface than the other four — a tenant whose AREA side cannot answer
+ * still gets the rest, with the section named in `degraded`. */
+export type TenantPlacesReadModel = {
+  id: string
+  // Ranked city funnel — `?order=organise` upstream. `null` when degraded.
+  city_funnel: CityFunnelRow[] | null
+  // The shared venue registry, aggregated across acts.
+  city_venues: CityVenueRow[] | null
+  // Online gathering places — the communities the audience graph knows.
+  audience_places: { places: AudiencePlace[] } | null
+  // The planner's current city picks — proposals, passed-over, track record.
+  gig_plan: GigPlanResponse | null
+  // Cities registered for AREA drops. Empty list is a real answer, not a gap.
+  area_cities: { items: AreaCity[] } | null
+  degraded: TenantPlacesSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantBrainSection =
+  | 'autopilot'
+  | 'scorecard'
+  | 'learning'
+  | 'learning_proof'
+  | 'measurement'
+  | 'attention'
+
+/** `GET /tenants/{slug}/brain` — the autopilot's evidence in one call: the
+ * posture facts the page header needs, the scorecard, the two learning
+ * surfaces, the measurement ledger, and the attention snapshot whose
+ * refused-outcome list the learning tab renders as the gate's own words.
+ * The brief stays its own endpoint — it is the page's story and keeps its
+ * own poll cadence. A missing section is `null` and named in `degraded`. */
+export type TenantBrainReadModel = {
+  id: string
+  // Posture + queue depth — the header badges read this.
+  autopilot: AutopilotOverview | null
+  scorecard: AgentScorecard | null
+  // Decision → action → outcome entries, newest first.
+  learning: LearningLoopEntry[] | null
+  // Outcome → belief → later decision — the loop's fourth link.
+  learning_proof: LearningProof | null
+  // The plan's fifteen claims, each with its number or the reason it cannot be produced.
+  measurement: MeasurementLedger | null
+  // The attention snapshot — rejected_agent_outcomes is the gate's refused
+  // work in its own words; findings and needs_you ride along.
+  attention: TenantAttentionReadModel | null
+  degraded: TenantBrainSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantProofSection =
+  | 'listing'
+  | 'attestations'
+  | 'representation'
+  | 'shows'
+
+/** `GET /tenants/{slug}/proof` — the "send this to a promoter" drawer in one
+ * call: the listing and its share token, the issued attestation cards, the
+ * representation contacts an agent may approach, and the show list the page
+ * reads issued reports from. Organiser links stay per-night — upstream has
+ * no nights list. A missing section is `null` and named in `degraded`. */
+export type TenantProofReadModel = {
+  id: string
+  // The band-authored profile + share token — the listing link's state.
+  listing: ListingState | null
+  // The signed proof cards, current and revoked both — the page styles them.
+  attestations: AttestationSummary[] | null
+  // Who an agent or label may approach, and this month's allowance.
+  representation: RepresentationTargetsResponse | null
+  // The show list — completed nights are the reports worth sending.
+  shows: TenantShowsResponse | null
+  degraded: TenantProofSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantDeliverySection =
+  | 'summary'
+  | 'outbox'
+  | 'deliveries'
+  | 'attention'
+  | 'delivery_results'
+
+/** `GET /tenants/{slug}/delivery` — the operator's "what is stuck, and why"
+ * in one call: queue depths, the live outbox and delivery rows in flight,
+ * the attention snapshot's dead lists and unpublished drafts, and the
+ * recent delivery-results ledger. A missing section is `null` and named in
+ * `degraded`. */
+export type TenantDeliveryReadModel = {
+  id: string
+  summary: OperationsSummary | null
+  // Live rows still in flight — the recent window, not the dead list.
+  outbox: OutboxItem[] | null
+  deliveries: DeliveryItem[] | null
+  // dead_outbox / dead_deliveries / dead_push / unpublished_drafts ride here.
+  attention: TenantAttentionReadModel | null
+  // What landed — the recent per-attempt ledger.
+  delivery_results: DeliveryResult[] | null
+  degraded: TenantDeliverySection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
   fetchedAt: string
 }
 

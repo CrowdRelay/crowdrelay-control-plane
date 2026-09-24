@@ -99,7 +99,10 @@ async fn attention(
 /// addition enter the Control Plane contract without review, so each section is
 /// named and type-checked here exactly as the five-call version checked its
 /// five responses.
-fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
+/// `pub(crate)`: the `today` read model embeds the attention snapshot as one
+/// section and needs the same field-by-field contract — `not_reported`
+/// included — rather than a raw upstream pass-through.
+pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_object(snapshot, "snapshot")?;
     let summary = section(snapshot, "summary")?;
     // Optional on purpose: a CrowdRelay that predates the watchdog alert list
@@ -178,6 +181,26 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         not_reported.push("failed_sends");
         Value::Null
     });
+    // The worker outputs the admission gate refused — kind and reason, not
+    // just the watchdog's aggregate. Optional for the same reason as the
+    // sections above: a CrowdRelay that predates it serves a valid
+    // snapshot, and an empty list here would claim the gate refused
+    // nothing when the tenant never reported the section.
+    let rejected_agent_outcomes = snapshot
+        .get("rejected_agent_outcomes")
+        .cloned()
+        .unwrap_or_else(|| {
+            not_reported.push("rejected_agent_outcomes");
+            json!([])
+        });
+    // The show/release/opportunity escalations — the notices the band is
+    // owed, whose record is the durable outbox event itself. Optional for
+    // the same reason: an empty list here would claim nothing is owed when
+    // the tenant simply never reported the section.
+    let band_notices = snapshot.get("band_notices").cloned().unwrap_or_else(|| {
+        not_reported.push("band_notices");
+        json!([])
+    });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -188,6 +211,11 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(findings, "findings")?;
     expect_array(&needs_you, "needs_you")?;
     expect_array(&unpublished_drafts, "unpublished_drafts")?;
+    if !awaiting_approval.is_u64() {
+        return Err(ApiError::Unavailable(
+            "tenant attention awaiting_approval returned an invalid JSON shape".into(),
+        ));
+    }
     if !brain.is_null() {
         expect_object(&brain, "brain")?;
     }
@@ -197,6 +225,8 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     if !failed_sends.is_null() {
         expect_object(&failed_sends, "failed_sends")?;
     }
+    expect_array(&rejected_agent_outcomes, "rejected_agent_outcomes")?;
+    expect_array(&band_notices, "band_notices")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -215,6 +245,8 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "brain": brain,
         "lapsed_approvals": lapsed_approvals,
         "failed_sends": failed_sends,
+        "rejected_agent_outcomes": rejected_agent_outcomes,
+        "band_notices": band_notices,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -263,6 +295,12 @@ mod tests {
                 "items": [{"action_id": "a", "action_kind": "gig_proposal", "context": "c", "error_kind": "executor_unavailable", "finished_at": "2026-09-01T11:00:00Z", "attempt_count": 3, "recipients": ["promoter@club.example"]}],
                 "total": 1
             },
+            "rejected_agent_outcomes": [
+                {"id": "o", "kind": "press_pitch", "rejection_reason": "confidence out of range", "task_id": "t", "created_at": "2026-09-01T12:00:00Z"}
+            ],
+            "band_notices": [
+                {"id": "n", "kind": "show.task_attention_required", "detail": {"event_id": "e", "task": "post_show_report"}, "delivered": true, "created_at": "2026-09-01T13:00:00Z"}
+            ],
         })
     }
 

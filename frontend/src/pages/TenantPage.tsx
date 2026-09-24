@@ -14,6 +14,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
+import { NotifiersPanel } from '../components/NotifiersPanel'
 import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
@@ -89,7 +90,7 @@ export function TenantPage() {
   // link cannot mount a platform-only panel in a band session.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
     'profile',
-    platformView ? ['profile', 'workspace', 'deployment', 'access'] : ['profile', 'workspace'],
+    platformView ? ['profile', 'workspace', 'deployment', 'access', 'destinations'] : ['profile', 'workspace'],
   )
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
@@ -164,7 +165,13 @@ export function TenantPage() {
   const park = useMutation(() => ({ mutationFn: (reason?: string) => api.park(params().slug, reason), onSuccess: refreshTenant }))
   const unpark = useMutation(() => ({ mutationFn: () => api.unpark(params().slug), onSuccess: refreshTenant }))
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
-  const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshProvisioning() } }))
+  // The section below only renders for provisioner-managed tenants
+  // (`canProvision !== false`), and `deploy_tenant` refuses those tenants by
+  // design — "redeploy is only available for externally-owned tenants". The
+  // managed path is `reprovision`: a platform admin turns the previewed
+  // `planned` job into the `approved` one the provisioner actually claims.
+  // Externally-owned tenants redeploy from Health → Runtime, not here.
+  const deploy = useMutation(() => ({ mutationFn: () => api.reprovisionTenant(params().slug, desiredVersion() || undefined), onSuccess: async () => { setPreview(null); await refreshProvisioning() } }))
   const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshProvisioning }))
   // Removal is the one action here that cannot be undone from this screen, so
   // the confirmation is the slug typed out rather than a second button.
@@ -178,7 +185,11 @@ export function TenantPage() {
     },
   }))
   const latestJob = createMemo(() => provisioning.data?.items[0])
-  const deploymentBusy = createMemo(() => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? ''))
+  // `planned` is the preview state — it sits waiting for an admin to approve
+  // it via reprovision, not for the provisioner. Counting it as busy made
+  // every "Deploy this plan" click unreachable: the preview itself produced
+  // the block.
+  const deploymentBusy = createMemo(() => ['approved', 'running'].includes(latestJob()?.status ?? ''))
   const requestedVersion = createMemo(() => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || '')
   const releaseReady = createMemo(() => /^sha-[0-9a-f]{40}$/.test(requestedVersion()))
   const isAdmin = createMemo(() => authState.isAdmin())
@@ -504,6 +515,7 @@ export function TenantPage() {
             ? [
                 { id: 'deployment', label: 'Deployment' },
                 { id: 'access', label: 'Access' },
+                { id: 'destinations', label: 'Destinations' },
               ]
             : []),
         ]}
@@ -572,20 +584,43 @@ export function TenantPage() {
                   <Input
                     class={cn(!releaseReady() && desiredVersion().trim() && 'border-destructive/50')}
                     value={desiredVersion()}
-                    onInput={(e) => setDesiredVersion(e.currentTarget.value)}
+                    onInput={(e) => { setDesiredVersion(e.currentTarget.value); setPreview(null) }}
                     placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-…'}
                     aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())}
                   />
                 </Field>
                 <div class="flex gap-2 pb-6">
-                  <Button writes variant="outline" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
-                  <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                  <Button writes variant="outline" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>{preview() ? 'Preview again' : 'Preview'}</Button>
+                  {/* Only a platform admin may approve a managed tenant's plan
+                      (reprovision) — for anyone else the button could only
+                      403, and a control that always fails is worse than none.
+                      The planned job waits visibly on the rail instead. */}
+                  <Show when={isAdmin()}>
+                    <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl || platform()?.provisionerConfigured === false}>{preview() ? 'Deploy this plan' : latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                  </Show>
                 </div>
               </div>
               <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
               <Show when={preview()}>{job => <div class="mt-3 overflow-x-auto rounded-lg border border-border bg-background p-3"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
               <Show when={latestJob()}>{job => <div class="mt-5 border-t border-border pt-4">
-                <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                {/* The job is a state machine — draw it as one. `cancelled`
+                    leaves the rail because it never reached the stage it
+                    stopped at; the terminal labels bend to the outcome. */}
+                <Show when={job().status !== 'cancelled'} fallback={
+                  <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">Cancelled</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                }>
+                  <ol class="m-0 flex list-none items-center gap-1.5 p-0 text-xs">
+                    <For each={['Planned', 'Picked up', 'Deploying', job().status === 'failed' ? 'Failed' : 'Deployed']}>{(label, i) => {
+                      const stage = () => job().status === 'planned' ? 0 : job().status === 'approved' ? 1 : job().status === 'running' ? 2 : 3
+                      const failed = () => job().status === 'failed'
+                      return <li class={stage() === i() ? (failed() && i() === 3 ? 'font-medium text-destructive' : 'font-medium text-foreground') : i() < stage() ? 'text-muted-foreground' : 'text-muted-foreground/50'}>
+                        {i() < stage() ? '✓ ' : ''}{label}{i() < 3 ? <span class="mx-1 text-border">→</span> : null}
+                      </li>
+                    }}</For>
+                  </ol>
+                  <div class="mt-2 flex items-center justify-between gap-2"><small class="text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                </Show>
+                <Show when={job().status === 'planned'}><p class="mt-2 text-sm text-muted-foreground">Planned and waiting — a platform admin approves it, then the deploy agent picks it up.</p></Show>
                 <Show when={job().status === 'approved'}><p class="mt-2 text-sm text-muted-foreground">Queued for deployment. Nothing changes until the deploy agent picks it up.</p></Show>
                 <Show when={job().status === 'running'}><p class="mt-2 text-sm text-muted-foreground">Deployment is running. This typically takes 2–5 minutes.</p></Show>
                 <Show when={job().status === 'succeeded'}><div class="mt-3 rounded-lg bg-background p-3">
@@ -689,6 +724,13 @@ export function TenantPage() {
             </Section>
           </Show>
         </div>
+      </TabPanel>
+
+      {/* Where the tenant's alerts go — the notifier channels, platform
+          config and automation routing that used to be a top-level nav
+          item. Its own queries; nothing here loads until the tab does. */}
+      <TabPanel active={activeTab()} id="destinations" visited={isVisited('destinations')}>
+        <NotifiersPanel slug={t.slug} />
       </TabPanel>
     </>
   }}</Show></PageShell>

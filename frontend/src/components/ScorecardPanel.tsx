@@ -77,16 +77,20 @@ const subjectLabel = (kind: string) => labelOr(SUBJECT_KIND_LABELS, kind)
 const statusBadgeLabel = (status: string) =>
   authState.isPlatformLevel() ? status : status === 'execution gap' ? 'blocked' : status
 
-export function ScorecardPanel(props: { slug: string }) {
+export function ScorecardPanel(props: { slug: string; data?: AgentScorecard }) {
+  // Fed from the brain read model on the Intelligence page — `data` present
+  // means the model already answered and this panel does not ask again.
+  const fed = () => props.data !== undefined
   const model = useQuery(() => ({
     queryKey: ['agent-scorecard', props.slug],
     queryFn: () => api.agentScorecard(props.slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    enabled: !fed(),
   }))
 
-  const data = () => model.data
+  const data = () => fed() ? props.data : model.data
 
   const [showAllByContext, setShowAllByContext] = createSignal(false)
   const MAX_VISIBLE_BY_CONTEXT = 6
@@ -101,13 +105,13 @@ export function ScorecardPanel(props: { slug: string }) {
     icon={<SectionIcon name="activity" />}
     action={<StatusBadge status={statusBadgeLabel(statusLabel(data()))} tone={statusTone(data())} />}
   >
-    <Show when={model.error}>
+    <Show when={!fed() && model.error}>
       <Alert tone="warning" role="status">
         {model.error instanceof Error ? model.error.message : (authState.isPlatformLevel() ? 'Agent scorecard is temporarily unavailable.' : 'The scorecard is temporarily unavailable.')}
       </Alert>
     </Show>
 
-    <Show when={!model.error && model.isPending}><SkeletonScorecard /></Show>
+    <Show when={!fed() && !model.error && model.isPending}><SkeletonScorecard /></Show>
 
     <Show when={data()}>{d => <>
       {/* Status row. `KpiStrip`/`KpiCard` carry the console's one KPI

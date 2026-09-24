@@ -323,9 +323,8 @@ const HELPER_LABEL: Record<HelperSection, string> = {
   photographers: 'Photographers',
 }
 
-/** The tab each section's owner surface lives under on the Audience page.
- * The bill-side sections own beacons instead — their owner link overrides
- * the audience-tab default. */
+/** Where each section's owner surface lives — an audience `?tab=` for most,
+ * the Places destination for the city-shaped ones, beacons for bill-side. */
 const HELPER_TAB: Record<HelperSection, string> = {
   press: 'contacts',
   rooms_and_promoters: 'places',
@@ -361,18 +360,19 @@ function emptyLine(section: HelperSection, place: string | null): string {
 
 /** One group: label + count, then compact rows or the single honest line.
  * A degraded section never reads as empty — "couldn't check" is not "none". */
-function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element; owner?: 'beacons' }) {
-  const ownerLink = () =>
-    props.owner === 'beacons'
-      ? { to: '/tenants/$slug/beacons' as const, label: 'Beacons' }
+function HelperGroup(props: { section: HelperSection; slug: string; count: number; empty: string; degraded: boolean; children: JSX.Element }) {
+  const ownerLink = (): { to: '/tenants/$slug/audience' | '/tenants/$slug/places'; label: string; search: { tab?: string } } =>
+    HELPER_TAB[props.section] === 'places'
+      // Places is its own destination now — a first-class route, not an
+      // audience tab, so the owner link lands on the page, not a `?tab=`.
+      ? { to: '/tenants/$slug/places', label: 'Places', search: {} }
       : {
-          to: '/tenants/$slug/audience' as const,
-          label:
-            HELPER_TAB[props.section] === 'places'
-              ? 'Places'
-              : HELPER_TAB[props.section] === 'contacts'
-                ? 'Contacts'
-                : 'Communities',
+          to: '/tenants/$slug/audience',
+          // Beacon-shaped sections (bill mates, venue channel, photographers)
+          // land on the same Contacts tab press does — the unified directory
+          // is where every contact kind now lives.
+          label: HELPER_TAB[props.section] === 'communities' ? 'Communities' : 'Contacts',
+          search: { tab: HELPER_TAB[props.section] === 'communities' ? 'communities' : 'contacts' },
         }
   return (
     <div class="mt-2">
@@ -384,7 +384,7 @@ function HelperGroup(props: { section: HelperSection; slug: string; count: numbe
         <Link
           to={ownerLink().to}
           params={{ slug: props.slug }}
-          search={props.owner === 'beacons' ? {} : { tab: HELPER_TAB[props.section] }}
+          search={ownerLink().search}
           class="shrink-0 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
         >
           {ownerLink().label} →
@@ -474,11 +474,11 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
                 city — they answer even on a city-less show. The admit
                 affordance still needs a city to place the beacon in, so the
                 button hides without one. */}
-            <HelperGroup section="bill_mates" slug={props.slug} count={data().bill_mates.length} degraded={sectionDegraded('bill_mates')} empty={emptyLine('bill_mates', city())} owner="beacons">
+            <HelperGroup section="bill_mates" slug={props.slug} count={data().bill_mates.length} degraded={sectionDegraded('bill_mates')} empty={emptyLine('bill_mates', city())}>
               <For each={data().bill_mates}>
                 {row => (
                   <div class="mt-0.5 flex items-baseline justify-between gap-2">
-                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={`${rowLink} mt-0 flex-1`}>
                       <span class="text-foreground">{row.act_name}</span>
                       {` · slot ${row.position}`}
                       {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
@@ -500,11 +500,11 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
                 )}
               </For>
             </HelperGroup>
-            <HelperGroup section="venue_channel" slug={props.slug} count={data().venue_channel ? 1 : 0} degraded={sectionDegraded('venue_channel')} empty={emptyLine('venue_channel', city())} owner="beacons">
+            <HelperGroup section="venue_channel" slug={props.slug} count={data().venue_channel ? 1 : 0} degraded={sectionDegraded('venue_channel')} empty={emptyLine('venue_channel', city())}>
               <Show when={data().venue_channel}>
                 {channel => (
                   <div class="mt-0.5 flex items-baseline justify-between gap-2">
-                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={`${rowLink} mt-0 flex-1`}>
                       <span class="text-foreground">{channel().display_name}</span>
                       {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
                       {channel().on_roster ? ' · on the roster' : ''}
@@ -582,10 +582,10 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
                   )}
                 </For>
               </HelperGroup>
-              <HelperGroup section="photographers" slug={props.slug} count={data().photographers.length} degraded={sectionDegraded('photographers')} empty={emptyLine('photographers', city())} owner="beacons">
+              <HelperGroup section="photographers" slug={props.slug} count={data().photographers.length} degraded={sectionDegraded('photographers')} empty={emptyLine('photographers', city())}>
                 <For each={data().photographers}>
                   {row => (
-                    <Link to="/tenants/$slug/beacons" params={{ slug: props.slug }} class={rowLink}>
+                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={rowLink}>
                       <span class="text-foreground">{row.display_name}</span>
                       {row.verified ? ' · verified' : ''}
                       {row.contacted_before ? ' · contacted before' : ''}

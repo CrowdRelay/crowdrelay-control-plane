@@ -184,6 +184,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/attention', name: 'attention' },
   { path: '/tenants/virya/in-motion', name: 'in-motion' },
   { path: '/tenants/virya/audience', name: 'audience' },
+  { path: '/tenants/virya/places', name: 'places' },
   { path: '/tenants/virya/content', name: 'content' },
   { path: '/tenants/virya/content/material', name: 'content-material' },
   { path: '/tenants/virya/area', name: 'area' },
@@ -192,8 +193,12 @@ const SUBPAGES = [
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
   { path: '/tenants/virya/health', name: 'health' },
+  { path: '/tenants/virya/proof', name: 'proof' },
+  { path: '/tenants/virya/health?tab=delivery', name: 'health-delivery' },
   { path: '/tenants/virya/health?tab=policies', name: 'health-policies' },
-  { path: '/tenants/virya/beacons', name: 'beacons' },
+  // The beacons destination dissolved into Audience → Contacts; this
+  // exercises the compatibility redirect old links still ride.
+  { path: '/tenants/virya/beacons', name: 'beacons-redirect' },
   { path: '/attention', name: 'operator-attention' },
   { path: '/automation', name: 'automation' },
 ]

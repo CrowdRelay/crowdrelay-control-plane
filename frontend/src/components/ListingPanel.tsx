@@ -16,7 +16,7 @@ import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { writeGuard } from '../lib/read-only'
-import type { BandListing, ListingClaim, ListingState, RepresentationTarget } from '../lib/types'
+import type { BandListing, ListingClaim, ListingState, RepresentationTarget, RepresentationTargetsResponse } from '../lib/types'
 
 const CLAIM_TIERS = [
   { value: 'downstream', label: 'Banked' },
@@ -129,7 +129,9 @@ const EMPTY_CONTACT: ContactDraft = {
   do_not_contact: false,
 }
 
-export function ListingPanel(props: { slug: string }) {
+export function ListingPanel(props: { slug: string; data?: ListingState; targets?: RepresentationTargetsResponse }) {
+  // The proof read model feeds both lists — fed, the panel never asks.
+  const fed = () => props.data !== undefined && props.targets !== undefined
   const [error, setError] = createSignal<string | null>(null)
   const [saving, setSaving] = createSignal(false)
   const [acting, setActing] = createSignal<string | null>(null)
@@ -146,12 +148,14 @@ export function ListingPanel(props: { slug: string }) {
     queryFn: () => api.listingState(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    enabled: !fed(),
   }))
   const targets = useQuery(() => ({
     queryKey: ['representation-targets', props.slug],
     queryFn: () => api.representationTargets(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    enabled: !fed(),
   }))
 
   // Load the draft once per tenant, from the server — typing after that is
@@ -159,14 +163,15 @@ export function ListingPanel(props: { slug: string }) {
   // eat edits; keying the seed to the slug keeps a tenant switch from
   // writing the previous tenant's draft into this one's listing.
   createEffect(() => {
-    const s = listing.data
+    const s = state()
     if (s && seededSlug() !== props.slug) {
       setDraft(draftFromListing(s.listing))
       setSeededSlug(props.slug)
     }
   })
 
-  const state = () => listing.data
+  const state = () => (fed() ? props.data : listing.data)
+  const targetsState = () => (fed() ? props.targets : targets.data)
   const published = () => state()?.listing?.visibility === 'admitted_readers'
   const shareUrl = createMemo(() => {
     const token = state()?.share_token
@@ -179,9 +184,10 @@ export function ListingPanel(props: { slug: string }) {
     try {
       await action()
       await Promise.all([listing.refetch(), targets.refetch()])
-      // A queued approach lands on Attention's decision queue and the
-      // operations KPI strip — invalidate so both catch it on next visit.
-      refreshQueries(['tenant-today', props.slug], ['tenant-operator-attention-snapshot', props.slug])
+      // A queued approach lands on Attention's decision queue, the
+      // operations KPI strip and the proof drawer — invalidate so all
+      // three catch it on next visit.
+      refreshQueries(['tenant-today', props.slug], ['tenant-operator-attention-snapshot', props.slug], ['tenant-proof', props.slug])
     } catch (e) {
       setError(errorMessage(e, 'That could not be saved.'))
     } finally {
@@ -280,7 +286,7 @@ export function ListingPanel(props: { slug: string }) {
           </Show>
         }
       >
-        <Show when={listing.error}>
+        <Show when={!fed() && listing.error}>
           <ErrorCard>Listing unavailable: {errorMessage(listing.error, 'We could not reach the listing.')}</ErrorCard>
         </Show>
         <Show when={seededSlug() === props.slug || state()} fallback={<SkeletonRows count={4} />}>
@@ -465,12 +471,12 @@ export function ListingPanel(props: { slug: string }) {
           </Show>
         }
       >
-        <Show when={targets.error}>
+        <Show when={!fed() && targets.error}>
           <ErrorCard>Contacts unavailable: {errorMessage(targets.error, 'We could not reach the contact list.')}</ErrorCard>
         </Show>
-        <Show when={targets.data} fallback={<SkeletonRows count={3} />}>
+        <Show when={targetsState()} fallback={<SkeletonRows count={3} />}>
           <Show
-            when={(targets.data?.targets.length ?? 0) > 0}
+            when={(targetsState()?.targets.length ?? 0) > 0}
             fallback={
               <EmptyState
                 label="No representation contacts yet"
@@ -489,7 +495,7 @@ export function ListingPanel(props: { slug: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <For each={targets.data?.targets ?? []}>{target => {
+                <For each={targetsState()?.targets ?? []}>{target => {
                   const reason = () => blockedReason(target, state())
                   return (
                     <TableRow>

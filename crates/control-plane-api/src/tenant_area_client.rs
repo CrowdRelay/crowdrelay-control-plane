@@ -36,7 +36,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Holding them equal makes any fan-out exactly fillable from the pool: the
 /// same connections are reused, returned, and reused again.
 ///
-/// Twelve because the widest fan-out is nine — the operations page — and a
+/// Twelve because the widest fan-out is twelve — the today page — and a
 /// limit below the widest fan-out is not a limit, it is a queue. At four, that
 /// page ran in three waves and paid two extra round trips for nothing. At
 /// twelve it runs in one wave against connections that already exist. The
@@ -48,8 +48,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const POOL_MAX_PER_TARGET: usize = 12;
 
 /// The widest concurrent fan-out any handler makes against one target: the
-/// today page, which fetches eleven sections at once.
-const WIDEST_FAN_OUT: usize = 11;
+/// today page, which fetches twelve sections at once — eleven metrics and
+/// the attention snapshot merged in from Needs-you.
+const WIDEST_FAN_OUT: usize = 12;
 
 // A budget below the widest fan-out is not a budget, it is a queue: that page
 // would run in waves and pay a round trip per wave for nothing. Checked at
@@ -2505,7 +2506,8 @@ mod tests {
         let base = format!("http://{address}");
         let tenant = Uuid::nil();
 
-        // Nine at once, exactly as the operations page does.
+        // Nine at once — inside the pool budget, wide enough that a second
+        // wave would expose any connection the pool failed to keep.
         let fan_out = || {
             let calls = (0..9).map(|_| {
                 client.request_management(

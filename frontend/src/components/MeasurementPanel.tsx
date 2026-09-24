@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { Measure, MeasurementClaim } from '../lib/types'
+import type { Measure, MeasurementClaim, MeasurementLedger } from '../lib/types'
 import { SectionTitle } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './app/card'
@@ -86,7 +86,10 @@ function ClaimRow(props: { claim: MeasurementClaim }) {
  * The measurement ledger — the plan's fifteen claims in ledger order, each
  * with its number or the reason this build cannot produce one.
  */
-export function MeasurementPanel(props: { slug: string }) {
+export function MeasurementPanel(props: { slug: string; data?: MeasurementLedger }) {
+  // Fed from the brain read model on the Intelligence page — `data` present
+  // means the model already answered and this panel does not ask again.
+  const fed = () => props.data !== undefined
   const model = useQuery(() => ({
     queryKey: ['measurement-ledger', props.slug],
     queryFn: () => api.measurement(props.slug),
@@ -95,9 +98,10 @@ export function MeasurementPanel(props: { slug: string }) {
     staleTime: 10_000,
     // This endpoint has no `degraded` fan-out — a failure is a 503 the query
     // retries on its own; `whileIncomplete` has nothing to key on here.
+    enabled: !fed(),
   }))
 
-  const data = () => model.data
+  const data = () => fed() ? props.data : model.data
 
   return <Card flat>
     <SectionTitle
@@ -107,13 +111,13 @@ export function MeasurementPanel(props: { slug: string }) {
       icon={<SectionIcon name="target" />}
     />
 
-    <Show when={model.error}>
+    <Show when={!fed() && model.error}>
       <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
         {model.error instanceof Error ? model.error.message : 'The measurement ledger is temporarily unavailable.'}
       </div>
     </Show>
 
-    <Show when={!model.error && model.isPending}><SkeletonSection lines={8} /></Show>
+    <Show when={!fed() && !model.error && model.isPending}><SkeletonSection lines={8} /></Show>
 
     <Show when={data()}>{d =>
       <Table class="mt-4">
