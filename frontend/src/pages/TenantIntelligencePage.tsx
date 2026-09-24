@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams, useRouterState } from '@tanstack/solid-router'
+import { useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -26,7 +26,9 @@ import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
 import { RejectedOutcomesPanel } from '../components/QueueLossesPanel'
 import { Alert } from '../components/app/alert'
 import type { TenantBrainReadModel } from '../lib/types'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
+import { JourneyRail } from '../components/Journey'
+import { brainCycleStages } from '../lib/brain-cycle'
+import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, PanelTitle } from '../components/layout'
 import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { StatusBadge } from '../components/StatusBadge'
@@ -76,6 +78,7 @@ const BAND_SECTION_LABEL: Record<string, string> = {
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
+  const navigate = useNavigate()
   const autopilot = () => model.data?.autopilot
   // The id list makes `?tab=` deep links land on the right tab.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
@@ -107,6 +110,33 @@ export function TenantIntelligencePage() {
     return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
   })
 
+  // The brain's own loop as a live rail — the derivation is pure, the page
+  // owns the drill-through: stages land on the tab (or the Needs-you page)
+  // that holds their evidence. Re-derives on the 15s tick so "this week"
+  // and the relative clocks stay honest while the page sits open.
+  const goAttention = (tab?: 'trace') => void navigate({
+    to: '/tenants/$slug/attention',
+    params: { slug: params().slug },
+    search: tab ? { tab } : undefined,
+  })
+  const cycleStages = createMemo(() => {
+    const m = model.data
+    if (!m) return []
+    const platform = authState.isPlatformLevel()
+    const stages = brainCycleStages(m, platform, now())
+    for (const stage of stages) {
+      switch (stage.key) {
+        case 'sense': stage.onSelect = () => switchTab('brief'); break
+        case 'decide': stage.onSelect = () => switchTab('decisions'); break
+        case 'authorize': stage.onSelect = () => goAttention(); break
+        case 'act': stage.onSelect = () => { platform ? goAttention('trace') : switchTab('decisions') }; break
+        case 'measure':
+        case 'learn': stage.onSelect = () => switchTab('learning'); break
+      }
+    }
+    return stages
+  })
+
   return <PageShell>
     <PageHeader
       title="Intelligence"
@@ -135,6 +165,32 @@ export function TenantIntelligencePage() {
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
+
+    {/* Degraded sections and the live cycle rail sit above the tabs — they
+        describe the whole model, not one tab. The rail renders only once
+        the model answers; a missing number is '—', never 0. */}
+    <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) => <>
+      <For each={data().degraded}>{section => (
+        <Alert tone="warning" role="status" class="mb-4">
+          <Show when={authState.isPlatformLevel()} fallback={
+            <>
+              <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
+              now. The rest of the page keeps working — it comes back on its own.
+            </>
+          }>
+            <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
+            tenant right now. The rest of the page keeps working — it recovers on the next poll.
+          </Show>
+        </Alert>
+      )}</For>
+
+      <div class="mb-5">
+        <PanelTitle as="h3" class="mb-2">
+          {authState.isPlatformLevel() ? 'The autopilot cycle, live' : 'How the brain works for you, right now'}
+        </PanelTitle>
+        <JourneyRail stages={cycleStages()} />
+      </div>
+    </>}</Show>
 
     {/* The tabs say what each one holds, in the order the loop runs. The
         first tab is the story — the other seven are the evidence. */}
@@ -166,22 +222,6 @@ export function TenantIntelligencePage() {
     </Show>
 
     <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) => <>
-
-      {/* A section the tenant could not answer is named here; the panel it
-          feeds does not mount, so nothing renders an empty success. */}
-      <For each={data().degraded}>{section => (
-        <Alert tone="warning" role="status" class="mb-4">
-          <Show when={authState.isPlatformLevel()} fallback={
-            <>
-              <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
-              now. The rest of the page keeps working — it comes back on its own.
-            </>
-          }>
-            <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
-            tenant right now. The rest of the page keeps working — it recovers on the next poll.
-          </Show>
-        </Alert>
-      )}</For>
 
       {/* ── Where it stands — posture, capabilities, objectives, beliefs,
             and the material it may speak with ── */}

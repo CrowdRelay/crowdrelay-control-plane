@@ -29,6 +29,8 @@ import { Field, FieldGrid, ReadField, Unset } from '../components/ui/field'
 import { buttonVariants } from '../components/app/button'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
+import { JourneySteps } from '../components/Journey'
+import { deployJourneySteps } from '../lib/deploy-journey'
 
 const paletteFields: Array<keyof Palette> = ['primary','primaryContrast','accent','surface','surfaceElevated','text','textMuted','success','warning','danger']
 // The editor showed the raw struct field names — `primaryContrast`,
@@ -543,6 +545,19 @@ export function TenantPage() {
 
       <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
         <div class="space-y-8">
+          {/* The tenant as one process instance — how far this deploy got
+              and where it is stuck. Reads the overview model only, so it
+              does not wait on the operations read. */}
+          <JourneySteps
+            label="Deployment journey"
+            steps={deployJourneySteps({
+              tenant: t,
+              latestJob: latestJob(),
+              canProvision: platform()?.capabilities.canProvision,
+              provisionerConfigured: platform()?.provisionerConfigured,
+              nowMs: now(),
+            })}
+          />
           <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
           <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations data unavailable')}</ErrorCard></Show>
           <Section
