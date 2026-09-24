@@ -323,10 +323,14 @@ export const api = {
   // The batch ask's two answers — one approval per source, not one per
   // community. Approve releases every parked delivery to the drip; revoke
   // cancels what has not landed.
-  approveCommunityRelay: (slug: string, sourceId: string) =>
+  approveCommunityRelay: (slug: string, sourceId: string, revisions?: Record<string, { title?: string; body?: string }>) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/approve`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
+      // `revisions` maps action_id → edited title/body — a refused edit
+      // refuses the whole approval upstream. Sent only when non-empty, so
+      // the plain approve stays bodiless as before.
+      ...(revisions && Object.keys(revisions).length > 0 ? { body: JSON.stringify({ revisions }) } : {}),
     }),
   revokeCommunityRelay: (slug: string, sourceId: string) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/revoke`, {
@@ -382,10 +386,14 @@ export const api = {
   // a grant changes authority and must be a typed choice, not the usual
   // button's side effect. The idempotency key makes a lost response safe to
   // retry as the same intent.
-  approveOpportunityAction: (slug: string, actionId: string, remember?: { days?: number; note?: string }) => request<{ mutation: { operation_id: string; target_id: string; status: string; replayed: boolean }; remembered: { granted: boolean; reason?: string } | null }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
+  approveOpportunityAction: (slug: string, actionId: string, opts?: { remember?: { days?: number; note?: string }; revision?: Record<string, string> }) => request<{ mutation: { operation_id: string; target_id: string; status: string; replayed: boolean }; remembered: { granted: boolean; reason?: string } | null }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
-    body: JSON.stringify(remember ? { remember } : {}),
+    // `revision` carries the operator's edits to the draft's revisable
+    // fields — upstream refuses an empty replacement and any field outside
+    // the allowlist. Absent keys stay absent: a plain approve sends the
+    // same `{}` it always did.
+    body: JSON.stringify({ ...(opts?.revision ? { revision: opts.revision } : {}), ...(opts?.remember ? { remember: opts.remember } : {}) }),
   }),
   // Standing approvals — what may run without asking. The grant itself is
   // only ever written through the approve flow's `remember`; this pair lists

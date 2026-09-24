@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useNavigate, useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { CONTENT_TABS } from '../lib/nav'
@@ -18,9 +18,10 @@ import { Input } from '../components/ui/input'
 import { toast } from '../components/app/toast'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
-import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar, ErrorCard } from '../components/layout'
+import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar } from '../components/layout'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SectionIcon } from '../components/SectionIcon'
+import { DraftEditor, changedFields, emptiedField } from '../components/DraftEditor'
 import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
 
 /// The domain `ContentArtifactKind` serde keys → the same names the
@@ -94,9 +95,36 @@ const draftTitle = (a: PendingAutopilotAction): string => {
 export function TenantContentPage() {
   const params = useParams({ from: '/tenants/$slug/content' })
   const navigate = useNavigate()
-  const [error, setError] = createSignal<string | null>(null)
-  const [pendingMutation, setPendingMutation] = createSignal(false)
+  // Per-item, on purpose: a refusal on one draft must not grey out or
+  // shadow the rest of the queue, and one item's error used to float to the
+  // top of the page far from the button that earned it.
+  const [errors, setErrors] = createSignal<Record<string, string>>({})
+  const [pendingId, setPendingId] = createSignal<string | null>(null)
   const [confirming, setConfirming] = createSignal<string | null>(null)
+  const [edits, setEdits] = createSignal<Record<string, Record<string, string>>>({})
+  const [editing, setEditing] = createSignal<Set<string>>(new Set())
+
+  const setItemError = (actionId: string, message: string | null) =>
+    setErrors(prev => {
+      const next = { ...prev }
+      if (message == null) delete next[actionId]
+      else next[actionId] = message
+      return next
+    })
+  const editField = (action: PendingAutopilotAction, field: string, value: string) =>
+    setEdits(prev => ({
+      ...prev,
+      [action.id]: { ...(action.revisable ?? {}), ...prev[action.id], [field]: value },
+    }))
+  const toggleEdit = (actionId: string) =>
+    setEditing(prev => {
+      const next = new Set(prev)
+      if (next.has(actionId)) next.delete(actionId)
+      else next.add(actionId)
+      return next
+    })
+  const revisionFor = (action: PendingAutopilotAction) =>
+    action.revisable ? changedFields(action.revisable, edits()[action.id] ?? {}) : undefined
 
   const pipeline = useQuery(() => ({
     queryKey: ['content-pipeline', params().slug],
@@ -131,28 +159,41 @@ export function TenantContentPage() {
   })
 
   const approveAction = async (action: PendingAutopilotAction) => {
-    setPendingMutation(true); setError(null)
-    try {
-      await api.approveOpportunityAction(params().slug, action.id)
+    // A blanked field is refused upstream — name it here instead of
+    // shipping a write that is known to fail.
+    const empty = emptiedField(edits()[action.id] ?? {})
+    if (empty) {
+      setItemError(action.id, `${empty} can't be empty — refuse the draft instead.`)
       setConfirming(null)
+      return
+    }
+    const revision = revisionFor(action)
+    setPendingId(action.id); setItemError(action.id, null)
+    try {
+      await api.approveOpportunityAction(params().slug, action.id, revision ? { revision } : undefined)
+      setConfirming(null)
+      if (revision) toast.success('Approved with your edits')
       refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug], ['tenant-delivery', params().slug])
     } catch (err) {
-      setError(errorMessage(err, 'Could not approve it. Try again.'))
+      // A 409's problem body is a sentence for a person — on the item,
+      // where the refusal belongs.
+      if (err instanceof ApiError && err.status === 409) setItemError(action.id, err.message)
+      else setItemError(action.id, errorMessage(err, 'Could not approve it. Try again.'))
     } finally {
-      setPendingMutation(false)
+      setPendingId(null)
     }
   }
 
   const rejectAction = async (action: PendingAutopilotAction) => {
-    setPendingMutation(true); setError(null)
+    setPendingId(action.id); setItemError(action.id, null)
     try {
       await api.cancelOpportunityAction(params().slug, action.id)
       setConfirming(null)
       refreshQueries(['content-pipeline', params().slug])
     } catch (err) {
-      setError(errorMessage(err, 'Could not reject it. Try again.'))
+      setItemError(action.id, errorMessage(err, 'Could not reject it. Try again.'))
     } finally {
-      setPendingMutation(false)
+      setPendingId(null)
     }
   }
 
@@ -185,7 +226,6 @@ export function TenantContentPage() {
       }}
     />
 
-    <Show when={error()}><ErrorCard>{error()}</ErrorCard></Show>
     <Show when={pipeline.error}>
       <SectionFailureCard error={pipeline.error} fallback={authState.isPlatformLevel() ? 'Approval queue unavailable' : 'The approval list'} onRetry={() => void pipeline.refetch()} />
     </Show>
@@ -251,6 +291,9 @@ export function TenantContentPage() {
               const rejectKey = `reject:${action.id}`
               const title = () => draftTitle(action)
               const source = () => sourceTitle(action.payload.source_id)
+              const fields = () => action.revisable && Object.keys(action.revisable).length > 0 ? action.revisable : undefined
+              const pendingItem = () => pendingId() === action.id
+              const anotherPending = () => pendingId() !== null && pendingId() !== action.id
               return (
                 <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div class="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -264,26 +307,41 @@ export function TenantContentPage() {
                     <Show when={!action.executor_ready && action.required_capability}>
                       <Alert tone="warning" role="status"><strong>Nothing can run this yet.</strong> {authState.isPlatformLevel() ? 'Approving queues it until a worker starts.' : 'Approving keeps it waiting until the poster is up.'}</Alert>
                     </Show>
+                    <Show when={fields()}>{f =>
+                      <DraftEditor
+                        fields={f()}
+                        value={edits()[action.id] ?? f()}
+                        onChange={(field, value) => editField(action, field, value)}
+                        editing={editing().has(action.id)}
+                        onToggle={() => toggleEdit(action.id)}
+                      />
+                    }</Show>
+                    <Show when={errors()[action.id]}>
+                      <p class="m-0 text-xs text-destructive font-medium">{errors()[action.id]}</p>
+                    </Show>
                     <div class="text-xs text-muted-foreground">asked {fmtDate(action.created_at)}</div>
                   </div>
                   <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <Show when={confirming() === approveKey} fallback={
                       <Show when={confirming() === rejectKey} fallback={
                         <>
-                          <Button size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(approveKey)}>Approve</Button>
-                          <Button variant="outline" size="sm" writes disabled={pendingMutation()} onClick={() => setConfirming(rejectKey)}>Reject</Button>
+                          <Show when={fields() && !editing().has(action.id)}>
+                            <Button variant="ghost" size="sm" writes disabled={anotherPending() || pendingItem()} onClick={() => toggleEdit(action.id)}>Edit</Button>
+                          </Show>
+                          <Button size="sm" writes disabled={anotherPending() || pendingItem()} onClick={() => setConfirming(approveKey)}>Approve</Button>
+                          <Button variant="outline" size="sm" writes disabled={anotherPending() || pendingItem()} onClick={() => setConfirming(rejectKey)}>Reject</Button>
                         </>
                       }>
-                        <Button variant="destructive" size="sm" writes disabled={pendingMutation()} onClick={() => rejectAction(action)}>
-                          {pendingMutation() && <Spinner />} {pendingMutation() ? 'Rejecting…' : 'Confirm rejection'}
+                        <Button variant="destructive" size="sm" writes disabled={pendingItem()} onClick={() => rejectAction(action)}>
+                          {pendingItem() && <Spinner />} {pendingItem() ? 'Rejecting…' : 'Confirm rejection'}
                         </Button>
-                        <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Back</Button>
+                        <Button variant="ghost" size="sm" disabled={pendingItem()} onClick={() => setConfirming(null)}>Back</Button>
                       </Show>
                     }>
-                      <Button size="sm" writes disabled={pendingMutation()} onClick={() => approveAction(action)}>
-                        {pendingMutation() && <Spinner />} {pendingMutation() ? 'Approving…' : 'Confirm approval'}
+                      <Button size="sm" writes disabled={pendingItem()} onClick={() => approveAction(action)}>
+                        {pendingItem() && <Spinner />} {pendingItem() ? 'Approving…' : revisionFor(action) ? 'Confirm approval as edited' : 'Confirm approval'}
                       </Button>
-                      <Button variant="ghost" size="sm" disabled={pendingMutation()} onClick={() => setConfirming(null)}>Cancel</Button>
+                      <Button variant="ghost" size="sm" disabled={pendingItem()} onClick={() => setConfirming(null)}>Cancel</Button>
                     </Show>
                   </div>
                 </li>

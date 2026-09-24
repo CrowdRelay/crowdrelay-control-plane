@@ -1,9 +1,10 @@
 import { For, Show, createSignal, onMount, onCleanup } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
+import { DraftEditor, changedFields, emptiedField } from './DraftEditor'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -48,6 +49,9 @@ export type AttentionItem = {
   goto?: { label: string; tab: string; anchor?: string }
   /// Another page. Only for what genuinely lives on one.
   action?: { label: string; to?: string }
+  /// The draft an approve click sends — the action's `revisable` map plus the
+  /// id that keys the edit state. Read first, editable on toggle.
+  draft?: { actionId: string; fields: Record<string, string> }
 }
 
 export function AttentionInbox(props: {
@@ -62,6 +66,10 @@ export function AttentionInbox(props: {
   /// not zero, so the inbox says so instead of staying quiet — "nothing needs
   /// you" and "this build cannot tell you" are different answers.
   notReported?: readonly string[]
+  /// Editable drafts by action id — the `revisable` maps from the today's
+  /// `autopilot.needs_you`, which the attention snapshot's summaries do not
+  /// carry. An approval item with no entry here approves as before.
+  drafts?: Record<string, Record<string, string>>
   /// Refetch the attention snapshot after an item is carried out.
   onRefresh: () => Promise<unknown>
   /// Show a section of this page, switching tab first if it owns one.
@@ -78,6 +86,38 @@ export function AttentionInbox(props: {
   const stillListed = () => props.needsYou.filter(action => approved().has(action.id)).length
   const queue = () => props.needsYou.filter(action => !approved().has(action.id))
 
+  // Draft edit state, keyed by action id: `edits` holds the working text
+  // (initialized from `revisable` on first change), `editing` the ids in
+  // edit mode, `itemErrors` per-item refusal text — a 409's sentence or a
+  // blocked empty field lands on the row, everything else keeps the toast.
+  const [edits, setEdits] = createSignal<Record<string, Record<string, string>>>({})
+  const [editing, setEditing] = createSignal<Set<string>>(new Set())
+  const [itemErrors, setItemErrors] = createSignal<Record<string, string>>({})
+  const setItemError = (itemId: string, message: string | null) =>
+    setItemErrors(prev => {
+      const next = { ...prev }
+      if (message == null) delete next[itemId]
+      else next[itemId] = message
+      return next
+    })
+  const editField = (item: AttentionItem, field: string, value: string) => {
+    const draft = item.draft
+    if (!draft) return
+    setEdits(prev => ({
+      ...prev,
+      [draft.actionId]: { ...draft.fields, ...prev[draft.actionId], [field]: value },
+    }))
+  }
+  const toggleEdit = (actionId: string) =>
+    setEditing(prev => {
+      const next = new Set(prev)
+      if (next.has(actionId)) next.delete(actionId)
+      else next.add(actionId)
+      return next
+    })
+  const editedRevision = (item: AttentionItem) =>
+    item.draft ? changedFields(item.draft.fields, edits()[item.draft.actionId] ?? {}) : undefined
+
   const carryOut = async (item: AttentionItem) => {
     const job = item.run
     if (!job || busy() !== null) return
@@ -86,13 +126,30 @@ export function AttentionInbox(props: {
       return
     }
     setConfirming(null)
+    // A blanked field is refused upstream — name it here instead of
+    // shipping a write that is known to fail.
+    if (item.draft) {
+      const empty = emptiedField(edits()[item.draft.actionId] ?? {})
+      if (empty) {
+        setItemError(item.id, `${empty} can't be empty — refuse the draft instead.`)
+        return
+      }
+    }
+    const revision = editedRevision(item)
+    setItemError(item.id, null)
     setBusy(item.id)
     try {
       await job.execute()
       await props.onRefresh()
-      toast.success(job.success)
+      toast.success(revision ? 'Approved with your edits' : job.success)
     } catch (error) {
-      toast.error(errorMessage(error, 'That did not go through'))
+      if (error instanceof ApiError && error.status === 409) {
+        // Upstream's refusal is a sentence written for a person — put it on
+        // the item it refused rather than a toast that fades.
+        setItemError(item.id, error.message)
+      } else {
+        toast.error(errorMessage(error, 'That did not go through'))
+      }
     } finally {
       setBusy(null)
     }
@@ -143,6 +200,11 @@ export function AttentionInbox(props: {
     // REVIEW: pending approvals, opportunities awaiting
     const shown = queue().slice(0, 5)
     for (const action of shown) {
+      const draftFields = props.drafts?.[action.id]
+      const draft =
+        draftFields && Object.keys(draftFields).length > 0
+          ? { actionId: action.id, fields: draftFields }
+          : undefined
       list.push({
         id: `approval-${action.id}`,
         tier: 'review',
@@ -154,6 +216,7 @@ export function AttentionInbox(props: {
         consequence: action.approval_expires_at
           ? `Approval expires ${new Date(action.approval_expires_at).toLocaleDateString()}`
           : undefined,
+        draft,
         // The approval is the whole item. It used to be a link to the
         // operations board, which meant the one thing the inbox exists to
         // collect was the one thing it could not do.
@@ -163,7 +226,10 @@ export function AttentionInbox(props: {
           pendingLabel: 'Approving…',
           success: 'Approved — the action is executing',
           execute: async () => {
-            await api.approveOpportunityAction(props.slug, action.id)
+            const revision = draftFields
+              ? changedFields(draftFields, edits()[action.id] ?? {})
+              : undefined
+            await api.approveOpportunityAction(props.slug, action.id, revision ? { revision } : undefined)
             setApproved(prev => new Set(prev).add(action.id))
             refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
           },
@@ -223,6 +289,12 @@ export function AttentionInbox(props: {
     busy={busy() === item.id}
     disabled={busy() !== null && busy() !== item.id}
     confirming={confirming() === item.id}
+    error={itemErrors()[item.id]}
+    editing={item.draft ? editing().has(item.draft.actionId) : false}
+    hasEdits={Boolean(editedRevision(item))}
+    edited={item.draft ? (edits()[item.draft.actionId] ?? item.draft.fields) : {}}
+    onEdit={(field, value) => editField(item, field, value)}
+    onToggleEdit={() => { if (item.draft) toggleEdit(item.draft.actionId) }}
     onRun={() => void carryOut(item)}
     onReveal={props.onReveal}
   />
@@ -324,6 +396,12 @@ function AttentionItemRow(props: {
   busy: boolean
   disabled: boolean
   confirming: boolean
+  error?: string
+  editing: boolean
+  hasEdits: boolean
+  edited: Record<string, string>
+  onEdit: (field: string, value: string) => void
+  onToggleEdit: () => void
   onRun: () => void
   onReveal: (tab: string, anchor?: string) => void
 }) {
@@ -335,8 +413,25 @@ function AttentionItemRow(props: {
       <Show when={props.item.consequence}>
         <small class="text-xs text-warning-foreground font-medium leading-[1.4]">{props.item.consequence}</small>
       </Show>
+      <Show when={props.item.draft}>{draft =>
+        <DraftEditor
+          fields={draft().fields}
+          value={props.edited}
+          onChange={props.onEdit}
+          editing={props.editing}
+          onToggle={props.onToggleEdit}
+        />
+      }</Show>
+      <Show when={props.error}>
+        <small class="text-xs text-destructive font-medium leading-[1.4]">{props.error}</small>
+      </Show>
     </div>
     <div class="flex gap-2 shrink-0 items-center flex-wrap">
+      <Show when={props.item.draft && !props.editing}>
+        <Button size="sm" variant="ghost" writes disabled={props.disabled || props.busy} onClick={props.onToggleEdit}>
+          Edit
+        </Button>
+      </Show>
       <Show when={props.item.run}>{run =>
         <Button
           size="sm"
@@ -346,7 +441,7 @@ function AttentionItemRow(props: {
           onClick={props.onRun}
         >
           <Show when={props.busy}><Spinner /></Show>
-          {props.busy ? run().pendingLabel : props.confirming ? run().confirmLabel : run().label}
+          {props.busy ? run().pendingLabel : props.confirming ? (props.hasEdits ? 'Yes, approve as edited' : run().confirmLabel) : run().label}
         </Button>
       }</Show>
       <Show when={props.item.goto}>{destination =>

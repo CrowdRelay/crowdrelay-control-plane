@@ -296,7 +296,7 @@ export function OpportunityBoardPanel(props: {
     if (!entry.action_id) return
     const remember = rememberTarget()
     void decide(`do:${entry.decision_id}`, async () => {
-      const result = await api.approveOpportunityAction(props.slug, entry.action_id!, remember ? {} : undefined)
+      const result = await api.approveOpportunityAction(props.slug, entry.action_id!, remember ? { remember: {} } : undefined)
       // Upstream answers `remembered` — the grant may legitimately not exist
       // (an action with no coverable target), which is said rather than
       // assumed.
