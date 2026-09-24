@@ -35,8 +35,11 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: control_plane_migration_test
+        # Ephemeral host port: `[self-hosted, arm64]` matches more than one
+        # runner on the shared host, so a PR run and a main run can overlap —
+        # a fixed 5435 made the second one die at "port is already allocated".
         ports:
-          - 5435:5432
+          - 5432
         # --tmpfs keeps postgres data in RAM — the image's declared VOLUME
         # would otherwise leave an anonymous volume behind on every run.
         # postgres 18+ declares VOLUME /var/lib/postgresql (PGDATA lives in
@@ -127,7 +130,7 @@ jobs:
             echo "==> ${migration}"
             psql \
               --host 127.0.0.1 \
-              --port 5435 \
+              --port "${{ job.services.postgres.ports['5432'] }}" \
               --username postgres \
               --dbname control_plane_migration_test \
               --set ON_ERROR_STOP=1 \
