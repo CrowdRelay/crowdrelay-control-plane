@@ -55,7 +55,7 @@ export function OutreachWavesPanel(props: { slug: string }) {
                 <Show when={!wave.anchor_active}><Badge variant="warning">its moment has passed</Badge></Show>
                 <span class="text-xs text-muted-foreground">{wave.third_party_budget_remaining} sends left in today's ceiling</span>
                 <div class="ml-auto flex items-center gap-2">
-                  <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} search={{ tab: 'inbox' }} class="text-xs text-muted-foreground underline underline-offset-4">Read the pitches</Link>
+                  <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class="text-xs text-muted-foreground underline underline-offset-4">Read the pitches</Link>
                   <Show when={wave.anchor_active}>
                     <SurfaceAction
                       slug={props.slug}

@@ -105,7 +105,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'place-detail', pillar: 'aggregate', home: { path: '/audience?tab=communities', section: 'A community, opened' }, title: 'A community, opened',
+    id: 'place-detail', pillar: 'aggregate', home: { path: '/audience?tab=communities', section: 'House rules and where we stand' }, title: 'A community, opened',
     purpose: 'One registered place: its rules, the evidence it is real, and where outreach stands.',
     read: { path: 'audience-graph/places/{place_id}', paramSources: { place_id: 'text' } },
     actions: [
@@ -624,7 +624,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   { id: 'findings', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Reconciliation findings', purpose: 'Where the apps disagree about the same fact.', read: { path: 'ecosystem/findings', query: [{ name: 'open_only', label: 'Open only', kind: 'select', options: ['true', 'false'] }, { name: 'limit', label: 'Limit', kind: 'number' }] } },
   { id: 'reach', pillar: 'operate', home: { path: '/intelligence?tab=brief', section: 'Who it reached' }, title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
   {
-    id: 'approvals', pillar: 'operate', home: { path: '/attention?tab=inbox', section: 'Inbox' }, title: 'Approve and assign actions',
+    id: 'approvals', pillar: 'operate', home: { path: '/attention', section: 'Needs you now' }, title: 'Approve and assign actions',
     purpose: 'Approve several parked actions at once, or hand one to a team member.',
     actions: [
       { label: 'Approve several', method: 'POST', path: 'autopilot/actions/approve', confirm: 'Approved actions run — some reach real people.', fields: [{ name: 'action_ids', label: 'Action ids', kind: 'lines', lines: 'strings', required: true, hint: 'one id per line' }] },
