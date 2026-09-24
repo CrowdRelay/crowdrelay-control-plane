@@ -196,15 +196,32 @@ export const CommandPalette: Component = () => {
           perform: () => navigate({ to: `/tenants/$slug${qe.suffix}`, params: { slug } }),
         })
       }
-      if (platform) list.push(
-        { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, icon: () => <RefreshCw />, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
-        { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, icon: () => <Trash2 />, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
-        { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, icon: () => <ClipboardList />, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
-        { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', icon: () => <Rocket />, confirm: true, perform: async () => { await api.deployTenant(slug) } },
-        { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, icon: () => <CircleSlash />, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
-        { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', icon: () => <Pause />, confirm: true, perform: async () => { await api.suspend(slug) } },
-        { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, icon: () => <Play />, confirm: true, perform: async () => { await api.resume(slug) } },
-      )
+      if (platform) {
+        // Deploy authority splits on ownership: externally-owned tenants
+        // redeploy through `deployTenant` (the ecosystem-deploy workflow),
+        // provisioner-managed tenants get a `planned` job a platform admin
+        // approves via `reprovision`. Offering either to the wrong kind is
+        // a guaranteed 403 or a job nothing ever claims.
+        const t = visible.find(row => row.slug === slug)
+        list.push(
+          { id: `act-${slug}-reconcile`, label: `Reconcile ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} reconcile sync`, icon: () => <RefreshCw />, confirm: true, perform: async () => { await api.runReconciliation(slug) } },
+          { id: `act-${slug}-dead`, label: `Clear dead deliveries · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} dead deliveries clear outbox`, icon: () => <Trash2 />, confirm: true, perform: async () => { await api.clearDeadDeliveries(slug) } },
+        )
+        if (t?.canProvision) list.push(
+          { id: `act-${slug}-plan`, label: `Plan provisioning · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning plan job`, icon: () => <ClipboardList />, confirm: true, perform: async () => { await api.planProvisioning(slug) } },
+        )
+        if (t && !t.canProvision) list.push(
+          { id: `act-${slug}-deploy`, label: `Deploy latest · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} deploy provision release`, hint: 'latest version', icon: () => <Rocket />, confirm: true, perform: async () => { await api.deployTenant(slug) } },
+        )
+        if (t?.canProvision && authState.isAdmin()) list.push(
+          { id: `act-${slug}-approve`, label: `Approve deployment · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} approve provisioning deploy managed`, hint: 'hands the plan to the deploy agent', icon: () => <Rocket />, confirm: true, perform: async () => { await api.reprovisionTenant(slug) } },
+        )
+        list.push(
+          { id: `act-${slug}-cancel`, label: `Cancel provisioning job · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} provisioning cancel job`, icon: () => <CircleSlash />, confirm: true, perform: async () => { await api.cancelProvisioning(slug) } },
+          { id: `act-${slug}-suspend`, label: `Suspend tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} suspend pause disable`, hint: 'stops tenant traffic handling', icon: () => <Pause />, confirm: true, perform: async () => { await api.suspend(slug) } },
+          { id: `act-${slug}-resume`, label: `Resume tenant · ${slug}`, group: 'Actions', kind: 'mutate', keywords: `${slug} resume enable restore`, icon: () => <Play />, confirm: true, perform: async () => { await api.resume(slug) } },
+        )
+      }
     }
     return list
   })

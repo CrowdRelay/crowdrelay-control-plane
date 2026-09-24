@@ -1,8 +1,6 @@
 import { createMemo, createSignal } from 'solid-js'
 import type { Component } from 'solid-js'
 import { Button } from '../app/button'
-import { Input } from '../ui/input'
-import { Field } from '../ui/field'
 import { NativeSelect } from '../ui/native-select'
 
 type Props = {
@@ -18,7 +16,6 @@ type Props = {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-const finite = (raw: string, fallback: number) => { const value = Number(raw); return Number.isFinite(value) ? value : fallback }
 
 export const LocationCanvas: Component<Props> = (props) => {
   const [mode, setMode] = createSignal<'world'|'local'>('world')
@@ -60,7 +57,9 @@ export const LocationCanvas: Component<Props> = (props) => {
       <rect width="100" height="100" class="area-grid-fill" />
       {mode()==='world' ? <><path d="M50 0 V100 M0 50 H100" class="area-axis" />{props.publicLat != null && props.publicLng != null && <circle cx={publicWorldPoint().x} cy={publicWorldPoint().y} r="1.6" class="area-public-point" />}{props.exactLat != null && props.exactLng != null && <circle cx={worldPoint().x} cy={worldPoint().y} r="2.2" class="area-exact-point" />}</> : <><path d="M50 4 V96 M4 50 H96" class="area-axis" />{props.publicLat != null && props.publicLng != null && <circle cx={publicLocalPoint().x} cy={publicLocalPoint().y} r="1.6" class="area-public-point" />}{props.exactLat != null && props.exactLng != null && <><circle cx={exactLocalPoint().x} cy={exactLocalPoint().y} r={radiusPercent()} class="area-radius" /><circle cx={exactLocalPoint().x} cy={exactLocalPoint().y} r="2.2" class="area-exact-point" /></>}</>}
     </svg>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><Field label="Exact latitude"><Input type="number" min="-90" max="90" step="0.000001" value={String(props.exactLat ?? '')} onChange={e=>{ const lat = finite(e.currentTarget.value, exactLat() ?? Number.NaN); const lng = exactLng(); if (Number.isFinite(lat) && lng != null) props.onPick(clamp(lat,-90,90), lng) }}/></Field><Field label="Exact longitude"><Input type="number" min="-180" max="180" step="0.000001" value={String(props.exactLng ?? '')} onChange={e=>{ const lat = exactLat(); const lng = finite(e.currentTarget.value, exactLng() ?? Number.NaN); if (lat != null && Number.isFinite(lng)) props.onPick(lat, clamp(lng,-180,180)) }}/></Field></div>
+    {/* Exact coordinates are typed into the nullable fields below the canvas
+        (AreaPage) — blank means "no point", never a fabricated 0. The canvas
+        picks by click only, where a click is always a real coordinate. */}
     <div class="area-map-legend"><span><i class="dot public"/>Canonical city reference</span><span><i class="dot exact"/>Private exact claim point</span><span>{mode()==='world' ? 'global 360° × 180°' : `${localSpanKm()} km refinement`} · no external tiles</span></div>
   </div>
 }

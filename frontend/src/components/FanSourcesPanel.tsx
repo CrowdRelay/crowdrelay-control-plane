@@ -134,11 +134,11 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'gdrive', label: 'Google Drive', icon: 'gdrive', provides: 'Contacts from your spreadsheets — deduplicated by email into the Contacts review queue',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gdrive/authorize?redirect=/tenants/${slug}/audience?tab=contacts`,
+    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gdrive/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
   },
   {
     value: 'gmail', label: 'Gmail', icon: 'gmail', provides: 'Contacts from your mailbox headers — same deduplicated Contacts review queue as Drive',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gmail/authorize?redirect=/tenants/${slug}/audience?tab=contacts`,
+    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gmail/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
   },
 ]
 
@@ -487,11 +487,16 @@ export function FanSourcesPanel(props: {
   // OAuth providers leave the page for the grant. The scope the operator
   // chose survives in sessionStorage and is applied to the connection when
   // it appears — no unscoped window where the connection reads everything.
+  // Platforms with no scan vocabulary (TikTok) skip this entirely: upstream
+  // refuses a stored scope for them, so writing one would only manufacture
+  // an error the tile cannot clear.
   const beginAuthorize = (spec: PlatformSpec) => {
     setErrorText(null)
     try {
-      const scope = buildScope(pendingScopeKind(), pendingScopeValue())
-      sessionStorage.setItem(PENDING_SCOPE_KEY(props.slug, spec.value), JSON.stringify(scope))
+      if (SCOPE_KINDS[spec.value]) {
+        const scope = buildScope(pendingScopeKind(), pendingScopeValue())
+        sessionStorage.setItem(PENDING_SCOPE_KEY(props.slug, spec.value), JSON.stringify(scope))
+      }
       window.location.href = spec.authorizeUrl!(props.slug)
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Check the scope')
@@ -505,6 +510,9 @@ export function FanSourcesPanel(props: {
       const raw = sessionStorage.getItem(key)
       if (!raw) continue
       sessionStorage.removeItem(key)
+      // A platform with no scan vocabulary can never take a scope — drop the
+      // carry-over rather than feed upstream a scope it refuses.
+      if (!SCOPE_KINDS[conn.platform]) continue
       if (conn.scan_scope) continue
       try {
         const scope = JSON.parse(raw) as ScanScope
@@ -526,10 +534,15 @@ export function FanSourcesPanel(props: {
     return spec.fields.every(field => (values()[field.key] ?? '').trim().length > 0)
   }
 
-  // OAuth platforms get a scope step between the grant and the review —
-  // credential platforms have nothing to scope, so theirs is a two-step guide.
+  // Scoped OAuth platforms (Drive, Gmail) get a scope step between the grant
+  // and the review. OAuth platforms with no scan vocabulary (TikTok) and
+  // credential platforms have nothing to scope — a two-step guide.
   const connectSteps = () =>
-    connecting()?.authorizeUrl ? ['The grant', 'What it may read', 'Review'] : ['Details', 'Review']
+    connecting()?.authorizeUrl
+      ? SCOPE_KINDS[connecting()!.value]
+        ? ['The grant', 'What it may read', 'Review']
+        : ['The grant', 'Review']
+      : ['Details', 'Review']
 
   // `connected` alone is not health. A channel whose last sync failed shows
   // warn, so the badge stops contradicting the error printed beside it.
@@ -782,7 +795,7 @@ export function FanSourcesPanel(props: {
             onClick={() => {
               // The scope step validates before it moves on — a scope the
               // provider would reject is caught here, not after the grant.
-              if (connecting()?.authorizeUrl && connectStep() === 1) {
+              if (connecting()?.authorizeUrl && connectStep() === 1 && SCOPE_KINDS[connecting()!.value]) {
                 try { buildScope(pendingScopeKind(), pendingScopeValue()) } catch (err) { setErrorText(err instanceof Error ? err.message : 'Check the scope'); return }
               }
               setErrorText(null)
@@ -825,14 +838,14 @@ export function FanSourcesPanel(props: {
         }>
           <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
             {connecting()?.label} handles access itself — you leave this page, grant it there, and come straight back.
-            Nothing is read until the next step says what it may read.
+            {SCOPE_KINDS[connecting()!.value] ? ' Nothing is read until the next step says what it may read.' : ''}
           </p>
         </Show>
       </Show>
 
       {/* Step 2 — scope (OAuth only): the read boundary, chosen before the
           grant so the connection is never unscoped. */}
-      <Show when={connectStep() === 1 && connecting()?.authorizeUrl}>
+      <Show when={connectStep() === 1 && connecting()?.authorizeUrl && SCOPE_KINDS[connecting()!.value]}>
         <div class="flex flex-col gap-4">
           <Field label="What it may read" hint={SCOPE_HINT[pendingScopeKind()]}>
             <NativeSelect value={pendingScopeKind()} onChange={e => setPendingScopeKind(e.currentTarget.value as ScopeKind)}>
@@ -861,10 +874,16 @@ export function FanSourcesPanel(props: {
               </>)}</For>
             </dl>
           }>
-            <p class="m-0 text-secondary-foreground">
-              Reads {(() => { try { return describeScope(buildScope(pendingScopeKind(), pendingScopeValue())) } catch { return 'nothing — the scope still needs an answer' } })()}.
-              You grant access on {connecting()?.label}'s own page, then land back here with that boundary already set.
-            </p>
+            <Show when={SCOPE_KINDS[connecting()!.value]} fallback={
+              <p class="m-0 text-secondary-foreground">
+                You grant access on {connecting()?.label}'s own page, then land back here.
+              </p>
+            }>
+              <p class="m-0 text-secondary-foreground">
+                Reads {(() => { try { return describeScope(buildScope(pendingScopeKind(), pendingScopeValue())) } catch { return 'nothing — the scope still needs an answer' } })()}.
+                You grant access on {connecting()?.label}'s own page, then land back here with that boundary already set.
+              </p>
+            </Show>
           </Show>
         </div>
       </Show>

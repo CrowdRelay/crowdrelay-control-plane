@@ -79,6 +79,19 @@ export function BookingAgentsPanel(props: { slug: string }) {
   const [holdLeft, setHoldLeft] = createSignal(0)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['booking-agents', props.slug] })
+  // A queued/approved/cancelled approach is the same parked action the
+  // decisions board, Today's attention queue and the brain/delivery models
+  // all list — the canonical set BrainBriefPanel.invalidateParked uses.
+  // Refetch-on-focus is off, so a missed key here leaves the action
+  // invisible (or stale "awaiting") until remount.
+  const invalidateParked = () =>
+    refreshQueries(
+      ['intelligence-brief', props.slug],
+      ['tenant-operator-attention-snapshot', props.slug],
+      ['tenant-today', props.slug],
+      ['tenant-brain', props.slug],
+      ['tenant-delivery', props.slug],
+    )
 
   const openGuide = (agent: BookingAgent) => {
     setGuideAgent(agent)
@@ -98,6 +111,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       const result = await api.approachBookingAgent(props.slug, agent.agent_id, guideNote().trim() || undefined)
       setGuideActionId(result.action_id)
       setGuideStep(1)
+      invalidateParked()
       await invalidate()
     } catch (error) {
       setGuideError(errorMessage(error, 'Could not queue the approach'))
@@ -119,7 +133,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       // countdown is labelled "about".
       setHoldEndsAt(Date.now() + 120_000)
       setGuideStep(2)
-      refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
+      invalidateParked()
       await invalidate()
     } catch (error) {
       setGuideError(errorMessage(error, 'Approval did not land'))
@@ -137,7 +151,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       await api.cancelOpportunityAction(props.slug, id)
       toast.success('Cancelled — the letter never left.')
       setGuideAgent(null)
-      refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
+      invalidateParked()
       await invalidate()
     } catch (error) {
       setGuideError(errorMessage(error, 'The cancel did not land — check the decisions board'))
@@ -166,6 +180,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
     try {
       await api.recordBookingAgentReply(props.slug, agent.agent_id, disposition(), `${repliedOn()}T00:00:00Z`)
       setReplyFor(null)
+      invalidateParked()
       await invalidate()
       toast.success('Reply filed — the season door is updated.')
     } catch (error) {

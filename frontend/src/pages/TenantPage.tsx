@@ -160,7 +160,13 @@ export function TenantPage() {
   const park = useMutation(() => ({ mutationFn: (reason?: string) => api.park(params().slug, reason), onSuccess: refreshTenant }))
   const unpark = useMutation(() => ({ mutationFn: () => api.unpark(params().slug), onSuccess: refreshTenant }))
   const plan = useMutation(() => ({ mutationFn: () => api.planProvisioning(params().slug, desiredVersion() || platform()?.provisionerDefaultImageTag || undefined), onSuccess: (job) => setPreview(job) }))
-  const deploy = useMutation(() => ({ mutationFn: () => api.deployTenant(params().slug, desiredVersion()), onSuccess: async () => { setPreview(null); await refreshProvisioning() } }))
+  // The section below only renders for provisioner-managed tenants
+  // (`canProvision !== false`), and `deploy_tenant` refuses those tenants by
+  // design — "redeploy is only available for externally-owned tenants". The
+  // managed path is `reprovision`: a platform admin turns the previewed
+  // `planned` job into the `approved` one the provisioner actually claims.
+  // Externally-owned tenants redeploy from Health → Runtime, not here.
+  const deploy = useMutation(() => ({ mutationFn: () => api.reprovisionTenant(params().slug, desiredVersion() || undefined), onSuccess: async () => { setPreview(null); await refreshProvisioning() } }))
   const cancel = useMutation(() => ({ mutationFn: () => api.cancelProvisioning(params().slug), onSuccess: refreshProvisioning }))
   // Removal is the one action here that cannot be undone from this screen, so
   // the confirmation is the slug typed out rather than a second button.
@@ -174,7 +180,11 @@ export function TenantPage() {
     },
   }))
   const latestJob = createMemo(() => provisioning.data?.items[0])
-  const deploymentBusy = createMemo(() => ['planned', 'approved', 'running'].includes(latestJob()?.status ?? ''))
+  // `planned` is the preview state — it sits waiting for an admin to approve
+  // it via reprovision, not for the provisioner. Counting it as busy made
+  // every "Deploy this plan" click unreachable: the preview itself produced
+  // the block.
+  const deploymentBusy = createMemo(() => ['approved', 'running'].includes(latestJob()?.status ?? ''))
   const requestedVersion = createMemo(() => desiredVersion().trim() || platform()?.provisionerDefaultImageTag || '')
   const releaseReady = createMemo(() => /^sha-[0-9a-f]{40}$/.test(requestedVersion()))
   const isAdmin = createMemo(() => authState.isAdmin())
@@ -576,7 +586,13 @@ export function TenantPage() {
                 </Field>
                 <div class="flex gap-2 pb-6">
                   <Button writes variant="outline" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>{preview() ? 'Preview again' : 'Preview'}</Button>
-                  <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{preview() ? 'Deploy this plan' : latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                  {/* Only a platform admin may approve a managed tenant's plan
+                      (reprovision) — for anyone else the button could only
+                      403, and a control that always fails is worse than none.
+                      The planned job waits visibly on the rail instead. */}
+                  <Show when={isAdmin()}>
+                    <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl || platform()?.provisionerConfigured === false}>{preview() ? 'Deploy this plan' : latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                  </Show>
                 </div>
               </div>
               <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
@@ -599,6 +615,7 @@ export function TenantPage() {
                   </ol>
                   <div class="mt-2 flex items-center justify-between gap-2"><small class="text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
                 </Show>
+                <Show when={job().status === 'planned'}><p class="mt-2 text-sm text-muted-foreground">Planned and waiting — a platform admin approves it, then the deploy agent picks it up.</p></Show>
                 <Show when={job().status === 'approved'}><p class="mt-2 text-sm text-muted-foreground">Queued for deployment. Nothing changes until the deploy agent picks it up.</p></Show>
                 <Show when={job().status === 'running'}><p class="mt-2 text-sm text-muted-foreground">Deployment is running. This typically takes 2–5 minutes.</p></Show>
                 <Show when={job().status === 'succeeded'}><div class="mt-3 rounded-lg bg-background p-3">
