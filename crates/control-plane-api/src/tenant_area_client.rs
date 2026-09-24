@@ -1283,6 +1283,18 @@ async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool),
         buf.extend_from_slice(&chunk[..read]);
     };
 
+    // A 204, a 304 and any 1xx carry no body whatever the headers say
+    // (RFC 9112 §6.3), and hyper sends its 204 with neither Content-Length
+    // nor chunking. Falling through to the read-until-EOF fallback below
+    // then waited on a keep-alive socket the upstream never closes: every
+    // proxied write CrowdRelay answers 204 — registering a manual post,
+    // setting a QR code's context — landed upstream in milliseconds and
+    // reached the operator as a 504 eight seconds later.
+    if status_has_no_body(&buf[..header_end]) {
+        buf.truncate(header_end + 4);
+        return Ok((buf, true));
+    }
+
     // Phase 2: parse the framing from the headers we have.
     let (content_length, transfer_chunked, connection_close) =
         parse_response_framing(&buf[..header_end])?;
@@ -1411,6 +1423,20 @@ async fn read_framed_response(stream: &mut TcpStream) -> Result<(Vec<u8>, bool),
         buf.extend_from_slice(&chunk[..read]);
     }
     Ok((buf, false))
+}
+
+/// Whether the status line names a response that never has a body.
+fn status_has_no_body(headers: &[u8]) -> bool {
+    let line = headers
+        .split(|byte| *byte == b'\n')
+        .next()
+        .unwrap_or_default();
+    let code = line
+        .split(|byte| *byte == b' ')
+        .nth(1)
+        .and_then(|code| std::str::from_utf8(code).ok())
+        .and_then(|code| code.trim().parse::<u16>().ok());
+    matches!(code, Some(100..=199 | 204 | 304))
 }
 
 /// Find the position of the `\r\n\r\n` header terminator in a buffer.
@@ -1817,6 +1843,50 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// A 204 on a keep-alive socket carries no framing headers and no body;
+    /// the reader must return at the header terminator instead of waiting
+    /// for a close the upstream never sends.
+    #[tokio::test]
+    async fn a_204_on_a_kept_alive_socket_returns_without_waiting_for_close() {
+        use tokio::io::AsyncWriteExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let address = listener.local_addr().expect("address");
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept");
+            socket
+                .write_all(
+                    b"HTTP/1.1 204 No Content\r\ndate: Thu, 24 Sep 2026 19:00:00 GMT\r\n\r\n",
+                )
+                .await
+                .expect("write");
+            // Hold the connection open, as a keep-alive upstream does.
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        });
+        let mut stream = TcpStream::connect(address).await.expect("connect");
+        let (raw, reusable) = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            read_framed_response(&mut stream),
+        )
+        .await
+        .expect("a 204 must not wait for the socket to close")
+        .expect("read");
+        assert!(reusable);
+        assert!(raw.starts_with(b"HTTP/1.1 204"));
+        server.abort();
+    }
+
+    #[test]
+    fn only_bodiless_statuses_skip_the_framing() {
+        assert!(status_has_no_body(b"HTTP/1.1 204 No Content"));
+        assert!(status_has_no_body(b"HTTP/1.1 304 Not Modified\r\netag: x"));
+        assert!(status_has_no_body(b"HTTP/1.1 101 Switching Protocols"));
+        assert!(!status_has_no_body(b"HTTP/1.1 200 OK"));
+        assert!(!status_has_no_body(b"HTTP/1.1 404 Not Found"));
+        assert!(!status_has_no_body(b"garbage"));
+    }
     use super::*;
 
     #[test]
