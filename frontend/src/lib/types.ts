@@ -4513,4 +4513,26 @@ export type IntelligenceBrief = {
   blocked_communities: BlockedCommunity[]
   /// Finished work nobody published.
   unpublished_drafts: UnpublishedDraftChannel[]
+  /// What the weekly join-ask needs from a person before it can run at all.
+  ///
+  /// Optional: a CrowdRelay that predates the field does not publish it, and
+  /// an absent list is not an empty one — absent means "this tenant does not
+  /// report setup gaps", which is not the same fact as "there are none". The
+  /// panel must not claim the loop is ready on the strength of a missing key.
+  join_ask_readiness?: JoinAskGap[]
+}
+
+/// One prerequisite the weekly join-ask is waiting on, named with its remedy.
+///
+/// Fullest when the tenant is newest: this is the cold-start list, and every
+/// other field on the brief reads empty for a workspace nobody has set up —
+/// which is also what a healthy idle tenant looks like.
+export type JoinAskGap = {
+  /// The platform this stops. Absent when it stops every platform at once:
+  /// the words and the destination are written per tenant, not per channel.
+  platform?: string
+  /// Stable machine-readable reason, matching the cycle report's holds.
+  reason: string
+  /// What a person does about it.
+  remedy: string
 }

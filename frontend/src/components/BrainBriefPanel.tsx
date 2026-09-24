@@ -181,6 +181,12 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
   }
 
   const needsYou = () => brief().needs_you.filter(a => !acted().has(a.id))
+  // The setup the growth loop is waiting on before it can propose anything.
+  // `?? []` is the older-upstream case, not an assertion that there are none:
+  // the section below only claims the brain is unblocked when the tenant
+  // actually reported the list.
+  const setupGaps = () => brief().join_ask_readiness ?? []
+  const reportsSetup = () => brief().join_ask_readiness !== undefined
 
   return (
     <>
@@ -333,14 +339,39 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       <Section
         title="Needs you"
         icon={<SectionIcon name="bell" />}
-        count={needsYou().length}
-        description="Actions parked for approval. Each one is waiting on a person."
+        count={needsYou().length + setupGaps().length}
+        description="Actions parked for approval, and the setup the growth loop is waiting on. Each one is waiting on a person."
       >
         <Show
-          when={needsYou().length > 0}
-          fallback={<EmptyState label="Nothing waiting" hint="The brain is not blocked on you — it either acted or decided not to." />}
+          when={needsYou().length > 0 || setupGaps().length > 0}
+          fallback={
+            <EmptyState
+              label="Nothing waiting"
+              hint={
+                reportsSetup()
+                  ? 'The brain is not blocked on you — it either acted or decided not to.'
+                  : 'No approvals waiting. This tenant does not report setup gaps, so the growth loop may still be unconfigured.'
+              }
+            />
+          }
         >
           <div class="flex flex-col gap-2">
+            {/* Setup first: these gate everything below them. A workspace
+                missing its own words produces no decision, so an empty
+                approvals queue underneath is a consequence, not health. */}
+            <For each={setupGaps()}>
+              {gap => (
+                <div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-foreground">
+                      Join-ask setup{gap.platform ? ` · ${gap.platform}` : ''}
+                    </p>
+                    <p class="mt-0.5 text-xs text-muted-foreground">{gap.remedy}</p>
+                  </div>
+                  <StatusBadge status="setup" tone="warn" />
+                </div>
+              )}
+            </For>
             <For each={needsYou()}>
               {action => (
                 <div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
