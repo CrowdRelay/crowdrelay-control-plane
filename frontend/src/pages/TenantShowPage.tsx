@@ -261,8 +261,18 @@ function DetailLine(props: { step: ShowTimelineStep }) {
         return `${(d().notified as number) ?? 0} fans notified`
       case 'capture_plan':
         return `Plan ${(d().status as string) ?? 'pending'}`
-      case 'the_scan':
-        return `${(d().checkins as number) ?? 0} scanned${d().campaign_ready ? '' : ' · no QR yet'}`
+      case 'the_scan': {
+        const scanned = `${(d().checkins as number) ?? 0} scanned${d().campaign_ready ? '' : ' · no QR yet'}`
+        // What the room produced, not only how many phones pointed at the
+        // door: a returning fan's scan adds nobody. Absent on an upstream
+        // that predates the split, and then the line says only what it knows.
+        const fresh = d().new_fans as number | undefined
+        if (fresh == null || !d().checkins) return scanned
+        if (fresh === 0) return `${scanned} · none new`
+        const reachable = (d().new_reachable as number) ?? 0
+        const unconfirmed = (d().new_unconfirmed as number) ?? 0
+        return `${scanned} · ${fresh} new: ${reachable} reachable${unconfirmed ? `, ${unconfirmed} unconfirmed` : ''}`
+      }
       case 'recall': {
         const st = d().action_status as string | null | undefined
         const c = d().campaign as { subject?: string | null; delivered?: number | null; status?: string } | null | undefined
