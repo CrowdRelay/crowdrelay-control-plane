@@ -34,13 +34,18 @@ Skips direction B entirely when the sibling checkout is absent.
 
 from __future__ import annotations
 
+import os
 import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "crates/control-plane-api/src"
-CROWDRELAY_API = ROOT.parent / "crowdrelay" / "crates/crowdrelay-api/src"
+# CROWDRELAY_ROOT like the other cross-repo gates: from a worktree the sibling
+# path does not exist, and this test used to skip there without a word.
+CROWDRELAY_API = (
+    Path(os.environ.get("CROWDRELAY_ROOT", ROOT.parent / "crowdrelay")) / "crates/crowdrelay-api/src"
+)
 
 PROXY_CALLER_FILES = [
     "read_models.rs",
@@ -115,7 +120,7 @@ class AllowlistedPathsExistUpstream(unittest.TestCase):
     def test_every_allowlist_arm_is_registered_upstream(self) -> None:
         upstream = upstream_routes()
         if upstream is None:
-            self.skipTest("sibling crowdrelay checkout not present")
+            self.skipTest("no crowdrelay checkout beside this one (set CROWDRELAY_ROOT)")
         dead: list[str] = []
         for literal in sorted(allowlist_arms()):
             # Trailing-slash literals are segment-validator prefixes for the
