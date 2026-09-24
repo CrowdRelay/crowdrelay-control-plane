@@ -18,6 +18,10 @@ import type { ChannelPerformance } from '../lib/types'
 const pct = (basisPoints: number | null) =>
   basisPoints == null ? '—' : `${(basisPoints / 100).toFixed(1)}%`
 
+// Absent means the upstream predates the count, not that nobody left.
+const departedCell = (departed: number | undefined) =>
+  departed == null ? '—' : departed.toLocaleString()
+
 const channelName = (channel: ChannelPerformance) =>
   channel.attribution.evidence === 'attributed'
     ? channel.attribution.source.replace(/_/g, ' ')
@@ -88,6 +92,10 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
               <TableHead class="text-right">Signups</TableHead>
               <TableHead class="text-right">Activated</TableHead>
               <TableHead class="text-right">Activation</TableHead>
+              {/* Signups count only people who stayed, so a channel that
+                  churns hard looks exactly like a smaller one that did not.
+                  This is the column that tells them apart. */}
+              <TableHead class="text-right">Left</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -107,10 +115,11 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
                 <TableCell numeric class="font-semibold">{channel.signups.toLocaleString()}</TableCell>
                 <TableCell numeric>{channel.activated_30d.toLocaleString()}</TableCell>
                 <TableCell numeric class="text-secondary-foreground">{pct(channel.activation_basis_points)}</TableCell>
+                <TableCell numeric class="text-secondary-foreground">{departedCell(channel.departed)}</TableCell>
               </TableRow>
               <Show when={channel.best_action}>
                 <TableRow>
-                  <TableCell colSpan={5} class="whitespace-normal pb-3 pt-0 text-sm leading-relaxed text-secondary-foreground">
+                  <TableCell colSpan={6} class="whitespace-normal pb-3 pt-0 text-sm leading-relaxed text-secondary-foreground">
                     {channel.best_action}
                   </TableCell>
                 </TableRow>
@@ -135,6 +144,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
                 <TableHead>{authState.isPlatformLevel() ? 'Why it could not be attributed' : 'Why we cannot tell'}</TableHead>
                 <TableHead class="text-right">Signups</TableHead>
                 <TableHead class="text-right">Activated</TableHead>
+                <TableHead class="text-right">Left</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -146,6 +156,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
                   </TableCell>
                   <TableCell numeric>{item.signups.toLocaleString()}</TableCell>
                   <TableCell numeric>{item.activated_30d.toLocaleString()}</TableCell>
+                  <TableCell numeric>{departedCell(item.departed)}</TableCell>
                 </TableRow>
               )}</For>
             </TableBody>
