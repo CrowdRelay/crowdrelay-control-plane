@@ -1,5 +1,6 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage } from '../lib/format'
@@ -55,8 +56,10 @@ type PlatformSpec = {
   icon: string
   /** What the connection actually gives us, in the operator's terms. */
   provides: string
-  /** Redirect-based providers have no form — the provider collects the grant. */
-  authorizeUrl?: (slug: string) => string
+  /** Redirect-based providers have no form — the provider collects the
+   *  grant, on the tenant's own public API. `apiBase` is that tenant's
+   *  configured Public API URL — never a borrowed host. */
+  authorizeUrl?: (slug: string, apiBase: string) => string
   fields?: ConnectField[]
   connect?: (slug: string, values: Record<string, string>) => Promise<unknown>
 }
@@ -72,7 +75,7 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'tiktok', label: 'TikTok', icon: 'tiktok', provides: 'Follower count and video engagement',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/tiktok/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/tiktok/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
   },
   {
     value: 'discord', label: 'Discord', icon: 'discord', provides: 'Server member count and presence',
@@ -82,7 +85,7 @@ const PLATFORMS: PlatformSpec[] = [
   {
     value: 'telegram', label: 'Telegram', icon: 'telegram', provides: 'Channel subscriber count',
     fields: [
-      { key: 'channel', label: 'Telegram channel', hint: 'The public channel username.', placeholder: '@virya_music' },
+      { key: 'channel', label: 'Telegram channel', hint: 'The public channel username.', placeholder: '@yourchannel' },
       { key: 'botToken', label: 'Bot token', hint: 'Issued by @BotFather. Stored encrypted; never shown again.', placeholder: '123456:ABC-DEF…', type: 'password' },
     ],
     connect: (slug, v) => api.createTelegramConnection(slug, (v.channel ?? '').trim(), (v.botToken ?? '').trim()),
@@ -104,12 +107,12 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'bluesky', label: 'Bluesky', icon: 'bluesky', provides: 'Follower count and post engagement',
-    fields: [{ key: 'handle', label: 'Bluesky handle', hint: 'The full handle including its domain.', placeholder: 'virya.bsky.social' }],
+    fields: [{ key: 'handle', label: 'Bluesky handle', hint: 'The full handle including its domain.', placeholder: 'yourband.bsky.social' }],
     connect: one('handle')(api.createBlueskyConnection),
   },
   {
     value: 'bandcamp', label: 'Bandcamp', icon: 'bandcamp', provides: 'Supporters and merch sales',
-    fields: [{ key: 'subdomain', label: 'Bandcamp subdomain', hint: 'The part before .bandcamp.com.', placeholder: 'virya' }],
+    fields: [{ key: 'subdomain', label: 'Bandcamp subdomain', hint: 'The part before .bandcamp.com.', placeholder: 'yourband' }],
     connect: one('subdomain')(api.createBandcampConnection),
   },
   {
@@ -129,16 +132,16 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'soundcloud', label: 'SoundCloud', icon: 'soundcloud', provides: 'Followers and track plays',
-    fields: [{ key: 'permalink', label: 'SoundCloud permalink', hint: 'The artist\'s permalink — "virya", or the full profile URL.', placeholder: 'virya' }],
+    fields: [{ key: 'permalink', label: 'SoundCloud permalink', hint: 'The artist\'s permalink — "yourband", or the full profile URL.', placeholder: 'yourband' }],
     connect: one('permalink')(api.createSoundcloudConnection),
   },
   {
     value: 'gdrive', label: 'Google Drive', icon: 'gdrive', provides: 'Contacts from your spreadsheets — deduplicated by email into the Contacts review queue',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gdrive/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gdrive/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
   },
   {
     value: 'gmail', label: 'Gmail', icon: 'gmail', provides: 'Contacts from your mailbox headers — same deduplicated Contacts review queue as Drive',
-    authorizeUrl: slug => `https://signal-api.virya.music/v1/public/connections/gmail/authorize?redirect=/tenants/${slug}/audience?tab=sources`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gmail/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
   },
 ]
 
@@ -210,6 +213,17 @@ export function FanSourcesPanel(props: {
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
   const refresh = () => props.onChanged()
+
+  // The tenant's own API host — OAuth grants start there, so a second
+  // tenant's credential can never land in the first tenant's workspace.
+  // Same `['tenant', slug]` observer options as every other tenant reader.
+  const tenant = useQuery(() => ({
+    queryKey: ['tenant', props.slug],
+    queryFn: () => api.tenant(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+  const apiBase = () => tenant.data?.crowdrelayBaseUrl?.replace(/\/+$/, '') ?? null
 
   const create = useMutation(() => ({
     mutationFn: () =>
@@ -497,7 +511,12 @@ export function FanSourcesPanel(props: {
         const scope = buildScope(pendingScopeKind(), pendingScopeValue())
         sessionStorage.setItem(PENDING_SCOPE_KEY(props.slug, spec.value), JSON.stringify(scope))
       }
-      window.location.href = spec.authorizeUrl!(props.slug)
+      const base = apiBase()
+      if (!base) {
+        setErrorText("Set this tenant's Public API URL first — it lives in Settings → Profile.")
+        return
+      }
+      window.location.href = spec.authorizeUrl!(props.slug, base)
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Check the scope')
     }
@@ -593,6 +612,7 @@ export function FanSourcesPanel(props: {
                       class="shrink-0"
                       variant="outline"
                       size="sm"
+                      disabled={spec.authorizeUrl !== undefined && apiBase() === null}
                       onClick={() => openConnect(spec)}
                     >Connect</Button>
                   }>
@@ -608,6 +628,24 @@ export function FanSourcesPanel(props: {
                   </Show>
                 }>
                   <p class="m-0 text-xs leading-relaxed text-muted-foreground">{spec.provides}</p>
+                </Show>
+                {/* An OAuth tile cannot offer the grant without the tenant's
+                    own host — a disabled button alone would leave "why" to a
+                    guess, so the tile names the missing setting once the
+                    tenant record has actually loaded. */}
+                <Show when={!conn() && spec.authorizeUrl !== undefined && tenant.data && apiBase() === null}>
+                  <p class="m-0 text-xs leading-relaxed text-muted-foreground">
+                    Set this tenant's Public API URL first — under{' '}
+                    <Link
+                      to="/tenants/$slug"
+                      params={{ slug: props.slug }}
+                      search={{ tab: 'profile' }}
+                      class="text-primary underline-offset-2 hover:underline"
+                    >
+                      Settings → Profile
+                    </Link>
+                    .
+                  </p>
                 </Show>
                 {/* A connected channel that never syncs is the failure mode
                     this panel could not show: five of them read `connected`

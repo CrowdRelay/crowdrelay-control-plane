@@ -1,5 +1,6 @@
 import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
+import { Link } from '@tanstack/solid-router'
 import { api, errorHeading } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
@@ -173,9 +174,20 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
   const state = () => (fed() ? props.data : listing.data)
   const targetsState = () => (fed() ? props.targets : targets.data)
   const published = () => state()?.listing?.visibility === 'admitted_readers'
+
+  // The share link opens on the tenant's own site — never a borrowed host.
+  // Same `['tenant', slug]` observer options as every other tenant reader.
+  const tenant = useQuery(() => ({
+    queryKey: ['tenant', props.slug],
+    queryFn: () => api.tenant(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+  const siteBase = () => tenant.data?.signalBaseUrl?.replace(/\/+$/, '') ?? null
   const shareUrl = createMemo(() => {
     const token = state()?.share_token
-    return token ? `https://virya.music/listing?t=${token}` : null
+    const base = siteBase()
+    return token && base ? `${base}/listing?t=${token}` : null
   })
 
   const run = async (key: string, action: () => Promise<unknown>) => {
@@ -451,6 +463,22 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
                   {acting() === 'rotate' ? 'Rotating…' : 'Revoke & rotate'}
                 </Button>
               </div>
+            </Show>
+            {/* Published but no site URL configured — say why there is no
+                link instead of printing the first tenant's host. */}
+            <Show when={published() && !shareUrl() && tenant.data}>
+              <p class="text-xs text-muted-foreground">
+                Set this tenant's site URL (
+                <Link
+                  to="/tenants/$slug"
+                  params={{ slug: props.slug }}
+                  search={{ tab: 'profile' }}
+                  class="text-primary underline-offset-2 hover:underline"
+                >
+                  Settings → Signal / site
+                </Link>
+                ) to get a share link.
+              </p>
             </Show>
           </div>
         </Show>

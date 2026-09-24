@@ -21,8 +21,6 @@ import type { AttestationSummary } from '../lib/types'
 const splitList = (value: string) =>
   value.split(',').map(part => part.trim()).filter(Boolean)
 
-const shareUrl = (token: string) => `https://virya.music/proof?t=${token}`
-
 const isCurrent = (card: AttestationSummary) =>
   !card.revoked && new Date(card.valid_until).getTime() > Date.now()
 
@@ -42,6 +40,19 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
     staleTime: 10_000,
     enabled: !fed(),
   }))
+
+  // A proof link opens on the tenant's own site — never a borrowed host.
+  // Same `['tenant', slug]` observer options as every other tenant reader.
+  const tenant = useQuery(() => ({
+    queryKey: ['tenant', props.slug],
+    queryFn: () => api.tenant(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  }))
+  const shareUrl = (token: string) => {
+    const base = tenant.data?.signalBaseUrl?.replace(/\/+$/, '')
+    return base ? `${base}/proof?t=${token}` : null
+  }
 
   const cards = createMemo(() => (fed() ? props.data : attestations.data) ?? [])
 
@@ -69,8 +80,13 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
     run(`rotate:${digest}`, () => api.rotateAttestationToken(props.slug, digest))
 
   const copy = async (token: string) => {
+    const url = shareUrl(token)
+    if (!url) {
+      setError("Set this tenant's site URL (Settings → Signal / site) to get a share link.")
+      return
+    }
     try {
-      await navigator.clipboard.writeText(shareUrl(token))
+      await navigator.clipboard.writeText(url)
       setCopied(token)
       setTimeout(() => setCopied(current => (current === token ? null : current)), 2000)
     } catch {
