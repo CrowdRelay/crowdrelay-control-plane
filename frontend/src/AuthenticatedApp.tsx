@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/solid-query'
-import { RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/solid-router'
+import { Link, RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
 import { queryClient } from './lib/queryClient'
 import { api } from './lib/api'
@@ -35,7 +35,6 @@ const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIn
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
 const TenantPlacesPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'TenantPlacesPage')
 const TenantProofPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'TenantProofPage')
-const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
 const TenantCityPage = lazyRouteComponent(() => import('./pages/TenantCityPage'), 'TenantCityPage')
 const TenantShowsPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'TenantShowsPage')
@@ -93,7 +92,9 @@ const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/
 const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-pipeline', params.slug], () => api.contentPipeline(params.slug))() })
 const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/material', component: TenantContentMaterialPage, loader: ({ params }) => warm(['content-sources', params.slug], () => api.contentSources(params.slug))() })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
-const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', component: TenantNotifiersPage, loader: ({ params }) => warm(['notifiers-overview', params.slug], () => api.notifiersOverview(params.slug), 20_000)() })
+// Notifiers live on the tenant page's Destinations tab — the route redirects
+// rather than keep a second copy of the same panel alive.
+const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}?tab=destinations` }) } })
 const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationPage })
 // N.12 — a city opens as its own read. Not a nav destination: the funnel
 // table, the venue registry and the gig plan link here. The loader warms the
@@ -117,6 +118,16 @@ const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute,
 // (500ms) leaves the previous page frozen on screen while a route chunk loads,
 // which reads as a hang rather than as loading — the blank operator screen this
 // replaces was exactly that gap.
+// Unknown URLs land here instead of a dead end — every retired route above
+// redirects, so reaching this means the address was never a page.
+const NotFound = () => (
+  <div class="mx-auto max-w-md px-4 py-20 text-center">
+    <p class="text-lg font-medium text-foreground">This page moved or never existed.</p>
+    <p class="mt-1 text-sm text-muted-foreground">Old links redirect on their own; this address is not one of them.</p>
+    <Link to="/" class="mt-4 inline-block text-sm font-medium text-foreground underline underline-offset-4">Back to Overview</Link>
+  </div>
+)
+
 const router = createRouter({
   routeTree,
   defaultPreload: 'intent',
@@ -125,6 +136,7 @@ const router = createRouter({
   defaultPendingComponent: () => <SkeletonPage />,
   defaultPendingMs: 0,
   defaultPendingMinMs: 0,
+  defaultNotFoundComponent: NotFound,
 })
 
 declare module '@tanstack/solid-router' { interface Register { router: typeof router } }

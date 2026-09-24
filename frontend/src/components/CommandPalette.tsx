@@ -50,7 +50,7 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/health', label: 'Health', icon: 'sliders' },
   { suffix: '/operations', label: 'Today', icon: 'operations' },
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
-  { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
+  { suffix: '', label: 'Destinations', icon: 'notifiers', search: { tab: 'destinations' } },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
   { suffix: '/places', label: 'Places', icon: 'places' },
   { suffix: '/proof', label: 'Proof', icon: 'proof' },
@@ -173,7 +173,10 @@ export const CommandPalette: Component = () => {
       for (const page of subpages) {
         const label = page.label
         list.push({
-          id: `nav-${slug}${page.suffix}`,
+          // Two entries share the bare `''` suffix (Settings and
+          // Destinations both ride `/tenants/{slug}`) — the search keeps
+          // their ids distinct.
+          id: `nav-${slug}${page.suffix}${page.search?.tab ? `-${page.search.tab}` : ''}`,
           label: `${slug} · ${label}`,
           group: 'Jump',
           keywords: `${slug} ${label.toLowerCase()}`,
