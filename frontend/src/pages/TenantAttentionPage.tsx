@@ -259,6 +259,16 @@ export function TenantAttentionPage() {
   const deadCount = () => summary.data ? totalDead(summary.data) : 0
   const findingsCount = () => attention.data?.findings?.length ?? 0
   const draftCount = () => (attention.data?.unpublished_drafts ?? []).reduce((sum, c) => sum + c.drafts, 0)
+  // Editable draft text by action id. The attention snapshot's needs_you
+  // summaries carry no `revisable`; the full PendingAutopilotAction rows do,
+  // under the same `tenant-today` query the decisions tab already runs.
+  const drafts = createMemo(() => {
+    const out: Record<string, Record<string, string>> = {}
+    for (const action of operations.data?.autopilot?.needs_you ?? []) {
+      if (action.revisable && Object.keys(action.revisable).length > 0) out[action.id] = action.revisable
+    }
+    return out
+  })
   const activeAlerts = () => summary.data?.watchdog.active_alerts ?? 0
   const criticalAlerts = () => summary.data?.watchdog.critical_alerts ?? 0
   const openFindings = () => attention.data?.ecosystem?.open_findings ?? 0
@@ -365,6 +375,7 @@ export function TenantAttentionPage() {
             activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
             awaitingApproval={attention.data?.awaiting_approval ?? 0}
             notReported={attention.data?.not_reported ?? []}
+            drafts={drafts()}
             onRefresh={refreshMaintenance}
             onReveal={revealAnchor}
           />

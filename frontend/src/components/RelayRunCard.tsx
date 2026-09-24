@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/solid-query'
 import { ChevronDown, ExternalLink } from 'lucide-solid'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { writeGuard } from '../lib/read-only'
 import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil } from '../lib/format'
 import { cn } from '../lib/cn'
@@ -11,6 +11,7 @@ import { Checkbox } from './app/checkbox'
 import { Input } from './ui/input'
 import { StatusBadge } from './StatusBadge'
 import { Spinner } from './Spinner'
+import { DraftEditor, changedFields, emptiedField } from './DraftEditor'
 import type {
   RelayProcessRun,
   RelayProcessRunDetail,
@@ -288,6 +289,58 @@ function RelayRunChecklist(props: {
   const [busy, setBusy] = createSignal(false)
   const [confirming, setConfirming] = createSignal<string | null>(null)
 
+  // Draft edits by action_id — upstream's `revisions` map shape minus the
+  // wrapper. A row that was never touched has no entry, so the plain
+  // approve stays bodiless as before. `approveError` is the card-level
+  // refusal: a 409's sentence (a refused edit refuses the whole batch) or
+  // a local block, shown on the card rather than toasted away.
+  const [edits, setEdits] = createSignal<Record<string, Record<string, string>>>({})
+  const [approveError, setApproveError] = createSignal<string | null>(null)
+
+  /// The fields a relay draft offers — title and/or body, only the ones
+  /// the draft actually carries.
+  const draftFields = (t: RelayTarget): Record<string, string> => {
+    const fields: Record<string, string> = {}
+    if (t.draft_title != null) fields.title = t.draft_title
+    if (t.draft_body != null) fields.body = t.draft_body
+    return fields
+  }
+  const editTarget = (t: RelayTarget, field: string, value: string) => {
+    if (!t.action_id) return
+    setEdits(prev => ({
+      ...prev,
+      [t.action_id!]: { ...draftFields(t), ...prev[t.action_id!], [field]: value },
+    }))
+  }
+  // Revisions ride only with the checked rows — an unchecked row is
+  // cancelled in the same answer, and a revision for an action that is no
+  // longer awaiting could refuse the whole approval.
+  const revisions = createMemo(() => {
+    const out: Record<string, { title?: string; body?: string }> = {}
+    for (const t of selected()) {
+      if (!t.action_id) continue
+      const rev = changedFields(draftFields(t), edits()[t.action_id] ?? {})
+      if (rev) out[t.action_id] = rev
+    }
+    return out
+  })
+  const editedCount = () => Object.keys(revisions()).length
+  // Why approve cannot run, or null — a blanked field is refused upstream
+  // and a Reddit title caps at 300, so both are caught here rather than
+  // shipped as a write that is known to fail.
+  const approveBlock = createMemo((): string | null => {
+    for (const t of selected()) {
+      if (!t.action_id) continue
+      const edited = edits()[t.action_id]
+      if (!edited) continue
+      const empty = emptiedField(edited)
+      if (empty) return `r/${t.subreddit ?? 'community'}: ${empty} can't be empty — refuse the draft instead.`
+      if ((edited.title ?? '').length > 300)
+        return `r/${t.subreddit ?? 'community'}: Reddit titles cap at 300 characters.`
+    }
+    return null
+  })
+
   // An armed confirm must not outlive the state it was armed on — when the
   // batch leaves the ask (or the armed target itself leaves the ask), the
   // button goes back to its resting label instead of staying one click from
@@ -317,11 +370,17 @@ function RelayRunChecklist(props: {
     if (busy() || !askOpen()) return
     const chosen = selected().length
     const excluded = awaiting().filter(t => unchecked().has(t.target_id) && t.action_id)
+    const blocked = approveBlock()
+    if (blocked) {
+      setApproveError(blocked)
+      return
+    }
     if (confirming() !== 'approve') {
       setConfirming('approve')
       return
     }
     setConfirming(null)
+    setApproveError(null)
     setBusy(true)
     try {
       const cancels = await Promise.allSettled(
@@ -336,15 +395,23 @@ function RelayRunChecklist(props: {
         return
       }
       excluded.forEach(t => setMoved(prev => new Map(prev).set(t.action_id!, 'skipped')))
-      await api.approveCommunityRelay(props.slug, props.detail.data!.source_id)
+      const revs = revisions()
+      await api.approveCommunityRelay(props.slug, props.detail.data!.source_id, Object.keys(revs).length > 0 ? revs : undefined)
       selected().forEach(t => {
         if (t.action_id) setMoved(prev => new Map(prev).set(t.action_id!, 'queued'))
       })
       const pace = intervalSeconds() ? ` — ${cadence(intervalSeconds()!)}` : ''
-      toast.success(`Posting to ${chosen} communit${chosen === 1 ? 'y' : 'ies'}${pace}`)
+      const edited = editedCount() > 0 ? ` — ${editedCount()} edited` : ''
+      toast.success(`Posting to ${chosen} communit${chosen === 1 ? 'y' : 'ies'}${pace}${edited}`)
       props.onChanged()
     } catch (error) {
-      toast.error(errorMessage(error, 'The approval did not go through'))
+      if (error instanceof ApiError && error.status === 409) {
+        // Upstream's refusal is a sentence written for a person — on the
+        // card, where the refused batch lives.
+        setApproveError(error.message)
+      } else {
+        toast.error(errorMessage(error, 'The approval did not go through'))
+      }
     } finally {
       setBusy(false)
     }
@@ -435,7 +502,7 @@ function RelayRunChecklist(props: {
             <Button
               size="sm"
               writes
-              disabled={busy() || (awaiting().length > 0 && selected().length === 0)}
+              disabled={busy() || (awaiting().length > 0 && selected().length === 0) || approveBlock() !== null}
               onClick={() => void approveSpread()}
             >
               <Show when={busy() && confirming() !== 'revoke'}><Spinner /></Show>
@@ -443,10 +510,10 @@ function RelayRunChecklist(props: {
                 ? 'Answering…'
                 : confirming() === 'approve'
                   ? awaiting().length > 0
-                    ? `Yes — post to ${selected().length}`
+                    ? `Yes — post to ${selected().length}${editedCount() > 0 ? ` with ${editedCount()} edited` : ''}`
                     : 'Yes — post them as they land'
                   : awaiting().length > 0
-                    ? `Post to ${selected().length} checked`
+                    ? `Post to ${selected().length} checked${editedCount() > 0 ? ` — ${editedCount()} edited` : ''}`
                     : 'Post them as they land'}
             </Button>
             <Button
@@ -465,6 +532,9 @@ function RelayRunChecklist(props: {
               {intervalSeconds() ? ` · ${cadence(intervalSeconds()!)}` : ''}
             </span>
           </div>
+          <Show when={approveBlock() ?? approveError()}>
+            {reason => <p class="mb-2 text-xs text-destructive font-medium">{reason()}</p>}
+          </Show>
         </Show>
         {/* The answered ask — the drip is running; the operator can still
             pull back everything that has not landed. */}
@@ -494,6 +564,10 @@ function RelayRunChecklist(props: {
               checked={effectiveState(t) === 'awaiting_you' && !unchecked().has(t.target_id)}
               confirming={confirming() === t.target_id}
               disabled={busy()}
+              draft={draftFields(t)}
+              editable={askOpen() && effectiveState(t) === 'awaiting_you' && t.action_id != null}
+              edited={t.action_id ? (edits()[t.action_id] ?? draftFields(t)) : {}}
+              onEdit={(field, value) => editTarget(t, field, value)}
               onToggle={on => toggle(t, on)}
               onSkip={() => void skip(t)}
               onChanged={props.onChanged}
@@ -530,6 +604,13 @@ function TargetRow(props: {
   checked: boolean
   confirming: boolean
   disabled: boolean
+  /// The draft's editable fields (title/body, whichever the draft carries).
+  draft: Record<string, string>
+  /// The batch ask is open and this row still owns an action_id.
+  editable: boolean
+  /// Working text — `draft` untouched until the operator types.
+  edited: Record<string, string>
+  onEdit: (field: string, value: string) => void
   onToggle: (on: boolean) => void
   onSkip: () => void
   onChanged: () => void
@@ -537,6 +618,7 @@ function TargetRow(props: {
   const t = () => props.target
   const name = () => t().subreddit ?? t().display_name ?? 'community'
   const [showDraft, setShowDraft] = createSignal(false)
+  const [editingDraft, setEditingDraft] = createSignal(false)
   const [registering, setRegistering] = createSignal(false)
   const [registerBusy, setRegisterBusy] = createSignal(false)
   const [manualUrl, setManualUrl] = createSignal('')
@@ -581,20 +663,47 @@ function TargetRow(props: {
               <StatusBadge status="brought a fan" tone="good" />
             </Show>
           </div>
-          {/* The draft — what would actually be posted, before approving. */}
-          <Show when={t().draft_title}>
-            <Button
-              variant="link"
-              class="mt-0.5 block h-auto w-full p-0 text-left text-xs font-normal text-muted-foreground hover:text-foreground hover:no-underline"
-              onClick={() => setShowDraft(v => !v)}
-            >
-              {showDraft() ? '▾' : '▸'} {t().draft_title}
-            </Button>
-            <Show when={showDraft()}>
-              <p class="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-muted-foreground">
-                {t().draft_body}
-              </p>
+          {/* The draft — what would actually be posted, before approving.
+              While the batch ask is open an Edit swaps the read view for the
+              DraftEditor; the title stays collapsed into one line either way. */}
+          <Show when={editingDraft()} fallback={
+            <Show when={t().draft_title}>
+              <span class="mt-0.5 flex items-baseline gap-2">
+                <Button
+                  variant="link"
+                  class="block h-auto min-w-0 flex-1 p-0 text-left text-xs font-normal text-muted-foreground hover:text-foreground hover:no-underline"
+                  onClick={() => setShowDraft(v => !v)}
+                >
+                  {showDraft() ? '▾' : '▸'} {props.edited.title ?? t().draft_title}
+                </Button>
+                <Show when={props.editable && Object.keys(props.draft).length > 0}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 shrink-0 px-2 text-xs"
+                    writes
+                    disabled={props.disabled}
+                    onClick={() => setEditingDraft(true)}
+                  >
+                    Edit
+                  </Button>
+                </Show>
+              </span>
+              <Show when={showDraft()}>
+                <p class="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-muted-foreground">
+                  {props.edited.body ?? t().draft_body}
+                </p>
+              </Show>
             </Show>
+          }>
+            <DraftEditor
+              fields={props.draft}
+              value={props.edited}
+              onChange={props.onEdit}
+              editing={true}
+              onToggle={() => setEditingDraft(false)}
+              maxLength={{ title: 300 }}
+            />
           </Show>
           {/* The receipt — the live post and its numbers. */}
           <Show when={t().reddit_post_url}>
