@@ -3,7 +3,7 @@ import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp } from '../lib/format'
 import { labelOr, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS } from '../lib/opportunity-labels'
-import type { FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord } from '../lib/types'
+import type { BandNotice, FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord } from '../lib/types'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -320,6 +320,87 @@ export function RejectedOutcomesPanel(props: {
                 <span class="block mt-1 text-xs text-muted-foreground">
                   The gate said: <span class="text-foreground">{outcome.rejection_reason}</span>
                 </span>
+              </Show>
+            </div>
+          }</For>
+        </div>
+      </Show>
+    </Show>
+  </Card>
+}
+
+// The notices the band is owed — show tasks, release reports, deal
+// updates. Each row is the durable record an escalation left behind; the
+// `delivered` flag is whether the email behind it actually left, so an
+// undelivered notice is work that happened and nobody was told.
+
+const NOTICE_KIND_LABELS: Record<string, string> = {
+  'show.task_attention_required': 'show task needs the band',
+  'show.post_show_report_due': 'post-show report due',
+  'release.r3_report_due': 'release 3-day report',
+  'release.r14_report_due': 'release 14-day report',
+  'release.likely_listeners': 'likely listeners',
+  'release.editorial_pitch_parked': 'editorial pitch parked',
+  'release.editorial_pitch_escalated': 'editorial pitch escalated',
+  'opportunity.counterparty_report_issued': 'deal report issued',
+}
+
+const noticeSubject = (detail: Record<string, unknown>): string | null => {
+  for (const key of ['event_title', 'title', 'release_title', 'task', 'counterparty']) {
+    const value = detail[key]
+    if (typeof value === 'string' && value.length > 0) return value
+  }
+  return null
+}
+
+export function BandNoticesPanel(props: {
+  notices: BandNotice[] | undefined
+  notReported: string[]
+}) {
+  const reported = () => !props.notReported.includes('band_notices')
+  const items = () => props.notices ?? []
+  const owed = () => items().filter(n => !n.delivered).length
+  const platform = authState.isPlatformLevel
+
+  return <Card flat class="space-y-4">
+    <div>
+      <PanelTitle icon={<SectionIcon name="bell" />}>What the band is owed</PanelTitle>
+      <p class="text-muted-foreground text-sm mt-1">
+        Escalations of the last two weeks — a show task, a release report, a deal update. Undelivered means the notice exists and nobody was told.
+      </p>
+    </div>
+
+    <Show when={reported() && props.notices !== undefined} fallback={
+      <div class="p-4 border border-border rounded-lg bg-background text-left">
+        <EmptyState
+          label="Not reported"
+          hint={platform()
+            ? 'This tenant does not publish band notices — the console cannot show what it was never told.'
+            : 'Nothing is reported yet — this space stays empty until there is something to show.'}
+        />
+      </div>
+    }>
+      <Show when={items().length > 0} fallback={
+        <p class="text-muted-foreground text-sm">Nothing owed in the window — every escalation reached the band.</p>
+      }>
+        <Show when={owed() > 0}>
+          <KpiStrip class="mb-0">
+            <KpiCard label="Undelivered" value={owed()} tone="warn" />
+          </KpiStrip>
+        </Show>
+
+        <div class="flex flex-col gap-2">
+          <For each={items()}>{notice =>
+            <div class="rounded-md border border-border bg-background px-3 py-2 text-sm">
+              <div class="flex items-center gap-2 flex-wrap">
+                <strong class="text-foreground">{NOTICE_KIND_LABELS[notice.kind] ?? notice.kind}</strong>
+                <Show when={!notice.delivered}>
+                  <span class="text-xs text-warning-foreground">not delivered</span>
+                </Show>
+                <span class="text-xs text-muted-foreground">{formatTimestamp(notice.created_at)}</span>
+              </div>
+              <Show when={noticeSubject(notice.detail)}>
+                <span class="block mt-1 text-xs text-muted-foreground">{noticeSubject(notice.detail)}</span>
               </Show>
             </div>
           }</For>

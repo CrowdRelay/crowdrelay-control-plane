@@ -193,6 +193,14 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
             not_reported.push("rejected_agent_outcomes");
             json!([])
         });
+    // The show/release/opportunity escalations — the notices the band is
+    // owed, whose record is the durable outbox event itself. Optional for
+    // the same reason: an empty list here would claim nothing is owed when
+    // the tenant simply never reported the section.
+    let band_notices = snapshot.get("band_notices").cloned().unwrap_or_else(|| {
+        not_reported.push("band_notices");
+        json!([])
+    });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -218,6 +226,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         expect_object(&failed_sends, "failed_sends")?;
     }
     expect_array(&rejected_agent_outcomes, "rejected_agent_outcomes")?;
+    expect_array(&band_notices, "band_notices")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -237,6 +246,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "lapsed_approvals": lapsed_approvals,
         "failed_sends": failed_sends,
         "rejected_agent_outcomes": rejected_agent_outcomes,
+        "band_notices": band_notices,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -287,6 +297,9 @@ mod tests {
             },
             "rejected_agent_outcomes": [
                 {"id": "o", "kind": "press_pitch", "rejection_reason": "confidence out of range", "task_id": "t", "created_at": "2026-09-01T12:00:00Z"}
+            ],
+            "band_notices": [
+                {"id": "n", "kind": "show.task_attention_required", "detail": {"event_id": "e", "task": "post_show_report"}, "delivered": true, "created_at": "2026-09-01T13:00:00Z"}
             ],
         })
     }

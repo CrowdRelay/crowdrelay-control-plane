@@ -13,7 +13,7 @@ import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '..
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
-import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel } from '../components/QueueLossesPanel'
+import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -387,6 +387,10 @@ export function TenantAttentionPage() {
           />
           <RejectedOutcomesPanel
             outcomes={attention.data?.rejected_agent_outcomes}
+            notReported={attention.data?.not_reported ?? []}
+          />
+          <BandNoticesPanel
+            notices={attention.data?.band_notices}
             notReported={attention.data?.not_reported ?? []}
           />
 

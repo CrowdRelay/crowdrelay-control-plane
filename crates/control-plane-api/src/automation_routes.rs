@@ -171,10 +171,8 @@ async fn join_ask_config(
         })
         .unwrap_or_default();
     let cadence_days = get("join_ask_cadence_days").and_then(|raw| raw.parse::<u32>().ok());
-    let image_url = get("join_ask_image_url");
     Ok(json_no_store(json!({
         "variants": variants,
-        "image_url": image_url,
         "platforms": platforms,
         "cadence_days": cadence_days,
     })))

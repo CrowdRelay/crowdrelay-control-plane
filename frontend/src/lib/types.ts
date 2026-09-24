@@ -912,6 +912,21 @@ export type RejectedAgentOutcome = {
   created_at: string
 }
 
+/// A notice the band is owed — a show task, a release report, a deal
+/// update. Its record is the durable outbox event itself, deduped per
+/// subject: `delivered` is whether the email behind it actually left, so a
+/// `false` row is an escalation that happened and nobody was told.
+export type BandNotice = {
+  id: string
+  /// The outbox event type minus the `crowdrelay.` prefix
+  /// (`show.task_attention_required`, `release.r3_report_due`, …).
+  kind: string
+  /// The emitted payload — which event, release or deal it concerns.
+  detail: Record<string, unknown>
+  delivered: boolean
+  created_at: string
+}
+
 /// One action, as the world outside received it — the words it carried and
 /// the addresses it went to. A 404 upstream means the action never emitted:
 /// nothing left, which is itself the answer.
@@ -1160,6 +1175,10 @@ export type TenantAttentionReadModel = {
   /// newest first — the rejection kind and the gate's own reason, not just
   /// the watchdog's aggregate. Absent means the tenant does not publish it.
   rejected_agent_outcomes?: RejectedAgentOutcome[]
+  /// The show/release/opportunity escalations the band is owed, deduped per
+  /// subject — the durable record the escalation leaves behind. Absent
+  /// means the tenant does not publish it.
+  band_notices?: BandNotice[]
   /// Sections whose value above is a placeholder the Control Plane
   /// substituted, not something the tenant measured.
   not_reported?: string[]
