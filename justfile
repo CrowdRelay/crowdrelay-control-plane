@@ -46,6 +46,8 @@ script-test:
     python3 scripts/test_billing_contract.py
     python3 scripts/test_guarantee_contract.py
     python3 scripts/test_notification_outbox_contract.py
+    python3 scripts/test_proxy_allowlist_parity.py
+    python3 scripts/test_sql_prepare.py
     for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
