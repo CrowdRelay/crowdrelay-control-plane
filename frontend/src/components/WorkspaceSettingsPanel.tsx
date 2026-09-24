@@ -14,6 +14,7 @@ import { northStarLabel, northStarMeaning, northStarTechnicalName } from '../lib
 import { writeGuard } from '../lib/read-only'
 
 const LABELS: Record<string, string> = {
+  brand_wordmark: 'Name in fan messages',
   member_site_base_url: 'Member site base URL',
   member_area_path: 'Member area path',
   synesthesia_campaign_slug: 'Synesthesia campaign slug',
@@ -41,10 +42,10 @@ const LABELS: Record<string, string> = {
 // unlabelled or vanishing.
 const GROUPS: { title: string; description: string; bandDescription?: string; keys: string[] }[] = [
   {
-    title: 'Fan-facing links',
-    description: 'Where the member links in emails, Signal and QR codes point.',
-    bandDescription: 'Where the member links in emails, Signal and QR codes point.',
-    keys: ['member_site_base_url', 'member_area_path'],
+    title: 'Fan-facing identity',
+    description: 'The name fan messages carry, and where the member links in emails, Signal and QR codes point.',
+    bandDescription: 'The name your fan messages carry, and where the member links in emails, Signal and QR codes point.',
+    keys: ['brand_wordmark', 'member_site_base_url', 'member_area_path'],
   },
   {
     title: 'Products',
@@ -122,6 +123,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
     hint: 'A few words for what the act sounds like — the pairings and asks that need a voice read this. Free text, because a fixed list would be a guess about scenes nobody here belongs to. 120 characters at most.',
     band: 'A few words for what you sound like — the pairings and asks that need a voice read this. 120 characters at most.',
     example: 'metalcore',
+  },
+  brand_wordmark: {
+    hint: 'The name push titles, crew mail and invitations sign with ("{name} — new show"). Leave blank to use the workspace name; set it only when the act styles its name differently. One line, 40 characters at most.',
+    band: 'The name your fans see on every message ("{name} — new show"). Leave blank to use your workspace name. 40 characters at most.',
+    example: 'MGŁA',
   },
   crew_locale: {
     hint: 'Language for task emails and the staff panel. Briefings are written in English and translated for the crew; a language nobody has written wording for yet reads as English rather than as blanks. Two-letter code, optionally with a region.',
