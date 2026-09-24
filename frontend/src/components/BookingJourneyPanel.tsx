@@ -492,7 +492,7 @@ function CandidateCard(props: {
   return (
     <JourneyCard
       title={c().display_name}
-      badge={{ label: 'route to confirm', tone: 'warn' }}
+      badge={bookingRefusal(c()) === null ? { label: 'to confirm', tone: 'warn' } : { label: "can't file yet", tone: 'muted' }}
       meta={<>
         {c().target_kind.replaceAll('_', ' ')}
         {c().city_slug ? ` · ${c().city_slug}` : ''}
@@ -543,7 +543,7 @@ function OutreachCard(props: {
   return (
     <JourneyCard
       title={c().display_name}
-      badge={{ label: 'route to confirm', tone: 'warn' }}
+      badge={confirmable() ? { label: 'to confirm', tone: 'warn' } : { label: 'apply by hand', tone: 'muted' }}
       meta={meta()}
       action={
         <Show when={confirmable()}>
