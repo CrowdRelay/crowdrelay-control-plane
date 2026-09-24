@@ -61,7 +61,7 @@ const NODES: MapNode[] = [
   // ── EXECUTION ──
   { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations' },
   { id: 'workers', x: 955, y: 168, w: 290, h: 52, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
-  { id: 'outbox', x: 955, y: 238, w: 290, h: 52, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}/notifiers' },
+  { id: 'outbox', x: 955, y: 238, w: 290, h: 52, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}?tab=destinations' },
   { id: 'community', x: 955, y: 308, w: 290, h: 52, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },
   { id: 'receipt', x: 955, y: 378, w: 290, h: 52, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention' },
 

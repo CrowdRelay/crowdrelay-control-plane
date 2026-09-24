@@ -26,7 +26,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     await page.waitForSelector('[data-slot="tab-panel"]', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // Only the Overview tab panel should be in the DOM (lazy mounting)
+    // Only the Brief tab panel should be in the DOM (lazy mounting)
     const tabPanels = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanels).toBe(1)
 
@@ -50,10 +50,10 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     // Switch to the second tab (first visit — should lazy mount). Tabs are
     // clicked by their stable `id`, not by their label: the labels on this
-    // page were rewritten into operator language ("What it believes") and
-    // the old ones ("Growth Intelligence") stopped matching anything, so the
-    // click timed out instead of reporting a real DOM-stability failure.
-    await page.click('#tab-growth')
+    // page were rewritten into question language ("Where it stands") and
+    // the tab ids regrouped with them — clicking a retired id times out
+    // instead of reporting a real DOM-stability failure.
+    await page.click('#tab-standing')
     await page.waitForTimeout(2000)
 
     // The shell and header must persist (no remount — a page-wide skeleton
@@ -69,7 +69,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     expect(markers.section).toBe('original')
     expect(markers.header).toBe('original')
 
-    // Now 2 tab panels should be in the DOM (Overview + Growth Intelligence)
+    // Now 2 tab panels should be in the DOM (Brief + Where it stands)
     const tabPanelsAfter = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanelsAfter).toBe(2)
 
@@ -77,7 +77,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     const visiblePanels = await page.locator('[data-slot="tab-panel"]:not([class~="hidden"])').count()
     expect(visiblePanels).toBe(1)
 
-    // API requests should have been fired for the Growth Intelligence tab
+    // API requests should have been fired for the Where it stands tab
     const requestsAfterSwitch = requests.length
     console.log(`API requests after first tab switch: ${requestsAfterSwitch - requestsBeforeSwitch}`)
     expect(requestsAfterSwitch).toBeGreaterThan(requestsBeforeSwitch)
@@ -97,9 +97,9 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     const tabPanelsAfterDecisions = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanelsAfterDecisions).toBe(3)
 
-    // Switch back to Overview (already visited — should be instant, no new requests)
+    // Switch back to Brief (already visited — should be instant, no new requests)
     const requestsBeforeBack = requests.length
-    await page.click('#tab-overview')
+    await page.click('#tab-brief')
     await page.waitForTimeout(1000)
 
     const markerAfterBack = await page.evaluate(() => {
