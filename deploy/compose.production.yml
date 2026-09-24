@@ -110,17 +110,45 @@ services:
   # here, committed, deployed, and production still reported 512 MiB. This is
   # the same shape as the city_geocoding config that sat in a file no container
   # reads. Change the host file, and treat this one as a reference only.
+  #
+  # agent-browser: headed-Chromium sidecar for Reddit scraping. The agent
+  # connects over CDP (REDDIT_BROWSER_CDP_URL) and borrows its persistent
+  # context; the shared agent-browser-state volume holds the profile so the
+  # Reddit session survives restarts of either service. CDP is internal-only.
+  agent-browser:
+    image: ghcr.io/crowdrelay/crowdrelay-agent-browser:latest
+    restart: unless-stopped
+    environment:
+      REDDIT_BROWSER_PROFILE_DIR: "/data/reddit-browser-profile"
+      TMPDIR: "/data/tmp"
+    mem_limit: 1024m
+    cpus: 1.0
+    read_only: false
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - agent-browser-state:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      internal: {}
+
   agent-service:
     image: ghcr.io/crowdrelay/crowdrelay-agents:${AGENT_SERVICE_IMAGE_TAG:?AGENT_SERVICE_IMAGE_TAG required}
     restart: unless-stopped
     depends_on:
       app:
         condition: service_healthy
+      agent-browser:
+        condition: service_healthy
     environment:
       AGENT_SERVICE_BIND: "0.0.0.0:8095"
       DATABASE_URL: "postgres://crowdrelay:${CROWDRELAY_DB_PASSWORD:?CROWDRELAY_DB_PASSWORD required}@crowdrelay-db:5432/crowdrelay"
       AGENT_SERVICE_AUTH_KEY: "${AGENT_SERVICE_AUTH_KEY:?AGENT_SERVICE_AUTH_KEY required}"
       AGENT_SERVICE_ENCRYPTION_KEY: "${AGENT_SERVICE_ENCRYPTION_KEY:?AGENT_SERVICE_ENCRYPTION_KEY required}"
+      REDDIT_BROWSER_CDP_URL: "http://agent-browser:9222"
       REDDIT_BROWSER_PROFILE_DIR: "/data/reddit-browser-profile"
       # --disable-dev-shm-usage relocates Chromium's shared memory to
       # $TMPDIR. The /tmp tmpfs is 64m and a renderer's shm files on a real
@@ -147,20 +175,19 @@ services:
       timeout: 3s
       retries: 12
       start_period: 10s
-    # Playwright/Chromium needs more memory than a pure API service.
-    # The browser is used for Reddit scraping (6h cycle) and posting (on demand).
+    # The Chromium browser moved to the agent-browser sidecar — what remains
+    # here is the node service plus the playwright client (~134 MiB measured
+    # with the browser elsewhere). The 512m incident below is the reason the
+    # sidecar carries its own 1 GB cap and disk-backed TMPDIR.
     #
-    # 512m was not enough and failed in the worst possible way. Measured in
-    # production at that limit, with only about:blank open: Node 157 MiB, Xvfb
-    # 55 MiB, the Chromium browser process 131 MiB, plus GPU, network, storage
-    # and zygote helpers — 416 MiB of 512 MiB before a single Reddit page. Each
-    # subreddit page then adds a ~78 MiB renderer, which the cgroup killed.
-    # Playwright reports that as "Target crashed", the join fell through to a
-    # Join button on a dead page, and the worker's only symptom was
-    # "operation timed out" for hours while 41 communities stayed unjoined.
-    # The host has ~9 GiB free and every other container is capped well below
-    # its need, so headroom here is cheap and the alternative is silent.
-    mem_limit: 1536m
+    # 512m was not enough for in-container Chromium and failed in the worst
+    # possible way: about:blank already took ~416 MiB (Node 157, Xvfb 55,
+    # browser process 131, plus helpers), and each Reddit page's ~78 MiB
+    # renderer was cgroup-killed. Playwright reports that as "Target
+    # crashed", the join fell through to a Join button on a dead page, and
+    # the worker's only symptom was "operation timed out" for hours while 41
+    # communities stayed unjoined.
+    mem_limit: 768m
     cpus: 1.0
     # read_only is relaxed because Playwright writes to the profile directory
     # and needs to create temp files during browser operation.
