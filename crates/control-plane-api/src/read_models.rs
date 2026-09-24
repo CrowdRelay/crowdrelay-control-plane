@@ -1990,13 +1990,18 @@ async fn brain(
                 .await
         }
     };
-    let (autopilot, scorecard, learning, learning_proof, measurement, attention) = tokio::join!(
+    let (autopilot, scorecard, learning, learning_proof, measurement, attention, action_states) = tokio::join!(
         fetch("/v1/control-plane/autopilot/overview"),
         fetch("/v1/control-plane/autopilot/scorecard"),
         fetch("/v1/control-plane/autopilot/learning-loop"),
         fetch("/v1/control-plane/autopilot/learning-proof"),
         fetch("/v1/control-plane/autopilot/measurement"),
         fetch("/v1/control-plane/ops/attention"),
+        // Time-in-stage per in-flight action state — the actions list
+        // cannot answer "oldest QUEUED" (newest-first, capped at 250).
+        // Older CrowdRelay versions answer 404 → the section names
+        // itself in `degraded` rather than blanking the model.
+        fetch("/v1/control-plane/ops/action-states"),
     );
 
     let attention = match attention {
@@ -2018,6 +2023,7 @@ async fn brain(
             learning_proof.as_ref(),
             measurement.as_ref(),
             attention.as_ref(),
+            action_states.as_ref(),
         ),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
@@ -2033,7 +2039,8 @@ fn brain_sections<'a>(
     learning_proof: SectionResult<'a>,
     measurement: SectionResult<'a>,
     attention: SectionResult<'a>,
-) -> [Section<'a>; 6] {
+    action_states: SectionResult<'a>,
+) -> [Section<'a>; 7] {
     [
         section("autopilot", autopilot, Shape::Object),
         section("scorecard", scorecard, Shape::Object),
@@ -2041,6 +2048,7 @@ fn brain_sections<'a>(
         section("learning_proof", learning_proof, Shape::Object),
         section("measurement", measurement, Shape::Object),
         section("attention", attention, Shape::Object),
+        section("action_states", action_states, Shape::Object),
     ]
 }
 
@@ -4528,6 +4536,7 @@ mod tests {
         let proof = json!({"entries": []});
         let measurement = json!({"claims": []});
         let attention = json!({"needs_you": [], "rejected_agent_outcomes": []});
+        let action_states = json!({"in_flight": [{"state": "QUEUED", "count": 2}]});
 
         let projected = project_sections(
             "virya",
@@ -4540,9 +4549,10 @@ mod tests {
                 ok(&proof),
                 ok(&measurement),
                 ok(&attention),
+                ok(&action_states),
             ),
         )
-        .expect("all six sections answer");
+        .expect("all seven sections answer");
 
         assert_eq!(projected["id"], json!("virya"));
         assert_eq!(projected["autopilot"], autopilot);
@@ -4551,6 +4561,7 @@ mod tests {
         assert_eq!(projected["learning_proof"], proof);
         assert_eq!(projected["measurement"], measurement);
         assert_eq!(projected["attention"], attention);
+        assert_eq!(projected["action_states"], action_states);
         assert_eq!(projected["degraded"], json!([]));
         for name in [
             "autopilot",
@@ -4559,6 +4570,7 @@ mod tests {
             "learning_proof",
             "measurement",
             "attention",
+            "action_states",
         ] {
             assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
         }
@@ -4574,6 +4586,7 @@ mod tests {
         let proof = json!({"entries": []});
         let error = unreachable();
         let attention = json!({"needs_you": []});
+        let action_states = json!({"in_flight": []});
 
         let projected = project_sections(
             "virya",
@@ -4586,6 +4599,7 @@ mod tests {
                 ok(&proof),
                 Err(&error),
                 ok(&attention),
+                ok(&action_states),
             ),
         )
         .expect("one dead section still projects the rest");
@@ -4603,6 +4617,7 @@ mod tests {
             300,
             "brain",
             &brain_sections(
+                Err(&error),
                 Err(&error),
                 Err(&error),
                 Err(&error),
@@ -4628,6 +4643,7 @@ mod tests {
         let proof = json!({"entries": []});
         let measurement = json!({"claims": []});
         let attention = json!({"needs_you": []});
+        let action_states = json!({"in_flight": []});
 
         let projected = project_sections(
             "virya",
@@ -4640,6 +4656,7 @@ mod tests {
                 ok(&proof),
                 ok(&measurement),
                 ok(&attention),
+                ok(&action_states),
             ),
         )
         .expect("a misshapen section degrades, it does not fail the model");

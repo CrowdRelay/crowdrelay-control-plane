@@ -7,9 +7,29 @@
 
 import type { JourneyStageSpec } from '../components/Journey'
 import type { TenantBrainReadModel } from './types'
-import { formatIsoAge, formatIsoUntil } from './format'
+import { ageSeconds, compactDuration, formatIsoAge, formatIsoUntil } from './format'
 
 const WEEK_MS = 7 * 24 * 3600 * 1000
+
+/** `action_states` parsed once for the live surfaces: state → count and the
+ * age of its oldest entry in seconds (null when the row reports none or the
+ * timestamp is unparseable/future). `null` when the section did not answer —
+ * an older CrowdRelay without the route names itself in `degraded`. */
+export function actionStateAges(
+  model: TenantBrainReadModel,
+  nowMs: number,
+): Map<string, { count: number; ageSeconds: number | null }> | null {
+  const report = model.action_states
+  if (!report) return null
+  const rows = new Map<string, { count: number; ageSeconds: number | null }>()
+  for (const row of report.in_flight) {
+    rows.set(row.state, {
+      count: row.count,
+      ageSeconds: row.oldest_entered_at ? ageSeconds(row.oldest_entered_at, nowMs) : null,
+    })
+  }
+  return rows
+}
 
 // The verdict word in the band's own vocabulary. Platform sessions get the
 // machine's word; an unlisted state passes through raw — it is still the
@@ -86,6 +106,45 @@ export function brainCycleStages(
     ? null
     : autopilot.queued_actions + autopilot.processing_actions + autopilot.awaiting_executor
 
+  // Time-in-stage: the oldest entry across the three states that mean "work
+  // is waiting or running", plus the UNKNOWN+RECONCILING count — work whose
+  // outcome the system cannot confirm. Age is shown, never judged: no
+  // threshold turns waiting into stuck.
+  const stateAges = actionStateAges(model, nowMs)
+  let actOldest: { state: string; seconds: number } | null = null
+  let actUnknown = 0
+  if (stateAges) {
+    for (const state of ['QUEUED', 'AUTHORIZED', 'RUNNING'] as const) {
+      const row = stateAges.get(state)
+      if (
+        row && row.count > 0 && row.ageSeconds !== null &&
+        (actOldest === null || row.ageSeconds > actOldest.seconds)
+      ) {
+        actOldest = { state, seconds: row.ageSeconds }
+      }
+    }
+    actUnknown =
+      (stateAges.get('UNKNOWN')?.count ?? 0) + (stateAges.get('RECONCILING')?.count ?? 0)
+  }
+  const act24h = autopilot === null
+    ? null
+    : platform
+      ? `24h: ${autopilot.succeeded_24h} ok · ${autopilot.failed_24h} failed`
+      : `${autopilot.succeeded_24h} done · ${autopilot.failed_24h} failed in the last day`
+  let actDetail: string | null
+  if (actUnknown > 0) {
+    actDetail = platform
+      ? `${actUnknown} unknown outcome${actUnknown === 1 ? '' : 's'}`
+      : `${actUnknown} we couldn't confirm`
+  } else if (actOldest) {
+    const age = platform
+      ? `oldest ${actOldest.state.toLowerCase()} ${compactDuration(actOldest.seconds)}`
+      : `oldest waiting ${compactDuration(actOldest.seconds)}`
+    actDetail = act24h ? `${age} · ${act24h}` : age
+  } else {
+    actDetail = act24h
+  }
+
   // ── measure — outcomes scheduled, horizon not elapsed ──
   // `awaiting_measurement` is optional on the contract: an older tenant not
   // sending it reads '—', not 0.
@@ -115,12 +174,8 @@ export function brainCycleStages(
       key: 'act',
       label: platform ? 'Act' : 'Doing',
       count: actCount,
-      detail: autopilot === null
-        ? null
-        : platform
-          ? `24h: ${autopilot.succeeded_24h} ok · ${autopilot.failed_24h} failed`
-          : `${autopilot.succeeded_24h} done · ${autopilot.failed_24h} failed in the last day`,
-      stuck: (autopilot?.failed_24h ?? 0) > 0,
+      detail: actDetail,
+      stuck: (autopilot?.failed_24h ?? 0) > 0 || actUnknown > 0,
     },
     {
       key: 'measure',

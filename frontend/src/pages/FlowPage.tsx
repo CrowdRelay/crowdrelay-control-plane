@@ -20,6 +20,7 @@ const SECTION_LABEL: Record<string, { platform: string; band: string }> = {
   learning_proof: { platform: 'belief changes', band: 'what it changed its mind about' },
   measurement: { platform: 'the measurement ledger', band: 'the numbers' },
   attention: { platform: 'what needs a person', band: 'what needs you' },
+  action_states: { platform: 'the action state machine', band: "what's in progress" },
 }
 
 export function FlowPage() {

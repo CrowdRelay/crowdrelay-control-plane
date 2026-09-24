@@ -10,24 +10,14 @@
 
 import type { JourneyStageSpec } from '../components/Journey'
 import type { TenantBrainReadModel } from './types'
-import { brainCycleStages } from './brain-cycle'
+import { actionStateAges, brainCycleStages } from './brain-cycle'
+import { compactDuration } from './format'
 
 export type LiveNodeFact = {
   /** The rendered number — '12', or '—' when the section did not answer. */
   value: string
   detail?: string | null
   stuck?: boolean
-}
-
-/// '45s' / '12m' / '3h' / '2d' — the outbox's oldest-pending age. Distinct
-/// from `formatAge`, which never reaches days.
-const compactDuration = (seconds: number) => {
-  if (seconds < 60) return `${seconds}s`
-  const mins = Math.floor(seconds / 60)
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h`
-  return `${Math.floor(hours / 24)}d`
 }
 
 const stageValue = (stage: JourneyStageSpec | undefined): string =>
@@ -61,17 +51,31 @@ export function processMapLive(
     detail: authorize?.detail,
     stuck: authorize?.stuck,
   }
+  // The action-states aggregate answers what the queue depth cannot: how
+  // long the oldest row has sat. Null when the section did not answer —
+  // every fact below then reads exactly as it did without it.
+  const stateAges = actionStateAges(model, nowMs)
+  const queued = stateAges?.get('QUEUED')
+  const queuedAge = queued && queued.count > 0 ? queued.ageSeconds : null
   nodes.auto = {
     value: autopilot === null ? '—' : String(autopilot.queued_actions),
-    detail: platform ? 'queued' : 'lined up',
+    detail: queuedAge !== null
+      ? `${platform ? 'queued' : 'lined up'} · oldest ${compactDuration(queuedAge)}`
+      : platform ? 'queued' : 'lined up',
   }
+  // UNKNOWN + RECONCILING — dispatched work whose outcome never came back.
+  // It outranks executor failures in the detail but the stuck flag is either.
+  const unknown =
+    (stateAges?.get('UNKNOWN')?.count ?? 0) + (stateAges?.get('RECONCILING')?.count ?? 0)
   const executorFailed = autopilot?.executor_failed_24h ?? 0
   nodes.receipt = {
     value: autopilot === null ? '—' : String(autopilot.awaiting_executor),
-    detail: executorFailed > 0
-      ? platform ? `${executorFailed} executor failures 24h` : `${executorFailed} didn't go through today`
-      : platform ? 'awaiting receipt' : 'waiting to hear back',
-    stuck: executorFailed > 0,
+    detail: unknown > 0
+      ? platform ? `${unknown} unknown · reconciling` : `${unknown} we couldn't confirm`
+      : executorFailed > 0
+        ? platform ? `${executorFailed} executor failures 24h` : `${executorFailed} didn't go through today`
+        : platform ? 'awaiting receipt' : 'waiting to hear back',
+    stuck: unknown > 0 || executorFailed > 0,
   }
   // `summary` is required on the contract, so `outbox` is only undefined
   // when the whole attention section did not answer.
