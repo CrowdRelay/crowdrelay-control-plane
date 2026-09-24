@@ -84,6 +84,9 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
   // The authority sliders live one level in on Health — the band map does not
   // carry Health, so the entry stays operator-only like the page it opens.
+  // The capability map: every feature, including the ones without a page of
+  // their own yet — merch, rewards, releases, ticket reads, fan messages.
+  { id: 'q-capabilities', label: 'Open every capability', keywords: 'capabilities everything features all map merch stock inventory rewards draws prizes tickets ticketing releases smart links funnel revenue conversion messages campaigns qr checklist show costs import mailing list cycles connections peers', suffix: '/capabilities' },
   { id: 'q-policies', label: 'Open autopilot policies', keywords: 'autopilot policies rules authority autonomy sliders watch suggest ask alone health', suffix: '/health?tab=policies', platform: true },
 ]
 

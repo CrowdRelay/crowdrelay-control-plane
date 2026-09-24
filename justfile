@@ -38,6 +38,13 @@ script-test:
     python3 scripts/test_tab_label_collisions.py
     python3 scripts/test_destination_count_ratchet.py
     python3 scripts/test_design_tokens.py
+    python3 scripts/test_capability_map.py
+    # These four were written as gates and never listed here, so nothing ran
+    # them. All pass today.
+    python3 scripts/test_processes_contract.py
+    python3 scripts/test_billing_contract.py
+    python3 scripts/test_guarantee_contract.py
+    python3 scripts/test_notification_outbox_contract.py
     for script in scripts/*.sh deploy/*.sh; do bash -n "$script"; done
 
 # Everything CI runs for a merge decision.
