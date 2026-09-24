@@ -10,7 +10,7 @@ import { RefreshControl } from './RefreshControl'
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
-import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
+import { whileIncomplete, hasUnavailableTenant, hasDegradedSections } from '../lib/incomplete'
 import { SidebarInset, SidebarProvider, useSidebar } from './ui/sidebar'
 import { AppSidebar } from './shell/AppSidebar'
 import { SiteHeader } from './shell/SiteHeader'
@@ -118,10 +118,36 @@ export const Shell: Component = () => {
     // incomplete answer is ever asked about again.
     refetchInterval: whileIncomplete(hasUnavailableTenant),
   }))
+  // Tenant sessions get no command-center — the platform endpoint would
+  // 403 on every nav render. Their badge reads the today model's attention
+  // section when a page has already fetched it: `enabled: false` mounts a
+  // cache subscriber only, so the badge fills after the first Today or
+  // Needs-you visit and never fires a request of its own just to light a
+  // number. No cached model means no badge — honest absence, not a zero.
+  const tenantToday = useQuery(() => ({
+    queryKey: ['tenant-today', navSlug()],
+    queryFn: () => api.tenantToday(navSlug()!),
+    enabled: false,
+    // Option-identical to the enabled observers on this key — a disabled
+    // observer never fetches, but the shared-key rule holds if that ever
+    // changes.
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
   const attentionCount = () => {
-    const cc = commandCenter.data
-    if (!cc) return 0
-    return cc.attention.needsYou + cc.attention.awaitingApproval + cc.attention.criticalAlerts
+    if (isPlatformLevel()) {
+      const cc = commandCenter.data
+      if (!cc) return 0
+      return cc.attention.needsYou + cc.attention.awaitingApproval + cc.attention.criticalAlerts
+    }
+    const a = tenantToday.data?.attention
+    if (!a) return 0
+    const notReported = (name: string) => (a.not_reported ?? []).includes(name)
+    const approvals = notReported('awaiting_approval') ? 0 : (a.awaiting_approval ?? a.needs_you?.length ?? 0)
+    const drafts = notReported('unpublished_drafts') ? 0 : (a.unpublished_drafts ?? []).reduce((n, c) => n + c.drafts, 0)
+    return approvals + drafts
   }
 
   const selectTenant = (newSlug: string) => {
@@ -186,7 +212,14 @@ export const Shell: Component = () => {
         isOpen={groupOpen}
         onToggle={toggleGroup}
         onSelectTenant={selectTenant}
-        badgeFor={item => item.icon === 'attention' ? attentionCount() : 0}
+        badgeFor={item =>
+          // Platform sessions carry the estate-wide count on Needs you.
+          // Band nav merged that item into Today — their count lands on
+          // the daily page's icon instead, same number, same source.
+          item.icon === 'attention' || (!isPlatformLevel() && item.icon === 'operations')
+            ? attentionCount()
+            : 0
+        }
         user={{ name: profile()?.username ?? 'operator', role: roleLabel() }}
         onLogout={() => { void authState.logout() }}
       />

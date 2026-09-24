@@ -1043,7 +1043,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'next_show_timeline'
+export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'attention' | 'next_show_timeline'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -1086,6 +1086,53 @@ export type SectionFreshness = {
 
 export type SectionFreshnessMap = Record<string, SectionFreshness | undefined>
 
+/// The needs-you snapshot, as `GET /tenants/{slug}/operations/attention`
+/// projects it — the same object embedded in the today model's `attention`
+/// section, so the page's strip and the Needs-you page read one shape.
+/// `not_reported` names the sections whose value is a placeholder rather
+/// than a measurement: an empty list beside a zero means the tenant really
+/// has nothing waiting; `awaiting_approval` listed there means it does not
+/// report approvals at all.
+export type TenantAttentionReadModel = {
+  id: string
+  summary: OperationsSummary
+  alerts: OpsAlert[]
+  dead_push: PushDeliveryItem[]
+  dead_outbox: OutboxItem[]
+  dead_deliveries: DeliveryItem[]
+  ecosystem: EcosystemOverview
+  findings: ReconciliationFinding[]
+  /// Pending autopilot actions awaiting human approval. Optional: an older
+  /// CrowdRelay may not publish this field — the control-plane projects
+  /// `[]` for backward compatibility. `[]` + healthy snapshot = genuinely
+  /// nothing needs approval. Absent field = degraded, not empty.
+  needs_you?: PendingActionSummary[]
+  /// Count of opportunities awaiting approval. Optional for the same reason.
+  awaiting_approval?: number
+  /// Drafted posts waiting for a person to publish them, per channel.
+  ///
+  /// The one queue where the system is blocked on the operator rather than the
+  /// reverse: every outbound channel drafts and waits. Optional for the same
+  /// reason as the fields above — absent means the tenant does not report the
+  /// queue, which is not the same as reporting an empty one.
+  unpublished_drafts?: UnpublishedDraftChannel[]
+  /// What the brain makes of its own recent performance, and — when it has
+  /// been doing nothing — why. `null` (or absent on an older tenant) means
+  /// the tenant does not report a self-assessment; the page prints
+  /// "not reported", never a healthy-looking verdict nobody measured.
+  brain?: BrainSelfAssessment | null
+  /// The approval queue's losses — asks that reached their deadline, and
+  /// what is about to. `null` (or absent on an older tenant) means the
+  /// tenant does not report the queue's losses; `not_reported` names it.
+  lapsed_approvals?: LapsedApprovals | null
+  /// Outward sends that failed in the window, named — the recipients the
+  /// counts cannot identify. Same null/not_reported convention as above.
+  failed_sends?: FailedSends | null
+  /// Sections whose value above is a placeholder the Control Plane
+  /// substituted, not something the tenant measured.
+  not_reported?: string[]
+}
+
 export type TenantTodayReadModel = {
   id: string
   summary: OperationsSummary | null
@@ -1106,6 +1153,10 @@ export type TenantTodayReadModel = {
   // that is never due is absent, not degraded.
   shows: TenantShowsResponse | null
   next_show_timeline?: TenantShowTimelineResponse | null
+  // The needs-you snapshot — the human gate the page's own strip renders.
+  // Re-projected server-side through the dedicated attention endpoint's
+  // contract, so `not_reported` means the same thing here as there.
+  attention: TenantAttentionReadModel | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantTodaySection[]

@@ -99,7 +99,10 @@ async fn attention(
 /// addition enter the Control Plane contract without review, so each section is
 /// named and type-checked here exactly as the five-call version checked its
 /// five responses.
-fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
+/// `pub(crate)`: the `today` read model embeds the attention snapshot as one
+/// section and needs the same field-by-field contract — `not_reported`
+/// included — rather than a raw upstream pass-through.
+pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_object(snapshot, "snapshot")?;
     let summary = section(snapshot, "summary")?;
     // Optional on purpose: a CrowdRelay that predates the watchdog alert list
@@ -188,6 +191,11 @@ fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(findings, "findings")?;
     expect_array(&needs_you, "needs_you")?;
     expect_array(&unpublished_drafts, "unpublished_drafts")?;
+    if !awaiting_approval.is_u64() {
+        return Err(ApiError::Unavailable(
+            "tenant attention awaiting_approval returned an invalid JSON shape".into(),
+        ));
+    }
     if !brain.is_null() {
         expect_object(&brain, "brain")?;
     }

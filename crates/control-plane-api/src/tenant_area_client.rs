@@ -36,7 +36,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 /// Holding them equal makes any fan-out exactly fillable from the pool: the
 /// same connections are reused, returned, and reused again.
 ///
-/// Twelve because the widest fan-out is nine — the operations page — and a
+/// Twelve because the widest fan-out is twelve — the today page — and a
 /// limit below the widest fan-out is not a limit, it is a queue. At four, that
 /// page ran in three waves and paid two extra round trips for nothing. At
 /// twelve it runs in one wave against connections that already exist, with
@@ -2496,7 +2496,8 @@ mod tests {
         let base = format!("http://{address}");
         let tenant = Uuid::nil();
 
-        // Nine at once, exactly as the operations page does.
+        // Nine at once — inside the pool budget, wide enough that a second
+        // wave would expose any connection the pool failed to keep.
         let fan_out = || {
             let calls = (0..9).map(|_| {
                 client.request_management(

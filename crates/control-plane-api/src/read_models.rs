@@ -1049,7 +1049,7 @@ async fn overview(
 
 /// Operations/Autopilot subpage.
 ///
-/// The eleven upstream sections are fetched concurrently over the private
+/// The twelve upstream sections are fetched concurrently over the private
 /// tunnel and projected field by field. A section that fails is reported as
 /// `null` and named in `degraded`, so a broken Autopilot read cannot blank the
 /// queue metrics next to it. Only a snapshot where every section failed is an
@@ -1102,6 +1102,7 @@ async fn today(
         acquisition_sources,
         reply_triage,
         shows,
+        attention,
     ) = tokio::join!(
         section("/v1/control-plane/ops/summary"),
         section("/v1/control-plane/ecosystem/flags"),
@@ -1121,7 +1122,27 @@ async fn today(
         // "The next night" block — the show list, then the nearest night's
         // own timeline fetched below once its slug is known.
         section("/v1/control-plane/events"),
+        // The needs-you snapshot — the human gate the page's own strip
+        // renders. Re-projected below through the same contract the
+        // dedicated endpoint uses so `not_reported` means the same thing in
+        // both places.
+        section("/v1/control-plane/ops/attention"),
     );
+
+    // The attention snapshot enters this model through the dedicated
+    // endpoint's own projection: the defaults it substitutes stay named in
+    // `not_reported`, and a snapshot missing a required section degrades the
+    // section here exactly as it fails the endpoint there.
+    let attention = match attention {
+        Ok(v) => crate::attention_routes::project(&slug, &v).map_err(|e| {
+            // The tunnel answered — the contract rejected what it said, which
+            // is a shape problem, not a reachability problem. The project's
+            // own `Unavailable` would misreport this as "tenant unreachable".
+            tracing::warn!(slug = %slug, error = %e, "attention snapshot failed projection");
+            ApiError::ContractMismatch("attention snapshot failed the attention contract")
+        }),
+        Err(e) => Err(e),
+    };
 
     // The dependent hop: the nearest upcoming show's timeline can only be
     // fetched once `shows` names it. No upcoming night means no section at
@@ -1160,6 +1181,7 @@ async fn today(
         acquisition_sources.as_ref(),
         reply_triage.as_ref(),
         shows.as_ref(),
+        attention.as_ref(),
         next_show_timeline.as_ref().map(Result::as_ref),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
@@ -2042,6 +2064,7 @@ fn project_today(
     acquisition_sources: SectionResult<'_>,
     reply_triage: SectionResult<'_>,
     shows: SectionResult<'_>,
+    attention: SectionResult<'_>,
     next_show_timeline: Option<SectionResult<'_>>,
 ) -> Result<Value, ApiError> {
     let mut sections = vec![
@@ -2058,6 +2081,10 @@ fn project_today(
         section("acquisition_sources", acquisition_sources, Shape::Object),
         section("reply_triage", reply_triage, Shape::Object),
         section("shows", shows, Shape::Object),
+        // The needs-you snapshot, already through the dedicated endpoint's
+        // own projection — the strip on the page reads `needs_you`,
+        // `unpublished_drafts` and `not_reported` straight off it.
+        section("attention", attention, Shape::Object),
     ];
     // Only projected when a next night exists — the section list is also the
     // verdict list, so a never-due fetch must not read as a gap.
@@ -2130,6 +2157,9 @@ mod tests {
     ) -> Result<Value, ApiError> {
         let rt = json!({"summary": {}, "needs_human": [], "recent_auto": []});
         let sh = json!({"events": []});
+        // The needs-you snapshot as the dedicated endpoint would project it —
+        // `not_reported` present so the section reads reported-empty.
+        let att = json!({"needs_you": [], "awaiting_approval": 0, "unpublished_drafts": [], "not_reported": []});
         project_today(
             slug,
             runtime_stale_after_seconds,
@@ -2144,6 +2174,7 @@ mod tests {
             acquisition_sources,
             ok(&rt),
             ok(&sh),
+            ok(&att),
             None,
         )
     }
@@ -2510,7 +2541,7 @@ mod tests {
             unreachable(),
         );
         let (sig_err, aud_err, gm_err, acq_err) = (timeout(), timeout(), timeout(), timeout());
-        let (rt_err, sh_err) = (timeout(), unreachable());
+        let (rt_err, sh_err, att_err) = (timeout(), unreachable(), timeout());
         let error = project_today(
             "virya",
             300,
@@ -2525,6 +2556,7 @@ mod tests {
             Err(&acq_err),
             Err(&rt_err),
             Err(&sh_err),
+            Err(&att_err),
             None,
         )
         .expect_err("a fully failed snapshot must not render as an empty page");
@@ -2534,7 +2566,7 @@ mod tests {
         };
         assert_eq!(detail.slug, "virya");
         assert_eq!(detail.channel, "today");
-        assert_eq!(detail.degraded.len(), 11);
+        assert_eq!(detail.degraded.len(), 12);
         // Every section keeps its own state — no diagnosis disappears.
         assert_eq!(detail.verdicts["summary"]["state"], json!("timeout"));
         assert_eq!(detail.verdicts["flags"]["state"], json!("absent"));
@@ -2560,6 +2592,7 @@ mod tests {
             "acquisition_sources",
             "reply_triage",
             "shows",
+            "attention",
         ] {
             assert!(
                 detail.verdicts[name]["remediation"].is_string(),
@@ -2574,6 +2607,7 @@ mod tests {
         let error = project_today(
             "virya",
             300,
+            Err(&e),
             Err(&e),
             Err(&e),
             Err(&e),
@@ -2614,6 +2648,7 @@ mod tests {
             keys,
             vec![
                 "acquisition_sources",
+                "attention",
                 "audience",
                 "autopilot",
                 "degraded",
@@ -2638,9 +2673,10 @@ mod tests {
     #[test]
     fn a_next_show_timeline_lands_when_the_night_exists() {
         let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
-        let (rt, sh, tl) = (
+        let (rt, sh, att, tl) = (
             json!({"summary": {}, "needs_human": [], "recent_auto": []}),
             json!({"events": [{"slug": "friday", "upcoming": true, "starts_at": "2026-10-02T20:00:00Z"}]}),
+            json!({"needs_you": [], "awaiting_approval": 0, "unpublished_drafts": [], "not_reported": []}),
             json!({"event": {"slug": "friday"}, "steps": []}),
         );
         let projected = project_today(
@@ -2657,6 +2693,7 @@ mod tests {
             ok(&acq),
             ok(&rt),
             ok(&sh),
+            ok(&att),
             Some(ok(&tl)),
         )
         .expect("complete snapshot projects");
@@ -2668,14 +2705,15 @@ mod tests {
         assert_eq!(projected["degraded"], json!([]));
     }
 
-    /// A failed timeline must not blank the eleven sections around it — it
+    /// A failed timeline must not blank the twelve sections around it — it
     /// degrades alone, named in `degraded`, value null.
     #[test]
     fn a_failed_next_show_timeline_degrades_alone() {
         let (s, f, a, g, o, sig, aud, gm, acq) = all_sections!();
-        let (rt, sh) = (
+        let (rt, sh, att) = (
             json!({"summary": {}, "needs_human": [], "recent_auto": []}),
             json!({"events": [{"slug": "friday", "upcoming": true, "starts_at": "x"}]}),
+            json!({"needs_you": [], "awaiting_approval": 0, "unpublished_drafts": [], "not_reported": []}),
         );
         let e = timeout();
         let projected = project_today(
@@ -2692,6 +2730,7 @@ mod tests {
             ok(&acq),
             ok(&rt),
             ok(&sh),
+            ok(&att),
             Some(Err(&e)),
         )
         .expect("one bad section degrades, the rest still project");

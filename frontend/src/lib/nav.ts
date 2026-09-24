@@ -1,9 +1,10 @@
 // Tenant-scoped nav, grouped by the questions a person in the act asks —
 // not by the subsystems that answer them. The daily map is the same for
 // every session; platform-level sessions additionally get the Operator
-// group, where the machinery (queues, tunnels, notifiers, provider wiring,
-// automation) lives one level in behind a labelled disclosure. Every route
-// keeps working — this is placement, not permission.
+// group, where the machinery (queues, tunnels, provider wiring, automation)
+// lives one level in behind a labelled disclosure. Notification channels
+// moved one level further — Settings → Destinations. Every route keeps
+// working — this is placement, not permission.
 export type NavItem = {
   path: string
   label: string
@@ -37,7 +38,9 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
       { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
-      { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
+      // Needs you merged into Today: the strip on the daily page names the
+      // parked asks, and the badge lands on this item. The page itself stays
+      // reachable by URL — its queue/alerts/findings depth is still there.
       { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
       { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
@@ -48,16 +51,16 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
     ],
   },
 ]
 
 // The platform sidebar is the same process map plus one more group: the
-// machinery (queues, tunnels, notifiers, provider wiring, automation) folded
-// one level in behind a labelled disclosure. The operator keeps every
-// control — it moved a level in, not out. Pages stay reachable by URL for
-// everyone — a focus split, not a permission boundary.
+// machinery (queues, tunnels, provider wiring, automation) folded one level
+// in behind a labelled disclosure. The operator keeps every control — it
+// moved a level in, not out. Pages stay reachable by URL for everyone — a
+// focus split, not a permission boundary.
 export const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Every day',
@@ -76,7 +79,7 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access'] },
+      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
     ],
   },
   {
@@ -86,7 +89,6 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
       { path: '/tenants/$slug/beacons', label: 'Beacons', exact: false, icon: 'beacons' },
       { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
-      { path: '/tenants/$slug/notifiers', label: 'Notifiers', exact: false, icon: 'notifiers' },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
     ],
@@ -129,6 +131,9 @@ export const tenantNavItems = (platformLevel: boolean) =>
 const TENANT_PAGE_LABELS: Array<{ suffix: string; label: string }> = [
   { suffix: '/shows/', label: 'Show' },
   { suffix: '/shows', label: 'Shows' },
+  // Off-nav destinations that stay reachable: deep links from the process
+  // map, palette and overview alerts land here and still need a name.
+  { suffix: '/notifiers', label: 'Notifiers' },
 ]
 
 export const currentPageLabel = (pathname: string, slug: string | undefined, platformLevel = true, search?: { tab?: string }) => {

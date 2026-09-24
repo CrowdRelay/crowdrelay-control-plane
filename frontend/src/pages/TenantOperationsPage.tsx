@@ -4,7 +4,7 @@ import { Link, useParams } from '@tanstack/solid-router'
 import { Activity, Bot, ChartLine, Inbox, MapPin, RefreshCw, Send, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatTimestamp, relativeTime } from '../lib/format'
+import { formatTimestamp, formatIsoAge, formatIsoUntil, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { NegotiationsPanel } from '../components/NegotiationsPanel'
@@ -24,6 +24,8 @@ import { TenantStatusLine } from '../components/TenantStatusLine'
 import { buttonVariants } from '../components/app/button'
 import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
+import { Alert } from '../components/app/alert'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { operationalTone, operationalLabel } from '../lib/health-tone'
 import type { TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
@@ -50,7 +52,7 @@ export function TenantOperationsPage() {
     'replies', 'negotiations', 'outreach', 'press', 'releases', 'listing', 'plays',
   ])
   const model = useQuery(() => ({
-    queryKey: ['tenant-operations', params().slug],
+    queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -384,6 +386,14 @@ export function TenantOperationsPage() {
       </div>
     </Show>
 
+    {/* The human gate, named — the widget above counts what is waiting,
+        this names the three-or-so asks that are actually parked on a
+        person. The full queue (dead queues, alerts, findings) stays on
+        Needs you; every row lands on the tab that owns it. */}
+    <Show when={model.data && !model.error}>
+      <NeedsYouStrip model={d} slug={params().slug} />
+    </Show>
+
     {/* Fan growth — the north star, moved off the tenant landing so this
         daily page opens on recent progress. Degrades silently per field:
         an unanswered section simply does not render. */}
@@ -672,4 +682,144 @@ export function TenantOperationsPage() {
       <AttestationsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
+}
+
+// ── Needs-you strip ──────────────────────────────────────────────────
+// The merged human gate, bounded: the asks parked on a person, capped so
+// the strip stays a worklist and not a second inbox. Every row is a door
+// into the Needs-you queue — approvals deep-link to their inbox row, the
+// rest land on the tab that owns them. A healthy-empty queue renders
+// nothing: the widget band already carries "nothing to decide".
+// `model` is the page's accessor, not a snapshot: reconcile patches or
+// replaces the read model on every poll, and a captured object would freeze
+// the strip at whatever the first fetch returned.
+function NeedsYouStrip(props: { model: () => TenantTodayReadModel | undefined; slug: string }) {
+  const attention = () => props.model()?.attention
+  const degraded = () => props.model()?.degraded.includes('attention') ?? false
+  const notReported = (name: string) => (attention()?.not_reported ?? []).includes(name)
+
+  // Approvals that die soonest lead — expiry is the only ordering the
+  // queue itself insists on. Three at most: the "+N more" row owns the
+  // rest so the strip never becomes the inbox it points at.
+  const approvals = createMemo(() =>
+    (attention()?.needs_you ?? [])
+      .slice()
+      .sort((a, b) => (a.approval_expires_at ?? '9999').localeCompare(b.approval_expires_at ?? '9999'))
+      .slice(0, 3),
+  )
+  const drafts = () => notReported('unpublished_drafts') ? [] : (attention()?.unpublished_drafts ?? [])
+  const draftsTotal = () => drafts().reduce((n, c) => n + c.drafts, 0)
+  const draftsMeta = () => {
+    const channels = drafts().map(c => c.channel).join(' · ')
+    const oldest = drafts().map(c => c.oldest_drafted_at).filter((t): t is string => t != null).sort()[0]
+    return [channels, oldest ? `oldest ${formatIsoAge(oldest)}` : null].filter(Boolean).join(' · ')
+  }
+  // The queue's losses — asks that died waiting and sends that failed.
+  // They are not work (nothing to approve twice), so they close the
+  // strip as a cost line rather than rows.
+  const lapsed = () => notReported('lapsed_approvals') ? 0 : (attention()?.lapsed_approvals?.total ?? 0)
+  const failedSends = () => notReported('failed_sends') ? 0 : (attention()?.failed_sends?.total ?? 0)
+  const overflow = () => Math.max(0, (attention()?.awaiting_approval ?? 0) - approvals().length)
+  const count = () => {
+    const a = attention()
+    if (!a || degraded()) return undefined
+    return (notReported('awaiting_approval') ? approvals().length : (a.awaiting_approval ?? 0)) + draftsTotal()
+  }
+  const visible = () =>
+    degraded()
+    || approvals().length > 0
+    || draftsTotal() > 0
+    || lapsed() + failedSends() > 0
+    || notReported('needs_you')
+    || notReported('awaiting_approval')
+
+  return (
+    <Show when={visible()}>
+      <div id="needs-you">
+        <Section
+          title="Needs you"
+          icon={<SectionIcon name="inbox" />}
+          count={count()}
+          description="The asks only a person can say yes to. The full queue — dead sends, alerts, findings — lives on Needs you."
+          action={
+            <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+              Open the queue
+            </Link>
+          }
+        >
+          <div class="flex flex-col gap-3">
+            <Show when={degraded()}>
+              <Alert tone="warning" title="The needs-you queue did not answer">
+                Approvals and drafts may be parked that this strip cannot see — the section is named in the page's degraded list and keeps retrying.
+              </Alert>
+            </Show>
+            <Show when={notReported('needs_you') || notReported('awaiting_approval')}>
+              <Alert tone="info" title="Pending approvals are not reported">
+                This build does not publish the approval queue — work may be parked awaiting a decision without appearing here.
+              </Alert>
+            </Show>
+            <For each={approvals()}>{action => (
+              <Link
+                to="/tenants/$slug/attention"
+                params={{ slug: props.slug }}
+                search={{ tab: 'inbox' }}
+                hash={`action=${action.id}`}
+                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+              >
+                <div class="min-w-0">
+                  <span class="text-sm font-medium text-foreground group-hover:underline">
+                    Approve {labelOr(DECISION_KIND_LABELS, action.action_kind)}
+                  </span>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    {[action.title ?? labelOr(CONTEXT_LABELS, action.context), labelOr(SUBJECT_KIND_LABELS, action.subject_kind)].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <Show when={action.approval_expires_at}>
+                  {expires => <span class="shrink-0 text-xs text-warning-foreground">closes {formatIsoUntil(expires())}</span>}
+                </Show>
+              </Link>
+            )}</For>
+            <Show when={overflow() > 0}>
+              <Link
+                to="/tenants/$slug/attention"
+                params={{ slug: props.slug }}
+                search={{ tab: 'inbox' }}
+                class="group block rounded-md border border-dashed border-border p-3 transition-colors hover:border-foreground/30"
+              >
+                <span class="text-sm text-muted-foreground group-hover:text-foreground">
+                  +{overflow()} more waiting on a decision — the queue has all of them
+                </span>
+              </Link>
+            </Show>
+            <Show when={draftsTotal() > 0}>
+              <Link
+                to="/tenants/$slug/attention"
+                params={{ slug: props.slug }}
+                search={{ tab: 'inbox' }}
+                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+              >
+                <div class="min-w-0">
+                  <span class="text-sm font-medium text-foreground group-hover:underline">
+                    {draftsTotal()} draft{draftsTotal() === 1 ? '' : 's'} written — nothing posted yet
+                  </span>
+                  <Show when={draftsMeta()}>
+                    <p class="mt-0.5 text-xs text-muted-foreground">{draftsMeta()}</p>
+                  </Show>
+                </div>
+                <span class="shrink-0 text-xs text-muted-foreground">publish on Needs you</span>
+              </Link>
+            </Show>
+            <Show when={lapsed() + failedSends() > 0}>
+              <p class="text-xs text-muted-foreground">
+                While these waited: {[
+                  lapsed() > 0 ? `${lapsed()} ask${lapsed() === 1 ? '' : 's'} expired unanswered` : null,
+                  failedSends() > 0 ? `${failedSends()} send${failedSends() === 1 ? '' : 's'} failed` : null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            </Show>
+          </div>
+        </Section>
+      </div>
+    </Show>
+  )
 }

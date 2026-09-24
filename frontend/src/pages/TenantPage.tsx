@@ -14,6 +14,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
+import { NotifiersPanel } from '../components/NotifiersPanel'
 import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
@@ -85,7 +86,7 @@ export function TenantPage() {
   // meant Deployment and Access were platform-only in practice. Workspace
   // (the editable settings, moved out of Audience) is exactly the surface a
   // band operator drives themselves, so the bar now shows for both roles.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'workspace', 'deployment', 'access'])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('profile', ['profile', 'workspace', 'deployment', 'access', 'destinations'])
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -499,6 +500,7 @@ export function TenantPage() {
             ? [
                 { id: 'deployment', label: 'Deployment' },
                 { id: 'access', label: 'Access' },
+                { id: 'destinations', label: 'Destinations' },
               ]
             : []),
         ]}
@@ -684,6 +686,13 @@ export function TenantPage() {
             </Section>
           </Show>
         </div>
+      </TabPanel>
+
+      {/* Where the tenant's alerts go — the notifier channels, platform
+          config and automation routing that used to be a top-level nav
+          item. Its own queries; nothing here loads until the tab does. */}
+      <TabPanel active={activeTab()} id="destinations" visited={isVisited('destinations')}>
+        <NotifiersPanel slug={t.slug} />
       </TabPanel>
     </>
   }}</Show></PageShell>
