@@ -1290,6 +1290,68 @@ export type TenantPlacesReadModel = {
   fetchedAt: string
 }
 
+export type TenantBrainSection =
+  | 'autopilot'
+  | 'scorecard'
+  | 'learning'
+  | 'learning_proof'
+  | 'measurement'
+  | 'attention'
+
+/** `GET /tenants/{slug}/brain` — the autopilot's evidence in one call: the
+ * posture facts the page header needs, the scorecard, the two learning
+ * surfaces, the measurement ledger, and the attention snapshot whose
+ * refused-outcome list the learning tab renders as the gate's own words.
+ * The brief stays its own endpoint — it is the page's story and keeps its
+ * own poll cadence. A missing section is `null` and named in `degraded`. */
+export type TenantBrainReadModel = {
+  id: string
+  // Posture + queue depth — the header badges read this.
+  autopilot: AutopilotOverview | null
+  scorecard: AgentScorecard | null
+  // Decision → action → outcome entries, newest first.
+  learning: LearningLoopEntry[] | null
+  // Outcome → belief → later decision — the loop's fourth link.
+  learning_proof: LearningProof | null
+  // The plan's fifteen claims, each with its number or the reason it cannot be produced.
+  measurement: MeasurementLedger | null
+  // The attention snapshot — rejected_agent_outcomes is the gate's refused
+  // work in its own words; findings and needs_you ride along.
+  attention: TenantAttentionReadModel | null
+  degraded: TenantBrainSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantDeliverySection =
+  | 'summary'
+  | 'outbox'
+  | 'deliveries'
+  | 'attention'
+  | 'delivery_results'
+
+/** `GET /tenants/{slug}/delivery` — the operator's "what is stuck, and why"
+ * in one call: queue depths, the live outbox and delivery rows in flight,
+ * the attention snapshot's dead lists and unpublished drafts, and the
+ * recent delivery-results ledger. A missing section is `null` and named in
+ * `degraded`. */
+export type TenantDeliveryReadModel = {
+  id: string
+  summary: OperationsSummary | null
+  // Live rows still in flight — the recent window, not the dead list.
+  outbox: OutboxItem[] | null
+  deliveries: DeliveryItem[] | null
+  // dead_outbox / dead_deliveries / dead_push / unpublished_drafts ride here.
+  attention: TenantAttentionReadModel | null
+  // What landed — the recent per-attempt ledger.
+  delivery_results: DeliveryResult[] | null
+  degraded: TenantDeliverySection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
 export type PortfolioConsentStatus = 'proposed' | 'active' | 'paused' | 'revoked'
 export type PortfolioPurpose = 'cross_promote' | 'release_feature' | 'event_crossbill'
 

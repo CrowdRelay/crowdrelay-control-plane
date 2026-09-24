@@ -84,10 +84,10 @@ const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, pat
 // steps. The list warms on intent like its siblings; a run's forum detail is
 // a second query that only fires when the card opens.
 const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: TenantInMotionPage, loader: ({ params }) => warm(['relay-process-runs', params.slug], () => api.relayProcessRuns(params.slug))() })
-const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
+const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => { warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))(); warm(['tenant-delivery', params.slug], () => api.deliveryModel(params.slug))() } })
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
-const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => { warm(['intelligence-brief', params.slug], () => api.intelligence(params.slug))(); warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() } })
+const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => { warm(['intelligence-brief', params.slug], () => api.intelligence(params.slug))(); warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() } })
 const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-pipeline', params.slug], () => api.contentPipeline(params.slug))() })
 const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/material', component: TenantContentMaterialPage, loader: ({ params }) => warm(['content-sources', params.slug], () => api.contentSources(params.slug))() })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
@@ -107,7 +107,7 @@ const automationRedirect = createRoute({ getParentRoute: () => rootRoute, path: 
 
 // Legacy redirects — old routes that were consolidated into other pages
 const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/actions', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/attention` }) } })
-const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence?tab=funnel` }) } })
+const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence?tab=decisions` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=communities` }) } })
 
 const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantInMotionRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, placesRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])

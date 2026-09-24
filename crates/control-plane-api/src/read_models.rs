@@ -10,6 +10,9 @@
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
 //! * Today/Operations -> [`today`] (`GET /tenants/{slug}/today`)
 //! * Booking -> [`booking`] (`GET /tenants/{slug}/booking`)
+//! * Places  -> [`places`] (`GET /tenants/{slug}/places`)
+//! * Brain   -> [`brain`] (`GET /tenants/{slug}/brain`)
+//! * Delivery -> [`delivery`] (`GET /tenants/{slug}/delivery`)
 //! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
 //! * Audience -> [`audience`] (`GET /tenants/{slug}/audience/model`)
 //! * Press   -> [`press_overview`] (`GET /tenants/{slug}/operations/press-overview`)
@@ -141,6 +144,8 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/today", get(today))
         .route("/tenants/{slug}/booking", get(booking))
         .route("/tenants/{slug}/places", get(places))
+        .route("/tenants/{slug}/brain", get(brain))
+        .route("/tenants/{slug}/delivery", get(delivery))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -1935,6 +1940,210 @@ fn places_sections<'a>(
         section("audience_places", audience_places, Shape::Object),
         section("gig_plan", gig_plan, Shape::Object),
         section("area_cities", area_cities, Shape::Object),
+    ]
+}
+
+/// Brain — the autopilot's evidence in one call.
+///
+/// The brief stays its own endpoint (`operations/intelligence`) — it is the
+/// page's story and keeps its own poll cadence and mutations. This model is
+/// the evidence the tabs render underneath it: the posture facts the header
+/// badges need, the scorecard, the two learning surfaces, the measurement
+/// ledger, and the attention snapshot whose refused-outcome list the
+/// learning tab renders as "the gate said no". Six sections fetched
+/// concurrently; each failure degrades its own section. `attention` enters
+/// through the dedicated projection so `not_reported` keeps its meaning —
+/// a tenant that does not publish refused outcomes is not a tenant whose
+/// gate refused nothing.
+async fn brain(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:brain");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let (autopilot, scorecard, learning, learning_proof, measurement, attention) = tokio::join!(
+        fetch("/v1/control-plane/autopilot/overview"),
+        fetch("/v1/control-plane/autopilot/scorecard"),
+        fetch("/v1/control-plane/autopilot/learning-loop"),
+        fetch("/v1/control-plane/autopilot/learning-proof"),
+        fetch("/v1/control-plane/autopilot/measurement"),
+        fetch("/v1/control-plane/ops/attention"),
+    );
+
+    let attention = match attention {
+        Ok(v) => crate::attention_routes::project(&slug, &v).map_err(|e| {
+            tracing::warn!(slug = %slug, error = %e, "attention snapshot failed projection");
+            ApiError::ContractMismatch("attention snapshot failed the attention contract")
+        }),
+        Err(e) => Err(e),
+    };
+
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "brain",
+        &brain_sections(
+            autopilot.as_ref(),
+            scorecard.as_ref(),
+            learning.as_ref(),
+            learning_proof.as_ref(),
+            measurement.as_ref(),
+            attention.as_ref(),
+        ),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// The section table the brain handler projects — named so the tests assert
+/// the real wiring rather than a copy of it.
+fn brain_sections<'a>(
+    autopilot: SectionResult<'a>,
+    scorecard: SectionResult<'a>,
+    learning: SectionResult<'a>,
+    learning_proof: SectionResult<'a>,
+    measurement: SectionResult<'a>,
+    attention: SectionResult<'a>,
+) -> [Section<'a>; 6] {
+    [
+        section("autopilot", autopilot, Shape::Object),
+        section("scorecard", scorecard, Shape::Object),
+        section("learning", learning, Shape::Array),
+        section("learning_proof", learning_proof, Shape::Object),
+        section("measurement", measurement, Shape::Object),
+        section("attention", attention, Shape::Object),
+    ]
+}
+
+/// Delivery — the operator's answer to "what is stuck, and why".
+///
+/// One read across the pipe: the queue depths the summary reports, the
+/// live outbox and delivery rows still in flight, the attention snapshot's
+/// dead lists and unpublished drafts (the rows that will not move on their
+/// own), and the recent delivery-results ledger that says what landed.
+/// Five sections concurrently; the Health page's delivery tab renders it
+/// as a journey and keeps retry on the dead rows it points at.
+async fn delivery(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:delivery");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let (summary, outbox, deliveries, attention, delivery_results) = tokio::join!(
+        fetch("/v1/control-plane/ops/summary"),
+        // The live window — 100 rows covers "in flight"; the dead rows the
+        // operator acts on arrive through the attention snapshot below.
+        fetch("/v1/control-plane/ops/outbox?limit=100"),
+        fetch("/v1/control-plane/ops/deliveries?limit=100"),
+        fetch("/v1/control-plane/ops/attention"),
+        fetch("/v1/control-plane/ops/delivery-results?limit=100"),
+    );
+
+    let attention = match attention {
+        Ok(v) => crate::attention_routes::project(&slug, &v).map_err(|e| {
+            tracing::warn!(slug = %slug, error = %e, "attention snapshot failed projection");
+            ApiError::ContractMismatch("attention snapshot failed the attention contract")
+        }),
+        Err(e) => Err(e),
+    };
+    // Upstream answers `{"results": [...]}` — the section contract is the
+    // bare ledger rows the page renders, so a payload that lost the field
+    // degrades this section rather than arriving as an empty ledger.
+    let delivery_results = delivery_results.and_then(|value| {
+        value
+            .get("results")
+            .cloned()
+            .filter(Value::is_array)
+            .ok_or_else(|| {
+                tracing::warn!(slug = %slug, "delivery-results answered without results[]");
+                ApiError::ContractMismatch("delivery-results answered without results[]")
+            })
+    });
+
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "delivery",
+        &delivery_sections(
+            summary.as_ref(),
+            outbox.as_ref(),
+            deliveries.as_ref(),
+            attention.as_ref(),
+            delivery_results.as_ref(),
+        ),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// The section table the delivery handler projects.
+fn delivery_sections<'a>(
+    summary: SectionResult<'a>,
+    outbox: SectionResult<'a>,
+    deliveries: SectionResult<'a>,
+    attention: SectionResult<'a>,
+    delivery_results: SectionResult<'a>,
+) -> [Section<'a>; 5] {
+    [
+        section("summary", summary, Shape::Object),
+        section("outbox", outbox, Shape::Array),
+        section("deliveries", deliveries, Shape::Array),
+        section("attention", attention, Shape::Object),
+        section("delivery_results", delivery_results, Shape::Array),
     ]
 }
 
@@ -4228,6 +4437,262 @@ mod tests {
         assert_eq!(projected["degraded"], json!(["city_funnel"]));
         assert_eq!(
             projected["sections"]["city_funnel"]["state"],
+            json!("contract_mismatch")
+        );
+    }
+
+    #[test]
+    fn brain_projects_each_source_as_its_own_section() {
+        let autopilot = json!({"runtime_enabled": true, "queued_actions": 3});
+        let scorecard = json!({"status": "working", "agents": []});
+        let learning = json!([{"decision_id": "d1"}]);
+        let proof = json!({"entries": []});
+        let measurement = json!({"claims": []});
+        let attention = json!({"needs_you": [], "rejected_agent_outcomes": []});
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "brain",
+            &brain_sections(
+                ok(&autopilot),
+                ok(&scorecard),
+                ok(&learning),
+                ok(&proof),
+                ok(&measurement),
+                ok(&attention),
+            ),
+        )
+        .expect("all six sections answer");
+
+        assert_eq!(projected["id"], json!("virya"));
+        assert_eq!(projected["autopilot"], autopilot);
+        assert_eq!(projected["scorecard"], scorecard);
+        assert_eq!(projected["learning"], learning);
+        assert_eq!(projected["learning_proof"], proof);
+        assert_eq!(projected["measurement"], measurement);
+        assert_eq!(projected["attention"], attention);
+        assert_eq!(projected["degraded"], json!([]));
+        for name in [
+            "autopilot",
+            "scorecard",
+            "learning",
+            "learning_proof",
+            "measurement",
+            "attention",
+        ] {
+            assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
+        }
+    }
+
+    #[test]
+    fn brain_degrades_only_the_section_the_tenant_could_not_answer() {
+        // The measurement ledger is the newest upstream read — the likeliest
+        // absent on an older tenant. Losing it must not blank the scorecard.
+        let autopilot = json!({"runtime_enabled": true});
+        let scorecard = json!({"status": "working"});
+        let learning = json!([]);
+        let proof = json!({"entries": []});
+        let error = unreachable();
+        let attention = json!({"needs_you": []});
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "brain",
+            &brain_sections(
+                ok(&autopilot),
+                ok(&scorecard),
+                ok(&learning),
+                ok(&proof),
+                Err(&error),
+                ok(&attention),
+            ),
+        )
+        .expect("one dead section still projects the rest");
+
+        assert_eq!(projected["scorecard"], scorecard);
+        assert_eq!(projected["measurement"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["measurement"]));
+    }
+
+    #[test]
+    fn brain_fails_closed_only_when_every_section_is_down() {
+        let error = timeout();
+        let failed = project_sections(
+            "virya",
+            300,
+            "brain",
+            &brain_sections(
+                Err(&error),
+                Err(&error),
+                Err(&error),
+                Err(&error),
+                Err(&error),
+                Err(&error),
+            ),
+        );
+        assert!(
+            matches!(failed, Err(ApiError::AllSectionsFailed { .. })),
+            "every section dead is the read model's only hard error"
+        );
+    }
+
+    #[test]
+    fn brain_rejects_a_misshapen_section_as_contract_drift() {
+        // The learning loop must be an array — an object shaped like an
+        // envelope means the upstream contract moved, which is drift to name,
+        // not a healthy empty loop.
+        let autopilot = json!({"runtime_enabled": true});
+        let scorecard = json!({"status": "working"});
+        let learning = json!({"items": []});
+        let proof = json!({"entries": []});
+        let measurement = json!({"claims": []});
+        let attention = json!({"needs_you": []});
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "brain",
+            &brain_sections(
+                ok(&autopilot),
+                ok(&scorecard),
+                ok(&learning),
+                ok(&proof),
+                ok(&measurement),
+                ok(&attention),
+            ),
+        )
+        .expect("a misshapen section degrades, it does not fail the model");
+
+        assert_eq!(projected["learning"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["learning"]));
+        assert_eq!(
+            projected["sections"]["learning"]["state"],
+            json!("contract_mismatch")
+        );
+    }
+
+    #[test]
+    fn delivery_projects_each_source_as_its_own_section() {
+        let summary =
+            json!({"outbox": {"dead": 0}, "deliveries": {"dead": 0}, "push": {"dead": 0}});
+        let outbox = json!([{"id": "o1"}]);
+        let deliveries = json!([{"id": "d1", "endpoint_name": "push"}]);
+        let attention = json!({"dead_outbox": [], "dead_deliveries": [], "dead_push": []});
+        let results = json!([{"id": "r1", "status": "delivered"}]);
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "delivery",
+            &delivery_sections(
+                ok(&summary),
+                ok(&outbox),
+                ok(&deliveries),
+                ok(&attention),
+                ok(&results),
+            ),
+        )
+        .expect("all five sections answer");
+
+        assert_eq!(projected["id"], json!("virya"));
+        assert_eq!(projected["summary"], summary);
+        assert_eq!(projected["outbox"], outbox);
+        assert_eq!(projected["deliveries"], deliveries);
+        assert_eq!(projected["attention"], attention);
+        assert_eq!(projected["delivery_results"], results);
+        assert_eq!(projected["degraded"], json!([]));
+        for name in [
+            "summary",
+            "outbox",
+            "deliveries",
+            "attention",
+            "delivery_results",
+        ] {
+            assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
+        }
+    }
+
+    #[test]
+    fn delivery_degrades_only_the_section_the_tenant_could_not_answer() {
+        // The results ledger is the read most likely to be absent on an
+        // older tenant — losing it must not blank the dead queues the
+        // operator came to clear.
+        let summary = json!({"outbox": {"dead": 2}});
+        let outbox = json!([]);
+        let deliveries = json!([]);
+        let attention = json!({"dead_outbox": [{"id": "o1"}]});
+        let error = unreachable();
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "delivery",
+            &delivery_sections(
+                ok(&summary),
+                ok(&outbox),
+                ok(&deliveries),
+                ok(&attention),
+                Err(&error),
+            ),
+        )
+        .expect("one dead section still projects the rest");
+
+        assert_eq!(projected["attention"], attention);
+        assert_eq!(projected["delivery_results"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["delivery_results"]));
+    }
+
+    #[test]
+    fn delivery_fails_closed_only_when_every_section_is_down() {
+        let error = timeout();
+        let failed = project_sections(
+            "virya",
+            300,
+            "delivery",
+            &delivery_sections(
+                Err(&error),
+                Err(&error),
+                Err(&error),
+                Err(&error),
+                Err(&error),
+            ),
+        );
+        assert!(
+            matches!(failed, Err(ApiError::AllSectionsFailed { .. })),
+            "every section dead is the read model's only hard error"
+        );
+    }
+
+    #[test]
+    fn delivery_rejects_a_misshapen_section_as_contract_drift() {
+        // The outbox must be an array — an object shaped like an envelope
+        // means the upstream contract moved.
+        let summary = json!({"outbox": {"dead": 0}});
+        let outbox = json!({"items": []});
+        let deliveries = json!([]);
+        let attention = json!({"dead_outbox": []});
+        let results = json!([]);
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "delivery",
+            &delivery_sections(
+                ok(&summary),
+                ok(&outbox),
+                ok(&deliveries),
+                ok(&attention),
+                ok(&results),
+            ),
+        )
+        .expect("a misshapen section degrades, it does not fail the model");
+
+        assert_eq!(projected["outbox"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["outbox"]));
+        assert_eq!(
+            projected["sections"]["outbox"]["state"],
             json!("contract_mismatch")
         );
     }

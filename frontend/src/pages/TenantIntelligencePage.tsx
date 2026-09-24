@@ -1,6 +1,6 @@
-import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
+import { useParams, useRouterState } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -23,29 +23,72 @@ import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel
 import { FanAttributionPanel } from '../components/FanAttributionPanel'
 import { GrowthFunnelPanel } from '../components/GrowthFunnelPanel'
 import { SkeletonBrainGroup, SkeletonSection } from '../components/Skeleton'
+import { RejectedOutcomesPanel } from '../components/QueueLossesPanel'
+import { Alert } from '../components/app/alert'
+import type { TenantBrainReadModel } from '../lib/types'
 import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
 import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { StatusBadge } from '../components/StatusBadge'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
-const TABS = ['brief', 'overview', 'growth', 'material', 'decisions', 'funnel', 'learning', 'numbers'] as const
+const TABS = ['brief', 'standing', 'decisions', 'learning'] as const
+
+// Pre-regroup deep links keep their intent — every retired tab id maps onto
+// the tab its evidence moved to. `decisions` and `learning` keep their ids.
+const LEGACY_TABS: Record<string, string> = {
+  overview: 'standing',
+  growth: 'standing',
+  material: 'standing',
+  funnel: 'decisions',
+  numbers: 'learning',
+}
+
+// The section labels the degraded strip prints — a section the tenant could
+// not answer is named, never silently absent.
+const SECTION_LABEL: Record<string, string> = {
+  autopilot: 'Autopilot posture',
+  scorecard: 'The scorecard',
+  learning: 'The decision loop',
+  learning_proof: 'Belief changes',
+  measurement: 'The measurement ledger',
+  attention: 'What needs a person',
+}
+const BAND_SECTION_LABEL: Record<string, string> = {
+  autopilot: 'Autopilot posture',
+  scorecard: 'The scorecard',
+  learning: 'What it tried and what happened',
+  learning_proof: 'What it changed its mind about',
+  measurement: 'The numbers',
+  attention: 'What needs you',
+}
 
 /**
- * Intelligence — the deterministic autopilot, one tab per question in the
- * order the loop runs: are we getting anywhere, where we stand, what it
- * believes, what it may say, what it decided, what moved, what it learned,
- * the numbers. Each panel draws its own heading; the page draws none of its
- * own under the tab bar.
+ * Intelligence — the deterministic autopilot, regrouped around the loop:
+ * the story (the brief — its own endpoint), where it stands, what it
+ * decided and what came of it, what it learned. Four tabs; the page draws
+ * no heading of its own under the tab bar.
+ *
+ * The evidence sections ride one read model (`tenant-brain`) — the panels
+ * that render exactly one section take it as a prop and never ask again;
+ * a section the tenant could not answer is named in the degraded strip
+ * instead of mounting empty.
  */
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const autopilot = () => model.data?.autopilot
   // The id list makes `?tab=` deep links land on the right tab.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
+  // A retired `?tab=` id remaps onto the tab its evidence moved to — the hook
+  // alone would snap it back to the brief and the intent would be lost.
+  const locationSearch = useRouterState({ select: s => s.location.search })
+  createEffect(() => {
+    const t = (locationSearch() as Record<string, unknown>)?.tab
+    if (typeof t === 'string' && LEGACY_TABS[t]) switchTab(LEGACY_TABS[t])
+  })
   const model = useQuery(() => ({
-    queryKey: ['tenant-today', params().slug],
-    queryFn: () => api.tenantToday(params().slug),
+    queryKey: ['tenant-brain', params().slug],
+    queryFn: () => api.brainModel(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -101,20 +144,16 @@ export function TenantIntelligencePage() {
       onPrefetch={prefetch}
       tabs={[
         { id: 'brief', label: 'Are we getting anywhere' },
-        { id: 'overview', label: 'Where we stand' },
-        { id: 'growth', label: 'What it believes' },
-        { id: 'material', label: 'What it may say' },
+        { id: 'standing', label: 'Where it stands' },
         { id: 'decisions', label: 'What it decided' },
-        { id: 'funnel', label: 'What moved' },
         { id: 'learning', label: 'What it learned' },
-        { id: 'numbers', label: 'The numbers' },
       ]}
     />
 
     {/* The brief is the default tab and answers from its own read model —
-        it must not wait on tenant-today, an unrelated channel whose
+        it must not wait on the brain model, an unrelated channel whose
         failure would hide the one thing this page exists to say. The other
-        seven tabs are evidence surfaces and keep the shared gate. */}
+        three tabs are evidence surfaces and keep the shared gate. */}
     <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>
       <BrainBriefPanel slug={params().slug} />
     </TabPanel>
@@ -126,32 +165,43 @@ export function TenantIntelligencePage() {
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
     </Show>
 
-    <Show when={!model.error && model.data}>{<>
+    <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) => <>
 
-      <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
-        <ScorecardPanel slug={params().slug} />
+      {/* A section the tenant could not answer is named here; the panel it
+          feeds does not mount, so nothing renders an empty success. */}
+      <For each={data().degraded}>{section => (
+        <Alert tone="warning" role="status" class="mb-4">
+          <Show when={authState.isPlatformLevel()} fallback={
+            <>
+              <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
+              now. The rest of the page keeps working — it comes back on its own.
+            </>
+          }>
+            <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
+            tenant right now. The rest of the page keeps working — it recovers on the next poll.
+          </Show>
+        </Alert>
+      )}</For>
+
+      {/* ── Where it stands — posture, capabilities, objectives, beliefs,
+            and the material it may speak with ── */}
+      <TabPanel active={activeTab()} id="standing" visited={isVisited('standing')}>
+        <Show when={data().scorecard}>{d => <ScorecardPanel slug={params().slug} data={d()} />}</Show>
         {/* N.9 — the dispatch gate's registry per lane: which capabilities
             are live, held, or missing. The scorecard counts them; this
             names them before an approval meets the refusal. */}
         <ExecutorCapabilitiesPanel slug={params().slug} />
         <GrowthObjectivesPanel slug={params().slug} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="growth" visited={isVisited('growth')}>
         <GrowthPosturePanel slug={params().slug} />
         <RunBrainCyclePanel slug={params().slug} />
         <GrowthIntelligencePanel slug={params().slug} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="material" visited={isVisited('material')}>
         <ContentSourcesPanel slug={params().slug} />
       </TabPanel>
 
+      {/* ── What it decided — the decision log and what came of the
+            decisions: growth, channels, attribution, the funnel ── */}
       <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
         <IntelligenceTransparencyPanel slug={params().slug} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="funnel" visited={isVisited('funnel')}>
         <GrowthMetricsPanel slug={params().slug} />
         <AcquisitionChannelsPanel slug={params().slug} />
         {/* The causal half of the same question — the channels panel says
@@ -161,15 +211,18 @@ export function TenantIntelligencePage() {
         <GrowthFunnelPanel slug={params().slug} />
       </TabPanel>
 
+      {/* ── What it learned — the loop, the beliefs it closed, the gate's
+            refusals in its own words, and the ledger that judges it ── */}
       <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
-        <LearningLoopPanel slug={params().slug} />
-        <LearningProofPanel slug={params().slug} />
-      </TabPanel>
-
-      {/* ── Numbers tab — the measurement ledger: fifteen claims, each
-              with its number or the reason this build cannot produce it ── */}
-      <TabPanel active={activeTab()} id="numbers" visited={isVisited('numbers')}>
-        <MeasurementPanel slug={params().slug} />
+        <Show when={data().learning}>{d => <LearningLoopPanel slug={params().slug} data={d()} />}</Show>
+        <Show when={data().learning_proof}>{d => <LearningProofPanel slug={params().slug} data={d()} />}</Show>
+        <Show when={data().attention}>{att => (
+          <RejectedOutcomesPanel
+            outcomes={att().rejected_agent_outcomes}
+            notReported={att().not_reported ?? []}
+          />
+        )}</Show>
+        <Show when={data().measurement}>{d => <MeasurementPanel slug={params().slug} data={d()} />}</Show>
       </TabPanel>
     </>}</Show>
   </PageShell>

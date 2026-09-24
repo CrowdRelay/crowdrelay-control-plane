@@ -12,6 +12,7 @@ import { Button } from './app/button'
 import { Spinner } from './Spinner'
 import { cn } from '../lib/cn'
 import { buttonVariants } from './app/button'
+import { refreshQueries } from '../lib/refresh'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -164,6 +165,7 @@ export function AttentionInbox(props: {
           execute: async () => {
             await api.approveOpportunityAction(props.slug, action.id)
             setApproved(prev => new Set(prev).add(action.id))
+            refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
           },
         },
         // Secondary, for the evidence behind the decision — the full board

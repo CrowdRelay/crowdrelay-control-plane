@@ -13,6 +13,7 @@ import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Checkbox } from './app/checkbox'
 import { toast } from './app/toast'
+import { refreshQueries } from '../lib/refresh'
 
 // Phase 18 — find, then "do it". CrowdRelay parks what its agent found; this
 // board is where a human decides. "Do it" approves through CrowdRelay's own
@@ -283,6 +284,7 @@ export function OpportunityBoardPanel(props: {
     try {
       await operation()
       await props.refresh()
+      refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
     } catch (error) {
       setMutationError(errorMessage(error, 'Opportunity decision failed'))
     } finally {

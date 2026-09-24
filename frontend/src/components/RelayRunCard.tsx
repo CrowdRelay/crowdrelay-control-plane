@@ -114,6 +114,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
     await Promise.all([
       detail.refetch(),
       queryClient.invalidateQueries({ queryKey: ['relay-process-runs', props.slug] }),
+      queryClient.invalidateQueries({ queryKey: ['tenant-delivery', props.slug] }),
     ])
   }
 

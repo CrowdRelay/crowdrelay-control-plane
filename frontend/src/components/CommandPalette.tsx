@@ -68,14 +68,14 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string; platform?: true }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
   { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence?tab=decisions' },
-  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=growth' },
-  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=overview' },
-  // Dead deliveries live on the queues tab, which the band's attention page
-  // does not carry — naming it here would land them where the thing is not.
-  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/attention', platform: true },
+  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=standing' },
+  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=standing' },
+  // Dead deliveries live on Health's delivery tab — operator-only, same as
+  // the page it opens.
+  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/health?tab=delivery', platform: true },
   { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
-  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=growth' },
+  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=decisions' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
   // The authority sliders live one level in on Health — the band map does not

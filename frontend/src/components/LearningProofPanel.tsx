@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { EmptyState } from './ui/empty-state'
-import type { LearningProofEntry } from '../lib/types'
+import type { LearningProof, LearningProofEntry } from '../lib/types'
 import { SectionIcon } from './SectionIcon'
 import { Alert } from './app/alert'
 import { Badge } from './app/badge'
@@ -48,16 +48,20 @@ const outcomeClass = (assessment: string | null): string => {
   return 'text-muted-foreground'
 }
 
-export function LearningProofPanel(props: { slug: string }) {
+export function LearningProofPanel(props: { slug: string; data?: LearningProof }) {
+  // Fed from the brain read model on the Intelligence page — `data` present
+  // means the model already answered and this panel does not ask again.
+  const fed = () => props.data !== undefined
   const model = useQuery(() => ({
     queryKey: ['learning-proof', props.slug],
     queryFn: () => api.learningProof(props.slug),
     reconcile: 'revision_id',
     refetchOnWindowFocus: false,
     staleTime: 20_000,
+    enabled: !fed(),
   }))
 
-  const entries = (): LearningProofEntry[] => model.data?.entries ?? []
+  const entries = (): LearningProofEntry[] => (fed() ? props.data : model.data)?.entries ?? []
   const provenChains = () => entries().filter(entry => entry.changed_a_decision).length
 
   return <Section
@@ -67,7 +71,7 @@ export function LearningProofPanel(props: { slug: string }) {
     class="space-y-4"
   >
 
-    <Show when={model.error}>
+    <Show when={!fed() && model.error}>
       <Alert tone="warning" role="status">
         Learning proof data is temporarily unavailable.
       </Alert>
@@ -76,11 +80,11 @@ export function LearningProofPanel(props: { slug: string }) {
     {/* Without this the card showed its heading over empty space for the whole
         request, which reads the same as "the brain has changed its mind about
         nothing" — the opposite conclusion. */}
-    <Show when={model.isPending && !model.error}>
+    <Show when={!fed() && model.isPending && !model.error}>
       <SkeletonRows count={3} />
     </Show>
 
-    <Show when={model.data}>
+    <Show when={fed() || model.data}>
       <Show when={entries().length > 0} fallback={
         <EmptyState
           label="No belief changes recorded yet"

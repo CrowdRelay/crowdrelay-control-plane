@@ -116,7 +116,7 @@ export function TenantContentPage() {
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 
   const refreshing = () => pipeline.isFetching || results.isFetching
-  const refresh = () => refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug])
+  const refresh = () => refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug], ['tenant-delivery', params().slug])
 
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
@@ -133,7 +133,7 @@ export function TenantContentPage() {
     try {
       await api.approveOpportunityAction(params().slug, action.id)
       setConfirming(null)
-      refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug])
+      refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug], ['tenant-delivery', params().slug])
     } catch (err) {
       setError(errorMessage(err, 'Could not approve it. Try again.'))
     } finally {
