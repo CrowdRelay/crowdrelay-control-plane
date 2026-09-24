@@ -26,6 +26,10 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}/brain`, method: 'GET', name: 'brain-model' },
   { path: `/api/v1/tenants/${SLUG}/delivery`, method: 'GET', name: 'delivery-model' },
   { path: `/api/v1/tenants/${SLUG}/proof`, method: 'GET', name: 'proof-model' },
+  // The table-driven operator surface: one entry of each shape.
+  { path: `/api/v1/tenants/${SLUG}/surface/ops/action-states`, method: 'GET', name: 'surface-action-states' },
+  { path: `/api/v1/tenants/${SLUG}/surface/analytics/funnel`, method: 'GET', name: 'surface-funnel' },
+  { path: `/api/v1/tenants/${SLUG}/surface/merch/catalog`, method: 'GET', name: 'surface-merch' },
   { path: `/api/v1/tenants/${SLUG}/operations/summary`, method: 'GET', name: 'ops-summary' },
   { path: `/api/v1/tenants/${SLUG}/operations/flags`, method: 'GET', name: 'ops-flags' },
   { path: `/api/v1/tenants/${SLUG}/operations/growth`, method: 'GET', name: 'ops-growth' },

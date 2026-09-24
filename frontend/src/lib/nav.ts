@@ -152,6 +152,7 @@ const TENANT_PAGE_LABELS: Array<{ suffix: string; label: string }> = [
   // Off-nav destinations that stay reachable: deep links from the process
   // map, palette and overview alerts land here and still need a name.
   { suffix: '/cities/', label: 'Place' },
+  { suffix: '/capabilities', label: 'Capabilities' },
 ]
 
 export const currentPageLabel = (pathname: string, slug: string | undefined, platformLevel = true, search?: { tab?: string }) => {

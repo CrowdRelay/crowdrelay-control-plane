@@ -197,6 +197,8 @@ const SUBPAGES = [
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
   { path: '/tenants/virya/health', name: 'health' },
   { path: '/tenants/virya/proof', name: 'proof' },
+  // The capability map — reachable by URL, Settings and the palette.
+  { path: '/tenants/virya/capabilities', name: 'capabilities' },
   { path: '/tenants/virya/health?tab=delivery', name: 'health-delivery' },
   { path: '/tenants/virya/health?tab=policies', name: 'health-policies' },
   // The beacons destination dissolved into Audience → Contacts; this
@@ -306,6 +308,10 @@ test.describe('Control Plane E2E @e2e', () => {
 
   // Test that navigating between pages doesn't accumulate errors
   test('Full navigation sweep — no accumulated errors @e2e', async ({ page }) => {
+    // Sized to the sweep, not the default 30s: every page may wait up to 15s
+    // for network idle, and the list grows with the console. A fixed budget
+    // turned each new page into a timeout that reported nothing about errors.
+    test.setTimeout(SUBPAGES.length * 20_000)
     const sweepCollectors = setupErrorCollectors(page)
 
     for (const sub of SUBPAGES) {

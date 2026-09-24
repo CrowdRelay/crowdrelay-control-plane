@@ -568,7 +568,12 @@ fn night_contribution_path(path: &str) -> bool {
         && matches!(kind, "draw_estimate" | "announce_status" | "asks" | "terms")
 }
 
-fn valid_operations_request(method: &str, path: &str) -> bool {
+pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
+    // The table-driven operator surface names its routes once, and this
+    // allowlist reads the same table — see `surface_routes`.
+    if crate::surface_routes::allows(method, path) {
+        return true;
+    }
     match method {
         "GET" => {
             matches!(

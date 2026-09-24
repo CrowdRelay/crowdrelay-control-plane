@@ -16,6 +16,7 @@ import { Badge } from '../components/app/badge'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { toast } from '../components/app/toast'
+import { surface } from '../lib/surface'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
 import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar } from '../components/layout'
@@ -47,6 +48,7 @@ const KIND_LABEL: Record<string, string> = {
   social_post: 'Social',
   community_post: 'Community',
   telegram_post: 'Telegram',
+  discord_post: 'Discord',
   signal_push: 'Signal',
 }
 
@@ -392,6 +394,9 @@ export function TenantContentPage() {
                   <Show when={r.kind === 'social_post' && r.status === 'awaiting_manual_post'}>
                     <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void results.refetch()} />
                   </Show>
+                  <Show when={(r.kind === 'telegram_post' || r.kind === 'discord_post') && r.status === 'awaiting_manual_post'}>
+                    <ManualMessageRegister slug={params().slug} post={r} onDone={() => void results.refetch()} />
+                  </Show>
                 </li>
               )
             }}</For>
@@ -442,6 +447,66 @@ function ManualSocialPostRegister(props: { slug: string; post: DeliveryResult; o
           onInput={e => setUrl(e.currentTarget.value)}
         />
         <Button size="sm" variant="outline" writes disabled={busy() || !url().startsWith('https://')} onClick={() => void register()}>
+          <Show when={busy()}><Spinner /></Show>
+          Register
+        </Button>
+      </span>
+    </Show>
+  )
+}
+
+/// The same close-out for Telegram and Discord, which record the message id
+/// rather than a URL. Both drafted and waited with no way to finish them from
+/// the console: the attention board counted them, the delivery list showed a
+/// Telegram row without its words, and a Discord row not at all.
+function ManualMessageRegister(props: { slug: string; post: DeliveryResult; onDone: () => void }) {
+  const [open, setOpen] = createSignal(false)
+  const [messageId, setMessageId] = createSignal('')
+  const [busy, setBusy] = createSignal(false)
+  const telegram = () => props.post.kind === 'telegram_post'
+  // Telegram message ids are integers; Discord's are snowflakes, which
+  // overflow a JS number and travel as strings.
+  const valid = () => (telegram() ? /^\d{1,15}$/ : /^\d{5,25}$/).test(messageId().trim())
+  const register = async () => {
+    if (busy() || !valid()) return
+    setBusy(true)
+    try {
+      const id = messageId().trim()
+      await surface.write(
+        props.slug,
+        'POST',
+        telegram()
+          ? `telegram-posts/${encodeURIComponent(props.post.id)}/register-manual`
+          : `discord-posts/${encodeURIComponent(props.post.id)}/register-manual`,
+        { message_id: telegram() ? Number(id) : id },
+      )
+      toast.success('Registered — the post is being measured')
+      props.onDone()
+    } catch (error) {
+      toast.error(errorMessage(error, 'That did not register'))
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }
+  return (
+    <Show
+      when={open()}
+      fallback={
+        <Button variant="link" class="mt-1 h-auto p-0 text-xs font-normal" writes onClick={() => setOpen(true)}>
+          posted it by hand? register the message
+        </Button>
+      }
+    >
+      <span class="mt-1 flex items-center gap-2">
+        <Input
+          class="h-7 w-64 max-w-full text-xs"
+          inputMode="numeric"
+          placeholder={telegram() ? 'Telegram message id' : 'Discord message id'}
+          value={messageId()}
+          onInput={e => setMessageId(e.currentTarget.value)}
+        />
+        <Button size="sm" variant="outline" writes disabled={busy() || !valid()} onClick={() => void register()}>
           <Show when={busy()}><Spinner /></Show>
           Register
         </Button>
