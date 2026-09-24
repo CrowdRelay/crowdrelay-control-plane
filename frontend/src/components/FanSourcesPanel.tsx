@@ -198,6 +198,15 @@ export function FanSourcesPanel(props: {
   const [values, setValues] = createSignal<Record<string, string>>({})
   const [verificationNotice, setVerificationNotice] = createSignal<string | null>(null)
 
+  // The connect dialog is a short guide — auth (fields or the OAuth grant),
+  // scope where the platform reads personal space, confirm — rather than one
+  // flat grid. OAuth scope is chosen before the redirect and applied to the
+  // connection when it lands, so the boundary exists from the first sync.
+  const [connectStep, setConnectStep] = createSignal(0)
+  const [pendingScopeKind, setPendingScopeKind] = createSignal<ScopeKind>('folder')
+  const [pendingScopeValue, setPendingScopeValue] = createSignal('')
+  const PENDING_SCOPE_KEY = (slug: string, platform: string) => `cp:fanscope:${slug}:${platform}`
+
   const needsAttestation = createMemo(() => sourceKind() !== 'http_json_pull')
 
   const refresh = () => props.onChanged()
@@ -300,6 +309,12 @@ export function FanSourcesPanel(props: {
     queryKey: ['fan-sources-connections', props.slug],
     queryFn: async () => {
       const data = await api.fanbaseConnections(props.slug)
+      // A just-landed OAuth connection carries the scope chosen before the
+      // redirect. Applying it here means the first sync already honours it —
+      // and the caller gets the scoped row back rather than a stale read.
+      if (await applyPendingScopes(data.connections)) {
+        return (await api.fanbaseConnections(props.slug)).connections
+      }
       return data.connections
     },
     refetchOnWindowFocus: false,
@@ -381,35 +396,36 @@ export function FanSourcesPanel(props: {
     )
   }
 
+  const buildScope = (kind: ScopeKind, raw: string): ScanScope => {
+    if (kind === 'folder') {
+      const ids = raw.split(',').map(v => v.trim()).filter(Boolean)
+      if (ids.length === 0) throw new Error('Paste at least one folder id.')
+      return { kind, folder_ids: ids }
+    }
+    if (kind === 'shared_drive') {
+      if (!raw.trim()) throw new Error('Paste the shared drive id.')
+      return { kind, drive_id: raw.trim() }
+    }
+    if (kind === 'label') {
+      if (!raw.trim()) throw new Error('Type the label name.')
+      return { kind, label: raw.trim() }
+    }
+    if (kind === 'since') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) throw new Error('Use the date format YYYY-MM-DD.')
+      return { kind, since: raw.trim() }
+    }
+    if (kind === 'sent_only' || kind === 'whole_account') return { kind }
+    // Every kind is named — a catch-all that guessed whole_account would
+    // widen the read boundary behind the operator's back.
+    throw new Error('That scope is not one this connection understands.')
+  }
+
   const saveScope = async (conn: FanbaseConnection) => {
     setScopeSaving(true)
     setErrorText(null)
     setNotice(null)
     try {
-      const kind = scopeKind()
-      let scope: ScanScope
-      if (kind === 'folder') {
-        const ids = scopeValue().split(',').map(v => v.trim()).filter(Boolean)
-        if (ids.length === 0) throw new Error('Paste at least one folder id.')
-        scope = { kind, folder_ids: ids }
-      } else if (kind === 'shared_drive') {
-        if (!scopeValue().trim()) throw new Error('Paste the shared drive id.')
-        scope = { kind, drive_id: scopeValue().trim() }
-      } else if (kind === 'label') {
-        if (!scopeValue().trim()) throw new Error('Type the label name.')
-        scope = { kind, label: scopeValue().trim() }
-      } else if (kind === 'since') {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(scopeValue().trim())) throw new Error('Use the date format YYYY-MM-DD.')
-        scope = { kind, since: scopeValue().trim() }
-      } else if (kind === 'sent_only') {
-        scope = { kind }
-      } else if (kind === 'whole_account') {
-        scope = { kind }
-      } else {
-        // Every kind is named — a catch-all that guessed whole_account would
-        // widen the read boundary behind the operator's back.
-        throw new Error('That scope is not one this connection understands.')
-      }
+      const scope = buildScope(scopeKind(), scopeValue())
       await api.updateFanbaseConnectionScanScope(props.slug, conn.id, scope)
       setNotice(`${conn.label} now reads ${describeScope(scope)}.`)
       setScopeEditing(null)
@@ -460,7 +476,46 @@ export function FanSourcesPanel(props: {
     setValues({})
     setVerificationNotice(null)
     setErrorText(null)
+    setConnectStep(0)
+    setPendingScopeKind(SCOPE_KINDS[spec.value]?.[0]?.value ?? 'whole_account')
+    setPendingScopeValue('')
+    // A stale carry-over from an abandoned flow must not apply to this one.
+    sessionStorage.removeItem(PENDING_SCOPE_KEY(props.slug, spec.value))
     setConnecting(spec)
+  }
+
+  // OAuth providers leave the page for the grant. The scope the operator
+  // chose survives in sessionStorage and is applied to the connection when
+  // it appears — no unscoped window where the connection reads everything.
+  const beginAuthorize = (spec: PlatformSpec) => {
+    setErrorText(null)
+    try {
+      const scope = buildScope(pendingScopeKind(), pendingScopeValue())
+      sessionStorage.setItem(PENDING_SCOPE_KEY(props.slug, spec.value), JSON.stringify(scope))
+      window.location.href = spec.authorizeUrl!(props.slug)
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'Check the scope')
+    }
+  }
+
+  const applyPendingScopes = async (list: FanbaseConnection[]) => {
+    let applied = false
+    for (const conn of list) {
+      const key = PENDING_SCOPE_KEY(props.slug, conn.platform)
+      const raw = sessionStorage.getItem(key)
+      if (!raw) continue
+      sessionStorage.removeItem(key)
+      if (conn.scan_scope) continue
+      try {
+        const scope = JSON.parse(raw) as ScanScope
+        await api.updateFanbaseConnectionScanScope(props.slug, conn.id, scope)
+        applied = true
+        setNotice(`${conn.label} connected — reads ${describeScope(scope)}.`)
+      } catch (err) {
+        setErrorText(err instanceof Error ? err.message : `Connected, but the chosen scope could not be saved — set it on the ${conn.label} tile.`)
+      }
+    }
+    return applied
   }
 
   // Every declared field must carry a value before Connect is live. No spec
@@ -470,6 +525,11 @@ export function FanSourcesPanel(props: {
     if (!spec?.fields) return false
     return spec.fields.every(field => (values()[field.key] ?? '').trim().length > 0)
   }
+
+  // OAuth platforms get a scope step between the grant and the review —
+  // credential platforms have nothing to scope, so theirs is a two-step guide.
+  const connectSteps = () =>
+    connecting()?.authorizeUrl ? ['The grant', 'What it may read', 'Review'] : ['Details', 'Review']
 
   // `connected` alone is not health. A channel whose last sync failed shows
   // warn, so the badge stops contradicting the error printed beside it.
@@ -520,10 +580,7 @@ export function FanSourcesPanel(props: {
                       class="shrink-0"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        if (spec.authorizeUrl) window.location.href = spec.authorizeUrl(props.slug)
-                        else openConnect(spec)
-                      }}
+                      onClick={() => openConnect(spec)}
                     >Connect</Button>
                   }>
                     <StatusBadge status={conn()!.status} tone={connTone(conn()!.status, !!conn()!.last_sync_error)} />
@@ -699,7 +756,10 @@ export function FanSourcesPanel(props: {
       </Show>
     </Section>
 
-    {/* ── Connect a platform ── */}
+    {/* ── Connect a platform ──
+        A short guide rather than a field grid: what the platform wants
+        (credentials or the provider's own grant), what it may read where that
+        is a real choice, then a review before anything is written. */}
     <Dialog
       open={connecting() !== null}
       onClose={() => setConnecting(null)}
@@ -708,27 +768,106 @@ export function FanSourcesPanel(props: {
       description={connecting()?.provides}
       footer={<>
         <Button variant="ghost" size="sm" onClick={() => setConnecting(null)}>Cancel</Button>
-        <Button writes size="sm" disabled={!connectReady() || connect.isPending} onClick={() => connect.mutate()}>
-          {connect.isPending && <Spinner />} {connect.isPending ? 'Connecting…' : `Connect ${connecting()?.label ?? ''}`}
-        </Button>
+        <Show when={connectStep() > 0}>
+          <Button variant="ghost" size="sm" onClick={() => setConnectStep(s => s - 1)}>Back</Button>
+        </Show>
+        <Show when={connectStep() < connectSteps().length - 1} fallback={
+          connecting()?.authorizeUrl
+            ? <Button writes size="sm" onClick={() => beginAuthorize(connecting()!)}>Continue to {connecting()!.label}</Button>
+            : <Button writes size="sm" disabled={!connectReady() || connect.isPending} onClick={() => connect.mutate()}>
+                {connect.isPending && <Spinner />} {connect.isPending ? 'Connecting…' : `Connect ${connecting()?.label ?? ''}`}
+              </Button>
+        }>
+          <Button size="sm" disabled={connectStep() === 0 && !connecting()?.authorizeUrl && !connectReady()}
+            onClick={() => {
+              // The scope step validates before it moves on — a scope the
+              // provider would reject is caught here, not after the grant.
+              if (connecting()?.authorizeUrl && connectStep() === 1) {
+                try { buildScope(pendingScopeKind(), pendingScopeValue()) } catch (err) { setErrorText(err instanceof Error ? err.message : 'Check the scope'); return }
+              }
+              setErrorText(null)
+              setConnectStep(s => s + 1)
+            }}>Continue</Button>
+        </Show>
       </>}
     >
       <Show when={connect.error}>
         <ErrorCard class="mb-4">{connect.error instanceof Error ? connect.error.message : 'Connection failed'}</ErrorCard>
       </Show>
-      <div class="flex flex-col gap-4">
-        <For each={connecting()?.fields ?? []}>{field => (
-          <Field label={field.label} hint={field.hint}>
-            <Input
-              type={field.type ?? 'text'}
-              autocomplete={field.type === 'password' ? 'new-password' : 'off'}
-              value={values()[field.key] ?? ''}
-              onInput={e => setValues(v => ({ ...v, [field.key]: e.currentTarget.value }))}
-              placeholder={field.placeholder}
-            />
-          </Field>
+      <Show when={errorText()}>
+        <ErrorCard class="mb-4">{errorText()}</ErrorCard>
+      </Show>
+      <ol class="mb-4 flex list-none items-center gap-2 p-0 text-xs">
+        <For each={connectSteps()}>{(label, i) => (
+          <li class={connectStep() === i() ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+            {label}{i() < connectSteps().length - 1 ? <span class="mx-1.5 text-border">·</span> : null}
+          </li>
         )}</For>
-      </div>
+      </ol>
+
+      {/* Step 1 — auth: the provider's credential fields, or what the OAuth
+          grant will ask for. */}
+      <Show when={connectStep() === 0}>
+        <Show when={connecting()?.authorizeUrl} fallback={
+          <div class="flex flex-col gap-4">
+            <For each={connecting()?.fields ?? []}>{field => (
+              <Field label={field.label} hint={field.hint}>
+                <Input
+                  type={field.type ?? 'text'}
+                  autocomplete={field.type === 'password' ? 'new-password' : 'off'}
+                  value={values()[field.key] ?? ''}
+                  onInput={e => setValues(v => ({ ...v, [field.key]: e.currentTarget.value }))}
+                  placeholder={field.placeholder}
+                />
+              </Field>
+            )}</For>
+          </div>
+        }>
+          <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+            {connecting()?.label} handles access itself — you leave this page, grant it there, and come straight back.
+            Nothing is read until the next step says what it may read.
+          </p>
+        </Show>
+      </Show>
+
+      {/* Step 2 — scope (OAuth only): the read boundary, chosen before the
+          grant so the connection is never unscoped. */}
+      <Show when={connectStep() === 1 && connecting()?.authorizeUrl}>
+        <div class="flex flex-col gap-4">
+          <Field label="What it may read" hint={SCOPE_HINT[pendingScopeKind()]}>
+            <NativeSelect value={pendingScopeKind()} onChange={e => setPendingScopeKind(e.currentTarget.value as ScopeKind)}>
+              <For each={SCOPE_KINDS[connecting()!.value] ?? []}>{k => <option value={k.value}>{k.label}</option>}</For>
+            </NativeSelect>
+          </Field>
+          <Show when={pendingScopeKind() !== 'whole_account' && pendingScopeKind() !== 'sent_only'}>
+            <Field label={pendingScopeKind() === 'since' ? 'Since date' : pendingScopeKind() === 'folder' ? 'Folder id(s)' : pendingScopeKind() === 'shared_drive' ? 'Shared drive id' : 'Label name'}
+              hint={pendingScopeKind() === 'since' ? 'YYYY-MM-DD.' : pendingScopeKind() === 'folder' ? 'One id, or several separated by commas.' : undefined}>
+              <Input value={pendingScopeValue()} onInput={e => setPendingScopeValue(e.currentTarget.value)} />
+            </Field>
+          </Show>
+        </div>
+      </Show>
+
+      {/* Last step — review before anything is written. */}
+      <Show when={connectStep() === connectSteps().length - 1}>
+        <div class="rounded-lg border border-border bg-background p-4 text-sm">
+          <p class="m-0 font-medium text-foreground">{connecting()?.label}</p>
+          <p class="mb-2 mt-0.5 text-xs text-muted-foreground">{connecting()?.provides}</p>
+          <Show when={connecting()?.authorizeUrl} fallback={
+            <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <For each={connecting()?.fields ?? []}>{field => (<>
+                <dt class="text-muted-foreground">{field.label}</dt>
+                <dd class="m-0 break-all text-foreground">{field.type === 'password' ? '••••••••' : (values()[field.key] ?? '').trim() || '—'}</dd>
+              </>)}</For>
+            </dl>
+          }>
+            <p class="m-0 text-secondary-foreground">
+              Reads {(() => { try { return describeScope(buildScope(pendingScopeKind(), pendingScopeValue())) } catch { return 'nothing — the scope still needs an answer' } })()}.
+              You grant access on {connecting()?.label}'s own page, then land back here with that boundary already set.
+            </p>
+          </Show>
+        </div>
+      </Show>
     </Dialog>
 
     {/* ── Create a fanbase ── */}

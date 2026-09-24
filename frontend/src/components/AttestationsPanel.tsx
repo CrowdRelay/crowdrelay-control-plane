@@ -26,7 +26,9 @@ const shareUrl = (token: string) => `https://virya.music/proof?t=${token}`
 const isCurrent = (card: AttestationSummary) =>
   !card.revoked && new Date(card.valid_until).getTime() > Date.now()
 
-export function AttestationsPanel(props: { slug: string }) {
+export function AttestationsPanel(props: { slug: string; data?: AttestationSummary[] }) {
+  // The proof read model feeds the cards — fed, the panel never asks.
+  const fed = () => props.data !== undefined
   const queryClient = useQueryClient()
   const [error, setError] = createSignal<string | null>(null)
   const [acting, setActing] = createSignal<string | null>(null)
@@ -38,9 +40,10 @@ export function AttestationsPanel(props: { slug: string }) {
     queryFn: () => api.attestations(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    enabled: !fed(),
   }))
 
-  const cards = createMemo(() => attestations.data ?? [])
+  const cards = createMemo(() => (fed() ? props.data : attestations.data) ?? [])
 
   const run = async (key: string, action: () => Promise<unknown>) => {
     setActing(key)
@@ -48,6 +51,7 @@ export function AttestationsPanel(props: { slug: string }) {
     try {
       await action()
       await queryClient.invalidateQueries({ queryKey: ['attestations', props.slug] })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-proof', props.slug] })
     } catch (e) {
       setError(errorMessage(e, 'The write failed.'))
     } finally {
@@ -87,11 +91,11 @@ export function AttestationsPanel(props: { slug: string }) {
       </Show>
 
       <Show
-        when={!attestations.isLoading}
+        when={fed() || !attestations.isLoading}
         fallback={<SkeletonRows count={2} />}
       >
         <Show
-          when={attestations.isSuccess}
+          when={fed() || attestations.isSuccess}
           fallback={
             <ErrorCard>
               {errorHeading(attestations.error, "Couldn't load proof cards")}: {errorMessage(attestations.error, 'That service is temporarily unavailable.')}

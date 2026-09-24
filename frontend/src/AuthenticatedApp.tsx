@@ -34,6 +34,7 @@ const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIn
 // a redirect kept for old links; the page file is deleted.
 const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
 const TenantPlacesPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'TenantPlacesPage')
+const TenantProofPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'TenantProofPage')
 const TenantNotifiersPage = lazyRouteComponent(() => import('./pages/TenantNotifiersPage'), 'TenantNotifiersPage')
 const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
 const TenantCityPage = lazyRouteComponent(() => import('./pages/TenantCityPage'), 'TenantCityPage')
@@ -88,6 +89,7 @@ const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
 const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => { warm(['intelligence-brief', params.slug], () => api.intelligence(params.slug))(); warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() } })
+const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof', component: TenantProofPage, loader: ({ params }) => warm(['tenant-proof', params.slug], () => api.proofModel(params.slug))() })
 const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-pipeline', params.slug], () => api.contentPipeline(params.slug))() })
 const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/material', component: TenantContentMaterialPage, loader: ({ params }) => warm(['content-sources', params.slug], () => api.contentSources(params.slug))() })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
@@ -110,7 +112,7 @@ const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, pat
 const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence?tab=decisions` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=communities` }) } })
 
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantInMotionRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, placesRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantInMotionRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantProofRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, placesRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
 // `defaultPendingMs: 0` shows the skeleton on the first frame. The default
 // (500ms) leaves the previous page frozen on screen while a route chunk loads,
 // which reads as a hang rather than as loading — the blank operator screen this

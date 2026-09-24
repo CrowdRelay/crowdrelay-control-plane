@@ -193,6 +193,7 @@ const SUBPAGES = [
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
   { path: '/tenants/virya/notifiers', name: 'notifiers' },
   { path: '/tenants/virya/health', name: 'health' },
+  { path: '/tenants/virya/proof', name: 'proof' },
   { path: '/tenants/virya/health?tab=delivery', name: 'health-delivery' },
   { path: '/tenants/virya/health?tab=policies', name: 'health-policies' },
   // The beacons destination dissolved into Audience → Contacts; this

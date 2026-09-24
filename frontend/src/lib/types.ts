@@ -156,7 +156,7 @@ export type AreaClue = { en:string; pl:string }
 export type AreaCollectible = { line:string; track:string; edition:string; riddle:string }
 export type AreaDropDraft = {
   number:string; cityId:string; mapX:number; mapY:number
-  approximateLat:number; approximateLng:number; exactLat:number|null; exactLng:number|null
+  approximateLat:number|null; approximateLng:number|null; exactLat:number|null; exactLng:number|null
   radiusMeters:number; maxClaims:number; startsAt:string; endsAt:string
   clue:AreaClue; collectible:AreaCollectible; sortOrder:number
 }
@@ -1319,6 +1319,33 @@ export type TenantBrainReadModel = {
   // work in its own words; findings and needs_you ride along.
   attention: TenantAttentionReadModel | null
   degraded: TenantBrainSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+export type TenantProofSection =
+  | 'listing'
+  | 'attestations'
+  | 'representation'
+  | 'shows'
+
+/** `GET /tenants/{slug}/proof` — the "send this to a promoter" drawer in one
+ * call: the listing and its share token, the issued attestation cards, the
+ * representation contacts an agent may approach, and the show list the page
+ * reads issued reports from. Organiser links stay per-night — upstream has
+ * no nights list. A missing section is `null` and named in `degraded`. */
+export type TenantProofReadModel = {
+  id: string
+  // The band-authored profile + share token — the listing link's state.
+  listing: ListingState | null
+  // The signed proof cards, current and revoked both — the page styles them.
+  attestations: AttestationSummary[] | null
+  // Who an agent or label may approach, and this month's allowance.
+  representation: RepresentationTargetsResponse | null
+  // The show list — completed nights are the reports worth sending.
+  shows: TenantShowsResponse | null
+  degraded: TenantProofSection[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap
   fetchedAt: string

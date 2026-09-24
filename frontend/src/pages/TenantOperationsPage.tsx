@@ -1,6 +1,6 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { Link, useParams } from '@tanstack/solid-router'
+import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { Activity, Bot, ChartLine, Inbox, MapPin, RefreshCw, Send, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -13,8 +13,6 @@ import { OpportunityShortlistPanel } from '../components/OpportunityShortlistPan
 import { PressRoomPanel } from '../components/PressRoomPanel'
 import { ReleaseCampaignsPanel } from '../components/ReleaseCampaignsPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
-import { ListingPanel } from '../components/ListingPanel'
-import { AttestationsPanel } from '../components/AttestationsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { BarList, DeltaBadge, Donut, Legend, Ring, StackBar, Widget, type Segment } from '../components/charts'
 import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
@@ -49,8 +47,17 @@ export function TenantOperationsPage() {
   // deep link or a Booking-journey drill-through lands on Replies and
   // `switchTab` never writes the param back.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('replies', [
-    'replies', 'negotiations', 'outreach', 'press', 'releases', 'listing', 'plays',
+    'replies', 'negotiations', 'outreach', 'press', 'releases', 'plays',
   ])
+  // The listing tab dissolved into /proof — a pre-dissolve deep link keeps
+  // its intent instead of snapping back to Replies.
+  const navigate = useNavigate()
+  const locationSearch = useRouterState({ select: s => s.location.search })
+  createEffect(() => {
+    if ((locationSearch() as Record<string, unknown>)?.tab === 'listing') {
+      void navigate({ to: '/tenants/$slug/proof', params: { slug: params().slug }, replace: true })
+    }
+  })
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),
@@ -639,7 +646,6 @@ export function TenantOperationsPage() {
         { id: 'outreach', label: 'Outreach' },
         { id: 'press', label: 'Press' },
         { id: 'releases', label: 'Releases' },
-        { id: 'listing', label: 'Listing' },
         { id: 'plays', label: 'Play ledger' },
       ]}
     />
@@ -670,16 +676,6 @@ export function TenantOperationsPage() {
     </TabPanel>
     <TabPanel active={activeTab()} id="plays" visited={isVisited('plays')}>
       <PlayLedgerPanel slug={params().slug} />
-    </TabPanel>
-
-    {/* ── Listing tab ── */}
-    {/* §4h-12: the band-authored profile a share link admits an agent or
-        label to, the representation contacts it may approach, and the
-        month's allowance. Its own queries — the overview model doesn't
-        carry any of it. */}
-    <TabPanel active={activeTab()} id="listing" visited={isVisited('listing')}>
-      <ListingPanel slug={params().slug} />
-      <AttestationsPanel slug={params().slug} />
     </TabPanel>
   </PageShell>
 }

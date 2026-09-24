@@ -13,6 +13,7 @@
 //! * Places  -> [`places`] (`GET /tenants/{slug}/places`)
 //! * Brain   -> [`brain`] (`GET /tenants/{slug}/brain`)
 //! * Delivery -> [`delivery`] (`GET /tenants/{slug}/delivery`)
+//! * Proof   -> [`proof`] (`GET /tenants/{slug}/proof`)
 //! * Label Portfolio -> [`portfolio`] (`GET /tenants/{slug}/portfolio/model`)
 //! * Audience -> [`audience`] (`GET /tenants/{slug}/audience/model`)
 //! * Press   -> [`press_overview`] (`GET /tenants/{slug}/operations/press-overview`)
@@ -146,6 +147,7 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/places", get(places))
         .route("/tenants/{slug}/brain", get(brain))
         .route("/tenants/{slug}/delivery", get(delivery))
+        .route("/tenants/{slug}/proof", get(proof))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -2144,6 +2146,83 @@ fn delivery_sections<'a>(
         section("deliveries", deliveries, Shape::Array),
         section("attention", attention, Shape::Object),
         section("delivery_results", delivery_results, Shape::Array),
+    ]
+}
+
+/// Proof — the "send this to a promoter" drawer in one call: the band's
+/// listing and its share token, the issued attestation cards, the
+/// representation contacts an agent or label may approach, and the show
+/// list the page reads issued reports from. Organiser links stay per-night
+/// — upstream has no nights list and a per-show fan-out is exactly the
+/// unbounded join this module exists to avoid. Four sections concurrently;
+/// each failure degrades its own section, never the page.
+async fn proof(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:proof");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let (listing, attestations, representation, shows) = tokio::join!(
+        fetch("/v1/control-plane/listing"),
+        fetch("/v1/control-plane/attestations"),
+        fetch("/v1/control-plane/representation/targets"),
+        fetch("/v1/control-plane/events"),
+    );
+
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "proof",
+        &proof_sections(
+            listing.as_ref(),
+            attestations.as_ref(),
+            representation.as_ref(),
+            shows.as_ref(),
+        ),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// The section table the proof handler projects.
+fn proof_sections<'a>(
+    listing: SectionResult<'a>,
+    attestations: SectionResult<'a>,
+    representation: SectionResult<'a>,
+    shows: SectionResult<'a>,
+) -> [Section<'a>; 4] {
+    [
+        section("listing", listing, Shape::Object),
+        section("attestations", attestations, Shape::Array),
+        section("representation", representation, Shape::Object),
+        section("shows", shows, Shape::Object),
     ]
 }
 
@@ -4642,6 +4721,56 @@ mod tests {
         assert_eq!(projected["attention"], attention);
         assert_eq!(projected["delivery_results"], Value::Null);
         assert_eq!(projected["degraded"], json!(["delivery_results"]));
+    }
+
+    #[test]
+    fn proof_projects_each_source_as_its_own_section() {
+        let listing = json!({"listing": {"act_name": "Virya"}, "share_token": "tok"});
+        let attestations = json!([{"digest": "d1"}]);
+        let representation =
+            json!({"targets": [{"name": "Agent"}], "approaches_used_this_month": 1});
+        let shows = json!({"events": [{"slug": "s1", "status": "completed"}]});
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "proof",
+            &proof_sections(
+                ok(&listing),
+                ok(&attestations),
+                ok(&representation),
+                ok(&shows),
+            ),
+        )
+        .expect("all sections answered");
+
+        assert_eq!(projected["listing"], listing);
+        assert_eq!(projected["attestations"], attestations);
+        assert_eq!(projected["representation"], representation);
+        assert_eq!(projected["shows"], shows);
+        assert_eq!(projected["degraded"], json!([]));
+    }
+
+    #[test]
+    fn proof_degrades_only_the_section_the_tenant_could_not_answer() {
+        // The listing is the drawer's spine; a tenant that cannot answer
+        // attestations still shows what is published and which reports
+        // exist rather than erroring the page.
+        let listing = json!({"listing": null, "share_token": null});
+        let representation = json!({"targets": []});
+        let shows = json!({"events": []});
+        let error = unreachable();
+
+        let projected = project_sections(
+            "virya",
+            300,
+            "proof",
+            &proof_sections(ok(&listing), Err(&error), ok(&representation), ok(&shows)),
+        )
+        .expect("one dead section still projects the rest");
+
+        assert_eq!(projected["attestations"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["attestations"]));
     }
 
     #[test]

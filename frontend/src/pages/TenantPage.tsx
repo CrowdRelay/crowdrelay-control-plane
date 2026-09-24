@@ -569,20 +569,36 @@ export function TenantPage() {
                   <Input
                     class={cn(!releaseReady() && desiredVersion().trim() && 'border-destructive/50')}
                     value={desiredVersion()}
-                    onInput={(e) => setDesiredVersion(e.currentTarget.value)}
+                    onInput={(e) => { setDesiredVersion(e.currentTarget.value); setPreview(null) }}
                     placeholder={platform()?.provisionerDefaultImageTag ?? 'sha-…'}
                     aria-invalid={!releaseReady() && Boolean(desiredVersion().trim())}
                   />
                 </Field>
                 <div class="flex gap-2 pb-6">
-                  <Button writes variant="outline" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>Preview</Button>
-                  <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
+                  <Button writes variant="outline" size="sm" onClick={() => plan.mutate()} disabled={plan.isPending || deploymentBusy() || !releaseReady()}>{preview() ? 'Preview again' : 'Preview'}</Button>
+                  <Button writes size="sm" onClick={() => deploy.mutate()} disabled={deploy.isPending || deploymentBusy() || !releaseReady() || t.status === 'suspended' || !t.crowdrelayBaseUrl || !t.signalBaseUrl}>{preview() ? 'Deploy this plan' : latestJob()?.status === 'failed' ? 'Retry deploy' : t.status === 'active' ? 'Deploy / upgrade' : 'Deploy instance'}</Button>
                 </div>
               </div>
               <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
               <Show when={preview()}>{job => <div class="mt-3 overflow-x-auto rounded-lg border border-border bg-background p-3"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
               <Show when={latestJob()}>{job => <div class="mt-5 border-t border-border pt-4">
-                <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">{job().status === 'succeeded' ? 'Deployed' : job().status === 'failed' ? 'Deployment failed' : job().status === 'running' ? 'Deploying…' : job().status === 'approved' ? 'Queued' : 'Planned'}</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                {/* The job is a state machine — draw it as one. `cancelled`
+                    leaves the rail because it never reached the stage it
+                    stopped at; the terminal labels bend to the outcome. */}
+                <Show when={job().status !== 'cancelled'} fallback={
+                  <div class="flex items-center justify-between gap-2"><div><strong class="text-foreground">Cancelled</strong><small class="block text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small></div><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                }>
+                  <ol class="m-0 flex list-none items-center gap-1.5 p-0 text-xs">
+                    <For each={['Planned', 'Picked up', 'Deploying', job().status === 'failed' ? 'Failed' : 'Deployed']}>{(label, i) => {
+                      const stage = () => job().status === 'planned' ? 0 : job().status === 'approved' ? 1 : job().status === 'running' ? 2 : 3
+                      const failed = () => job().status === 'failed'
+                      return <li class={stage() === i() ? (failed() && i() === 3 ? 'font-medium text-destructive' : 'font-medium text-foreground') : i() < stage() ? 'text-muted-foreground' : 'text-muted-foreground/50'}>
+                        {i() < stage() ? '✓ ' : ''}{label}{i() < 3 ? <span class="mx-1 text-border">→</span> : null}
+                      </li>
+                    }}</For>
+                  </ol>
+                  <div class="mt-2 flex items-center justify-between gap-2"><small class="text-xs text-muted-foreground">attempt {job().attemptCount} · {new Date(job().createdAt).toLocaleString()}</small><StatusBadge status={job().status} tone={provisionTone(job().status)} /></div>
+                </Show>
                 <Show when={job().status === 'approved'}><p class="mt-2 text-sm text-muted-foreground">Queued for deployment. Nothing changes until the deploy agent picks it up.</p></Show>
                 <Show when={job().status === 'running'}><p class="mt-2 text-sm text-muted-foreground">Deployment is running. This typically takes 2–5 minutes.</p></Show>
                 <Show when={job().status === 'succeeded'}><div class="mt-3 rounded-lg bg-background p-3">

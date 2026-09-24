@@ -2,11 +2,11 @@ import { For, Show, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { toast } from '../components/app/toast'
-import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, AutomationRoutingItem, NotifiersOverview } from '../lib/types'
+import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { Check, ChevronDown } from 'lucide-solid'
+import { ChevronDown } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -21,7 +21,7 @@ import { Switch } from '../components/app/switch'
 import { Badge } from '../components/app/badge'
 import { Input } from '../components/ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
-import { NativeSelect } from '../components/ui/native-select'
+import { cn } from '~/lib/utils'
 
 const kindLabel = (k: NotifierChannel['kind']) => k === 'discord' ? 'Discord app' : k === 'webhook' ? 'Webhook' : 'Email (relay)'
 const evLabel = (e: string) => NOTIFIER_EVENT_LABELS[e as NotifierEvent] ?? e.replaceAll('.', ' ')
@@ -49,6 +49,11 @@ export function NotifiersPanel(props: { slug: string }) {
   const slug = () => props.slug
   const qc = useQueryClient()
   const [adding, setAdding] = createSignal(false)
+  // The add form is a three-step guide — where alerts go, name and point
+  // it, what reaches it — ending on the save, then a test the operator
+  // fires on the channel just written rather than hoping the URL was right.
+  const [addStep, setAddStep] = createSignal(0)
+  const [createdId, setCreatedId] = createSignal<string | null>(null)
   // Each section carries its own `error` inside a 200 — this model's degraded
   // list — so a section that failed once is never retried without this.
   const overview = useQuery(() => ({
@@ -56,7 +61,7 @@ export function NotifiersPanel(props: { slug: string }) {
     queryFn: () => api.notifiersOverview(slug()),
     refetchOnWindowFocus: false,
     staleTime: 20_000,
-    refetchInterval: whileIncomplete((m: NotifiersOverview) => [m.channels, m.platformConfig, m.automationRouting, m.discovered].some(s => s?.error != null)),
+    refetchInterval: whileIncomplete((m: NotifiersOverview) => [m.channels, m.platformConfig, m.discovered].some(s => s?.error != null)),
   }))
 
   const section = <T,>(pick: (o: NotifiersOverview) => { error?: string } | undefined, take: (o: NotifiersOverview) => T | undefined) => ({
@@ -67,7 +72,6 @@ export function NotifiersPanel(props: { slug: string }) {
   const channels = section(o => o.channels, o => ({ items: o.channels.items ?? [] }))
   const discovered = section(o => o.discovered, o => ({ endpoints: o.discovered.endpoints ?? [] }))
   const platformConfig = section(o => o.platformConfig, o => ({ items: o.platformConfig.items ?? [] }))
-  const automationRouting = section(o => o.automationRouting, o => ({ items: o.automationRouting.items ?? [] }))
 
   // The outbox is the control plane's own delivery queue — what actually
   // left (or died trying), per channel. It lives outside the read model
@@ -92,11 +96,6 @@ export function NotifiersPanel(props: { slug: string }) {
   const toggleEvent = (e: NotifierEvent) => setEvents(c => c.includes(e) ? c.filter(i => i !== e) : [...c, e])
   const targetLabel = () => kind() === 'email_relay' ? 'Recipient email' : 'Webhook URL'
   const targetPh = () => kind() === 'discord' ? 'https://discord.com/api/webhooks/…' : kind() === 'webhook' ? 'https://ops.example.com/hooks/crowdrelay' : 'alerts@future-metal.example'
-  const typeHint = () => kind() === 'discord'
-    ? 'Posts a formatted message into one Discord channel. Fastest to set up and the usual choice for a crew channel.'
-    : kind() === 'webhook'
-      ? 'POSTs a JSON body to any HTTPS endpoint you control — your own on-call tooling, a Slack workflow, an n8n trigger.'
-      : 'Sends mail through the platform relay. No mail server of your own required, but delivery is slower than a webhook.'
   const targetHint = () => kind() === 'discord'
     ? 'Discord → Server settings → Integrations → Webhooks → New webhook → Copy webhook URL. It stays secret: anyone holding it can post to that channel.'
     : kind() === 'webhook'
@@ -104,30 +103,14 @@ export function NotifiersPanel(props: { slug: string }) {
       : 'One mailbox. Distribution lists work, but each address you want reached separately needs its own channel.'
   const formReady = () => label().trim().length >= 2 && (kind() === 'email_relay' ? /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(target().trim()) : target().trim().startsWith('https://'))
 
-  const create = useMutation(() => ({ mutationFn: () => api.createNotifier(slug(), { kind: kind(), label: label().trim(), url: kind() === 'email_relay' ? undefined : target().trim(), events: events(), enabled: true }), onSuccess: async () => { await refresh(); toast.success(`${label().trim()} added.`); setLabel(''); setTarget(''); setEvents([]) } }))
+  const create = useMutation(() => ({ mutationFn: () => api.createNotifier(slug(), { kind: kind(), label: label().trim(), url: target().trim(), events: events(), enabled: true }), onSuccess: async ch => { await refresh(); toast.success(`${label().trim()} added.`); setCreatedId(ch.id); setLabel(''); setTarget(''); setEvents([]) } }))
   const update = useMutation(() => ({ mutationFn: (i: { id: string; enabled?: boolean }) => api.updateNotifier(slug(), i.id, { enabled: i.enabled }), onSuccess: refresh }))
-  const syncRouting = useMutation(() => ({
-    mutationFn: () => api.syncNotifierAutomationRouting(slug()),
-    onSuccess: (result) => {
-      refresh()
-      toast.success(
-        result.skipped > 0
-          ? `Synced ${result.synced} workflows, skipped ${result.skipped}.`
-          : `Synced ${result.synced} workflows from n8n.`,
-      )
-    },
-    onError: (error) => toast.error(errorMessage(error, 'n8n sync failed')),
-  }))
   const remove = useMutation(() => ({ mutationFn: (id: string) => api.deleteNotifier(slug(), id), onSuccess: () => { refresh(); toast.success('Notifier removed.') } }))
   const test = useMutation(() => ({ mutationFn: async (id: string) => { try { const r = await api.testNotifier(slug(), id); return r.ok ? '' : (r.error ?? 'delivery failed') } catch (e) { return errorMessage(e, 'test delivery failed') } }, onMutate: (id) => setTestResult(c => ({ ...c, [id]: 'testing…' })), onSuccess: (err, id) => { setTestResult(c => ({ ...c, [id]: err ? `failed: ${err}` : 'delivered ✓' })); if (err) toast.error(`Test delivery failed: ${err}`) } }))
 
   const items = () => channels.data?.items ?? []
   const platformItems = () => platformConfig.data?.items ?? []
-  const routingItems = () => automationRouting.data?.items ?? []
-  const [showAllRouting, setShowAllRouting] = createSignal(false)
-  const MAX_VISIBLE_ROUTING = 5
-  const visibleRoutingItems = () => showAllRouting() ? routingItems() : routingItems().slice(0, MAX_VISIBLE_ROUTING)
-
+  
   return <>
 
     {/* ── Create form ────────────────────────────────────────────── */}
@@ -143,54 +126,106 @@ export function NotifiersPanel(props: { slug: string }) {
         icon={<SectionIcon name="bell" />}
         count={items().length}
         description="The places you added for this tenant's alerts. Send a test after saving; a wrong URL only fails at delivery time."
-        action={<Button writes size="sm" onClick={() => setAdding(v => !v)}>{adding() ? 'Cancel' : 'Add channel'}</Button>}
+        action={<Button writes size="sm" onClick={() => { setAdding(v => !v); setAddStep(0); setCreatedId(null) }}>{adding() ? 'Cancel' : 'Add channel'}</Button>}
       >
         <Show when={adding()}>
-        <form class="rounded-lg border border-border bg-card p-4" onSubmit={(e) => { e.preventDefault(); create.mutate() }}>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <label class="grid gap-1.5 text-muted-foreground text-sm">
-              <span>Type</span>
-              <NativeSelect value={kind()} onChange={(e) => { setKind(e.currentTarget.value as NotifierChannel['kind']); setTarget('') }} {...writeGuard()}>
-                <option value="discord">Discord app</option>
-                <option value="webhook">Generic webhook</option>
-                <option value="email_relay">Email via platform relay</option>
-              </NativeSelect>
-              <small class="text-xs text-muted-foreground">{typeHint()}</small>
-            </label>
-            <label class="grid gap-1.5 text-muted-foreground text-sm">
-              <span>Label</span>
-              <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
-              <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
-            </label>
-            <label class="grid gap-1.5 text-muted-foreground text-sm md:col-span-2">
-              <span>{targetLabel()}</span>
-              <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
-              <small class="text-xs text-muted-foreground">{targetHint()}</small>
-            </label>
-          </div>
-
-          <div class="mt-4 p-4 border border-border rounded-md bg-background" role="group" aria-label="Subscribed events">
-            <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
-            <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <For each={[...NOTIFIER_EVENTS]}>{ev => (
-                <Checkbox
-                  class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
-                  checked={events().includes(ev)}
-                  onChange={() => toggleEvent(ev)}
-                  {...writeGuard()}
-                  label={evLabel(ev)}
-                />
+        <div class="rounded-lg border border-border bg-card p-4">
+          {/* The step rail — three named moves, current one emphasised. */}
+          <Show when={createdId() === null}>
+            <ol class="flex items-center gap-2 mt-1 mb-4 m-0 p-0 list-none text-xs">
+              <For each={['Where alerts go', 'Name and point it', 'What reaches it']}>{(label, i) => (
+                <li class={cn('flex items-center gap-1.5', addStep() === i() ? 'text-foreground font-medium' : i() < addStep() ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
+                  <span class={cn('inline-flex items-center justify-center size-5 rounded-full border text-xs', addStep() === i() ? 'border-primary text-primary' : 'border-border')}>{i() + 1}</span>
+                  {label}
+                  <Show when={i() < 2}><span class="text-border mx-1">·</span></Show>
+                </li>
               )}</For>
-            </div>
-            <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>
-          </div>
+            </ol>
+          </Show>
 
-          <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
-          <div class="flex justify-end gap-2 mt-5">
-            <Button variant="ghost" size="sm" type="button" onClick={() => setAdding(false)}>Cancel</Button>
-            <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Saving…' : 'Save channel'}</Button>
-          </div>
-        </form>
+          {/* Done — the test runs on the channel just written. */}
+          <Show when={createdId()}>{id => (
+            <div class="py-2">
+              <p class="m-0 text-sm text-foreground">Saved. A wrong URL only fails at delivery time — send a test now and know it landed.</p>
+              <Show when={testResult()[id()]}>
+                <small class={testResult()[id()]?.includes('failed') ? 'block mt-2 text-sm text-destructive' : 'block mt-2 text-sm text-success-foreground'}>{testResult()[id()]}</small>
+              </Show>
+              <div class="flex gap-2 mt-4">
+                <Button writes size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(id())}>{test.isPending && <Spinner />} Send test</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setAddStep(0); setCreatedId(null) }}>Done</Button>
+              </div>
+            </div>
+          )}</Show>
+
+          <Show when={createdId() === null}>
+          <form onSubmit={(e) => { e.preventDefault(); if (addStep() === 2) create.mutate(); else if (addStep() === 0 || formReady()) setAddStep(s => s + 1) }}>
+            {/* Step 1 — the kind. The choice drives what the target asks for. */}
+            <Show when={addStep() === 0}>
+              <div class="grid gap-2">
+                <For each={(['discord', 'webhook', 'email_relay'] as const)}>{k => (
+                  <Button type="button" variant="ghost" {...writeGuard()} onClick={() => { setKind(k); setTarget('') }}
+                    class={cn('flex h-auto items-start justify-start gap-3 whitespace-normal rounded-lg border p-3.5 text-left font-normal transition-colors', kind() === k ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-input')}>
+                    <NotifierIcon kind={k} size={20} class="provider-icon flex-shrink-0 mt-0.5" />
+                    <span class="grid gap-0.5">
+                      <span class="text-sm font-medium text-foreground">{kindLabel(k)}</span>
+                      <span class="text-xs text-muted-foreground leading-relaxed">{k === 'discord' ? 'Posts a formatted message into one Discord channel. Fastest to set up and the usual choice for a crew channel.' : k === 'webhook' ? 'Posts the raw event JSON to any HTTPS endpoint — for a bridge, an n8n flow, or a tool of your own.' : 'Plain email through the platform relay. For someone who lives in their inbox.'}</span>
+                    </span>
+                  </Button>
+                )}</For>
+              </div>
+            </Show>
+
+            {/* Step 2 — a name the rows show, and the address the kind needs. */}
+            <Show when={addStep() === 1}>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="grid gap-1.5 text-muted-foreground text-sm">
+                  <span>Label</span>
+                  <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
+                  <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
+                </label>
+                <label class="grid gap-1.5 text-muted-foreground text-sm">
+                  <span>{targetLabel()}</span>
+                  <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
+                  <small class="text-xs text-muted-foreground">{targetHint()}</small>
+                </label>
+              </div>
+            </Show>
+
+            {/* Step 3 — which events reach it, then the save. */}
+            <Show when={addStep() === 2}>
+              <div class="p-4 border border-border rounded-md bg-background" role="group" aria-label="Subscribed events">
+                <p class="text-sm text-secondary-foreground leading-relaxed mb-2">Which events reach this destination. Leave every box clear to receive all of them — that is the default, and new event kinds are included automatically.</p>
+                <div class="grid gap-2" style={{ 'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                  <For each={[...NOTIFIER_EVENTS]}>{ev => (
+                    <Checkbox
+                      class="items-start gap-3 py-1.5 px-2.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
+                      checked={events().includes(ev)}
+                      onChange={() => toggleEvent(ev)}
+                      {...writeGuard()}
+                      label={evLabel(ev)}
+                    />
+                  )}</For>
+                </div>
+                <Show when={!events().length}><small class="block mt-2 text-xs text-muted-foreground">Nothing selected — this channel receives every event.</small></Show>
+              </div>
+              <p class="mt-3 mb-0 text-xs text-muted-foreground">Saving <strong class="text-foreground">{label().trim()}</strong> — {kindLabel(kind())} · {kind() === 'email_relay' ? target().trim() : 'webhook'} · {events().length ? `${events().length} events` : 'all events'}.</p>
+            </Show>
+
+            <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
+            <div class="flex justify-end gap-2 mt-5">
+              <Button variant="ghost" size="sm" type="button" onClick={() => setAdding(false)}>Cancel</Button>
+              <Show when={addStep() > 0}>
+                <Button variant="ghost" size="sm" type="button" onClick={() => setAddStep(s => s - 1)}>Back</Button>
+              </Show>
+              <Show when={addStep() < 2} fallback={
+                <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Saving…' : 'Save channel'}</Button>
+              }>
+                <Button type="submit" size="sm" disabled={addStep() === 1 && !formReady()}>Continue</Button>
+              </Show>
+            </div>
+          </form>
+          </Show>
+        </div>
         </Show>
 
         <Show when={items().length === 0} fallback={
@@ -281,60 +316,6 @@ export function NotifiersPanel(props: { slug: string }) {
     </Show>
 
     {/* ── AUTOMATION / N8N ──────────────────────────────────────── */}
-    <Show when={automationRouting.error}><ErrorCard>{errorMessage(automationRouting.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
-    <Show when={!automationRouting.error && !automationRouting.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
-    <Show when={automationRouting.data}>
-      <section class="border-t border-border pt-6">
-        <details class="group">
-          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4">
-            <h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="workflow" /></span>Workflow routing configs<ChevronDown class="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></h2>
-            <div class="flex items-center gap-2">
-              <Show when={routingItems().length > 0}><small class="text-sm text-muted-foreground">{routingItems().length} workflows</small></Show>
-              <Button writes variant="outline" size="sm" disabled={syncRouting.isPending} onClick={(e) => { e.preventDefault(); syncRouting.mutate() }}>{syncRouting.isPending && <Spinner />} {syncRouting.isPending ? 'Syncing…' : 'Sync from n8n'}</Button>
-            </div>
-          </summary>
-
-          <div class="mt-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">Automation forwards its own workflow results to Discord. Mute a workflow here to stop its messages without stopping the workflow.</p>
-
-            <Show when={routingItems().length === 0}>
-              <EmptyState
-                label="No workflows synced yet"
-                hint="Automation owns the workflows; this is our copy of the list. Sync to pull it in, then mute anything you do not want reported."
-              />
-            </Show>
-
-            <Show when={routingItems().length > 0}>
-              <div class="mt-4">
-                <Table>
-                  <TableHeader><TableRow><TableHead>Workflow</TableHead><TableHead>Label</TableHead><TableHead>Category</TableHead><TableHead>Discord</TableHead><TableHead>Muted</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    <For each={visibleRoutingItems()}>{(item: AutomationRoutingItem) => <TableRow>
-                      <TableCell><code class="text-xs">{item.workflowId}</code></TableCell>
-                      <TableCell>{item.label}</TableCell>
-                      <TableCell><small class="text-muted-foreground">{item.category}</small></TableCell>
-                      <TableCell>{item.discordEnabled ? <Check class="size-4" aria-label="Enabled" /> : '—'}</TableCell>
-                      <TableCell>{item.muted ? 'muted' : '—'}</TableCell>
-                      <TableCell>
-                        <Show when={item.enabled} fallback={<Badge variant="muted">muted</Badge>}>
-                          <Badge variant="success">enabled</Badge>
-                        </Show>
-                      </TableCell>
-                    </TableRow>}</For>
-                  </TableBody>
-                </Table>
-              </div>
-              <Show when={routingItems().length > MAX_VISIBLE_ROUTING}>
-                <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRouting(s => !s)}>
-                  {showAllRouting() ? 'Show fewer' : `Show all ${routingItems().length}`}
-                </Button>
-              </Show>
-            </Show>
-          </div>
-        </details>
-      </section>
-    </Show>
-
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
     <Show when={discovered.error}>
       <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />}>

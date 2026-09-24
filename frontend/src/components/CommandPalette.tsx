@@ -53,6 +53,7 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/notifiers', label: 'Notifiers', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
   { suffix: '/places', label: 'Places', icon: 'places' },
+  { suffix: '/proof', label: 'Proof', icon: 'proof' },
   { suffix: '/shows', label: 'Shows', icon: 'shows' },
   { suffix: '/content', label: 'Content', icon: 'content' },
   // The beacon roster folded into Audience → Contacts; the palette entry
@@ -77,6 +78,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
   { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=decisions' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
+  { id: 'q-proof', label: 'Open the proof drawer', keywords: 'proof promoter send attest listing share link show report credentials agent label', suffix: '/proof' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
   // The authority sliders live one level in on Health — the band map does not
   // carry Health, so the entry stays operator-only like the page it opens.
@@ -85,7 +87,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
 
 // The band's palette mirrors the band's sidebar — the process destinations
 // only. Operator-only pages stay reachable by URL but do not list here.
-const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/places', '/audience', '/intelligence', '/content'])
+const BAND_SUFFIXES = new Set(['/operations', '/shows', '/attention', '/in-motion', '/places', '/audience', '/intelligence', '/content', '/proof'])
 const BAND_ICON: Record<string, string> = { '/operations': 'operations' }
 
 // Section order and headings. The list used to tag every row GO / JUMP /
