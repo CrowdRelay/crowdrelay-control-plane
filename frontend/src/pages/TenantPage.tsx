@@ -252,7 +252,7 @@ export function TenantPage() {
                 </TableRow>
                 <TableRow>
                   <TableCell><strong>AREA</strong></TableCell>
-                  <TableCell><Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/area" params={{ slug: t.slug }}>Manage rewards</Link></TableCell>
+                  <TableCell><Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places" params={{ slug: t.slug }} search={{ tab: 'area' }}>Manage rewards</Link></TableCell>
                   <TableCell class="text-right"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></TableCell>
                 </TableRow>
                 <TableRow>

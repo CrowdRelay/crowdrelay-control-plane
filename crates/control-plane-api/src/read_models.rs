@@ -10,7 +10,8 @@
 //! * Attention -> [`crate::attention_routes`] (`GET /tenants/{slug}/operations/attention`)
 //! * Today/Operations -> [`today`] (`GET /tenants/{slug}/today`)
 //! * Booking -> [`booking`] (`GET /tenants/{slug}/booking`)
-//! * Places  -> [`places`] (`GET /tenants/{slug}/places`)
+//! * Places  -> [`places_cities`]/[`places_rooms`]/[`places_online`]
+//!   (`GET /tenants/{slug}/places/{cities,rooms,online}` — one thin model per tab)
 //! * Brain   -> [`brain`] (`GET /tenants/{slug}/brain`)
 //! * Delivery -> [`delivery`] (`GET /tenants/{slug}/delivery`)
 //! * Proof   -> [`proof`] (`GET /tenants/{slug}/proof`)
@@ -144,7 +145,9 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/overview", get(overview))
         .route("/tenants/{slug}/today", get(today))
         .route("/tenants/{slug}/booking", get(booking))
-        .route("/tenants/{slug}/places", get(places))
+        .route("/tenants/{slug}/places/cities", get(places_cities))
+        .route("/tenants/{slug}/places/rooms", get(places_rooms))
+        .route("/tenants/{slug}/places/online", get(places_online))
         .route("/tenants/{slug}/brain", get(brain))
         .route("/tenants/{slug}/delivery", get(delivery))
         .route("/tenants/{slug}/proof", get(proof))
@@ -1850,113 +1853,130 @@ async fn booking(
 /// a tenant whose AREA side cannot answer still gets the four sections it
 /// can. Per-city detail stays lazy on the existing
 /// `/tenants/{slug}/cities/{city}` routes.
-async fn places(
-    State(state): State<AppState>,
-    Path(raw_slug): Path<String>,
-    headers: HeaderMap,
+/// One Places tab's read model: validate → cache → resolve the tenant →
+/// fan out over the tab's upstream paths → project → cache. The tabs differ
+/// only in which path answers which section name under which shape, so the
+/// table is data and the pipeline is shared — three copied handlers would
+/// drift apart on the first change.
+async fn places_tab(
+    state: &AppState,
+    raw_slug: &str,
+    headers: &HeaderMap,
+    view: &'static str,
+    spec: &'static [(&'static str, &'static str, Shape)],
 ) -> Result<Response, ApiError> {
-    let slug = validation::slug(&raw_slug)?;
-    let cache_key = format!("{slug}:places");
+    let slug = validation::slug(raw_slug)?;
+    let cache_key = format!("{slug}:{view}");
     if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
         return Ok(no_store(cached));
     }
-    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
-    let fetch = |path: &'static str| {
-        let state = &state;
-        let target = &target;
-        let tenant_id = tenant.tenant.id;
-        let correlation_id = correlation(&headers);
-        async move {
-            state
-                .area_client
-                .request_management(
-                    tenant_id,
-                    target,
-                    ManagementRequest {
-                        method: "GET",
-                        path,
-                        body: None,
-                        correlation_id,
-                        idempotency_key: None,
-                    },
-                )
-                .await
-        }
-    };
-    let correlation_id = correlation(&headers);
-    let tenant_id = tenant.tenant.id;
-    let area_fetch = async {
-        state
-            .area_client
-            .request(
-                tenant_id,
-                &target,
-                "GET",
-                "/v1/control-plane/area/cities?limit=100",
-                None,
+    let (tenant, target) = crate::area_routes::target(state, &slug).await?;
+    let correlation_id = correlation(headers);
+    let results = futures_util::future::join_all(spec.iter().map(|&(path, _, _)| {
+        state.area_client.request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "GET",
+                path,
+                body: None,
                 correlation_id,
-                None,
-            )
-            .await
-    };
-
-    let (city_funnel, city_venues, places_registry, gig_plan, area_cities) = tokio::join!(
-        // Ranked: the funnel's default ordering is by activity; the plan's
-        // question is "which city next", which is the organise score.
-        fetch("/v1/control-plane/audience/city-funnel?order=organise"),
-        fetch("/v1/control-plane/audience/city-venues"),
-        fetch("/v1/control-plane/audience-graph/places?limit=100"),
-        fetch("/v1/control-plane/gig-plan"),
-        area_fetch,
-    );
-
-    let projected = project_sections(
-        &slug,
-        state.runtime_stale_after_seconds,
-        "places",
-        &places_sections(
-            city_funnel.as_ref(),
-            city_venues.as_ref(),
-            places_registry.as_ref(),
-            gig_plan.as_ref(),
-            area_cities.as_ref(),
-        ),
-    )?;
+                idempotency_key: None,
+            },
+        )
+    }))
+    .await;
+    let sections = spec_sections(spec, &results);
+    let projected = project_sections(&slug, state.runtime_stale_after_seconds, view, &sections)?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
 }
 
-/// The section table the places handler projects. Kept as a named function
-/// so the wiring — which upstream answers which name under which shape — is
-/// what the tests assert, not a copy of it.
-fn places_sections<'a>(
-    city_funnel: SectionResult<'a>,
-    city_venues: SectionResult<'a>,
-    audience_places: SectionResult<'a>,
-    gig_plan: SectionResult<'a>,
-    area_cities: SectionResult<'a>,
-) -> [Section<'a>; 5] {
-    [
-        section("city_funnel", city_funnel, Shape::Array),
-        section("city_venues", city_venues, Shape::Array),
-        section("audience_places", audience_places, Shape::Object),
-        section("gig_plan", gig_plan, Shape::Object),
-        section("area_cities", area_cities, Shape::Object),
-    ]
+/// Zip a tab's spec against its results, in spec order — the wiring the
+/// tests assert, shared between the handler and them.
+fn spec_sections<'a>(
+    spec: &'static [(&'static str, &'static str, Shape)],
+    results: &'a [Result<Value, ApiError>],
+) -> Vec<Section<'a>> {
+    spec.iter()
+        .zip(results.iter())
+        .map(|(&(_, name, shape), result)| section(name, result.as_ref(), shape))
+        .collect()
 }
 
-/// Brain — the autopilot's evidence in one call.
-///
-/// The brief stays its own endpoint (`operations/intelligence`) — it is the
-/// page's story and keeps its own poll cadence and mutations. This model is
-/// the evidence the tabs render underneath it: the posture facts the header
-/// badges need, the scorecard, the two learning surfaces, the measurement
-/// ledger, and the attention snapshot whose refused-outcome list the
-/// learning tab renders as "the gate said no". Six sections fetched
-/// concurrently; each failure degrades its own section. `attention` enters
-/// through the dedicated projection so `not_reported` keeps its meaning —
-/// a tenant that does not publish refused outcomes is not a tenant whose
-/// gate refused nothing.
+/// GET /tenants/{slug}/places/cities — the "where next" tab: the ranked
+/// funnel plus the gig plan working surface.
+const PLACES_CITIES_SPEC: &[(&str, &str, Shape)] = &[
+    // Ranked: the funnel's default ordering is by activity; the plan's
+    // question is "which city next", which is the organise score.
+    (
+        "/v1/control-plane/audience/city-funnel?order=organise",
+        "city_funnel",
+        Shape::Array,
+    ),
+    ("/v1/control-plane/gig-plan", "gig_plan", Shape::Object),
+];
+
+/// GET /tenants/{slug}/places/rooms — the venue registry the funnel's
+/// "bookable now" count reads from.
+const PLACES_ROOMS_SPEC: &[(&str, &str, Shape)] = &[(
+    "/v1/control-plane/audience/city-venues",
+    "city_venues",
+    Shape::Array,
+)];
+
+/// GET /tenants/{slug}/places/online — where the fans gather online.
+const PLACES_ONLINE_SPEC: &[(&str, &str, Shape)] = &[(
+    "/v1/control-plane/audience-graph/places?limit=100",
+    "audience_places",
+    Shape::Object,
+)];
+
+async fn places_cities(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    places_tab(
+        &state,
+        &raw_slug,
+        &headers,
+        "places:cities",
+        PLACES_CITIES_SPEC,
+    )
+    .await
+}
+
+async fn places_rooms(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    places_tab(
+        &state,
+        &raw_slug,
+        &headers,
+        "places:rooms",
+        PLACES_ROOMS_SPEC,
+    )
+    .await
+}
+
+async fn places_online(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    places_tab(
+        &state,
+        &raw_slug,
+        &headers,
+        "places:online",
+        PLACES_ONLINE_SPEC,
+    )
+    .await
+}
+
 async fn brain(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
@@ -2052,6 +2072,14 @@ fn brain_sections<'a>(
     ]
 }
 
+/// Delivery — the operator's answer to "what is stuck, and why".
+///
+/// One read across the pipe: the queue depths the summary reports, the
+/// live outbox and delivery rows still in flight, the attention snapshot's
+/// dead lists and unpublished drafts (the rows that will not move on their
+/// own), and the recent delivery-results ledger that says what landed.
+/// Five sections concurrently; the Health page's delivery tab renders it
+/// as a journey and keeps retry on the dead rows it points at.
 /// Delivery — the operator's answer to "what is stuck, and why".
 ///
 /// One read across the pipe: the queue depths the summary reports, the
@@ -4405,89 +4433,75 @@ mod tests {
     }
 
     #[test]
-    fn places_projects_each_source_as_its_own_section() {
+    fn places_views_project_each_source_as_its_own_section() {
         let funnel = json!([{"city_slug": "krakow", "fans": 12}]);
+        let plan = json!({"proposals": [], "passed_over": []});
         let venues = json!([{"venue_id": "v1", "display_name": "Alchemia"}]);
         let registry = json!({"places": [{"id": "p1", "name": "r/poland"}]});
-        let plan = json!({"proposals": [], "passed_over": []});
-        let area = json!({"items": [{"slug": "krakow"}]});
 
-        let projected = project_sections(
+        let cities = project_sections(
             "virya",
             300,
-            "places",
-            &places_sections(
-                ok(&funnel),
-                ok(&venues),
-                ok(&registry),
-                ok(&plan),
-                ok(&area),
-            ),
+            "places:cities",
+            &spec_sections(PLACES_CITIES_SPEC, &[Ok(funnel.clone()), Ok(plan.clone())]),
         )
-        .expect("all five sections answer");
-
-        assert_eq!(projected["id"], json!("virya"));
-        assert_eq!(projected["city_funnel"], funnel);
-        assert_eq!(projected["city_venues"], venues);
-        assert_eq!(projected["audience_places"], registry);
-        assert_eq!(projected["gig_plan"], plan);
-        assert_eq!(projected["area_cities"], area);
-        assert_eq!(projected["degraded"], json!([]));
-        for name in [
-            "city_funnel",
-            "city_venues",
-            "audience_places",
-            "gig_plan",
-            "area_cities",
-        ] {
-            assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
+        .expect("both cities sections answer");
+        assert_eq!(cities["id"], json!("virya"));
+        assert_eq!(cities["city_funnel"], funnel);
+        assert_eq!(cities["gig_plan"], plan);
+        assert_eq!(cities["degraded"], json!([]));
+        for name in ["city_funnel", "gig_plan"] {
+            assert_eq!(cities["sections"][name]["state"], json!("ok"), "{name}");
         }
+
+        let rooms = project_sections(
+            "virya",
+            300,
+            "places:rooms",
+            &spec_sections(PLACES_ROOMS_SPEC, &[Ok(venues.clone())]),
+        )
+        .expect("the rooms section answers");
+        assert_eq!(rooms["city_venues"], venues);
+        assert_eq!(rooms["degraded"], json!([]));
+
+        let online = project_sections(
+            "virya",
+            300,
+            "places:online",
+            &spec_sections(PLACES_ONLINE_SPEC, &[Ok(registry.clone())]),
+        )
+        .expect("the online section answers");
+        assert_eq!(online["audience_places"], registry);
+        assert_eq!(online["degraded"], json!([]));
     }
 
     #[test]
-    fn places_degrades_only_the_section_the_tenant_could_not_answer() {
-        // AREA is a separate upstream surface with its own token — it is the
-        // section most likely to be absent on a tenant that never onboarded
-        // it. Losing it must not blank the funnel, which is the page's spine.
+    fn places_view_degrades_only_the_section_the_tenant_could_not_answer() {
+        // The gig plan is the cities tab's second read — losing it must not
+        // blank the funnel, which is the tab's spine.
         let funnel = json!([{"city_slug": "krakow", "fans": 12}]);
-        let venues = json!([]);
-        let registry = json!({"places": []});
-        let plan = json!({"proposals": []});
         let error = unreachable();
 
         let projected = project_sections(
             "virya",
             300,
-            "places",
-            &places_sections(
-                ok(&funnel),
-                ok(&venues),
-                ok(&registry),
-                ok(&plan),
-                Err(&error),
-            ),
+            "places:cities",
+            &spec_sections(PLACES_CITIES_SPEC, &[Ok(funnel.clone()), Err(error)]),
         )
         .expect("one dead section still projects the rest");
 
         assert_eq!(projected["city_funnel"], funnel);
-        assert_eq!(projected["area_cities"], Value::Null);
-        assert_eq!(projected["degraded"], json!(["area_cities"]));
+        assert_eq!(projected["gig_plan"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["gig_plan"]));
     }
 
     #[test]
-    fn places_fails_closed_only_when_every_section_is_down() {
-        let error = timeout();
+    fn places_view_fails_closed_only_when_every_section_is_down() {
         let failed = project_sections(
             "virya",
             300,
-            "places",
-            &places_sections(
-                Err(&error),
-                Err(&error),
-                Err(&error),
-                Err(&error),
-                Err(&error),
-            ),
+            "places:rooms",
+            &spec_sections(PLACES_ROOMS_SPEC, &[Err(timeout())]),
         );
         assert!(
             matches!(failed, Err(ApiError::AllSectionsFailed { .. })),
@@ -4496,26 +4510,17 @@ mod tests {
     }
 
     #[test]
-    fn places_rejects_a_misshapen_section_as_contract_drift() {
+    fn places_view_rejects_a_misshapen_section_as_contract_drift() {
         // The funnel must be an array — an object shaped like an envelope
         // means the upstream contract moved, which is drift to name, not a
         // healthy empty city list.
-        let funnel = json!({"items": []});
-        let venues = json!([]);
-        let registry = json!({"places": []});
-        let plan = json!({"proposals": []});
-        let area = json!({"items": []});
-
         let projected = project_sections(
             "virya",
             300,
-            "places",
-            &places_sections(
-                ok(&funnel),
-                ok(&venues),
-                ok(&registry),
-                ok(&plan),
-                ok(&area),
+            "places:cities",
+            &spec_sections(
+                PLACES_CITIES_SPEC,
+                &[Ok(json!({"items": []})), Ok(json!({"proposals": []}))],
             ),
         )
         .expect("a misshapen section degrades, it does not fail the model");

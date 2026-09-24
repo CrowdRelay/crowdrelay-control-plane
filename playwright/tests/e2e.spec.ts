@@ -187,7 +187,10 @@ const SUBPAGES = [
   { path: '/tenants/virya/places', name: 'places' },
   { path: '/tenants/virya/content', name: 'content' },
   { path: '/tenants/virya/content/material', name: 'content-material' },
-  { path: '/tenants/virya/area', name: 'area' },
+  // AREA folded into Places as its fourth tab; the old route exercises the
+  // compatibility redirect old links still ride.
+  { path: '/tenants/virya/area', name: 'area-redirect' },
+  { path: '/tenants/virya/places?tab=area', name: 'area' },
   { path: '/tenants/virya/shows', name: 'shows' },
   { path: '/tenants/virya/integrations', name: 'integrations' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },

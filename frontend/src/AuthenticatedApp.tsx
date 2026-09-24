@@ -24,7 +24,6 @@ const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'O
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantWizardPage = lazyRouteComponent(() => import('./pages/TenantWizardPage'), 'TenantWizardPage')
 const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
-const AreaPage = lazyRouteComponent(() => import('./pages/AreaPage'), 'AreaPage')
 const TenantAttentionPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'TenantAttentionPage')
 const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TenantOperationsPage')
 const TenantHealthPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'TenantHealthPage')
@@ -72,12 +71,14 @@ const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ten
   const tab = (search as { tab?: string }).tab
   if (tab === 'places') throw redirect({ href: `/tenants/${params.slug}/places` })
 }, loader: ({ params }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))() })
-const placesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places', component: TenantPlacesPage, loader: ({ params }) => warm(['tenant-places', params.slug], () => api.placesModel(params.slug))() })
+const placesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places', component: TenantPlacesPage, loader: ({ params }) => warm(['tenant-places', params.slug, 'cities'], () => api.placesCities(params.slug))() })
 // Beacons dissolved into Audience → Contacts: every contact surface — the
 // roster, the signal funnel, the dual-role list — is a `kind` on that tab.
 // The route redirects rather than breaking old links.
 const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/beacons', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=contacts` }) } })
-const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', component: AreaPage, loader: ({ params }) => warm(['area-overview', params.slug], () => api.areaOverview(params.slug), 15_000)() })
+// AREA folded into Places as its fourth tab — the route redirects rather
+// than breaking old links, the way /portfolio and /beacons did before it.
+const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/places?tab=area` }) } })
 const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage, loader: ({ params }) => { warm(['tenant-operator-attention-snapshot', params.slug], () => fetchOperationsAttention(params.slug))(); warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() } })
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
 // In motion: the process view — every run the brain is working, each as its

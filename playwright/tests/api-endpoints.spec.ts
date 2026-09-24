@@ -18,7 +18,11 @@ const API_ROUTES = [
   { path: `/api/v1/tenants/${SLUG}`, method: 'GET', name: 'tenant-detail' },
   { path: `/api/v1/tenants/${SLUG}/overview`, method: 'GET', name: 'tenant-overview' },
   { path: `/api/v1/tenants/${SLUG}/today`, method: 'GET', name: 'today' },
-  { path: `/api/v1/tenants/${SLUG}/places`, method: 'GET', name: 'places-model' },
+  // The places read model is per-tab now — three thin routes replaced the
+  // single fan-out.
+  { path: `/api/v1/tenants/${SLUG}/places/cities`, method: 'GET', name: 'places-cities' },
+  { path: `/api/v1/tenants/${SLUG}/places/rooms`, method: 'GET', name: 'places-rooms' },
+  { path: `/api/v1/tenants/${SLUG}/places/online`, method: 'GET', name: 'places-online' },
   { path: `/api/v1/tenants/${SLUG}/brain`, method: 'GET', name: 'brain-model' },
   { path: `/api/v1/tenants/${SLUG}/delivery`, method: 'GET', name: 'delivery-model' },
   { path: `/api/v1/tenants/${SLUG}/proof`, method: 'GET', name: 'proof-model' },

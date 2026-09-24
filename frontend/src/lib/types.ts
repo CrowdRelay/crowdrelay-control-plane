@@ -1258,33 +1258,47 @@ export type TenantBookingReadModel = {
   fetchedAt: string
 }
 
-export type TenantPlacesSection =
-  | 'city_funnel'
-  | 'city_venues'
-  | 'audience_places'
-  | 'gig_plan'
-  | 'area_cities'
+// The Places page is tabbed, and each tab carries a thin read model of its
+// own — the Cities tab never pays for the venue registry, the Online tab
+// never pays for the funnel. AREA keeps its own endpoints (the workspace
+// owns them), so no places model carries AREA data.
 
-/** `GET /tenants/{slug}/places` — the "where to play next" read in one call:
- * the city funnel in the organise ranking, the shared venue registry, the
- * audience-graph gathering places, the gig plan's city facet (so the page
- * can mark which funnel rows the planner already wants), and the AREA
- * cities the tenant registered. `area_cities` rides a different upstream
- * surface than the other four — a tenant whose AREA side cannot answer
- * still gets the rest, with the section named in `degraded`. */
-export type TenantPlacesReadModel = {
+export type TenantPlacesCitiesSection = 'city_funnel' | 'gig_plan'
+export type TenantPlacesRoomsSection = 'city_venues'
+export type TenantPlacesOnlineSection = 'audience_places'
+
+/** `GET /tenants/{slug}/places/cities` — the "where next" read: the city
+ * funnel in the organise ranking plus the gig plan's city facet, so the
+ * tab can mark which funnel rows the planner already wants. */
+export type TenantPlacesCitiesModel = {
   id: string
   // Ranked city funnel — `?order=organise` upstream. `null` when degraded.
   city_funnel: CityFunnelRow[] | null
-  // The shared venue registry, aggregated across acts.
-  city_venues: CityVenueRow[] | null
-  // Online gathering places — the communities the audience graph knows.
-  audience_places: { places: AudiencePlace[] } | null
   // The planner's current city picks — proposals, passed-over, track record.
   gig_plan: GigPlanResponse | null
-  // Cities registered for AREA drops. Empty list is a real answer, not a gap.
-  area_cities: { items: AreaCity[] } | null
-  degraded: TenantPlacesSection[]
+  degraded: TenantPlacesCitiesSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+/** `GET /tenants/{slug}/places/rooms` — the shared venue registry,
+ * aggregated across acts. */
+export type TenantPlacesRoomsModel = {
+  id: string
+  city_venues: CityVenueRow[] | null
+  degraded: TenantPlacesRoomsSection[]
+  sections: SectionVerdicts
+  freshness: SectionFreshnessMap
+  fetchedAt: string
+}
+
+/** `GET /tenants/{slug}/places/online` — the communities the audience
+ * graph knows. */
+export type TenantPlacesOnlineModel = {
+  id: string
+  audience_places: { places: AudiencePlace[] } | null
+  degraded: TenantPlacesOnlineSection[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap
   fetchedAt: string

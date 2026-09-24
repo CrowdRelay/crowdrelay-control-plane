@@ -115,7 +115,10 @@ export function ChatWidget(props: { slug: string }) {
     if (path.includes('/operations')) return where('Operations page')
     if (path.includes('/attention')) return where('Attention page')
     if (path.includes('/audience')) return where('Audience page')
-    if (path.includes('/area')) return where('AREA page')
+    // AREA folded into Places as a tab — the pathname alone can't see
+    // `?tab=`, so read the search param directly (same as Destinations).
+    if (path.includes('/places') && (location().search as { tab?: string }).tab === 'area') return where('AREA page')
+    if (path.includes('/places')) return where('Places page')
     if (path.includes('/integrations')) return where('AI Integrations page')
     // The notifiers surface moved to the tenant page's Destinations tab. The
     // pathname alone can't see `?tab=`, so read the search param directly.

@@ -59,7 +59,9 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   // The beacon roster folded into Audience → Contacts; the palette entry
   // names the destination a person sees, not the route it rides.
   { suffix: '/audience?tab=contacts', label: 'Contacts', icon: 'beacons' },
-  { suffix: '/area', label: 'AREA', icon: 'area' },
+  // AREA lives under Places now — the palette entry names the destination a
+  // person sees and lands on its tab via `search`, not an embedded query.
+  { suffix: '/places', label: 'AREA', icon: 'area', search: { tab: 'area' } },
 ]
 
 // Task-oriented shortcuts. These are navigation, so they are labelled as

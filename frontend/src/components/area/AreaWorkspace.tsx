@@ -1,24 +1,28 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
 import { Check, MapPin, Plus } from 'lucide-solid'
-import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
-import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../lib/types'
-import { StatusBadge } from '../components/StatusBadge'
-import { LocationCanvas } from '../components/area/LocationCanvas'
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../components/ui/empty'
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../components/ui/sheet'
-import { SkeletonRows } from '../components/Skeleton'
-import { confirmAction } from '../components/Dialog'
-import { SectionIcon } from '../components/SectionIcon'
-import { ErrorCard, KpiCard, KpiStrip, PageHeader, PageShell, Section, TabBar } from '../components/layout'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
-import { Button } from '../components/app/button'
-import { Alert } from '../components/app/alert'
-import { Switch } from '../components/app/switch'
-import { Input } from '../components/ui/input'
+import { api } from '../../lib/api'
+import { errorMessage } from '../../lib/format'
+import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../../lib/types'
+import { StatusBadge } from '../StatusBadge'
+import { LocationCanvas } from './LocationCanvas'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../ui/empty'
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../ui/sheet'
+import { SkeletonRows } from '../Skeleton'
+import { confirmAction } from '../Dialog'
+import { SectionIcon } from '../SectionIcon'
+import { ErrorCard, KpiCard, KpiStrip, Section, TabBar } from '../layout'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../app/table'
+import { Button } from '../app/button'
+import { Alert } from '../app/alert'
+import { Switch } from '../app/switch'
+import { Input } from '../ui/input'
+
+// The AREA workspace — the drop editor's whole surface, folded into
+// Places' AREA tab so the game lives next to the places it lands in. The
+// page route /tenants/$slug/area redirects here with ?tab=area; nothing in
+// this file reads the URL, its nested steps are signal state.
 
 // Rich-label checkbox composes the Kobalte primitive (ui/checkbox's label
 // prop is string-only); control styling mirrors ui/checkbox.tsx.
@@ -26,10 +30,10 @@ const checkboxControl =
   'peer mt-1 h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
   'data-[checked]:bg-primary data-[checked]:text-primary-foreground'
-import { Textarea } from '../components/ui/textarea'
-import { NativeSelect } from '../components/ui/native-select'
-import { Field } from '../components/ui/field'
-import { readOnly } from '../lib/read-only'
+import { Textarea } from '../ui/textarea'
+import { NativeSelect } from '../ui/native-select'
+import { Field } from '../ui/field'
+import { readOnly } from '../../lib/read-only'
 
 
 const statusTone = (status: AreaStatus) => status === 'LIVE' ? 'good' : status === 'SCHEDULED' || status === 'DRAFT' ? 'warn' : status === 'ARCHIVED' ? 'muted' : status === 'PAUSED' ? 'bad' : 'muted'
@@ -58,9 +62,8 @@ function defaultDraft(city: AreaCity, number: string): AreaDropDraft {
   }
 }
 
-export function AreaPage() {
-  const params = useParams({ from: '/tenants/$slug/area' })
-  const slug = () => params().slug
+export function AreaWorkspace(props: { slug: string }) {
+  const slug = () => props.slug
   const queryClient = useQueryClient()
   const overview = useQuery(() => ({ queryKey: ['area-overview', slug()], queryFn: () => api.areaOverview(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
   const drops = useQuery(() => ({ queryKey: ['area-drops', slug()], queryFn: () => api.areaDrops(slug()), refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
@@ -172,12 +175,7 @@ export function AreaPage() {
   const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
-  return <PageShell>
-    <PageHeader
-      title="AREA"
-      description="Draft, validate and publish the locations fans can claim a drop in. Exact claim coordinates never leave the private editor."
-    />
-
+  return <>
     <Show when={flash()}><Alert tone="info" role="status">{flash()}</Alert></Show>
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
@@ -441,5 +439,5 @@ export function AreaPage() {
         </fieldset>
       </>}</Show>
     </Section></Show>
-  </PageShell>
+  </>
 }

@@ -20,11 +20,14 @@ export type NavItem = {
 }
 export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 
-// One process map for every session — five destinations a person in the act
-// actually asks for, in their order: today, the next night, what needs a
-// decision, the audience, the content pipeline. The bare tenant URL used to
-// carry a second copy of Today; it now redirects to /operations, and the
-// Settings link below points at the tenant page's ?tab= URLs — Deployment
+// The sidebar is grouped by cadence, not by subsystem. 'Every day' is what
+// moves daily — today's queue, the shows, the runs in flight, the content
+// pipeline. 'Your audience' is who and where — reference views a person
+// checks weekly rather than watches. AREA is no longer a destination of its
+// own: it lives under Places as the AREA tab, next to the places its drops
+// land in; the /area route redirects there. 'The rest' is what remains —
+// Intelligence and Settings. The bare tenant URL redirects to /operations,
+// and the Settings link points at the tenant page's ?tab= URLs — Deployment
 // and Access are named under it in the breadcrumb.
 //
 // Both arrays are written out literally on purpose: the destination-count
@@ -41,10 +44,17 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
       // Needs you merged into Today: the strip on the daily page names the
       // parked asks, and the badge lands on this item. The page itself stays
       // reachable by URL — its queue/alerts/findings depth is still there.
-      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
       { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
+    ],
+  },
+  {
+    label: 'Your audience',
+    defaultOpen: true,
+    items: [
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
+      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
     ],
   },
   {
@@ -52,17 +62,17 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
       { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
     ],
   },
 ]
 
-// The platform sidebar is the same process map plus one more group: the
-// machinery (queues, tunnels, provider wiring, automation) folded one level
-// in behind a labelled disclosure. The operator keeps every control — it
-// moved a level in, not out. Pages stay reachable by URL for everyone — a
-// focus split, not a permission boundary.
+// The platform sidebar is the same cadence map plus two extras: Needs you in
+// 'Every day' (the operator's dedicated queue the band map folded into
+// Today), and 'Operator', where the machinery (queues, tunnels, provider
+// wiring, automation) sits one level in behind a labelled disclosure. The
+// operator keeps every control — it moved a level in, not out. Pages stay
+// reachable by URL for everyone — a focus split, not a permission boundary.
 export const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Every day',
@@ -71,10 +81,17 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
       { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
       { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
       { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
-      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
       { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
       { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
+    ],
+  },
+  {
+    label: 'Your audience',
+    defaultOpen: true,
+    items: [
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
+      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
     ],
   },
   {
@@ -82,7 +99,6 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
       { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
     ],
   },
@@ -91,7 +107,6 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-      { path: '/tenants/$slug/area', label: 'AREA', exact: false, icon: 'area' },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
       { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
     ],
