@@ -107,6 +107,10 @@ pub fn router() -> Router<AppState> {
             post(register_manual_community_post),
         )
         .route(
+            "/tenants/{slug}/operations/social-posts/{post_id}/register-manual",
+            post(register_manual_social_post),
+        )
+        .route(
             "/tenants/{slug}/operations/actions/{action_id}/sent",
             get(action_sent_record),
         )
@@ -1174,6 +1178,63 @@ async fn register_manual_community_post(
     // Upstream answers 204 No Content — a success shape object_no_store
     // would refuse as "invalid JSON", so this takes the mutation path.
     mutation_no_store(result, "manual post registration")
+}
+
+#[derive(Debug, Deserialize)]
+struct ManualSocialPostRegistration {
+    platform_post_url: String,
+}
+
+/// The manual leg for social posts — the operator published a drafted
+/// Facebook/Instagram/Telegram post by hand, and registering its URL closes
+/// the row and turns measurement on. Without this route an
+/// `awaiting_manual_post` social post could never be closed from the
+/// console: upstream and the tunnel both carried it, the proxy did not.
+/// Upstream owns the real URL check — this bounds the envelope only.
+async fn register_manual_social_post(
+    State(state): State<AppState>,
+    Path((slug, post_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<ManualSocialPostRegistration>,
+) -> Result<Response, ApiError> {
+    let post_id = uuid_segment(&post_id)?.to_owned();
+    let url = input.platform_post_url.trim();
+    if url.is_empty() || url.len() > 2048 || !url.starts_with("https://") {
+        return Err(ApiError::InvalidInput(
+            "a manual post needs its https post URL".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let body = json!({ "platform_post_url": url });
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/social-posts/{post_id}/register-manual"),
+                body: Some(&body),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.social_post.registered_manual",
+        "social_post",
+        &post_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    mutation_no_store(result, "manual social post registration")
 }
 
 /// What the action actually sent — the words and the addresses it went to.

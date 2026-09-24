@@ -338,6 +338,14 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ reddit_post_url: redditPostUrl }),
     }),
+  // The social-post manual leg — same close-out, but the URL is wherever the
+  // post actually landed (facebook.com/…, instagram.com/…, t.me/…).
+  registerManualSocialPost: (slug: string, postId: string, platformPostUrl: string) =>
+    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/social-posts/${encodeURIComponent(postId)}/register-manual`, {
+      method: 'POST',
+      headers: { 'idempotency-key': crypto.randomUUID() },
+      body: JSON.stringify({ platform_post_url: platformPostUrl }),
+    }),
   signalOverview: (slug: string) => request<SignalOverview>(`/tenants/${encodeURIComponent(slug)}/operations/signal-overview`),
   listOutbox: (slug: string, params?: { limit?: number; status?: string }) => {
     const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)] as [string, string])).toString() : ''
