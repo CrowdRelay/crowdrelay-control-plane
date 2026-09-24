@@ -1575,6 +1575,17 @@ export interface PortfolioSettingsReadModel {
   editable_keys: string[]
 }
 
+// What the media upload returns — the public URL is what `join_ask_image_url`
+// stores, minted from the tenant's public API origin so Meta and Telegram can
+// fetch it at publish time.
+export interface UploadedMedia {
+  id: string
+  url: string
+  contentType: string
+  byteLen: number
+  name: string
+}
+
 // A tenant-held credential the operator can see exists — the masked hint and
 // when it was set. The value itself is never returned by any read.
 export interface TenantSecret {

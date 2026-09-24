@@ -8,6 +8,7 @@ import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
+import { FileInput } from './ui/file-input'
 import { NativeSelect } from './ui/native-select'
 import { northStarLabel, northStarMeaning, northStarTechnicalName } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
@@ -30,6 +31,7 @@ const LABELS: Record<string, string> = {
   join_ask_variants: 'Join-ask posts (your words)',
   join_ask_cadence_days: 'Join-ask cadence (days)',
   join_ask_platforms: 'Join-ask channels',
+  join_ask_image_url: 'Join-ask image',
 }
 
 // The flat grid used to render keys in the order the server grew them, which
@@ -60,7 +62,7 @@ const GROUPS: { title: string; description: string; bandDescription?: string; ke
     title: 'Social & join-ask',
     description: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
     bandDescription: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
-    keys: ['social_auto_post', 'join_ask_platforms', 'join_ask_cadence_days', 'join_ask_variants'],
+    keys: ['social_auto_post', 'join_ask_platforms', 'join_ask_cadence_days', 'join_ask_variants', 'join_ask_image_url'],
   },
   {
     title: 'Crew',
@@ -163,6 +165,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
     band: 'Channels the join-ask goes to. Facebook, Instagram and Telegram publish today; discord waits until its sender exists. Absent means facebook,instagram.',
     example: 'facebook,instagram,telegram',
   },
+  join_ask_image_url: {
+    hint: 'The picture every join-ask post carries — an app screenshot works best. Uploaded here, served from the tenant over https so Facebook, Instagram and Telegram can fetch it. Telegram needs it for a photo post; Instagram always needs an image.',
+    band: 'The picture every join-ask post carries — an app screenshot works best. Uploaded here and served over https so Facebook, Instagram and Telegram can fetch it. Telegram needs it for a photo post; Instagram always needs an image.',
+    example: '',
+  },
 }
 
 // The variants field stores a JSON list; the editor is rows of text. Parse
@@ -192,6 +199,8 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
   const [pendingKey, setPendingKey] = createSignal<string | null>(null)
   const [errorText, setErrorText] = createSignal<string | null>(null)
   const [savedKey, setSavedKey] = createSignal<string | null>(null)
+  const [uploadError, setUploadError] = createSignal<string | null>(null)
+  const [uploading, setUploading] = createSignal(false)
 
   // The north star vocabulary lives in the Rust domain, so the picker asks the
   // server for it rather than shipping a second copy that can drift.
@@ -257,6 +266,18 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
     },
   }))
 
+  const uploadImage = async (file: File) => {
+    setUploading(true); setUploadError(null)
+    try {
+      const uploaded = await api.uploadMedia(props.slug, file)
+      setDrafts(current => ({ ...current, join_ask_image_url: uploaded.url }))
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   // What blocks Save for the structured editors — the check the server will
   // apply anyway, run early so the operator sees it on the row, not in a
   // refusal after the fact.
@@ -276,6 +297,8 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
       const n = Number(draft)
       if (!Number.isInteger(n) || n < 3 || n > 30) return 'Whole days between 3 and 30.'
     }
+    if (key === 'join_ask_image_url' && draft.trim() && !/^https:\/\/.+/.test(draft.trim()))
+      return 'The image must be an https:// URL — Meta and Telegram fetch it publicly.'
     if (key === 'member_site_base_url' && draft.trim() && !/^https:\/\/[^/]+$/.test(draft.trim().replace(/\/$/, '')))
       return 'An https:// origin with no path — https://your-band.example, not a page on it.'
     return null
@@ -301,13 +324,57 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                   <Show
                     when={key === 'join_ask_platforms'}
                     fallback={
-                      <Input
-                        type={NUMBER_KEYS.has(key) ? 'number' : 'text'}
-                        value={value(key)}
-                        placeholder={HINTS[key]?.example}
-                        onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
-                        {...writeGuard()}
-                      />
+                      <Show
+                        when={key === 'join_ask_image_url'}
+                        fallback={
+                          <Input
+                            type={NUMBER_KEYS.has(key) ? 'number' : 'text'}
+                            value={value(key)}
+                            placeholder={HINTS[key]?.example}
+                            onInput={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
+                            {...writeGuard()}
+                          />
+                        }
+                      >
+                        {/* The image is a URL the platforms fetch — the picker
+                            uploads the file and drafts the URL; Save then
+                            stores it like every other setting. */}
+                        <div class="flex flex-col gap-2">
+                          <Show when={value('join_ask_image_url').trim()}>
+                            <img
+                              src={value('join_ask_image_url')}
+                              alt="Join-ask image preview"
+                              class="max-h-40 w-auto rounded-md border border-border object-contain"
+                            />
+                          </Show>
+                          <div class="flex items-center gap-2">
+                            {/* The FileInput primitive renders visually hidden
+                                by contract; the label around it is the drawn
+                                control. */}
+                            <label class="inline-flex cursor-pointer items-center rounded-md border border-border px-3 py-1.5 text-xs text-secondary-foreground hover:bg-secondary/60 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                              {uploading() ? 'Uploading…' : 'Choose image…'}
+                              <FileInput
+                                writes
+                                accept="image/png,image/jpeg,image/webp"
+                                disabled={uploading()}
+                                onChange={e => {
+                                  const file = e.currentTarget.files?.[0]
+                                  if (file) void uploadImage(file)
+                                  e.currentTarget.value = ''
+                                }}
+                              />
+                            </label>
+                            <Show when={value('join_ask_image_url').trim()}>
+                              <Button variant="ghost" size="sm" writes
+                                onClick={() => setDrafts(current => ({ ...current, join_ask_image_url: '' }))}>
+                                Clear
+                              </Button>
+                            </Show>
+                          </div>
+                          <Show when={uploading()}><small class="text-xs text-muted-foreground">Uploading…</small></Show>
+                          <Show when={uploadError()}><small class="text-xs text-destructive">{uploadError()}</small></Show>
+                        </div>
+                      </Show>
                     }
                   >
                     {/* One chip per channel the executor knows — the stored
@@ -361,7 +428,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
           <option value="false">Disabled</option>
         </NativeSelect>
       </Show>
-      <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_platforms'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
+      <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_image_url' && key !== 'join_ask_platforms'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
       <Show when={key === 'tenant_intent'}>
         {(() => {
           const current = () => value(key)
