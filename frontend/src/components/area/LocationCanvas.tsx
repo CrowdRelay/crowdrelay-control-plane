@@ -58,7 +58,7 @@ export const LocationCanvas: Component<Props> = (props) => {
       {mode()==='world' ? <><path d="M50 0 V100 M0 50 H100" class="area-axis" />{props.publicLat != null && props.publicLng != null && <circle cx={publicWorldPoint().x} cy={publicWorldPoint().y} r="1.6" class="area-public-point" />}{props.exactLat != null && props.exactLng != null && <circle cx={worldPoint().x} cy={worldPoint().y} r="2.2" class="area-exact-point" />}</> : <><path d="M50 4 V96 M4 50 H96" class="area-axis" />{props.publicLat != null && props.publicLng != null && <circle cx={publicLocalPoint().x} cy={publicLocalPoint().y} r="1.6" class="area-public-point" />}{props.exactLat != null && props.exactLng != null && <><circle cx={exactLocalPoint().x} cy={exactLocalPoint().y} r={radiusPercent()} class="area-radius" /><circle cx={exactLocalPoint().x} cy={exactLocalPoint().y} r="2.2" class="area-exact-point" /></>}</>}
     </svg>
     {/* Exact coordinates are typed into the nullable fields below the canvas
-        (AreaPage) — blank means "no point", never a fabricated 0. The canvas
+        (AreaWorkspace) — blank means "no point", never a fabricated 0. The canvas
         picks by click only, where a click is always a real coordinate. */}
     <div class="area-map-legend"><span><i class="dot public"/>Canonical city reference</span><span><i class="dot exact"/>Private exact claim point</span><span>{mode()==='world' ? 'global 360° × 180°' : `${localSpanKm()} km refinement`} · no external tiles</span></div>
   </div>

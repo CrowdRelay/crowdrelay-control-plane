@@ -241,15 +241,22 @@ export function TabPanel(props: {
   )
 }
 
-export function useTabPanels(initial: string, valid?: string[], param = 'tab') {
+export function useTabPanels(initial: string, valid?: string[] | (() => string[]), param = 'tab') {
   // `?<param>=<id>` lets a link or an external redirect (OAuth return) land on
   // a specific tab. Only honored when the caller passes its full id list —
   // without it a stray query param would activate a tab that does not exist
   // and every panel would render hidden. `param` names the query key — a tab
   // set nested inside another page's tab (the communities sub-tabs inside
   // Audience) must take a different name or its writes evict the parent's.
+  //
+  // `valid` may be an accessor for a tab whose existence depends on a query
+  // (Places' AREA tab waits on the entitlement probe). The URL-follow effect
+  // then re-reads the list reactively: a `?tab=` that names a tab the probe
+  // has now ruled out snaps back to `initial`, and one it has just admitted
+  // snaps in.
+  const validList = () => (typeof valid === 'function' ? valid() : valid) ?? []
   const requested = new URLSearchParams(window.location.search).get(param)
-  const start = requested && valid?.includes(requested) ? requested : initial
+  const start = requested && validList().includes(requested) ? requested : initial
   const [activeTab, setActiveTab] = createSignal(start)
   const [visited, setVisited] = createSignal<Set<string>>(new Set([start]))
   const visit = (id: string) => setVisited(prev => prev.has(id) ? prev : new Set([...prev, id]))
@@ -284,7 +291,7 @@ export function useTabPanels(initial: string, valid?: string[], param = 'tab') {
     // while links, back and forward still drive the tab.
     createEffect(() => {
       const t = (locationSearch() as Record<string, unknown>)?.[param]
-      const target = typeof t === 'string' && valid.includes(t) ? t : initial
+      const target = typeof t === 'string' && validList().includes(t) ? t : initial
       untrack(() => { if (target !== activeTab()) rawSwitch(target) })
     })
   }

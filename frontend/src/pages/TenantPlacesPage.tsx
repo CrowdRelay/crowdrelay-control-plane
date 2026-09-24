@@ -1,11 +1,11 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js'
+import { For, Show, createMemo, createSignal, lazy, onCleanup, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { KpiCard, KpiStrip, PanelTitle } from '../components/layout'
-import { PageShell, PageHeader } from '../components/layout'
+import { PanelTitle } from '../components/layout'
+import { PageShell, PageHeader, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonSection } from '../components/Skeleton'
@@ -21,16 +21,20 @@ import { relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { count, draw, lastPlayed, organiseBand } from '../lib/organise'
-import type { AudiencePlace, CityFunnelRow, CityVenueRow, TenantPlacesReadModel } from '../lib/types'
+// The AREA workspace stays its own chunk — the Cities tab never pays for
+// the drop editor; TabPanel's Suspense boundary covers the load.
+const AreaWorkspace = lazy(() =>
+  import('../components/area/AreaWorkspace').then(m => ({ default: m.AreaWorkspace })),
+)
 
-// Places — the "where do the next nights go" destination.
-//
-// One read model carries the five place-shaped answers: the city funnel in
-// its organise ranking, the shared venue registry, the gathering places the
-// audience graph knows, the gig plan's city facet, and the AREA cities the
-// tenant registered. The page composes them city-first: the funnel table is
-// the spine, the plan marks which rows it wants, and each city opens as its
-// own page for the detail that would not fit here. The plan itself keeps
+import type { AudiencePlace, CityFunnelRow, CityVenueRow, TenantPlacesCitiesModel, TenantPlacesOnlineModel, TenantPlacesRoomsModel } from '../lib/types'
+
+// Places — the "where do the next nights go" destination, tabbed so each
+// question pays only for its own read model: Cities carries the funnel and
+// the plan, Rooms the venue registry, Online the gathering places, and AREA
+// the drop workspace. The page composes them city-first: the funnel table
+// is the spine, the plan marks which rows it wants, and each city opens as
+// its own page for the detail that would not fit here. The plan itself keeps
 // its working surface (GigPlanPanel) — the read model only names its picks.
 //
 // The section labels are shared with the degraded alerts: a section the
@@ -40,7 +44,6 @@ const SECTION_LABEL: Record<string, string> = {
   city_venues: 'Rooms',
   audience_places: 'Gathering places',
   gig_plan: 'The plan',
-  area_cities: 'AREA cities',
 }
 
 const BAND_SECTION_LABEL: Record<string, string> = {
@@ -48,7 +51,6 @@ const BAND_SECTION_LABEL: Record<string, string> = {
   city_venues: 'The rooms',
   audience_places: 'Where fans gather',
   gig_plan: 'The plan',
-  area_cities: 'AREA cities',
 }
 
 /** The first screen's row budget — every list shows its top slice and a
@@ -82,20 +84,105 @@ function ShowMoreRow(props: { hidden: number; expanded: boolean; onToggle: () =>
   )
 }
 
+/** The degraded-section alerts, shared by the three read-model tabs — a
+ *  section the tenant could not answer is named, never silently absent. */
+function DegradedNotices(props: { degraded: readonly string[] }) {
+  return (
+    <For each={props.degraded}>{section => (
+      <Alert tone="warning" role="status">
+        <Show when={authState.isPlatformLevel()} fallback={
+          <>
+            <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
+            now. The rest of the page keeps working — this comes back on its own.
+          </>
+        }>
+          <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
+          CrowdRelay build right now. The rest of the page keeps working; ship a newer CrowdRelay
+          release and this lights up on the next refresh.
+        </Show>
+      </Alert>
+    )}</For>
+  )
+}
+
 export function TenantPlacesPage() {
   const params = useParams({ from: '/tenants/$slug/places' })
-  const model = useQuery(() => ({
-    queryKey: ['tenant-places', params().slug],
-    queryFn: () => api.placesModel(params().slug),
+  const queryClient = useQueryClient()
+
+  // AREA is a paid game surface, not a read every tenant has: platform
+  // sessions always get the tab; a band session gets it only when the
+  // tenant is entitled or its app already reports AREA on. The probe shares
+  // the workspace's key, so opening the tab reuses this answer instead of
+  // asking again — and for a tenant without AREA it is the only AREA call
+  // the page ever makes.
+  const areaOverview = useQuery(() => ({
+    queryKey: ['area-overview', params().slug],
+    queryFn: () => api.areaOverview(params().slug),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  }))
+  const areaVisible = () =>
+    authState.isPlatformLevel() ||
+    Boolean(areaOverview.data?.entitled || areaOverview.data?.enabled)
+
+  // The valid list follows the entitlement: a band deep link `?tab=area`
+  // on a tenant without AREA has nowhere valid to land, and the URL-follow
+  // effect puts it back on cities once the probe answers.
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
+    'cities',
+    () => (areaVisible()
+      ? ['cities', 'rooms', 'online', 'area']
+      : ['cities', 'rooms', 'online']),
+  )
+
+  // Each tab owns its thin read model, enabled once visited — the Cities
+  // tab never pays for the venue registry, the Online tab never pays for
+  // the funnel. A section the tenant could not answer lands as 200 with
+  // the section named in `degraded`, so keep asking until it fills.
+  const cities = useQuery(() => ({
+    queryKey: ['tenant-places', params().slug, 'cities'],
+    queryFn: () => api.placesCities(params().slug),
+    enabled: isVisited('cities'),
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
-    // A section the tenant could not answer lands here as 200 with the
-    // section named in `degraded`, so nothing retries it and the card stays
-    // empty for the life of the page. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  const refresh = () => model.refetch()
+  const rooms = useQuery(() => ({
+    queryKey: ['tenant-places', params().slug, 'rooms'],
+    queryFn: () => api.placesRooms(params().slug),
+    enabled: isVisited('rooms'),
+    reconcile: 'id' as const,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  const online = useQuery(() => ({
+    queryKey: ['tenant-places', params().slug, 'online'],
+    queryFn: () => api.placesOnline(params().slug),
+    enabled: isVisited('online'),
+    reconcile: 'id' as const,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+
+  // The header's clock and Refresh follow the active tab: the AREA tab's
+  // standing reads are its overview and drops lists.
+  const activeQuery = () =>
+    activeTab() === 'rooms' ? rooms
+      : activeTab() === 'online' ? online
+        : activeTab() === 'area' ? areaOverview
+          : cities
+  const refresh = () => {
+    if (activeTab() === 'area') {
+      void queryClient.invalidateQueries({ queryKey: ['area-overview', params().slug] })
+      void queryClient.invalidateQueries({ queryKey: ['area-drops', params().slug] })
+      void queryClient.invalidateQueries({ queryKey: ['area-cities', params().slug] })
+      return
+    }
+    void activeQuery().refetch()
+  }
 
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
@@ -103,14 +190,15 @@ export function TenantPlacesPage() {
   onCleanup(() => clearInterval(tick))
   const updated = createMemo(() => {
     now()
-    return model.dataUpdatedAt === 0 ? null : relativeTime(model.dataUpdatedAt)
+    const query = activeQuery()
+    return query.dataUpdatedAt === 0 ? null : relativeTime(query.dataUpdatedAt)
   })
 
   // The cities the plan proposes, for marking the funnel rows it already
   // wants. Keyed by slug — the proposal's `city` field is the catalogue slug
   // the funnel row carries as `city_slug`.
   const planCities = createMemo(() => {
-    const plan = model.data?.gig_plan
+    const plan = cities.data?.gig_plan
     if (!plan) return null
     return new Set(plan.proposals.map(p => p.city))
   })
@@ -118,104 +206,115 @@ export function TenantPlacesPage() {
   return <PageShell>
     <PageHeader
       title="Places"
-      description="Where the fans already are, the rooms near them, and where the plan wants the next nights."
+      description="Where to play next, the rooms near your fans, where they gather online, and the AREA game."
       actions={
         <>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={model.isFetching} aria-label="Refresh">
-            <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
+          <Button variant="outline" size="sm" onClick={refresh} disabled={activeQuery().isFetching} aria-label="Refresh">
+            <RefreshCw class={cn(activeQuery().isFetching && 'animate-spin')} aria-hidden="true" />
             Refresh
           </Button>
         </>
       }
     />
 
-    <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Places unavailable" onRetry={() => void refresh()} />
-    </Show>
-    <Show when={!model.error && !model.data}>
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
-      <SkeletonSection titleWidth="200px" lines={6} minHeight="200px" />
-      <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
-    </Show>
-    <Show when={model.data} keyed>{(data: TenantPlacesReadModel) => <>
-      <For each={data.degraded}>{section => (
-        <Alert tone="warning" role="status">
-          <Show when={authState.isPlatformLevel()} fallback={
-            <>
-              <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
-              now. The rest of the page keeps working — this comes back on its own.
-            </>
-          }>
-            <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
-            CrowdRelay build right now. The rest of the page keeps working; ship a newer CrowdRelay
-            release and this lights up on the next refresh.
-          </Show>
-        </Alert>
-      )}</For>
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      onPrefetch={prefetch}
+      tabs={[
+        { id: 'cities', label: 'Cities' },
+        { id: 'rooms', label: 'Rooms' },
+        { id: 'online', label: 'Online' },
+        ...(areaVisible() ? [{ id: 'area', label: 'AREA' }] : []),
+      ]}
+    />
 
-      <KpiStrip>
-        <KpiCard
-          label={authState.isPlatformLevel() ? 'Cities with fans' : 'Cities'}
-          value={data.city_funnel == null ? '—' : count(data.city_funnel.length)}
+    <TabPanel active={activeTab()} id="cities" visited={isVisited('cities')}>
+      <Show when={cities.error}>
+        <SectionFailureCard error={cities.error} fallback="Cities unavailable" onRetry={() => void cities.refetch()} />
+      </Show>
+      <Show when={!cities.error && !cities.data}>
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
+        <SkeletonSection titleWidth="200px" lines={6} minHeight="200px" />
+      </Show>
+      <Show when={cities.data} keyed>{(data: TenantPlacesCitiesModel) => <>
+        <DegradedNotices degraded={data.degraded} />
+        <p class="mb-4 text-sm text-muted-foreground">
+          {data.city_funnel == null ? '—' : count(data.city_funnel.length)} cities with fans
+          {' · '}{data.city_funnel == null ? '—' : count(data.city_funnel.filter(r => r.bookable).length)} bookable now
+          {' · '}{data.gig_plan == null ? '—' : count(data.gig_plan.proposals.length)} plan proposals
+        </p>
+        <PlanPicks model={data} />
+        <CitiesCard
+          slug={params().slug}
+          rows={data.city_funnel}
+          degraded={data.degraded.includes('city_funnel')}
+          planCities={planCities()}
         />
-        <KpiCard
-          label="Bookable now"
-          value={data.city_funnel == null ? '—' : count(data.city_funnel.filter(r => r.bookable).length)}
-          sub="enough consented fans to tell"
-        />
-        <KpiCard
-          label="Rooms on record"
-          value={data.city_venues == null ? '—' : count(data.city_venues.length)}
-        />
-        <KpiCard
-          label="Plan proposals"
-          value={data.gig_plan == null ? '—' : count(data.gig_plan.proposals.length)}
-        />
-        <KpiCard
-          label="AREA cities"
-          value={data.area_cities == null ? '—' : count(data.area_cities.items.length)}
-        />
-      </KpiStrip>
+        {/* The plan's working surface: proposals to approve, the intent
+            override, the passed-over list and the track record. It mounts when
+            it scrolls near — its intent and plan queries stay out of the
+            tab's read-model paint, and the model's gig_plan seeds the plan
+            query so the default view has nothing left to fetch. */}
+        <div id="plan" class="scroll-mt-4">
+          <LazyGigPlan slug={params().slug} initialPlan={data.gig_plan} />
+        </div>
+      </>}</Show>
+    </TabPanel>
 
-      <PlanPicks model={data} />
-      <CitiesCard
-        slug={params().slug}
-        rows={data.city_funnel}
-        degraded={data.degraded.includes('city_funnel')}
-        planCities={planCities()}
-      />
-      <RoomsCard
-        slug={params().slug}
-        rows={data.city_venues}
-        degraded={data.degraded.includes('city_venues')}
-      />
-      <GatheringsCard
-        places={data.audience_places?.places ?? null}
-        degraded={data.degraded.includes('audience_places')}
-      />
-      <AreaCitiesCard
-        slug={params().slug}
-        items={data.area_cities?.items ?? null}
-        degraded={data.degraded.includes('area_cities')}
-      />
+    <TabPanel active={activeTab()} id="rooms" visited={isVisited('rooms')}>
+      <Show when={rooms.error}>
+        <SectionFailureCard error={rooms.error} fallback="Rooms unavailable" onRetry={() => void rooms.refetch()} />
+      </Show>
+      <Show when={!rooms.error && !rooms.data}>
+        <SkeletonSection titleWidth="160px" lines={5} minHeight="200px" />
+      </Show>
+      <Show when={rooms.data} keyed>{(data: TenantPlacesRoomsModel) => <>
+        <DegradedNotices degraded={data.degraded} />
+        <p class="mb-4 text-sm text-muted-foreground">
+          {data.city_venues == null ? '—' : count(data.city_venues.length)} rooms on record
+        </p>
+        <RoomsCard
+          slug={params().slug}
+          rows={data.city_venues}
+          degraded={data.degraded.includes('city_venues')}
+        />
+      </>}</Show>
+    </TabPanel>
 
-      {/* The plan's working surface: proposals to approve, the intent
-          override, the passed-over list and the track record. It mounts when
-          it scrolls near — its intent and plan queries stay out of the
-          page's single read-model paint, and the model's gig_plan seeds the
-          plan query so the default view has nothing left to fetch. */}
-      <div id="plan" class="scroll-mt-4">
-        <LazyGigPlan slug={params().slug} initialPlan={data.gig_plan} />
-      </div>
-    </>}</Show>
+    <TabPanel active={activeTab()} id="online" visited={isVisited('online')}>
+      <Show when={online.error}>
+        <SectionFailureCard error={online.error} fallback="Gathering places unavailable" onRetry={() => void online.refetch()} />
+      </Show>
+      <Show when={!online.error && !online.data}>
+        <SkeletonSection titleWidth="140px" lines={4} minHeight="160px" />
+      </Show>
+      <Show when={online.data} keyed>{(data: TenantPlacesOnlineModel) => <>
+        <DegradedNotices degraded={data.degraded} />
+        <p class="mb-4 text-sm text-muted-foreground">
+          {data.audience_places == null ? '—' : count(data.audience_places.places.length)} places fans gather
+        </p>
+        <GatheringsCard
+          places={data.audience_places?.places ?? null}
+          degraded={data.degraded.includes('audience_places')}
+        />
+      </>}</Show>
+    </TabPanel>
+
+    {/* The AREA workspace mounts only once the tab is visited and only for
+        a session allowed to see it — for a band on a tenant without AREA the
+        tab is neither listed nor mounted. */}
+    <TabPanel active={activeTab()} id="area" visited={isVisited('area') && areaVisible()}>
+      <AreaWorkspace slug={params().slug} />
+    </TabPanel>
   </PageShell>
 }
 
 /** Mounts GigPlanPanel when it approaches the viewport. Until then the page
  *  pays only the read model — the panel's own queries (intents, plan) wait
  *  for the operator to actually scroll to the working surface. */
-function LazyGigPlan(props: { slug: string; initialPlan: TenantPlacesReadModel['gig_plan'] }) {
+function LazyGigPlan(props: { slug: string; initialPlan: TenantPlacesCitiesModel['gig_plan'] }) {
   const [near, setNear] = createSignal(false)
   let sentinel: HTMLDivElement | undefined
   onMount(() => {
@@ -244,7 +343,7 @@ function LazyGigPlan(props: { slug: string; initialPlan: TenantPlacesReadModel['
 /** The plan's picks as a strip above the funnel — the answer to "where does
  *  the plan want to play" before the evidence tables. Each pick anchors into
  *  the working plan card below, where the approval lives. */
-function PlanPicks(props: { model: TenantPlacesReadModel }) {
+function PlanPicks(props: { model: TenantPlacesCitiesModel }) {
   const proposals = () => props.model.gig_plan?.proposals ?? []
   const degraded = () => props.model.degraded.includes('gig_plan')
   return (
@@ -584,39 +683,6 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
         )}
       </Show>
     </Card>
-  )
-}
-
-/** Cities registered for AREA drops — presence only. The drop machinery
- *  itself stays on the operator AREA page; this row answers "does a drop
- *  have somewhere to land" for the cities the funnel just ranked. */
-function AreaCitiesCard(props: { slug: string; items: { id: string; slug: string; name: string; countryCode: string; region: string | null; moderationStatus: string }[] | null; degraded: boolean }) {
-  const top = useTopRows(() => props.items ?? [])
-  return (
-    <Show when={!props.degraded && props.items && props.items.length > 0}>
-      <Card flat class="mb-4">
-        <PanelTitle icon={<SectionIcon name="map-pin" />}>AREA cities</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">
-          Cities registered for AREA drops — where a drop has somewhere to land.
-        </p>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <For each={top.visible()}>
-            {city => (
-              <span class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
-                <span class="text-foreground">{city.name}</span>
-                <span class="text-xs text-muted-foreground">
-                  {city.region ?? city.countryCode}
-                  <Show when={city.moderationStatus !== 'approved'}>
-                    {' '}· {city.moderationStatus}
-                  </Show>
-                </span>
-              </span>
-            )}
-          </For>
-        </div>
-        <ShowMoreRow hidden={top.hidden()} expanded={top.expanded()} onToggle={top.toggle} />
-      </Card>
-    </Show>
   )
 }
 
