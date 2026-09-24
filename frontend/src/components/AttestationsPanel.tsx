@@ -41,16 +41,18 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
     enabled: !fed(),
   }))
 
-  // A proof link opens on the tenant's own site — never a borrowed host.
-  // Same `['tenant', slug]` observer options as every other tenant reader.
-  const tenant = useQuery(() => ({
-    queryKey: ['tenant', props.slug],
-    queryFn: () => api.tenant(props.slug),
+  // A proof link opens on the tenant's member site — the same
+  // `member_site_base_url` the Workspace settings tab edits, read through
+  // the same query so both panels share one cache entry. Never a borrowed
+  // host: unset means no link, not the first tenant's origin.
+  const settings = useQuery(() => ({
+    queryKey: ['tenant-settings', props.slug],
+    queryFn: () => api.tenantSettings(props.slug),
     refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    staleTime: 10_000,
   }))
   const shareUrl = (token: string) => {
-    const base = tenant.data?.signalBaseUrl?.replace(/\/+$/, '')
+    const base = settings.data?.settings['member_site_base_url']?.trim().replace(/\/+$/, '')
     return base ? `${base}/proof?t=${token}` : null
   }
 
@@ -82,7 +84,11 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
   const copy = async (token: string) => {
     const url = shareUrl(token)
     if (!url) {
-      setError("Set this tenant's site URL (Settings → Signal / site) to get a share link.")
+      setError(
+        settings.error
+          ? 'The share link could not be built right now — the settings read is degraded.'
+          : "Set this tenant's Member site base URL (Settings → Workspace) to get a share link.",
+      )
       return
     }
     try {

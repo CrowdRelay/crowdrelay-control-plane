@@ -175,18 +175,23 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
   const targetsState = () => (fed() ? props.targets : targets.data)
   const published = () => state()?.listing?.visibility === 'admitted_readers'
 
-  // The share link opens on the tenant's own site — never a borrowed host.
-  // Same `['tenant', slug]` observer options as every other tenant reader.
-  const tenant = useQuery(() => ({
-    queryKey: ['tenant', props.slug],
-    queryFn: () => api.tenant(props.slug),
+  // The share link opens on the tenant's member site — the same
+  // `member_site_base_url` the Workspace settings tab edits, read through
+  // the same query so both panels share one cache entry. Never a borrowed
+  // host: unset means no link, not the first tenant's origin.
+  const settings = useQuery(() => ({
+    queryKey: ['tenant-settings', props.slug],
+    queryFn: () => api.tenantSettings(props.slug),
     refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    staleTime: 10_000,
   }))
-  const siteBase = () => tenant.data?.signalBaseUrl?.replace(/\/+$/, '') ?? null
+  const memberSite = () => {
+    const base = settings.data?.settings['member_site_base_url']?.trim().replace(/\/+$/, '')
+    return base ? base : null
+  }
   const shareUrl = createMemo(() => {
     const token = state()?.share_token
-    const base = siteBase()
+    const base = memberSite()
     return token && base ? `${base}/listing?t=${token}` : null
   })
 
@@ -464,21 +469,33 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
                 </Button>
               </div>
             </Show>
-            {/* Published but no site URL configured — say why there is no
-                link instead of printing the first tenant's host. */}
-            <Show when={published() && !shareUrl() && tenant.data}>
-              <p class="text-xs text-muted-foreground">
-                Set this tenant's site URL (
-                <Link
-                  to="/tenants/$slug"
-                  params={{ slug: props.slug }}
-                  search={{ tab: 'profile' }}
-                  class="text-primary underline-offset-2 hover:underline"
-                >
-                  Settings → Signal / site
-                </Link>
-                ) to get a share link.
-              </p>
+            {/* Published but no member site configured — say why there is
+                no link instead of printing the first tenant's host. A failed
+                settings read is a different answer than an unset one. */}
+            <Show when={published() && !shareUrl()}>
+              <Show
+                when={settings.data}
+                fallback={
+                  <Show when={settings.error}>
+                    <p class="text-xs text-muted-foreground">
+                      The share link could not be built right now — the settings read is degraded.
+                    </p>
+                  </Show>
+                }
+              >
+                <p class="text-xs text-muted-foreground">
+                  Set this tenant's Member site base URL (
+                  <Link
+                    to="/tenants/$slug"
+                    params={{ slug: props.slug }}
+                    search={{ tab: 'workspace' }}
+                    class="text-primary underline-offset-2 hover:underline"
+                  >
+                    Settings → Workspace
+                  </Link>
+                  ) to get a share link.
+                </p>
+              </Show>
             </Show>
           </div>
         </Show>
