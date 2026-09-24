@@ -40,7 +40,7 @@ export function CommunityHouseRulesPanel(props: { slug: string; placeId: string 
 
   return (
     <div class="mb-4 rounded-lg border border-border bg-background px-4 py-3">
-      <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">House rules and where we stand</p>
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">House rules and where we stand</p>
       <Show when={!place.error} fallback={<p class="mt-1 text-xs text-muted-foreground">Couldn't check this community's rules.</p>}>
         <Show when={place.data} fallback={<p class="mt-1 text-xs text-muted-foreground">Checking…</p>}>
           <div class="mt-1.5 space-y-1 text-sm text-muted-foreground">

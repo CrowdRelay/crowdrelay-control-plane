@@ -56,7 +56,7 @@ export function ShowSalesPanel(props: { slug: string; eventSlug: string; eventId
 
   return (
     <div class="rounded-lg border border-border bg-background px-4 py-3">
-      <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tickets and merch</p>
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tickets and merch</p>
       <div class="mt-1.5 space-y-1 text-sm">
         <Show when={tickets.data} fallback={
           <p class="text-xs text-muted-foreground">

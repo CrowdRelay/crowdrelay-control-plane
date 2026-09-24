@@ -1,3 +1,6 @@
+import { ApproveAllButton } from './ApproveAllButton'
+import { SurfaceAction } from './capabilities/SurfaceAction'
+import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
@@ -370,6 +373,15 @@ export function OpportunityBoardPanel(props: {
           title="Needs you now"
           icon={<SectionIcon name="target" />}
           count={needsYou().length}
+          action={
+            <Show when={needsYou().length > 1}>
+              <ApproveAllButton
+                slug={props.slug}
+                actionIds={needsYou().map(e => e.action_id!).filter(Boolean)}
+                onDone={() => { void props.refresh(); refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug]) }}
+              />
+            </Show>
+          }
           description={authState.isPlatformLevel()
             ? 'The autopilot prepared these and stopped, because its policy says to ask you first. Approve, reject, or record that you did it yourself.'
             : 'These are ready and waiting on your call. Approve, reject, or record that you did it yourself.'}
@@ -590,6 +602,16 @@ export function OpportunityBoardPanel(props: {
               {busy(`reject:${entry().decision_id}`) && <Spinner />}
               {busy(`reject:${entry().decision_id}`) ? 'Rejecting…' : confirming() === `reject:${entry().decision_id}` ? 'Yes, reject' : 'Reject'}
             </Button>
+            {/* Somebody on the crew is better placed to answer this one. */}
+            <SurfaceAction
+              slug={props.slug}
+              size="sm"
+              variant="ghost"
+              action={capabilityAction('approvals', 'Assign')}
+              label="Hand to…"
+              fixed={{ action_id: entry().action_id! }}
+              onDone={() => void props.refresh()}
+            />
           </Show>
           <Show when={entry().authority !== 'auto_executing'}>
             <Button

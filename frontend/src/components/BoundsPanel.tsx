@@ -49,8 +49,15 @@ function BookingPolicyEditor(props: { slug: string; current: BookingPolicy; onDo
   const save = async () => {
     const annualTarget = Number(target())
     const annualStretch = Number(stretch())
-    if (!Number.isInteger(annualTarget) || !Number.isInteger(annualStretch) || annualStretch < annualTarget) {
-      setError('Target and stretch are whole numbers, and the stretch is at least the target.')
+    const marketList = markets().split(',').map(m => m.trim().toUpperCase()).filter(Boolean)
+    if (!Number.isInteger(annualTarget) || !Number.isInteger(annualStretch) || annualTarget < 1 || annualStretch < annualTarget || annualStretch > 60) {
+      setError('Target and stretch are whole numbers from 1 to 60, and the stretch is at least the target.')
+      return
+    }
+    // Upstream refuses a calendar with no market — it would plan against
+    // nowhere — and reads markets as codes, not city names.
+    if (marketList.length === 0 || marketList.length > 12 || !marketList.every(m => /^[A-Z0-9-]{1,24}$/.test(m))) {
+      setError('Name 1 to 12 markets as country or region codes, e.g. PL, CZ, DE-BE.')
       return
     }
     setBusy(true)
@@ -62,7 +69,7 @@ function BookingPolicyEditor(props: { slug: string; current: BookingPolicy; onDo
           annual_target: annualTarget,
           annual_stretch: annualStretch,
           prefer_weekend_one_shots: weekends(),
-          priority_markets: markets().split(',').map(m => m.trim()).filter(Boolean),
+          priority_markets: marketList,
         },
         source: 'operator',
         source_revision: null,
@@ -80,7 +87,7 @@ function BookingPolicyEditor(props: { slug: string; current: BookingPolicy; onDo
     <div class="mt-2 grid grid-cols-1 gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
       <div class="space-y-1"><Label>Shows a year — target</Label><Input type="number" value={target()} onInput={e => setTarget(e.currentTarget.value)} /></div>
       <div class="space-y-1"><Label>Shows a year — stretch</Label><Input type="number" value={stretch()} onInput={e => setStretch(e.currentTarget.value)} /></div>
-      <div class="space-y-1 sm:col-span-2"><Label>Cities that come first</Label><Input value={markets()} onInput={e => setMarkets(e.currentTarget.value)} placeholder="wroclaw, krakow" /></div>
+      <div class="space-y-1 sm:col-span-2"><Label>Markets that come first</Label><Input value={markets()} onInput={e => setMarkets(e.currentTarget.value)} placeholder="PL, CZ, DE-BE" /></div>
       <Checkbox label="Prefer one-off weekend shows" checked={weekends()} onChange={(checked: boolean) => setWeekends(checked)} />
       <Show when={error()}><Alert tone="destructive" class="sm:col-span-2">{error()}</Alert></Show>
       <div class="sm:col-span-2"><Button size="sm" writes disabled={busy()} onClick={() => void save()}>{busy() ? 'Saving…' : 'Save the policy'}</Button></div>
@@ -153,7 +160,7 @@ export function BoundsPanel(props: { slug: string }) {
                   <p class="mt-1 text-muted-foreground">
                     Aims for <strong class="text-foreground">{p().policy.annual_target}</strong> shows a year, stretching to {p().policy.annual_stretch}
                     {p().policy.prefer_weekend_one_shots ? ' · prefers one-off weekends' : ''}
-                    {p().policy.priority_markets.length > 0 ? ` · first: ${p().policy.priority_markets.join(', ')}` : ''}
+                    {p().policy.priority_markets.length > 0 ? ` · first: ${p().policy.priority_markets.join(', ')}` : ' · no market named yet, so it cannot be saved as it stands'}
                   </p>
                   <p class="text-xs text-muted-foreground">Set by {p().source.replaceAll('_', ' ')}{p().synced_at ? ` · synced ${formatTimestamp(p().synced_at)}` : ''}</p>
                   <Show when={editing()} fallback={<Button size="sm" variant="outline" class="mt-2" writes onClick={() => setEditing(true)}>Change the calendar</Button>}>

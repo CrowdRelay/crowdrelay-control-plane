@@ -47,7 +47,7 @@ export function ShowEconomicsPanel(props: {
     <Show when={entry()} fallback={
       <Show when={props.economics}>
         <div class="rounded-lg border border-border bg-background px-4 py-3">
-          <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The money</p>
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">The money</p>
           <p class="mt-1 text-xs text-muted-foreground">No fee recorded for this night — the cost estimate starts from the offer.</p>
           <div class="mt-2">
             <SurfaceAction

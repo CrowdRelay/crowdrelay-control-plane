@@ -48,7 +48,7 @@ export function ShowChecklistPanel(props: { slug: string; eventSlug: string }) {
   return (
     <Show when={list.error || (list.data && list.data.items.length > 0)}>
       <details class="rounded-lg border border-border bg-background px-4 py-3" open={open() > 0}>
-        <summary class="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <summary class="cursor-pointer text-xs font-medium uppercase tracking-wide text-muted-foreground">
           The night's checklist
           <Show when={list.data}>{` · ${open()} left`}</Show>
         </summary>

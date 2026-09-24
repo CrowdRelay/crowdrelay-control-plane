@@ -60,7 +60,7 @@ export function ShowDoorPanel(props: { slug: string; eventSlug: string }) {
 
   return (
     <div class="rounded-lg border border-border bg-background px-4 py-3">
-      <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">At the door</p>
+      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">At the door</p>
 
       <p class="mt-2 text-xs font-medium text-foreground">QR codes</p>
       <Show when={!codes.error} fallback={<p class="mt-1 text-xs text-muted-foreground">Couldn't check this night's QR codes.</p>}>

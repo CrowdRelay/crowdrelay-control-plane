@@ -1,3 +1,4 @@
+import { MerchTablePanel } from '../components/MerchTablePanel'
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
@@ -33,7 +34,7 @@ export function TenantShowsPage() {
   // pipeline that produced them. The booking model is an eight-section
   // fan-out — it only fires once the tab mounts (visit, prefetch, or a
   // ?tab=booking deep link), so the default page costs the shows list only.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('nights', ['nights', 'booking'])
+  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('nights', ['nights', 'booking', 'merch'])
   const [adding, setAdding] = createSignal(false)
 
   const upcoming = createMemo(() => (model.data?.events ?? []).filter(event => event.upcoming))
@@ -63,6 +64,9 @@ export function TenantShowsPage() {
           // "Booking" is taken — the tenant wizard's crew-skill option is
           // parity-locked to TeamSkill upstream. The journey's own words.
           { id: 'booking', label: 'Get booked' },
+          // The merch table travels with the nights: stock is counted
+          // before a run of shows and sold at the door.
+          { id: 'merch', label: 'Merch table' },
         ]}
         active={activeTab()}
         onChange={switchTab}
@@ -124,6 +128,9 @@ export function TenantShowsPage() {
       </Show>
       </TabPanel>
 
+      <TabPanel active={activeTab()} id="merch" visited={isVisited('merch')}>
+        <MerchTablePanel slug={params().slug} />
+      </TabPanel>
       <TabPanel active={activeTab()} id="booking" visited={isVisited('booking')}>
         <BookingJourneyPanel slug={params().slug} />
       </TabPanel>

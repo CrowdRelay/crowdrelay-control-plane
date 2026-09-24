@@ -164,7 +164,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'connections', pillar: 'aggregate', home: { path: '/integrations', section: 'Which connections work' }, title: 'Which connections actually work',
+    id: 'connections', pillar: 'aggregate', home: { path: '/audience?tab=sources', section: 'Which connections work' }, title: 'Which connections actually work',
     purpose: 'Every fanbase connection and what is known about it — last sync, last failure. Connected is not the same as working.',
     read: { path: 'ops/connections' },
   },
@@ -458,13 +458,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'merch', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Merch catalogue',
+    id: 'merch', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch catalogue',
     purpose: 'Products, variants and prices.',
     read: { path: 'merch/catalog' },
     actions: [{ label: 'Upsert products', method: 'POST', path: 'merch/catalog', fields: [{ name: 'products', label: 'Products', kind: 'json', required: true, hint: '[{"slug","name","currency","price_gross_minor","active","public","variants":[…]}]' }] }],
   },
   {
-    id: 'inventory', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Merch stock',
+    id: 'inventory', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch stock',
     purpose: 'What is on hand, whether stock is ready to sell, and every movement.',
     read: { path: 'merch/inventory/overview' },
     actions: [
@@ -481,8 +481,8 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       },
     ],
   },
-  { id: 'inventory-activation', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
-  { id: 'merch-recommendations', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
+  { id: 'inventory-activation', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
+  { id: 'merch-recommendations', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
   {
     id: 'guardrails', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: 'Ad spend ceiling',
     purpose: 'The most the brain may spend on ads per day and per month, per currency.',
@@ -642,7 +642,7 @@ function STAGES(): readonly string[] {
 // tab) a person opens to use them.
 export const PAGE_CAPABILITIES: PageCapability[] = [
   // Aggregate
-  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/integrations' },
+  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/audience?tab=sources' },
   { pillar: 'aggregate', title: 'Fans', purpose: 'The fan table, one fan’s journey, tags.', where: '/audience' },
   { pillar: 'aggregate', title: 'Segments', purpose: 'Who is in each audience segment.', where: '/audience' },
   { pillar: 'aggregate', title: 'Contacts from Drive and Gmail', purpose: 'Scanned or uploaded contacts, promoted to fans or beacons in bulk.', where: '/audience?tab=contacts' },

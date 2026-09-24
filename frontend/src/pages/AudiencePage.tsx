@@ -9,6 +9,7 @@ import { FanSourcesPanel } from '../components/FanSourcesPanel'
 import { PortfolioPanel } from '../components/PortfolioPanel'
 import { RedditCookieUploader } from '../components/RedditCookieUploader'
 import { SegmentPanel } from '../components/SegmentPanel'
+import { ConnectionHealthPanel } from '../components/ConnectionHealthPanel'
 import { FanMessagesPanel } from '../components/FanMessagesPanel'
 import { FanConversionPanel } from '../components/FanConversionPanel'
 import { ContactsPanel } from '../components/ContactsPanel'
@@ -190,6 +191,7 @@ export function AudiencePage() {
         <Show when={!data.degraded.includes('fanbases')}>
           <FanSourcesPanel slug={params().slug} fanbases={data.fanbases?.fanbases} onChanged={refreshPortfolio} />
         </Show>
+        <ConnectionHealthPanel slug={params().slug} />
       </>}</Show>
       {/* Where they came from *and whether it converted* — the source-ROI
           read is what makes this the one page that answers "where do our
