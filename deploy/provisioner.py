@@ -347,6 +347,16 @@ def safe_plan(job: dict[str, Any]) -> dict[str, Any]:
             skills = member.get("skills")
             if not isinstance(skills, list) or not skills or any(not isinstance(skill, str) for skill in skills):
                 raise ProvisionError("invalid_plan", "teamMembers skills must be a non-empty list")
+    provider_keys = plan.get("providerKeys")
+    if provider_keys is not None:
+        # Same env-injection check as teamMembers: these values are written
+        # verbatim into tenant.env (env_file), so a newline in a value emits
+        # extra VAR=value lines that can shadow .env secrets.
+        if not isinstance(provider_keys, dict):
+            raise ProvisionError("invalid_plan", "providerKeys must be an object")
+        for key, value in provider_keys.items():
+            if not isinstance(value, str) or any(ch in "\r\n\x00" for ch in value):
+                raise ProvisionError("invalid_plan", f"providerKeys.{key} must be a string with no control characters")
 
     if schema in (4, 5):
         profile = plan.get("regionalProfile")
