@@ -18,7 +18,8 @@ if no screen renders it. Every capability names a `home` — the page and sectio
 where the moment already is — or a `gap` saying why no screen can host it yet.
 A capability with a home must be referenced by a component or page other than
 the capabilities index (`capability('id')` / `capabilityAction('id', …)`), or
-the home is a claim nothing implements.
+the home is a claim nothing implements — unless the capability says a
+Control Plane read model fetches it server-side (`servedBy`).
 """
 
 from __future__ import annotations
@@ -119,7 +120,7 @@ class CapabilityMap(unittest.TestCase):
         unwired = sorted(
             cid
             for cid, block in capability_blocks().items()
-            if "home: {" in block and cid not in wired
+            if "home: {" in block and cid not in wired and "servedBy:" not in block
         )
         self.assertEqual(
             unwired,

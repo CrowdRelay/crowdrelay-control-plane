@@ -1,3 +1,4 @@
+import { RosterStoryPanel } from '../components/RosterStoryPanel'
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, Link } from '@tanstack/solid-router'
@@ -149,5 +150,6 @@ export function TenantProofPage() {
         </Section>
       </Show>
     </>}</Show>
+    <RosterStoryPanel slug={params().slug} />
   </PageShell>
 }

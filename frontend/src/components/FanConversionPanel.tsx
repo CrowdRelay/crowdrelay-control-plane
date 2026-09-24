@@ -20,10 +20,10 @@ type AdRow = { platform: string | null; utm_source: string; utm_campaign: string
 const money = (minor: number, currency: string) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(minor / 100)
 
-function read<T>(slug: () => string, id: string) {
+function read<T>(slug: () => string, path: string) {
   return useQuery(() => ({
-    queryKey: ['surface', slug(), 'conversion', id],
-    queryFn: () => surface.read<T>(slug(), capability(id).read!.path),
+    queryKey: ['surface', slug(), 'conversion', path],
+    queryFn: () => surface.read<T>(slug(), path),
     staleTime: 60_000,
     retry: 1,
   }))
@@ -44,11 +44,11 @@ function Block(props: { title: string; failed: boolean; loading: boolean; childr
 
 export function FanConversionPanel(props: { slug: string }) {
   const slug = () => props.slug
-  const funnel = read<FunnelRow[]>(slug, 'funnel')
-  const revenue = read<RevenueRow[]>(slug, 'revenue')
-  const referrals = read<Referrals>(slug, 'referral-conversion')
-  const ads = read<Ads>(slug, 'ad-conversion')
-  const adRows = read<AdRow[]>(slug, 'ad-conversion-breakdown')
+  const funnel = read<FunnelRow[]>(slug, capability('funnel').read!.path)
+  const revenue = read<RevenueRow[]>(slug, capability('revenue').read!.path)
+  const referrals = read<Referrals>(slug, capability('referral-conversion').read!.path)
+  const ads = read<Ads>(slug, capability('ad-conversion').read!.path)
+  const adRows = read<AdRow[]>(slug, capability('ad-conversion-breakdown').read!.path)
 
   return (
     <Section

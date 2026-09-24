@@ -69,6 +69,9 @@ export type Capability = {
   /** Set instead of `home` when no place can host it honestly yet, and why:
    *  a write whose subject no read lists is a finding, not a form. */
   gap?: string
+  /** Set when a Control Plane read model fetches this server-side and the
+   *  page draws it from there, so no component calls the surface directly. */
+  servedBy?: string
   /** Served to platform-level sessions only. */
   platformOnly?: boolean
 }
@@ -481,12 +484,24 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   { id: 'inventory-activation', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
   { id: 'merch-recommendations', pillar: 'convert', home: { path: '?tab=merch', section: 'Merch' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
   {
-    id: 'guardrails', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: 'Price, allocation and spend guardrails',
-    purpose: 'The bounds the brain may move prices, ticket allocations and ad budgets within.',
+    id: 'guardrails', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: 'Ad spend ceiling',
+    purpose: 'The most the brain may spend on ads per day and per month, per currency.',
+    actions: [
+      { label: 'Ad spend ceiling', method: 'POST', path: 'autopilot/promotion-budget-guardrails', fields: [{ name: 'currency', label: 'Currency', kind: 'text', required: true, initial: 'EUR' }, { name: 'maximum_total_daily_budget_minor', label: 'Max daily', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_monthly_spend_minor', label: 'Max monthly', kind: 'number', required: true, hint: MINOR }, EXPECTED_VERSION] },
+    ],
+  },
+  {
+    id: 'merch-price-bounds', pillar: 'convert', gap: 'Setting bounds the first time works, but no read returns the current bounds or their version, so a change would be refused as a conflict. Needs a read of merch economics per product.', title: 'Merch price bounds',
+    purpose: 'The range the brain may move one product’s price within.',
     actions: [
       { label: 'Merch price bounds', method: 'POST', path: 'autopilot/merch-economics', fields: [{ name: 'product_id', label: 'Product', kind: 'uuid', required: true }, { name: 'minimum_price_minor', label: 'Min price', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_price_minor', label: 'Max price', kind: 'number', required: true, hint: MINOR }, { name: 'unit_cost_minor', label: 'Unit cost', kind: 'number', hint: MINOR }, EXPECTED_VERSION] },
+    ],
+  },
+  {
+    id: 'ticket-bounds', pillar: 'convert', gap: 'Same as merch: no read returns a ticket type’s allocation bounds or version, so only the first write succeeds.', title: 'Ticket allocation bounds',
+    purpose: 'The capacity range the brain may move one ticket type within.',
+    actions: [
       { label: 'Ticket allocation bounds', method: 'POST', path: 'autopilot/ticket-allocation-guardrails', fields: [{ name: 'ticket_type_id', label: 'Ticket type', kind: 'uuid', required: true }, { name: 'minimum_capacity', label: 'Min', kind: 'number', required: true }, { name: 'maximum_capacity', label: 'Max', kind: 'number', required: true }, { name: 'step_capacity', label: 'Step', kind: 'number', required: true }, EXPECTED_VERSION] },
-      { label: 'Ad spend ceiling', method: 'POST', path: 'autopilot/promotion-budget-guardrails', fields: [{ name: 'currency', label: 'Currency', kind: 'text', required: true, initial: 'EUR' }, { name: 'maximum_total_daily_budget_minor', label: 'Max daily', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_monthly_spend_minor', label: 'Max monthly', kind: 'number', required: true, hint: MINOR }, EXPECTED_VERSION] },
     ],
   },
   {
@@ -604,7 +619,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     purpose: 'Each autopilot cycle, newest first — and which ones ran degraded.',
     read: { path: 'ops/cycles', query: [{ name: 'state', label: 'Outcome', kind: 'text', hint: 'e.g. degraded' }, { name: 'limit', label: 'Limit', kind: 'number' }] },
   },
-  { id: 'action-states', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Where actions wait' }, title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
+  { id: 'action-states', pillar: 'operate', servedBy: 'the brain read model (/tenants/{slug}/brain), which the process map and Intelligence draw', home: { path: '/intelligence?tab=standing', section: 'Where actions wait' }, title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
   { id: 'ecosystem', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Ecosystem health', purpose: 'The cross-app operating picture: flags, reconciliation, open findings.', read: { path: 'ecosystem/overview' } },
   { id: 'findings', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Reconciliation findings', purpose: 'Where the apps disagree about the same fact.', read: { path: 'ecosystem/findings', query: [{ name: 'open_only', label: 'Open only', kind: 'select', options: ['true', 'false'] }, { name: 'limit', label: 'Limit', kind: 'number' }] } },
   { id: 'reach', pillar: 'operate', home: { path: '/intelligence?tab=brief', section: 'Who it reached' }, title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
