@@ -325,7 +325,7 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
             aria-invalid={!ticketOk()}
             value={draft().ticketUrl}
             onInput={e => set('ticketUrl', e.currentTarget.value)}
-            placeholder="https://tickets.example/virya"
+            placeholder="https://tickets.example/yourband"
           />
         </Field>
       </FieldGrid>

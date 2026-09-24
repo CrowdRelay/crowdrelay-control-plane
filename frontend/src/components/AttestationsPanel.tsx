@@ -21,8 +21,6 @@ import type { AttestationSummary } from '../lib/types'
 const splitList = (value: string) =>
   value.split(',').map(part => part.trim()).filter(Boolean)
 
-const shareUrl = (token: string) => `https://virya.music/proof?t=${token}`
-
 const isCurrent = (card: AttestationSummary) =>
   !card.revoked && new Date(card.valid_until).getTime() > Date.now()
 
@@ -42,6 +40,21 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
     staleTime: 10_000,
     enabled: !fed(),
   }))
+
+  // A proof link opens on the tenant's member site — the same
+  // `member_site_base_url` the Workspace settings tab edits, read through
+  // the same query so both panels share one cache entry. Never a borrowed
+  // host: unset means no link, not the first tenant's origin.
+  const settings = useQuery(() => ({
+    queryKey: ['tenant-settings', props.slug],
+    queryFn: () => api.tenantSettings(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+  const shareUrl = (token: string) => {
+    const base = settings.data?.settings['member_site_base_url']?.trim().replace(/\/+$/, '')
+    return base ? `${base}/proof?t=${token}` : null
+  }
 
   const cards = createMemo(() => (fed() ? props.data : attestations.data) ?? [])
 
@@ -69,8 +82,17 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
     run(`rotate:${digest}`, () => api.rotateAttestationToken(props.slug, digest))
 
   const copy = async (token: string) => {
+    const url = shareUrl(token)
+    if (!url) {
+      setError(
+        settings.error
+          ? 'The share link could not be built right now — the settings read is degraded.'
+          : "Set this tenant's Member site base URL (Settings → Workspace) to get a share link.",
+      )
+      return
+    }
     try {
-      await navigator.clipboard.writeText(shareUrl(token))
+      await navigator.clipboard.writeText(url)
       setCopied(token)
       setTimeout(() => setCopied(current => (current === token ? null : current)), 2000)
     } catch {

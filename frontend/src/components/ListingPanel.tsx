@@ -1,5 +1,6 @@
 import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
+import { Link } from '@tanstack/solid-router'
 import { api, errorHeading } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
@@ -173,9 +174,25 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
   const state = () => (fed() ? props.data : listing.data)
   const targetsState = () => (fed() ? props.targets : targets.data)
   const published = () => state()?.listing?.visibility === 'admitted_readers'
+
+  // The share link opens on the tenant's member site — the same
+  // `member_site_base_url` the Workspace settings tab edits, read through
+  // the same query so both panels share one cache entry. Never a borrowed
+  // host: unset means no link, not the first tenant's origin.
+  const settings = useQuery(() => ({
+    queryKey: ['tenant-settings', props.slug],
+    queryFn: () => api.tenantSettings(props.slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+  const memberSite = () => {
+    const base = settings.data?.settings['member_site_base_url']?.trim().replace(/\/+$/, '')
+    return base ? base : null
+  }
   const shareUrl = createMemo(() => {
     const token = state()?.share_token
-    return token ? `https://virya.music/listing?t=${token}` : null
+    const base = memberSite()
+    return token && base ? `${base}/listing?t=${token}` : null
   })
 
   const run = async (key: string, action: () => Promise<unknown>) => {
@@ -451,6 +468,34 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
                   {acting() === 'rotate' ? 'Rotating…' : 'Revoke & rotate'}
                 </Button>
               </div>
+            </Show>
+            {/* Published but no member site configured — say why there is
+                no link instead of printing the first tenant's host. A failed
+                settings read is a different answer than an unset one. */}
+            <Show when={published() && !shareUrl()}>
+              <Show
+                when={settings.data}
+                fallback={
+                  <Show when={settings.error}>
+                    <p class="text-xs text-muted-foreground">
+                      The share link could not be built right now — the settings read is degraded.
+                    </p>
+                  </Show>
+                }
+              >
+                <p class="text-xs text-muted-foreground">
+                  Set this tenant's Member site base URL (
+                  <Link
+                    to="/tenants/$slug"
+                    params={{ slug: props.slug }}
+                    search={{ tab: 'workspace' }}
+                    class="text-primary underline-offset-2 hover:underline"
+                  >
+                    Settings → Workspace
+                  </Link>
+                  ) to get a share link.
+                </p>
+              </Show>
             </Show>
           </div>
         </Show>
