@@ -55,6 +55,7 @@ const SECTION_LABEL: Record<string, string> = {
   learning_proof: 'Belief changes',
   measurement: 'The measurement ledger',
   attention: 'What needs a person',
+  action_states: 'The action state machine',
 }
 const BAND_SECTION_LABEL: Record<string, string> = {
   autopilot: 'Autopilot posture',
@@ -63,6 +64,7 @@ const BAND_SECTION_LABEL: Record<string, string> = {
   learning_proof: 'What it changed its mind about',
   measurement: 'The numbers',
   attention: 'What needs you',
+  action_states: "What's in progress",
 }
 
 /**

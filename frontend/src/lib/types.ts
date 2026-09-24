@@ -1297,6 +1297,16 @@ export type TenantBrainSection =
   | 'learning_proof'
   | 'measurement'
   | 'attention'
+  | 'action_states'
+
+/** `GET /v1/control-plane/ops/action-states` — per-state depth and the
+ * oldest entry's timestamp for every in-flight action state. Always all six
+ * in-flight states; an empty state is `count: 0` with `oldest_entered_at`
+ * null — a measured zero, not a gap. */
+export type ActionStatesReport = {
+  observed_at: string
+  in_flight: Array<{ state: string; count: number; oldest_entered_at: string | null }>
+}
 
 /** `GET /tenants/{slug}/brain` — the autopilot's evidence in one call: the
  * posture facts the page header needs, the scorecard, the two learning
@@ -1318,6 +1328,10 @@ export type TenantBrainReadModel = {
   // The attention snapshot — rejected_agent_outcomes is the gate's refused
   // work in its own words; findings and needs_you ride along.
   attention: TenantAttentionReadModel | null
+  // Time-in-stage per in-flight action state — what "how long has this sat"
+  // the actions list cannot answer. Absent on an older CrowdRelay (404 →
+  // named in `degraded`).
+  action_states: ActionStatesReport | null
   degraded: TenantBrainSection[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap

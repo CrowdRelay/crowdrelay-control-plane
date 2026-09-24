@@ -87,6 +87,27 @@ export const formatIsoUntil = (iso: string) => {
   return `in ${Math.floor(hours / 24)}d`
 }
 
+/// '45s' / '12m' / '3h' / '2d' — a compact duration for live surfaces.
+/// Distinct from `formatAge`, which never reaches days.
+export const compactDuration = (seconds: number) => {
+  if (seconds < 60) return `${seconds}s`
+  const mins = Math.floor(seconds / 60)
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
+}
+
+/// Seconds between an ISO timestamp and `nowMs` — null when the timestamp
+/// is unparseable or lands in the future (a clock-skewed row is not a zero
+/// age, it is no reading at all).
+export const ageSeconds = (iso: string, nowMs: number): number | null => {
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return null
+  const seconds = Math.floor((nowMs - ms) / 1000)
+  return seconds < 0 ? null : seconds
+}
+
 /// Formats a epoch-ms timestamp as a relative age string ("just now", "5m ago").
 /// Used for per-panel "Updated Xm ago" labels from query.dataUpdatedAt.
 export const relativeTime = (timestamp: number | undefined): string => {
