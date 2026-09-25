@@ -584,6 +584,9 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/ops/funnel"
                     | "/v1/control-plane/ops/action-states"
                     | "/v1/control-plane/ops/intelligence"
+                    // What the approved asks produced — terminal actions
+                    // with measurement verdicts; Today's "is it working".
+                    | "/v1/control-plane/ops/outcomes"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"
                     | "/v1/control-plane/ops/delivery-results"

@@ -1743,6 +1743,37 @@ export type MeasurementClaim = {
   breakdown: MeasurementBreakdown[]
 }
 
+/// One approved action and what it produced. `outcome_state` is the honest
+/// word for the measurement: `measured` has verdicts to show, `pending` is
+/// waiting on its horizon, `unmeasured` never scheduled one — three
+/// different statements the console keeps apart rather than reading as 0.
+export type ActionOutcomeLine = {
+  id: string
+  kind: string
+  context: string
+  label: string | null
+  status: string
+  error_kind: string | null
+  approved_at: string | null
+  finished_at: string | null
+  outcomes: {
+    metric: string
+    verdict: 'improved' | 'neutral' | 'worsened' | null
+    observed: number
+    baseline: number | null
+    at: string
+  }[]
+  outcome_state: 'measured' | 'pending' | 'unmeasured'
+  next_measurement_due: string | null
+}
+
+/// `GET /tenants/{slug}/operations/outcomes` — the approved asks' report
+/// card for the trailing window.
+export type OpsOutcomes = {
+  window_days: number
+  actions: ActionOutcomeLine[]
+}
+
 export type MeasurementLedger = {
   observed_at: string
   window_days: number
