@@ -11,7 +11,7 @@ import { errorMessage } from '../lib/format'
 import type { DriveContact, DriveSegmentCounts } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
-import { ErrorCard } from './layout'
+import { ErrorCard, ShowMore, useShowMore } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Checkbox } from './app/checkbox'
@@ -88,15 +88,22 @@ const SEGMENT_CHIPS: { value: string; label: string; count: (c: DriveSegmentCoun
 
 export function DriveContactsPanel(props: { slug: string }) {
   const [segment, setSegment] = createSignal<string | null>(null)
-  const contacts = useQuery(() => ({
-    queryKey: ['gdrive-contacts', props.slug, segment()],
-    queryFn: () => api.gdriveContacts(props.slug, segment() ?? undefined),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-    // A scan lands rows asynchronously — keep polling softly while any
-    // contact is still staged so a Scan now click visibly fills the queue.
-    refetchInterval: 15_000,
-  }))
+  // A scan lands rows asynchronously over tens of seconds — poll while the
+  // window it opened is live, then stop. Polling forever, scan or not, was
+  // the Contacts tab's idle cost. The timestamp is read in the options body
+  // so arming the window re-evaluates the interval at once, and the interval
+  // function re-checks the clock on every tick so it disarms itself.
+  const [scanPollUntil, setScanPollUntil] = createSignal(0)
+  const contacts = useQuery(() => {
+    const until = scanPollUntil()
+    return {
+      queryKey: ['gdrive-contacts', props.slug, segment()],
+      queryFn: () => api.gdriveContacts(props.slug, segment() ?? undefined),
+      refetchOnWindowFocus: false,
+      staleTime: 10_000,
+      refetchInterval: () => (until > Date.now() ? 15_000 : false),
+    }
+  })
 
   const [error, setError] = createSignal<string | null>(null)
   const [notice, setNotice] = createSignal<string | null>(null)
@@ -144,6 +151,11 @@ export function DriveContactsPanel(props: { slug: string }) {
   const selectedFanStaged = createMemo(() =>
     selectedStaged().filter(c => c.fan_outcome === 'staged'),
   )
+  // Up to 500 staged rows used to mount all at once — every row a card of
+  // controls — which is why Contacts took seconds to paint. The first
+  // screenful renders; selection still covers the whole staged set.
+  const queue = createMemo(() => [...staged(), ...decided()])
+  const showMore = useShowMore(queue, 15)
   const toggleSelect = (id: string, on: boolean) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -191,6 +203,7 @@ export function DriveContactsPanel(props: { slug: string }) {
     setNotice(null)
     try {
       await api.gdriveScan(props.slug)
+      setScanPollUntil(Date.now() + 90_000)
       setNotice('Scan requested — the sources scan runs in the background and new contacts appear here as it finds them.')
       void contacts.refetch()
     } catch (err) {
@@ -493,7 +506,7 @@ export function DriveContactsPanel(props: { slug: string }) {
             </div>
           </Show>
           <div class="mt-4 flex flex-col gap-2.5">
-            <For each={[...staged(), ...decided()]}>
+            <For each={showMore.visible()}>
               {contact => (
                 <DriveContactRow
                   contact={contact}
@@ -510,6 +523,12 @@ export function DriveContactsPanel(props: { slug: string }) {
                 />
               )}
             </For>
+            <ShowMore
+              hidden={showMore.hidden()}
+              expanded={showMore.expanded()}
+              onToggle={showMore.toggle}
+              noun="contacts"
+            />
           </div>
         </Show>
       </Show>

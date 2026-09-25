@@ -6206,6 +6206,7 @@ async fn batch_invite_beacons(
     let idempotency = idempotency_key(&headers)?.to_owned();
     let count = body
         .get("beacon_ids")
+        .or_else(|| body.get("beaconIds"))
         .and_then(Value::as_array)
         .map_or(0, Vec::len);
     let (tenant, value) = call(

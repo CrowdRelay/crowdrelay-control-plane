@@ -1,4 +1,4 @@
-import { For, Match, Show, Suspense, Switch, createEffect, createSignal, untrack, type Component, type JSX } from 'solid-js'
+import { For, Match, Show, Suspense, Switch, createEffect, createSignal, onCleanup, onMount, untrack, type Component, type JSX } from 'solid-js'
 import { useNavigate, useRouterState } from '@tanstack/solid-router'
 import { Card } from './app/card'
 import { Metric, MetricRow, type MetricTone } from './ui/metric'
@@ -639,3 +639,37 @@ export function DataRow(props: {
 }
 
 
+
+// ─── Deferred ───────────────────────────────────────────────────────────
+// A below-fold section should not spend its queries and DOM on first paint —
+// four panels mounting together is why a tab used to open slowly. The
+// placeholder mounts children when it nears the viewport; an operator who
+// never scrolls never pays for the section.
+
+export function Deferred(props: { children: JSX.Element }) {
+  let sentinel: HTMLDivElement | undefined
+  const [near, setNear] = createSignal(false)
+  onMount(() => {
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          setNear(true)
+          observer.disconnect()
+        }
+      },
+      // Mount a viewport ahead — the section is already there when the
+      // scroll arrives, not visibly popping in beneath it.
+      { rootMargin: '800px 0px' },
+    )
+    observer.observe(sentinel)
+    // Deferred is a paint-ordering hint, not a lock: an operator who never
+    // scrolls still gets the section once the top of the page has landed.
+    const timer = setTimeout(() => setNear(true), 1200)
+    onCleanup(() => {
+      observer.disconnect()
+      clearTimeout(timer)
+    })
+  })
+  return <div ref={sentinel}>{near() ? props.children : null}</div>
+}

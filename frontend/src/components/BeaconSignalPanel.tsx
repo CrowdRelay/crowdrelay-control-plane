@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { formatTimestamp } from '../lib/format'
+import { beaconKindLabel, formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonBlock } from './Skeleton'
 import { TabBar, TabPanel, useTabPanels, KpiStrip, KpiCard, ErrorCard, Section, ShowMore, useShowMore } from './layout'
@@ -23,10 +23,10 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
   // Four tables here had no bound. A tenant with two hundred candidates paid
   // two hundred rows of scrolling to reach the Discovery tab below them.
-  const profileList = useShowMore(() => dashboard.data?.profiles ?? [])
-  const candidateList = useShowMore(() => candidates.data?.candidates ?? [])
-  const discoveryList = useShowMore(() => network.data?.discoveryRuns ?? [])
-  const inviteList = useShowMore(() => network.data?.inviteJobs ?? [])
+  const profileList = useShowMore(() => dashboard.data?.profiles ?? [], 15)
+  const candidateList = useShowMore(() => candidates.data?.candidates ?? [], 15)
+  const discoveryList = useShowMore(() => network.data?.discoveryRuns ?? [], 15)
+  const inviteList = useShowMore(() => network.data?.inviteJobs ?? [], 15)
   const dashboard = useQuery(() => ({
     queryKey: ['beacon-signal-dashboard', props.slug],
     queryFn: () => api.beaconSignalDashboard(props.slug),
@@ -101,7 +101,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
               <For each={profileList.visible()}>{(p) => (
                 <TableRow>
                   <TableCell><strong>{p.displayName}</strong>{p.contactEmail ? <><br /><span class="text-muted-foreground">{p.contactEmail}</span></> : null}</TableCell>
-                  <TableCell>{p.beaconKind}</TableCell>
+                  <TableCell>{beaconKindLabel(p.beaconKind)}</TableCell>
                   <TableCell>{p.city ?? '—'}</TableCell>
                   <TableCell><Badge variant={statusTone(p.status)}>{p.status}</Badge></TableCell>
                   <TableCell numeric>{p.inviteCount}</TableCell>
@@ -142,7 +142,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
                 <For each={candidateList.visible()}>{(c) => (
                   <TableRow>
                     <TableCell><strong>{c.displayName}</strong><br /><span class="text-muted-foreground">{c.contactEmail}</span></TableCell>
-                    <TableCell>{c.beaconKind}</TableCell>
+                    <TableCell>{beaconKindLabel(c.beaconKind)}</TableCell>
                     <TableCell>{c.city ?? '—'}</TableCell>
                     <TableCell numeric>{Math.round(c.relevanceBasisPoints / 100)}%</TableCell>
                     <TableCell numeric>{Math.round(c.relationshipScore / 100)}%</TableCell>
