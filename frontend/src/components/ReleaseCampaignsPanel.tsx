@@ -133,7 +133,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
 
   return <div class="space-y-4">
     <div class="flex items-start justify-between gap-4">
-      <p class="text-sm text-muted-foreground">Physical release delivery to beacon recipients. Launch a campaign to notify eligible beacons; close it when every parcel is delivered.</p>
+      <p class="text-sm text-muted-foreground">Physical release delivery to amplifiers. Launch a campaign to notify eligible amplifiers; close it when every parcel is delivered.</p>
       <div class="flex shrink-0 items-center gap-2 flex-wrap">
         <Show when={campaigns.data}>
           <span class="text-sm text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy ?? '—'} contactable</span>
@@ -150,7 +150,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
     <Show when={creating()}>
       <form class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
         <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">Title <small class="text-muted-foreground font-normal">what the beacon sees</small></span>
+          <span class="text-sm font-medium text-foreground">Title <small class="text-muted-foreground font-normal">what the recipient sees</small></span>
           <Input value={form().title} maxlength={200} required
                  onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
         </label>

@@ -43,7 +43,7 @@ const PUSH_FAILURES: Record<string, { reason: string; retryable: boolean }> = {
     reason: 'fan is inactive or has withdrawn marketing consent',
     retryable: false,
   },
-  beacon_session_ineligible: { reason: 'beacon session expired or revoked', retryable: false },
+  beacon_session_ineligible: { reason: 'amplifier session expired or revoked', retryable: false },
   staff_endpoint_ineligible: { reason: 'staff session expired', retryable: false },
   device_ack_timeout: { reason: 'sent, but the device never acknowledged', retryable: true },
   preference_disabled: { reason: 'fan turned this notification category off', retryable: false },

@@ -264,7 +264,9 @@ function DetailLine(props: { step: ShowTimelineStep }) {
         const sold = d().paid_tickets as number | undefined
         const cap = d().capacity as number | null | undefined
         const read = d().last_read as { reason?: string } | null | undefined
-        const base = cap ? `${sold ?? 0}/${cap} sold` : `${sold ?? 0} sold`
+        const base = sold == null
+          ? (cap ? `capacity ${cap} · sales not reported` : 'sales not reported')
+          : cap ? `${sold}/${cap} sold` : `${sold} sold`
         return read?.reason ? `${base} · ${read.reason}` : base
       }
       case 'bands_posting': {
@@ -381,7 +383,7 @@ function emptyLine(section: HelperSection, place: string | null): string {
     case 'venue_channel':
       return 'The event names no room — add the venue to the show and it lands here'
     case 'photographers':
-      return `No photographer beacons${where} — the recap needs one found before the show`
+      return `No photographers${where} yet — the recap needs one found before the show`
   }
 }
 
