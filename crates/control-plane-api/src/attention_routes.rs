@@ -201,6 +201,18 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         not_reported.push("band_notices");
         json!([])
     });
+    // The conversations waiting on the band — inbound replies nobody has
+    // answered, read from the interaction log itself. Optional for the same
+    // reason as the sections above: an empty list here would claim nobody
+    // is waiting when the tenant simply never reported the queue — the bug
+    // this section exists to kill.
+    let unanswered_replies = snapshot
+        .get("unanswered_replies")
+        .cloned()
+        .unwrap_or_else(|| {
+            not_reported.push("unanswered_replies");
+            json!([])
+        });
 
     expect_object(summary, "summary")?;
     expect_array(&alerts, "alerts")?;
@@ -227,6 +239,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     }
     expect_array(&rejected_agent_outcomes, "rejected_agent_outcomes")?;
     expect_array(&band_notices, "band_notices")?;
+    expect_array(&unanswered_replies, "unanswered_replies")?;
 
     Ok(json!({
         // Stable identity so the browser patches this model in place on a
@@ -247,6 +260,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "failed_sends": failed_sends,
         "rejected_agent_outcomes": rejected_agent_outcomes,
         "band_notices": band_notices,
+        "unanswered_replies": unanswered_replies,
         // Sections whose value above is a placeholder, not a measurement.
         "not_reported": not_reported,
     }))
@@ -300,6 +314,9 @@ mod tests {
             ],
             "band_notices": [
                 {"id": "n", "kind": "show.task_attention_required", "detail": {"event_id": "e", "task": "post_show_report"}, "delivered": true, "created_at": "2026-09-01T13:00:00Z"}
+            ],
+            "unanswered_replies": [
+                {"channel": "outreach", "target_id": "t1", "target_name": "Metal Zine", "target_kind": "press", "contact_email": "ed@zine.example", "disposition": "positive", "sheet_verdict": "POSITIVE", "replied_at": "2026-09-01T14:00:00Z", "waiting_days": 3}
             ],
         })
     }

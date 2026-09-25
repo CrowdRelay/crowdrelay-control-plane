@@ -868,6 +868,32 @@ export type LapsedApprovals = {
   expiring_within_24h: number
 }
 
+/// One inbound reply whose last word is theirs — nobody has written back.
+///
+/// The queue `needs_you` cannot express: those are asks the system proposed;
+/// this is conversations people started with us. Read from the interaction
+/// log itself, not the reply-classifier queue — imported sheet answers never
+/// carried reply text, so they never entered that table, and a board that
+/// read only it reported "nothing needs you" with sixteen people waiting.
+export type UnansweredReply = {
+  /// `outreach` or `booking` — which log the reply lives in.
+  channel: string
+  target_id: string
+  /// The counterparty as the operator knows them.
+  target_name: string
+  target_kind: string
+  contact_email: string | null
+  /// `positive` (a yes is waiting) or `received` (the answer was never
+  /// classified — the whole imported cohort).
+  disposition: string
+  /// The sheet's own verdict code when the reply was imported
+  /// (`POSITIVE`, `GMAIL_REPLY`, `NEGOTIATING`); null otherwise.
+  sheet_verdict: string | null
+  replied_at: string
+  /// Days the reply has waited.
+  waiting_days: number
+}
+
 /// One outward send that failed, named.
 export type FailedSend = {
   action_id: string
@@ -1179,6 +1205,10 @@ export type TenantAttentionReadModel = {
   /// subject — the durable record the escalation leaves behind. Absent
   /// means the tenant does not publish it.
   band_notices?: BandNotice[]
+  /// Inbound replies whose last word is theirs — conversations waiting on
+  /// the band, oldest first. Absent means the tenant does not report the
+  /// queue, which is not the same as reporting an empty one.
+  unanswered_replies?: UnansweredReply[]
   /// Sections whose value above is a placeholder the Control Plane
   /// substituted, not something the tenant measured.
   not_reported?: string[]
@@ -3761,6 +3791,27 @@ export type BookingAgent = {
   refused_until?: string
   approach_pending: boolean
   version: number
+}
+
+/// The season's draw readings the agent gate floors are applied against —
+/// the workspace's own 12-month numbers, `null` when the read could not
+/// run. `undefined` means the upstream predates the field.
+export type BookingAgentDrawEvidence = {
+  shows_played_12m?: number | null
+  paid_tickets_12m?: number | null
+  distinct_buyers_12m?: number | null
+  repeat_buyers_12m?: number | null
+  cities_reached_12m?: number | null
+  best_show_paid_tickets_12m?: number | null
+  as_of?: string | null
+}
+
+/// The floors the approach gate applies — published beside the evidence so
+/// the batch view can say whether a letter would clear today.
+export type BookingAgentDrawFloors = {
+  shows_played_12m: number
+  paid_tickets_12m: number
+  distinct_buyers_12m: number
 }
 
 /// Structured evidence for a single decision — the "Why this decision" data.

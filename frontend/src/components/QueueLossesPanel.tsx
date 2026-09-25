@@ -3,7 +3,7 @@ import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp } from '../lib/format'
 import { labelOr, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS } from '../lib/opportunity-labels'
-import type { BandNotice, FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord } from '../lib/types'
+import type { BandNotice, FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord, UnansweredReply } from '../lib/types'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -402,6 +402,73 @@ export function BandNoticesPanel(props: {
               <Show when={noticeSubject(notice.detail)}>
                 <span class="block mt-1 text-xs text-muted-foreground">{noticeSubject(notice.detail)}</span>
               </Show>
+            </div>
+          }</For>
+        </div>
+      </Show>
+    </Show>
+  </Card>
+}
+
+/// The conversations waiting on the band — inbound replies whose last word
+/// is theirs, oldest first.
+///
+/// This is the panel the reply-triage view could never be: triage reads the
+/// classifier queue, which only knows replies that arrived with text; the
+/// imported sheet cohort carried verdicts and no text, so sixteen people who
+/// answered the band were invisible here for months. `unanswered_replies`
+/// reads the interaction log itself.
+export function UnansweredRepliesPanel(props: {
+  replies: UnansweredReply[] | undefined
+  notReported: string[]
+}) {
+  const reported = () => !props.notReported.includes('unanswered_replies')
+  const items = () => props.replies ?? []
+  const platform = authState.isPlatformLevel
+
+  return <Card flat class="space-y-4">
+    <div>
+      <PanelTitle icon={<SectionIcon name="mail" />}>Waiting on the band</PanelTitle>
+      <p class="text-muted-foreground text-sm mt-1">
+        People who answered and nobody has written back — oldest first. A positive answer ageing is the most perishable thing on this board.
+      </p>
+    </div>
+
+    <Show when={reported() && props.replies !== undefined} fallback={
+      <div class="p-4 border border-border rounded-lg bg-background text-left">
+        <EmptyState
+          label="Not reported"
+          hint={platform()
+            ? 'This tenant does not publish its unanswered replies — the console cannot show what it was never told.'
+            : 'Nothing is reported yet — this space stays empty until there is something to show.'}
+        />
+      </div>
+    }>
+      <Show when={items().length > 0} fallback={
+        <p class="text-muted-foreground text-sm">Nobody is waiting — every reply has an answer.</p>
+      }>
+        <div class="flex flex-col gap-2">
+          <For each={items()}>{reply =>
+            <div class="rounded-md border border-border bg-background px-3 py-2 text-sm">
+              <div class="flex items-center gap-2 flex-wrap">
+                <strong class="text-foreground">{reply.target_name}</strong>
+                <Badge variant="outline">{reply.target_kind.replace(/_/g, ' ')}</Badge>
+                <Show when={reply.disposition === 'positive'}>
+                  <Badge variant="default">positive</Badge>
+                </Show>
+                <Show when={reply.sheet_verdict}>
+                  <span class="text-xs text-muted-foreground">sheet: {reply.sheet_verdict}</span>
+                </Show>
+                <span class={`text-xs ml-auto ${reply.waiting_days >= 7 ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
+                  waiting {reply.waiting_days === 0 ? 'today' : `${reply.waiting_days}d`}
+                </span>
+              </div>
+              <div class="mt-1 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                <span>{reply.channel} · replied {formatTimestamp(reply.replied_at)}</span>
+                <Show when={reply.contact_email}>
+                  <span>{reply.contact_email}</span>
+                </Show>
+              </div>
             </div>
           }</For>
         </div>
