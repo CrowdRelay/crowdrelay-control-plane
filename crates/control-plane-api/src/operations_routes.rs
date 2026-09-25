@@ -147,10 +147,7 @@ pub fn router() -> Router<AppState> {
         )
         // What the approved asks produced — terminal actions with their
         // measurement verdicts. Today's "is it working" reads this.
-        .route(
-            "/tenants/{slug}/operations/outcomes",
-            get(ops_outcomes),
-        )
+        .route("/tenants/{slug}/operations/outcomes", get(ops_outcomes))
         .route(
             "/tenants/{slug}/operations/autopilot/reply-triage",
             get(autopilot_reply_triage),
