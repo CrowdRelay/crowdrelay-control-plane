@@ -14,7 +14,7 @@ import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '..
 import { StatusBadge } from '../components/StatusBadge'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
-import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel } from '../components/QueueLossesPanel'
+import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -378,6 +378,14 @@ export function TenantAttentionPage() {
             drafts={drafts()}
             onRefresh={refreshMaintenance}
             onReveal={revealAnchor}
+          />
+
+          {/* The queue where people wait on the band — replies nobody has
+              answered. Ahead of every other queue: a person who wrote back
+              is warmer than anything the machine can propose. */}
+          <UnansweredRepliesPanel
+            replies={attention.data?.unanswered_replies}
+            notReported={attention.data?.not_reported ?? []}
           />
 
           {/* The queue the operator, not the system, is blocking. */}

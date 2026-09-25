@@ -581,6 +581,7 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                 "/v1/control-plane/ops/summary"
                     | "/v1/control-plane/ops/signal-overview"
                     | "/v1/control-plane/ops/attention"
+                    | "/v1/control-plane/ops/funnel"
                     | "/v1/control-plane/ops/action-states"
                     | "/v1/control-plane/ops/intelligence"
                     | "/v1/control-plane/ops/outbox"
@@ -821,8 +822,10 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                 )
                 // The season letter: the band asks to approach a screened
                 // agent, and files what the agent answered back. Both carry
-                // their idempotency keys like every proxied write.
+                // their idempotency keys like every proxied write. The wave
+                // is the batch form of the same ask — one card, N letters.
                 || path == "/v1/control-plane/booking-agents/approach"
+                || path == "/v1/control-plane/booking-agents/approach-wave"
                 || uuid_segment_between(path, "/v1/control-plane/booking-agents/", "/reply")
                 || uuid_segment_between(
                     path,

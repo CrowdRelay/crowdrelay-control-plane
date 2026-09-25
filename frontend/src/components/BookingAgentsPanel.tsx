@@ -15,6 +15,7 @@ import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
+import { Checkbox } from './ui/checkbox'
 import { toast } from './app/toast'
 
 // The screened booking-agent registry — who they are and where each season's
@@ -51,6 +52,15 @@ const doorLabel = (agent: BookingAgent): string => {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// A row the wave can take — the same "open door" predicate the Approach
+// button uses, so a batch can never select a row the single lane would
+// refuse at the click.
+const waveEligible = (agent: BookingAgent): boolean =>
+  !agent.do_not_contact &&
+  !agent.approach_pending &&
+  !(agent.refused_until && new Date(agent.refused_until) > new Date()) &&
+  agent.active
+
 export function BookingAgentsPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
   const agents = useQuery(() => ({
@@ -77,6 +87,25 @@ export function BookingAgentsPanel(props: { slug: string }) {
   const [guideError, setGuideError] = createSignal<string | null>(null)
   const [holdEndsAt, setHoldEndsAt] = createSignal<number | null>(null)
   const [holdLeft, setHoldLeft] = createSignal(0)
+
+  // The batch form: several agents under one card. The wave queues a single
+  // awaiting-approval action upstream — the season gate still runs per
+  // agent at request time, and whoever it refuses comes back named.
+  const [wavePicks, setWavePicks] = createSignal<Set<string>>(new Set())
+  const [waveOpen, setWaveOpen] = createSignal(false)
+  const [waveNote, setWaveNote] = createSignal('')
+  const [waveError, setWaveError] = createSignal<string | null>(null)
+  const [waveRefusals, setWaveRefusals] = createSignal<Array<{ name: string; reason: string }>>([])
+
+  const togglePick = (agentId: string, picked: boolean) => {
+    setWavePicks(current => {
+      const next = new Set(current)
+      if (picked) next.add(agentId)
+      else next.delete(agentId)
+      return next
+    })
+  }
+  const pickedAgents = () => orderedAgents().filter(agent => wavePicks().has(agent.agent_id))
 
   // An open door outranks a closed one — the agent you could write to today
   // sits above the one who declined this season — and a screenful renders,
@@ -184,6 +213,26 @@ export function BookingAgentsPanel(props: { slug: string }) {
     onCleanup(() => clearInterval(timer))
   })
 
+  const queueWave = async () => {
+    const picks = pickedAgents().map(agent => agent.agent_id)
+    if (picks.length === 0 || pending() !== null) return
+    setPending('wave')
+    setWaveError(null)
+    try {
+      const result = await api.approachBookingAgentWave(props.slug, picks, waveNote().trim() || undefined)
+      setWaveRefusals(result.refused ?? [])
+      toast.success(`Wave queued — ${result.queued} letter${result.queued === 1 ? '' : 's'} on one approval card.`)
+      setWavePicks(new Set<string>())
+      setWaveOpen(false)
+      invalidateParked()
+      await invalidate()
+    } catch (error) {
+      setWaveError(errorMessage(error, 'Could not queue the wave'))
+    } finally {
+      setPending(null)
+    }
+  }
+
   const fileReply = async (agent: BookingAgent) => {
     if (pending() !== null) return
     setPending(agent.agent_id)
@@ -207,6 +256,56 @@ export function BookingAgentsPanel(props: { slug: string }) {
           ? 'Screened agents the season can approach. Asking queues a letter that still waits for board approval — nothing goes out unattended.'
           : 'Agents screened for this season. Asking queues a letter you still approve before it goes out.'}
       </p>
+      {/* The season's draw — the numbers every letter argues from, beside
+          the floors the gate applies. `null` readings say the evidence
+          could not be measured, which refuses the gate regardless. */}
+      <Show when={agents.data?.draw_floors}>
+        {floors => {
+          const evidence = () => agents.data?.draw_evidence
+          const clears = () => {
+            const e = evidence()
+            if (!e) return false
+            return (
+              (e.shows_played_12m ?? 0) >= floors().shows_played_12m &&
+              (e.paid_tickets_12m ?? 0) >= floors().paid_tickets_12m &&
+              (e.distinct_buyers_12m ?? 0) >= floors().distinct_buyers_12m
+            )
+          }
+          return (
+            <p class="text-xs text-muted-foreground m-0">
+              <Badge variant={clears() ? 'success' : 'warning'}>
+                {clears() ? 'the pitch clears today' : 'below the gate floors'}
+              </Badge>
+              {' '}{evidence()?.shows_played_12m ?? '—'}/{floors().shows_played_12m} shows ·
+              {' '}{evidence()?.paid_tickets_12m ?? '—'}/{floors().paid_tickets_12m} paid tickets ·
+              {' '}{evidence()?.distinct_buyers_12m ?? '—'}/{floors().distinct_buyers_12m} buyers (12m)
+            </p>
+          )
+        }}
+      </Show>
+      {/* The batch bar — appears once anything is picked. One card per
+          wave is the contract: the letters queue together and the board
+          shows a single approval covering them all. */}
+      <Show when={wavePicks().size > 0}>
+        <div class="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+          <span class="text-sm">{wavePicks().size} selected — one card, one letter each</span>
+          <Button writes size="sm" onClick={() => { setWaveNote(''); setWaveError(null); setWaveOpen(true) }}>
+            Draft the wave…
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setWavePicks(new Set<string>())}>Clear</Button>
+        </div>
+      </Show>
+      {/* The refusals from the last wave — the gate's own sentences, kept
+          visible until the next batch rather than flashed in a toast. */}
+      <Show when={waveRefusals().length > 0}>
+        <div class="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-sm">
+          <p class="m-0 mb-1 font-medium">The gate refused {waveRefusals().length} agent{waveRefusals().length === 1 ? '' : 's'}:</p>
+          <ul class="m-0 list-disc pl-5 text-muted-foreground">
+            <For each={waveRefusals()}>{refusal => <li>{refusal.name} — {refusal.reason}</li>}</For>
+          </ul>
+          <Button variant="ghost" size="sm" class="mt-1" onClick={() => setWaveRefusals([])}>Dismiss</Button>
+        </div>
+      </Show>
       <Show when={agents.error}>
         <ErrorCard>{errorMessage(agents.error, 'The agent registry could not be loaded')}</ErrorCard>
       </Show>
@@ -223,6 +322,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead></TableHead>
                 <TableHead>Agent</TableHead>
                 <TableHead>Genres</TableHead>
                 <TableHead>Door</TableHead>
@@ -233,6 +333,15 @@ export function BookingAgentsPanel(props: { slug: string }) {
               <For each={showMore.visible()}>{agent => (
                 <>
                   <TableRow>
+                    <TableCell class="w-8">
+                      <Show when={waveEligible(agent)}>
+                        <Checkbox
+                          checked={wavePicks().has(agent.agent_id)}
+                          onChange={picked => togglePick(agent.agent_id, picked)}
+                          aria-label={`Pick ${agent.name} for the wave`}
+                        />
+                      </Show>
+                    </TableCell>
                     <TableCell>
                       <strong>{agent.name}</strong>
                       <Show when={agent.agency}><br /><span class="text-muted-foreground">{agent.agency}</span></Show>
@@ -276,7 +385,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
                   </TableRow>
                   <Show when={replyFor() === agent.agent_id}>
                     <TableRow>
-                      <TableCell colspan={4}>
+                      <TableCell colspan={5}>
                         <div class="flex flex-wrap items-end gap-3 py-1">
                           <label class="grid gap-1 text-xs text-muted-foreground">
                             <span>What did they say</span>
@@ -392,6 +501,41 @@ export function BookingAgentsPanel(props: { slug: string }) {
           </Show>
         </div>
       </Show>
+    </Dialog>
+
+    {/* The wave dialog — the batch, one shared note, one card upstream. */}
+    <Dialog
+      open={waveOpen()}
+      onClose={() => { if (pending() === null) setWaveOpen(false) }}
+      label="Approach wave"
+      title={`Wave to ${pickedAgents().length} agent${pickedAgents().length === 1 ? '' : 's'}`}
+      description="One approval card — one letter each"
+      footer={<>
+        <Button variant="ghost" size="sm" onClick={() => setWaveOpen(false)}>Cancel</Button>
+        <Button writes size="sm" disabled={pending() !== null || pickedAgents().length === 0} onClick={() => void queueWave()}>
+          {pending() === 'wave' && <Spinner />} {pending() === 'wave' ? 'Drafting…' : 'Queue the wave'}
+        </Button>
+      </>}
+    >
+      <Show when={waveError()}><ErrorCard class="mb-4">{waveError()}</ErrorCard></Show>
+      <div class="flex flex-col gap-3">
+        <p class="m-0 text-sm leading-relaxed text-secondary-foreground">
+          Each picked agent gets their own letter — drafted now, parked together on the decisions board
+          as one card. Whoever the season gate refuses comes back named instead of silently dropped.
+        </p>
+        <ul class="m-0 list-disc pl-5 text-sm">
+          <For each={pickedAgents()}>{agent => <li>{agent.name}<Show when={agent.agency}> <span class="text-muted-foreground">({agent.agency})</span></Show></li>}</For>
+        </ul>
+        <label class="grid gap-1.5 text-sm text-muted-foreground">
+          <span>One line for every letter (optional)</span>
+          <Input
+            value={waveNote()}
+            onInput={e => setWaveNote(e.currentTarget.value)}
+            placeholder="e.g. looking at Central Europe for spring"
+          />
+          <small class="text-xs text-muted-foreground">Shared by the whole wave — a line worth saying to one is worth saying to all.</small>
+        </label>
+      </div>
     </Dialog>
     </div>
   )

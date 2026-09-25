@@ -347,6 +347,12 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/booking-agents/approach",
             post(request_booking_agent_approach),
         )
+        // The batch form of the same ask — one card covering the agents the
+        // operator picked, each still gated and letter-composed upstream.
+        .route(
+            "/tenants/{slug}/operations/booking-agents/approach-wave",
+            post(request_booking_agent_approach_wave),
+        )
         .route(
             "/tenants/{slug}/operations/booking-agents/{agent_id}/reply",
             post(record_booking_agent_reply),
@@ -2262,6 +2268,63 @@ async fn request_booking_agent_approach(
     let result = result?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(result, "booking agent approach")
+}
+
+/// The batch form — `{agent_ids, note?}`. Upstream gates every selected
+/// agent under the season lock, composes each letter, and queues one
+/// `awaiting_approval` wave card; the response names the agents the gate
+/// refused so the panel can say who the batch could not take. A wave that
+/// could take nobody answers 409 with the refusals, never an empty card.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BookingAgentApproachWaveInput {
+    agent_ids: Vec<Uuid>,
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn request_booking_agent_approach_wave(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<BookingAgentApproachWaveInput>,
+) -> Result<Response, ApiError> {
+    if body.agent_ids.is_empty() || body.agent_ids.len() > 16 {
+        return Err(ApiError::InvalidInput(
+            "a wave names between one and sixteen agents".to_owned(),
+        ));
+    }
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let payload = json!({ "agent_ids": body.agent_ids, "note": body.note });
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/booking-agents/approach-wave",
+                body: Some(&payload),
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.booking_agent.approach_wave_requested",
+        "booking_agent_wave",
+        "",
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "booking agent approach wave")
 }
 
 /// `{disposition, occurred_at}` — the operator files what the agent answered.
