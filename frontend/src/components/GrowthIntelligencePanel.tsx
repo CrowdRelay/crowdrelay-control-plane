@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, formatIsoUntil } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
@@ -179,7 +179,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                       <Badge>{actionKindLabel(action.action_kind)}</Badge>
                       <strong>{summary.title}</strong>
                       <Show when={action.approval_expires_at}>
-                        <span class="text-muted-foreground">expires {formatIsoAge(action.approval_expires_at!)}</span>
+                        <span class="text-muted-foreground">lapses {formatIsoUntil(action.approval_expires_at!)}</span>
                       </Show>
                     </div>
                     <Show when={summary.detail}>

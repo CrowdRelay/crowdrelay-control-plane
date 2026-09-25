@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Check, X } from 'lucide-solid'
 import { api } from '../lib/api'
 import type { IntelligenceBrief, PendingActionSummary } from '../lib/types'
-import { confidencePercent, errorMessage, relativeTime } from '../lib/format'
+import { confidencePercent, errorMessage, formatIsoUntil, relativeTime } from '../lib/format'
 import { toast } from './app/toast'
 import { Section, SkeletonBlock } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -379,7 +379,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
                     <p class="text-sm font-medium text-foreground">{actionTitle(action)}</p>
                     <p class="mt-0.5 text-xs text-muted-foreground">
                       {labelOr(CONTEXT_LABELS, action.context)} · {labelOr(SUBJECT_KIND_LABELS, action.subject_kind)}
-                      {action.approval_expires_at && ` · expires ${new Date(action.approval_expires_at).toLocaleDateString()}`}
+                      {action.approval_expires_at && ` · lapses ${formatIsoUntil(action.approval_expires_at)}`}
                     </p>
                   </div>
                   <div class="flex items-center gap-1.5">

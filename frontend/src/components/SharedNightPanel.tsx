@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { NightContributionKind, SharedNight } from '../lib/types'
 import { readOnly } from '../lib/read-only'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatIsoUntil } from '../lib/format'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -154,7 +154,7 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
             <Show when={data().own_terms !== undefined}>
               <p class="mt-2 text-xs text-muted-foreground">
                 {data().own_terms
-                  ? `Our terms on file: ${data().own_terms?.amount_minor ?? 0} ${data().own_terms?.currency ?? ''} (minor units — only the night's total reaches the organiser).`
+                  ? `Our terms on file: ${data().own_terms!.amount_minor != null ? `${data().own_terms!.amount_minor} ${data().own_terms!.currency ?? ''}` : '—'} (minor units — only the night's total reaches the organiser).`
                   : 'No terms contributed — the organiser sees only the sum of what acts publish.'}
               </p>
             </Show>
@@ -216,7 +216,7 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
                       </Button>
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">
-                      Live until {formatTimestamp(link().expires_at)} — rotating kills every link already sent.
+                      Expires {formatIsoUntil(link().expires_at)} — rotating kills every link already sent.
                     </p>
                   </div>
                 )}

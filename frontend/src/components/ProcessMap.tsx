@@ -48,7 +48,7 @@ const NODES: MapNode[] = [
   { id: 'spotify', x: 30, y: 162, w: 230, h: 52, zone: 'src', title: 'Spotify', desc: 'artist + track metrics', to: '/tenants/{slug}/intelligence' },
   { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/audience?tab=sources' },
   { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/audience?tab=sources' },
-  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Beacons', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/audience?tab=contacts' },
+  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Amplifiers', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/audience?tab=contacts' },
 
   // ── INTELLIGENCE (deterministic Rust) ──
   { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention?tab=decisions' },

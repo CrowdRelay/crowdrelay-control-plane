@@ -230,7 +230,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
     void act(`invite:${beaconId}`, () => api.inviteBeacon(props.slug, beaconId), 'Invitation sent.')
 
   const setState = (beaconId: string, status: 'active' | 'paused' | 'revoked') =>
-    void act(`state:${beaconId}`, () => api.setBeaconState(props.slug, beaconId, status), `Beacon ${status}.`)
+    void act(`state:${beaconId}`, () => api.setBeaconState(props.slug, beaconId, status), `Amplifier ${status}.`)
 
   const addBeacon = (event: Event) => {
     event.preventDefault()
@@ -287,7 +287,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           <label
             class={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'cursor-pointer')}
             classList={{ 'pointer-events-none opacity-45': busy() !== null || readOnly() }}
-            title={readOnly() ? READ_ONLY_REASON : "Upload a SubmitHub Activity CSV. Curators who approved or shared become unverified beacons — enrich contact info from the chats, then approve."}
+            title={readOnly() ? READ_ONLY_REASON : "Upload a SubmitHub Activity CSV. Curators who approved or shared land as unverified amplifiers — enrich contact info from the chats, then approve."}
           >
             {busy() === 'submithub' && <Spinner />} {busy() === 'submithub' ? 'Importing…' : 'Import SubmitHub CSV'}
             <FileInput
@@ -298,7 +298,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             />
           </label>
           <Button writes variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
-            {adding() ? 'Cancel' : 'Add beacon'}
+            {adding() ? 'Cancel' : 'Add amplifier'}
           </Button>
         </div>
       }
@@ -306,7 +306,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
-        <ErrorCard>Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the beacon roster. Try refreshing.')}</ErrorCard>
+        <ErrorCard>Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the amplifier roster. Try refreshing.')}</ErrorCard>
       </Show>
 
       <Show when={adding()}>
@@ -335,7 +335,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
           </label>
           <div class="flex gap-2 justify-end mt-5 md:col-span-2">
             <Button writes size="sm" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
-              {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add beacon'}
+              {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add amplifier'}
             </Button>
           </div>
         </form>
@@ -354,12 +354,12 @@ export function BeaconConsolePanel(props: { slug: string }) {
           <Input
             class="flex-1 min-w-[200px]"
             type="search"
-            aria-label="Search beacons"
+            aria-label="Search amplifiers"
             placeholder="Search name, city, email or kind…"
             value={query()}
             onInput={event => onSearch(event.currentTarget.value)}
           />
-          <NativeSelect aria-label="Filter beacons by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
+          <NativeSelect aria-label="Filter amplifiers by state" value={statusFilter()} onChange={event => onFilter(event.currentTarget.value)}>
             <option value="all">All states</option>
             <option value="unverified">Unverified</option>
             <option value="active">Active</option>
@@ -368,7 +368,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             <option value="revoked">Revoked</option>
           </NativeSelect>
           <Button variant="ghost" size="sm" onClick={selectAllVisible} disabled={invitableVisible().length === 0}
-                  title={invitableVisible().length === 0 ? 'No beacon in view can be invited — members, paused and already-invited rows are skipped' : undefined}>
+                  title={invitableVisible().length === 0 ? 'No amplifier in view can be invited — members, paused and already-invited rows are skipped' : undefined}>
             {invitableVisible().length > 0 && invitableVisible().every(p => selected().has(p.beaconId))
               ? 'Clear selection'
               : `Select all ${invitableVisible().length} invitable`}
@@ -390,10 +390,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
           fallback={
             <Show
               when={profiles().length === 0}
-              fallback={<EmptyState label="No beacon matches that search" hint="Search covers name, city, email and kind." />}
+              fallback={<EmptyState label="No amplifier matches that search" hint="Search covers name, city, email and kind." />}
             >
               <EmptyState
-                label="No beacons yet"
+                label="No amplifiers yet"
                 hint="Local growth needs people on the ground. Add the venues, shops and promoters the band already knows, then invite them to Signal."
               />
             </Show>
@@ -403,7 +403,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead class="w-8" />
-                <TableHead>Beacon</TableHead>
+                <TableHead>Amplifier</TableHead>
                 <TableHead class="w-24">Status</TableHead>
                 <TableHead class="w-20 text-center">Invites</TableHead>
                 <TableHead class="w-32">Last invited</TableHead>

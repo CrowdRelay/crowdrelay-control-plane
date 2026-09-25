@@ -144,7 +144,7 @@ export function PressRoomPanel(props: { slug: string }) {
 
   return <div class="space-y-4">
     <div class="flex items-start justify-between gap-4">
-      <p class="text-sm text-muted-foreground">Requests from beacons, assets for distribution, event engagements and earned coverage.</p>
+      <p class="text-sm text-muted-foreground">Requests from amplifiers, assets for distribution, event engagements and earned coverage.</p>
       <Show when={model.dataUpdatedAt}><span class="shrink-0 text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
     <TabBar
@@ -304,7 +304,7 @@ export function PressRoomPanel(props: { slug: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Beacon</TableHead>
+                <TableHead>Amplifier</TableHead>
                 <TableHead>Event</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Help</TableHead>
@@ -367,7 +367,7 @@ export function PressRoomPanel(props: { slug: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Beacon</TableHead>
+                <TableHead>Amplifier</TableHead>
                 <TableHead>Event</TableHead>
                 <TableHead>Kind</TableHead>
                 <TableHead>Title</TableHead>

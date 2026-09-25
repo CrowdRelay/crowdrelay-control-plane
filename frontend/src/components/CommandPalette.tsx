@@ -76,7 +76,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   // Dead deliveries live on Health's delivery tab — operator-only, same as
   // the page it opens.
   { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/health?tab=delivery', platform: true },
-  { id: 'q-beacons', label: 'Open Beacon signals', keywords: 'beacon signals operations outreach', suffix: '/operations' },
+  { id: 'q-beacons', label: 'Open Amplifier signals', keywords: 'beacon amplifier signals operations outreach', suffix: '/operations' },
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
   { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=decisions' },
   { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },

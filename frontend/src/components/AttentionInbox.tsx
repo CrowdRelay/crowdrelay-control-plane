@@ -3,7 +3,7 @@ import { Link } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
+import { errorMessage, formatIsoUntil } from '../lib/format'
 import { DraftEditor, changedFields, emptiedField } from './DraftEditor'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
@@ -214,7 +214,7 @@ export function AttentionInbox(props: {
         title: `Approve ${labelOr(DECISION_KIND_LABELS, action.action_kind)}`,
         detail: `${labelOr(CONTEXT_LABELS, action.context)} · ${labelOr(SUBJECT_KIND_LABELS, action.subject_kind)}`,
         consequence: action.approval_expires_at
-          ? `Approval expires ${new Date(action.approval_expires_at).toLocaleDateString()}`
+          ? `Approval lapses ${formatIsoUntil(action.approval_expires_at)}`
           : undefined,
         draft,
         // The approval is the whole item. It used to be a link to the
