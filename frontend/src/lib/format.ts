@@ -51,6 +51,39 @@ const timeArrayToDate = (v: number[]) => {
   return new Date(Date.UTC(year, 0, ordinal, hour, minute, second) - ((offH * 3600 + offM * 60 + offS) * 1000))
 }
 
+/** The `time` crate's serde form for `Date`: [year, ordinal]. */
+const dateArrayToIsoDay = (v: number[]) =>
+  new Date(Date.UTC(v[0] ?? 0, 0, v[1] ?? 1)).toISOString().slice(0, 10)
+
+/** Range-checked so a plain integer array is never reformatted. The bounds
+ * mirror what `OffsetDateTime` can serialize: real timezone offsets only
+ * (±14h), and serde signs every offset component together — a 9-integer
+ * vector that fails either rule is data, not a timestamp. */
+const isOffsetDateTimeTuple = (v: unknown): v is number[] =>
+  Array.isArray(v) && v.length === 9 && v.every((n) => Number.isInteger(n)) &&
+  v[0] >= 2000 && v[0] <= 2100 && v[1] >= 1 && v[1] <= 366 &&
+  v[2] >= 0 && v[2] <= 23 && v[3] >= 0 && v[3] <= 59 && v[4] >= 0 && v[4] <= 60 &&
+  v[5] >= 0 && v[6] >= -14 && v[6] <= 14 && v[7] >= -59 && v[7] <= 59 && v[8] >= -59 && v[8] <= 59 &&
+  ((v[6] >= 0 && v[7] >= 0 && v[8] >= 0) || (v[6] <= 0 && v[7] <= 0 && v[8] <= 0))
+
+const isDateTuple = (v: unknown): v is number[] =>
+  Array.isArray(v) && v.length === 2 &&
+  Number.isInteger(v[0]) && Number.isInteger(v[1]) &&
+  v[0] >= 2000 && v[0] <= 2100 && v[1] >= 1 && v[1] <= 366
+
+/** A `JSON.stringify` replacer that renders stored `time` tuples as text.
+ *
+ *  Decision and outcome records written before wire-time formatting still
+ *  hold `[2026, 268, 7, 0, 0, 0, 0, 0, 0]` inside `input_snapshot`,
+ *  `policy_snapshot` and `recommendation` — hundreds of `content_supply`
+ *  rows alone — and the evidence view showed them raw. Rows written now
+ *  carry RFC 3339 text, which passes straight through. */
+export const wireJsonReplacer = (_key: string, value: unknown): unknown => {
+  if (isOffsetDateTimeTuple(value)) return timeArrayToDate(value).toISOString()
+  if (isDateTuple(value)) return dateArrayToIsoDay(value)
+  return value
+}
+
 export const formatAge = (seconds: number) => {
   if (seconds <= 0) return '—'
   if (seconds < 60) return `${seconds}s`
