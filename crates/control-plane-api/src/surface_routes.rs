@@ -161,10 +161,14 @@ pub(crate) const SURFACE: &[Surface] = &[
     // Outreach, booking and the approval queue.
     read("autopilot/outreach-waves"),
     write("POST", "autopilot/outreach-waves/{wave_id}/approve"),
+    read_q("autopilot/outreach-contacts", &["state", "kind", "limit"]),
     write("POST", "autopilot/outreach-targets"),
     write("POST", "autopilot/outreach-targets/{target_id}/reply"),
-    read_q("autopilot/outreach-contacts", &["state", "kind", "limit"]),
     write("POST", "autopilot/outreach-targets/{target_id}/written"),
+    // The conversation drawer: the contact's whole thread and what happens
+    // next, plus the one control that is not "log their answer".
+    read("autopilot/outreach-targets/{target_id}/conversation"),
+    write("POST", "autopilot/outreach-targets/{target_id}/suppression"),
     write("POST", "autopilot/outreach/submission-channels"),
     write("POST", "autopilot/booking-targets"),
     write("POST", "autopilot/booking-targets/{target_id}/editions"),

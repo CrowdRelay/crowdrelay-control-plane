@@ -29,11 +29,13 @@ type Wave = {
 const words = (value: string) => value.replaceAll('_', ' ')
 
 /** What the wave is pitched around, in the act's words. A catalogue wave is
- *  the month's pitch of the act's own records — no show, no release date. */
+ *  the month's pitch of the act's own records — no show, no release date;
+ *  a threads wave is the month of follow-ups on threads started by hand. */
 const anchorLabel = (kind: string) => ({
   event: 'for a show',
   release: 'for a release',
   catalogue: 'your catalogue, this month',
+  threads: 'the threads you started, this month',
 } as Record<string, string>)[kind] ?? `for a ${words(kind)}`
 
 export function OutreachWavesPanel(props: { slug: string }) {
