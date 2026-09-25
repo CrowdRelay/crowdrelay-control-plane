@@ -17,6 +17,7 @@ const LABELS: Record<string, string> = {
   brand_wordmark: 'Name in fan messages',
   member_site_base_url: 'Member site base URL',
   member_area_path: 'Member area path',
+  live_page_path: 'Show page path (door QR)',
   synesthesia_campaign_slug: 'Synesthesia campaign slug',
   signal_enabled: 'Signal app',
   synesthesia_enabled: 'Synesthesia',
@@ -45,7 +46,7 @@ const GROUPS: { title: string; description: string; bandDescription?: string; ke
     title: 'Fan-facing identity',
     description: 'The name fan messages carry, and where the member links in emails, Signal and QR codes point.',
     bandDescription: 'The name your fan messages carry, and where the member links in emails, Signal and QR codes point.',
-    keys: ['brand_wordmark', 'member_site_base_url', 'member_area_path'],
+    keys: ['brand_wordmark', 'member_site_base_url', 'member_area_path', 'live_page_path'],
   },
   {
     title: 'Products',
@@ -99,6 +100,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
   member_area_path: {
     hint: 'Path appended to the member site for the logged-in area. Leading slash, no trailing one.',
     example: '/members',
+  },
+  live_page_path: {
+    hint: "Path on the member site where a show's page lives. The door check-in QR opens {site}/{path}/{show}/ — set it to your site's layout, or phones at the door land on a missing page.",
+    band: "Where a show's page lives on your site. The door check-in QR opens {site}/{path}/{show}/ — set it to your site's layout, or phones at the door land on a missing page.",
+    example: 'shows',
   },
   synesthesia_campaign_slug: {
     hint: 'Campaign the Synesthesia experience opens on. Must match a campaign slug that exists in the tenant workspace.',
