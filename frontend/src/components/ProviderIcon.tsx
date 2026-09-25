@@ -242,26 +242,6 @@ function PollinationsIcon(props: IconProps) {
   )
 }
 
-// Cognition AI — a neural-node mark in Cognition's deep indigo. Cognition's
-// own mark is a minimal dark roundel; the node-web reads "agentic" at 20px
-// where a plain dot would not.
-function CognitionIcon(props: IconProps) {
-  const s = props.size ?? 20
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" class={props.class} aria-hidden="true">
-      <g stroke="#6366f1" stroke-width="1.6" stroke-linecap="round">
-        <path d="M12 12L12 5.2M12 12l6 3.6M12 12l-6 3.6M12 12l4.2-5.3M12 12l-4.2-5.3" opacity="0.55"/>
-      </g>
-      <circle cx="12" cy="12" r="2.6" fill="#6366f1"/>
-      <circle cx="12" cy="4.6" r="1.7" fill="#818cf8"/>
-      <circle cx="18.5" cy="15.9" r="1.7" fill="#818cf8"/>
-      <circle cx="5.5" cy="15.9" r="1.7" fill="#818cf8"/>
-      <circle cx="16.6" cy="6.2" r="1.3" fill="#4f46e5"/>
-      <circle cx="7.4" cy="6.2" r="1.3" fill="#4f46e5"/>
-    </svg>
-  )
-}
-
 // ─── Notifier Brand Logos ───────────────────────────────────────────────
 
 // Discord — official Discord logo (simple-icons path) in Discord blurple.
@@ -546,7 +526,6 @@ const LLM_PROVIDER_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   'xai': XaiIcon,
   'github-copilot': GitHubCopilotIcon,
   'zhipu': ZhipuIcon,
-  'cognition': CognitionIcon,
   'sambanova': SambaNovaIcon,
   'github-models': GitHubModelsIcon,
   'cerebras': CerebrasIcon,

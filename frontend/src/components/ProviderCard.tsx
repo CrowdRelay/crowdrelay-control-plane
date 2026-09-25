@@ -18,10 +18,8 @@ export interface ProviderCardContext {
   testingProvider: () => string | null
   testResult: (providerId: string) => { ok: boolean; message: string } | null | undefined
   apiKeyInput: () => string
-  orgIdInput: () => string
   showKeyInputFor: () => string | null
   onApiKeyInput: (value: string) => void
-  onOrgIdInput: (value: string) => void
   onShowKeyInput: (providerId: string) => void
   onCancelKeyInput: () => void
   onConnect: (providerId: string) => void
@@ -61,7 +59,6 @@ const KEY_PLACEHOLDERS: Record<string, string> = {
   pollinations: 'Paste sk_… key…',
   huggingface: 'Paste hf_… token…',
   nvidia: 'Paste nvapi-… key…',
-  cognition: 'Paste cog_… key…',
   'github-models': 'Paste GitHub token (ghp_… / github_pat_…)…',
 }
 
@@ -171,20 +168,9 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
                   onInput={(e) => ctx.onApiKeyInput(e.currentTarget.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') ctx.onConnect(provider.id) }}
                 />
-                <Show when={provider.id === 'cognition'}>
-                  <Input
-                    class={ctx.error() && ctx.connectingProvider() !== provider.id ? 'border-destructive' : ''}
-                    type="password"
-                    placeholder="Organization ID (org-…)"
-                    aria-label={`${provider.name} organization ID`}
-                    value={ctx.orgIdInput()}
-                    onInput={(e) => ctx.onOrgIdInput(e.currentTarget.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') ctx.onConnect(provider.id) }}
-                  />
-                </Show>
                 <Button writes
                   size="sm"
-                  disabled={ctx.connectingProvider() === provider.id || !ctx.apiKeyInput().trim() || (provider.id === 'cognition' && !ctx.orgIdInput().trim())}
+                  disabled={ctx.connectingProvider() === provider.id || !ctx.apiKeyInput().trim()}
                   onClick={() => ctx.onConnect(provider.id)}
                 >
                   <Show when={ctx.connectingProvider() === provider.id}>

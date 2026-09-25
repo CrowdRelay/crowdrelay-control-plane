@@ -55,7 +55,6 @@ export function AgentProvidersPanel(props: {
   const [testingProvider, setTestingProvider] = createSignal<string | null>(null)
   const [testResult, setTestResult] = createSignal<Record<string, { ok: boolean; message: string } | null>>({})
   const [apiKeyInput, setApiKeyInput] = createSignal('')
-  const [orgIdInput, setOrgIdInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
 
   // Premium usage is unique to this panel — always fetch here.
@@ -211,13 +210,6 @@ export function AgentProvidersPanel(props: {
   const handleConnectApiKey = async (providerId: string) => {
     const key = apiKeyInput().trim()
     if (!key) return
-    // Cognition (Devin) requires an org ID in addition to the API key.
-    const needsOrgId = providerId === 'cognition'
-    const orgId = orgIdInput().trim()
-    if (needsOrgId && !orgId) {
-      setError('Cognition requires an organization ID (org-...)')
-      return
-    }
     setConnectingProvider(providerId)
     setError(null)
     try {
@@ -225,7 +217,6 @@ export function AgentProvidersPanel(props: {
         provider: providerId,
         api_key: key,
         label: '',
-        ...(needsOrgId ? { provider_account: orgId } : {}),
       })
       const provider = apiKeyProviders().find(p => p.id === providerId)
       // The key was stored and the card said "connected" without anyone
@@ -256,7 +247,6 @@ export function AgentProvidersPanel(props: {
       if (verified) {
         toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
         setApiKeyInput('')
-        setOrgIdInput('')
         setShowKeyInputFor(null)
       }
       refetchCreds()
@@ -334,12 +324,10 @@ export function AgentProvidersPanel(props: {
     testingProvider,
     testResult: (providerId) => testResult()[providerId],
     apiKeyInput,
-    orgIdInput,
     showKeyInputFor,
     onApiKeyInput: setApiKeyInput,
-    onOrgIdInput: setOrgIdInput,
     onShowKeyInput: setShowKeyInputFor,
-    onCancelKeyInput: () => { setShowKeyInputFor(null); setApiKeyInput(''); setOrgIdInput(''); setError(null) },
+    onCancelKeyInput: () => { setShowKeyInputFor(null); setApiKeyInput(''); setError(null) },
     onConnect: (id) => { void handleConnectApiKey(id) },
     onTest: (id) => { void handleTestCredential(id) },
     onDisconnect: (id) => { void handleDisconnect(id) },

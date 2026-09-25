@@ -6,7 +6,7 @@ import { ModelIcon } from './ProviderIcon'
 import { EmptyState } from './ui/empty-state'
 import { Sparkline } from './Sparkline'
 import { KpiCard, KpiStrip } from './layout'
-import { RobotIcon, SparkIcon } from './provider-icons'
+import { SparkIcon } from './provider-icons'
 import type { PremiumUsage } from '../lib/types'
 
 // ─── Compact budget + status strip ──────────────────────────────────────
@@ -93,11 +93,6 @@ export function PremiumModelsSection(props: { usage: PremiumUsage }) {
                 <div class="flex items-center gap-2">
                   <ModelIcon modelId={model.id} providerId={model.provider} paid size={18} />
                   <span class="font-semibold text-sm text-foreground">{model.name}</span>
-                  <Show when={model.agentic}>
-                    <span class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-                      <RobotIcon size={11} /> agentic
-                    </span>
-                  </Show>
                 </div>
                 <div class="text-xs text-muted-foreground">{model.best_for}</div>
                 <div class="flex gap-3 text-xs text-muted-foreground">
