@@ -262,6 +262,23 @@ root="$1"
 payload="$2"
 cd "$root"
 fail() { printf 'ERROR: %s\n' "$*" >&2; rm -f -- "$payload"; exit 1; }
+# The same resolver the check block uses. This block is its own remote
+# shell: without its own copy, `api_container` was "command not found" here
+# after the keys were already persisted, and the bootstrap stopped before
+# reloading anything — so the Control Plane never picked up its canonical
+# management URL and every ecosystem deploy failed its preflight.
+api_container() {
+  local name
+  for name in $(docker ps --format '{{.Names}}' --filter 'name=crowdrelay-api'); do
+    if docker inspect "$name" \
+         --format '{{range .NetworkSettings.Networks}}{{range .Aliases}}{{println .}}{{end}}{{end}}' \
+         2>/dev/null | grep -qx 'crowdrelay-api-active'; then
+      printf '%s\n' "$name"
+      return 0
+    fi
+  done
+  return 1
+}
 for command in docker python3 sha256sum; do command -v "$command" >/dev/null 2>&1 || fail "missing Oracle command: $command"; done
 [[ -f "$payload" && ! -L "$payload" ]] || fail 'credential payload missing or unsafe'
 chmod 600 "$payload"

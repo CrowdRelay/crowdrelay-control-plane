@@ -40,6 +40,7 @@ script-test:
     python3 scripts/test_design_tokens.py
     python3 scripts/test_capability_map.py
     python3 scripts/test_capability_fields_contract.py
+    python3 scripts/test_management_bootstrap_blocks.py
     # These four were written as gates and never listed here, so nothing ran
     # them. All pass today.
     python3 scripts/test_processes_contract.py
