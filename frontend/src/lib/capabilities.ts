@@ -283,14 +283,24 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     title: 'A contact’s conversation',
     purpose: 'Every message either way, the letters the machine drafted or sent, and what happens next.',
     read: { path: 'autopilot/outreach-targets/{target_id}/conversation', paramSources: { target_id: 'text' } },
-    actions: [{
-      label: "Don't contact", method: 'POST', path: 'autopilot/outreach-targets/{target_id}/suppression', rowParams: { target_id: 'target_id' },
-      confirm: 'No machine letter ever goes to this address again.',
-      fields: [
-        { name: 'do_not_contact', label: 'Do not contact', kind: 'bool', initial: true },
-        { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
-      ],
-    }],
+    actions: [
+      {
+        label: "Don't contact", method: 'POST', path: 'autopilot/outreach-targets/{target_id}/suppression', rowParams: { target_id: 'target_id' },
+        confirm: 'No machine letter ever goes to this address again.',
+        fields: [
+          { name: 'do_not_contact', label: 'Do not contact', kind: 'bool', initial: true },
+          { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
+        ],
+      },
+      {
+        label: 'Contact again', method: 'POST', path: 'autopilot/outreach-targets/{target_id}/suppression', rowParams: { target_id: 'target_id' },
+        confirm: 'Lifts the do-not-contact mark. Their outreach consent stays off — they will still not be pitched unless consent is restored.',
+        fields: [
+          { name: 'do_not_contact', label: 'Do not contact', kind: 'bool', initial: false },
+          { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
+        ],
+      },
+    ],
   },
   {
     // The reply half of the outreach contacts: it has a row to attach to

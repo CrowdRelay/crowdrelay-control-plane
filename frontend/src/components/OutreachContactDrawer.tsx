@@ -152,7 +152,7 @@ export function OutreachContactDrawer(props: {
                       size="sm"
                       variant="outline"
                       label="Contact again"
-                      action={capabilityAction('outreach-conversation', "Don't contact")}
+                      action={capabilityAction('outreach-conversation', 'Contact again')}
                       fixed={{ target_id: props.targetId! }}
                       initial={{ do_not_contact: false, occurred_at: nowLocal() }}
                       hidden={['do_not_contact', 'occurred_at']}

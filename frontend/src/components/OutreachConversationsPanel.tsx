@@ -65,7 +65,7 @@ const localNow = () => {
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 
-const ROW_LIMIT = '200'
+const ROW_LIMIT = '500'
 
 export function OutreachConversationsPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
