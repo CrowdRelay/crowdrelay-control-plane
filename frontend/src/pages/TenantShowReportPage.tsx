@@ -9,6 +9,19 @@ import { Badge } from '../components/app/badge'
 import { formatTimestamp } from '../lib/format'
 import { ArrowLeft } from 'lucide-solid'
 
+/** The report names its own evidence gaps — a stranger reading "what this
+ * cannot claim" gets a sentence, not a snake_case key. Keys are the set
+ * `show_growth_execution` emits today; an unknown one falls back to words. */
+const GAP_LABEL: Record<string, string> = {
+  room_attendance_unverified: 'how many people were actually in the room — check-ins were not verified',
+  no_counterparty_on_record: 'the promoter’s own copy — no counterparty is on record for this night',
+  no_active_band_recipient: 'a band-side recipient — nobody is active to receive it',
+  no_event_campaigns_on_record: 'what the system did — no campaigns are on record for this night',
+  streams_not_measured: 'streaming numbers — they are not measured',
+}
+
+const gapLabel = (key: string) => GAP_LABEL[key] ?? key.replaceAll('_', ' ')
+
 /** `/tenants/$slug/shows/$eventSlug/report` — the T+7 artifact. What the
  * promoter and the band receive by email: the night's numbers split by
  * evidence class, the campaigns with their receipts, the gaps named out
@@ -145,7 +158,7 @@ export function TenantShowReportPage() {
                   <p class="text-xs font-medium text-foreground">What this cannot claim</p>
                   <ul class="mt-1 list-inside list-disc text-xs text-muted-foreground">
                     <For each={data().report.evidence_gaps ?? []}>
-                      {gap => <li>{gap.replaceAll('_', ' ')}</li>}
+                      {gap => <li>{gapLabel(gap)}</li>}
                     </For>
                   </ul>
                 </div>
