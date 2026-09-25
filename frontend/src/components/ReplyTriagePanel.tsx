@@ -135,8 +135,8 @@ export function ReplyTriagePanel() {
               <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Answered you — your turn</h3>
               <p class="mt-1 text-sm text-muted-foreground">
                 {authState.isPlatformLevel()
-                  ? 'Contacts whose latest logged message is inbound, from the outreach interaction ledger. A declined or do-not-contact answer closes the row; an outbound message logged after the reply does too.'
-                  : 'They wrote back and nobody has answered them since. Reply from your mailbox. Logging a no takes them off this list; your own reply leaves it once your outreach log records it.'}
+                  ? 'Contacts whose latest logged message is inbound, from the outreach interaction ledger. A declined or do-not-contact answer closes the row; an outbound message logged after the reply ("I wrote back") does too.'
+                  : 'They wrote back and nobody has answered them since. Reply from your mailbox, then press "I wrote back" — or log their answer if it was a no.'}
               </p>
             </div>
           </div>
@@ -294,6 +294,16 @@ function WaitingRow(props: { contact: WaitingReply; slug: string }) {
     </div>
     <div class="flex flex-col items-end gap-2 flex-shrink-0">
       <StatusBadge status={c().disposition} tone={dispositionTone(c().disposition)} />
+      <SurfaceAction
+        slug={props.slug}
+        size="xs"
+        variant="outline"
+        action={capabilityAction('outreach-conversations', 'I wrote back')}
+        label="I wrote back"
+        fixed={{ target_id: c().target_id }}
+        initial={{ occurred_at: localNow() }}
+        onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })}
+      />
       <SurfaceAction
         slug={props.slug}
         size="xs"
