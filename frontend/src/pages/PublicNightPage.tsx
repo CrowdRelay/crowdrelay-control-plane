@@ -5,7 +5,28 @@ import type { SharedNight } from '../lib/types'
 /** `/nights/{slug}/{token}` — the organiser lens on one shared night
  * (4V.6b). No session, no shell chrome: the bearer token is the whole
  * credential, the slug names the tenant that minted it, and a dead link is
- * the same not-found as a token that never existed. */
+ * the same not-found as a token that never existed.
+ *
+ * The reader is a stranger on a phone with thirty seconds. The order is
+ * theirs: what is this → is it still on → who plays → what the bill can
+ * bring → what the acts said. Nothing scrolls sideways at 375px. */
+
+/** The night's events rolled up by status, as a stranger reads them —
+ * 'published' is what the room announced, 'completed' is a night that
+ * happened, 'cancelled' must be louder than the rest. */
+const STATUS_LABEL: Record<string, string> = {
+  published: 'Announced',
+  completed: 'Played',
+  cancelled: 'Cancelled',
+}
+
+/** The contributed announce states — `planned|announced|done` upstream,
+ * phrased for a reader who does not know the schema. */
+const ANNOUNCE_LABEL: Record<string, string> = {
+  planned: 'plans to announce',
+  announced: 'announced the night',
+  done: 'posted about it',
+}
 
 export default function PublicNightPage(props: { slug: string; token: string }) {
   const [night, setNight] = createSignal<SharedNight | null>(null)
@@ -21,6 +42,21 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
   const money = (minor: number | null | undefined) =>
     minor == null ? null : `${(minor / 100).toLocaleString(undefined, { minimumFractionDigits: 0 })}`
 
+  const nightDate = (iso: string) => {
+    const date = new Date(`${iso}T00:00:00Z`)
+    return Number.isNaN(date.getTime())
+      ? iso
+      : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)
+  }
+
+  const statusBadges = (status: Record<string, number>) =>
+    Object.entries(status).map(([key, count]) => ({
+      key,
+      count,
+      label: STATUS_LABEL[key] ?? key.replaceAll('_', ' '),
+      cancelled: key === 'cancelled',
+    }))
+
   return (
     <div class="mx-auto max-w-xl px-5 py-10">
       <Show when={night()} fallback={
@@ -32,49 +68,71 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
       }>
         {data => (
           <>
-            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">The night</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">A shared night</p>
             <h1 class="mt-1 text-xl font-semibold text-foreground">
               {data().venue.display_name} · {data().venue.city_name}
             </h1>
-            <p class="mt-0.5 text-sm text-muted-foreground">{data().event_date}</p>
+            <p class="mt-0.5 text-sm text-muted-foreground">{nightDate(data().event_date)}</p>
 
-            <div class="mt-5">
-              <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lineup</p>
-              <For each={data().lineup}>
-                {act => (
-                  <div class="mt-1.5 flex items-baseline gap-2 text-sm">
-                    <span class="w-4 shrink-0 text-right tabular-nums text-muted-foreground">{act.position + 1}.</span>
-                    <span class="text-foreground">{act.name}</span>
-                    <span class="text-xs text-muted-foreground">{act.confirmed ? 'confirmed' : ''}</span>
-                  </div>
-                )}
-              </For>
-            </div>
+            <Show when={statusBadges(data().status ?? {}).length > 0}>
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                <For each={statusBadges(data().status ?? {})}>
+                  {badge => (
+                    <span
+                      class={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        badge.cancelled
+                          ? 'bg-destructive/15 text-destructive'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {badge.count > 1 ? `${badge.count}× ` : ''}{badge.label}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            <Show when={(data().lineup ?? []).length > 0}>
+              <div class="mt-5">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">The bill</p>
+                <For each={data().lineup}>
+                  {act => (
+                    <div class="mt-1.5 flex items-baseline gap-2 text-sm">
+                      <span class="w-4 shrink-0 text-right tabular-nums text-muted-foreground">{act.position + 1}.</span>
+                      <span class="text-foreground">{act.name}</span>
+                      <span class="text-xs text-muted-foreground">{act.confirmed ? 'confirmed' : ''}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
 
             {/* Sums only — a per-act part cannot appear on this lens because
-                the payload never selects one. */}
+                the payload never selects one. Every cell reads as a number
+                or '—'; zero is a number, absent is a fact about consent. */}
             <div class="mt-5 grid grid-cols-2 gap-3">
-              <Fact label="Combined reach" value={data().combined_reachable?.toLocaleString() ?? '—'} />
+              <Fact label="People the bill can reach" value={data().combined_reachable?.toLocaleString() ?? '—'} />
               <Fact label="Tickets sold" value={data().tickets_sold?.toLocaleString() ?? '—'} />
               <Fact label="Room capacity" value={data().capacity?.toLocaleString() ?? '—'} />
-              <Fact label="Payout total" value={money(data().payout_total_minor) ?? '—'} />
+              <Fact label="Payout to the bill" value={money(data().payout_total_minor) ?? '—'} />
             </div>
 
             <Show when={(data().announce ?? []).length > 0}>
               <div class="mt-5">
-                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Announcements</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">What the acts posted</p>
                 <For each={data().announce ?? []}>
                   {row => (
                     <p class="mt-1 text-sm text-muted-foreground">
-                      {row.act ?? 'An unnamed act'} — {row.state}
+                      {row.act ?? 'An unnamed act'} — {ANNOUNCE_LABEL[row.state] ?? row.state.replaceAll('_', ' ')}
                     </p>
                   )}
                 </For>
               </div>
             </Show>
 
-            <p class="mt-8 text-xs text-muted-foreground">
-              Shared by the acts on this bill. Figures are what each side chose to publish.
+            <p class="mt-8 text-xs leading-relaxed text-muted-foreground">
+              Shared by the acts on this bill. Every figure is what an act chose to
+              publish — nothing else left their side.
             </p>
           </>
         )}
@@ -87,7 +145,7 @@ function Fact(props: { label: string; value: string }) {
   return (
     <div class="rounded-lg border border-border bg-background px-3 py-2">
       <p class="text-xs uppercase tracking-wide text-muted-foreground">{props.label}</p>
-      <p class="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{props.value}</p>
+      <p class="mt-0.5 break-words text-lg font-semibold tabular-nums text-foreground">{props.value}</p>
     </div>
   )
 }
