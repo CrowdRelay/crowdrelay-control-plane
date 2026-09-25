@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { authState } from '../lib/auth'
 import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
-import { confidencePercent } from '../lib/format'
+import { confidencePercent, wireJsonReplacer } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
@@ -94,19 +94,19 @@ function DecisionEvidenceView(props: { slug: string; decisionId: string }) {
           <Show when={e().recommendation && Object.keys(e().recommendation).length > 0}>
             <div>
               <span class="text-xs text-muted-foreground">Recommended</span>
-              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().recommendation, null, 2)}</pre>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().recommendation, wireJsonReplacer, 2)}</pre>
             </div>
           </Show>
           <Show when={e().input_snapshot && Object.keys(e().input_snapshot).length > 0}>
             <div>
               <span class="text-xs text-muted-foreground">What it read</span>
-              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().input_snapshot, null, 2)}</pre>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().input_snapshot, wireJsonReplacer, 2)}</pre>
             </div>
           </Show>
           <Show when={e().policy_snapshot && Object.keys(e().policy_snapshot).length > 0}>
             <div>
               <span class="text-xs text-muted-foreground">Rules it applied</span>
-              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().policy_snapshot, null, 2)}</pre>
+              <pre class="text-xs text-muted-foreground bg-muted p-2 rounded-lg overflow-auto max-h-[100px] m-0 mt-1 whitespace-pre-wrap">{JSON.stringify(e().policy_snapshot, wireJsonReplacer, 2)}</pre>
             </div>
           </Show>
         </div>

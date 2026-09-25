@@ -556,11 +556,25 @@ async fn fetch_tenant_command_summary(
             // centre. Swallowing the reason made it undiagnosable: production
             // returned a fully unavailable model in 0.5s with nothing in the
             // log to say why.
-            tracing::warn!(
-                tenant = %slug,
-                error = %error,
-                "command-center: no management target; every section will read unavailable",
-            );
+            //
+            // A suspended or parked tenant has no management target by
+            // definition — that is tenant state, not a malfunction, and the
+            // command-centre poll would rewrite the warning line every
+            // interval. Only an active tenant missing its target is
+            // actionable.
+            if tenant.tenant.status == "suspended" || tenant.tenant.status == "parked" {
+                tracing::debug!(
+                    tenant = %slug,
+                    status = %tenant.tenant.status,
+                    "command-center: tenant has no management target (expected for its status)",
+                );
+            } else {
+                tracing::warn!(
+                    tenant = %slug,
+                    error = %error,
+                    "command-center: no management target; every section will read unavailable",
+                );
+            }
             return TenantCommandData::default();
         }
     };
