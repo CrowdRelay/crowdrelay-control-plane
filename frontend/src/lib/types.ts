@@ -2047,7 +2047,6 @@ export interface PremiumModel {
   provider: string
   name: string
   best_for: string
-  agentic: boolean
   price_input_per_mtok: number
   price_output_per_mtok: number
 }
