@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Index, Show, createMemo, createSignal } from 'solid-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -548,31 +548,36 @@ function VariantListEditor(props: {
   const setRows = (next: string[]) => props.onChange(JSON.stringify(next))
 
   return <div class="flex flex-col gap-2">
-    <For each={rows()}>{(text, index) => (
+    {/* Index, not For: For reconciles by item identity, and every keystroke
+        re-serializes to JSON — the edited row's string is a new identity, so
+        its input element was destroyed and remounted each character and focus
+        died after one keystroke. Index keys by position: the element persists
+        and only its value accessor updates. */}
+    <Index each={rows()}>{(text, index) => (
       <div class="flex items-start gap-2">
         <div class="flex-1">
           <Input
-            value={text}
+            value={text()}
             maxLength={JOIN_ASK_VARIANT_MAX_CHARS + 50}
             disabled={props.disabled}
             onInput={e => {
               const next = rows().slice()
-              next[index()] = e.currentTarget.value
+              next[index] = e.currentTarget.value
               // Keep empty rows in the draft so deleting a row's text does not
               // collapse it out from under the cursor; the serializer drops
               // blanks at save, and the blocked reason names them first.
               props.onChange(JSON.stringify(next))
             }}
           />
-          <small class="text-xs text-muted-foreground">{text.trim().length}/{JOIN_ASK_VARIANT_MAX_CHARS}</small>
+          <small class="text-xs text-muted-foreground">{text().trim().length}/{JOIN_ASK_VARIANT_MAX_CHARS}</small>
         </div>
         <Button variant="ghost" size="sm" writes disabled={props.disabled}
-          onClick={() => setRows(rows().filter((_, i) => i !== index()))}
+          onClick={() => setRows(rows().filter((_, i) => i !== index))}
           aria-label="Remove this post">
           Remove
         </Button>
       </div>
-    )}</For>
+    )}</Index>
     <Show when={rows().length < JOIN_ASK_VARIANT_MAX_ROWS}>
       <div>
         <Button variant="outline" size="sm" writes disabled={props.disabled}
