@@ -291,6 +291,24 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
+    // The whole outreach list, as conversations: the act's press, radio,
+    // venue and agent outreach lived in its own sheets, with no list here.
+    id: 'outreach-conversations', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' }, title: 'Outreach conversations',
+    purpose: 'Every press, radio, venue and agent contact with where the conversation stands — whose move it is, who never answered, who never heard from you.',
+    read: {
+      path: 'autopilot/outreach-contacts',
+      query: [
+        { name: 'state', label: 'Where it stands', kind: 'select', options: ['your_turn', 'waiting_on_them', 'not_contacted', 'closed'] },
+        { name: 'kind', label: 'Kind', kind: 'text' },
+        { name: 'limit', label: 'How many', kind: 'number' },
+      ],
+    },
+    actions: [{
+      label: 'I wrote back', method: 'POST', path: 'autopilot/outreach-targets/{target_id}/written', rowParams: { target_id: 'target_id' },
+      fields: [{ name: 'occurred_at', label: 'When', kind: 'datetime', required: true }],
+    }],
+  },
+  {
     id: 'relay-ladder', pillar: 'grow', home: { path: '/content/material', section: 'Each source' }, title: "A post's relay spread",
     purpose: "One yes releases a synced post's whole spread — push and every admitted community; revoke stops what has not run.",
     actions: [

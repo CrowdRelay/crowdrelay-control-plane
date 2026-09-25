@@ -163,6 +163,8 @@ pub(crate) const SURFACE: &[Surface] = &[
     write("POST", "autopilot/outreach-waves/{wave_id}/approve"),
     write("POST", "autopilot/outreach-targets"),
     write("POST", "autopilot/outreach-targets/{target_id}/reply"),
+    read_q("autopilot/outreach-contacts", &["state", "kind", "limit"]),
+    write("POST", "autopilot/outreach-targets/{target_id}/written"),
     write("POST", "autopilot/outreach/submission-channels"),
     write("POST", "autopilot/booking-targets"),
     write("POST", "autopilot/booking-targets/{target_id}/editions"),
