@@ -1,18 +1,20 @@
 import { For, Show, createSignal } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
+import { capabilityAction } from '../lib/capabilities'
 import { confidencePercent, errorMessage, money } from '../lib/format'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
-import type { ReplyTriageEntry } from '../lib/types'
+import type { ReplyTriageEntry, WaitingReply } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Metric, MetricRow } from './ui/metric'
 import { Button } from './app/button'
+import { SurfaceAction } from './capabilities/SurfaceAction'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -69,6 +71,12 @@ export function ReplyTriagePanel() {
   }))
 
   const data = () => model.data?.reply_triage
+  const waiting = () => data()?.waiting_on_you ?? []
+  const waitingCount = () => data()?.summary.waiting_on_you_count ?? waiting().length
+  const [showAllWaiting, setShowAllWaiting] = createSignal(false)
+  // Everything here that asks a person for something: replies to read, and
+  // people who answered and have not heard back.
+  const openCount = () => (data()?.summary.needs_human_count ?? 0) + waitingCount()
 
   const [showAllNeedsHuman, setShowAllNeedsHuman] = createSignal(false)
   const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
@@ -79,8 +87,8 @@ export function ReplyTriagePanel() {
       <p class="text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Inbound replies the classifier could not resolve on its own. Read the text, then decide.' : 'Inbound replies it could not sort on its own. Read the text, then decide.'}</p>
       <Show when={data()}>
         <StatusBadge
-          status={data()!.summary.needs_human_count > 0 ? `${data()!.summary.needs_human_count} waiting` : 'clear'}
-          tone={data()!.summary.needs_human_count > 0 ? 'warn' : 'good'}
+          status={openCount() > 0 ? `${openCount()} waiting` : 'clear'}
+          tone={openCount() > 0 ? 'warn' : 'good'}
         />
       </Show>
     </div>
@@ -116,8 +124,38 @@ export function ReplyTriagePanel() {
         </Show>
       </MetricRow>
 
+      {/* Answered you. The classifier's queue only sees replies that went
+          through it; people who answered by a route it never reads — the
+          reply form, the sheet import — were invisible here while they
+          waited. Their last word is theirs, so the next move is the act's. */}
+      <Show when={waitingCount() > 0}>
+        <section id="answered" class="pt-2">
+          <div class="flex justify-between gap-4 items-start">
+            <div>
+              <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Answered you — your turn</h3>
+              <p class="mt-1 text-sm text-muted-foreground">
+                {authState.isPlatformLevel()
+                  ? 'Contacts whose latest logged message is inbound, from the outreach interaction ledger. A declined or do-not-contact answer closes the row; an outbound message logged after the reply does too.'
+                  : 'They wrote back and nobody has answered them since. Reply from your mailbox. Logging a no takes them off this list; your own reply leaves it once your outreach log records it.'}
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col mt-3">
+            <For each={showAllWaiting() ? waiting() : waiting().slice(0, MAX_VISIBLE)}>{contact => <WaitingRow contact={contact} slug={params().slug} />}</For>
+          </div>
+          <Show when={waitingCount() > waiting().length}>
+            <p class="mt-2 text-xs text-muted-foreground">{waitingCount() - waiting().length} more not listed — the oldest are cut first.</p>
+          </Show>
+          <Show when={waiting().length > MAX_VISIBLE}>
+            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllWaiting(s => !s)}>
+              {showAllWaiting() ? 'Show fewer' : `Show all ${waiting().length}`}
+            </Button>
+          </Show>
+        </section>
+      </Show>
+
       {/* Needs human */}
-      <section class="pt-2">
+      <section class={waitingCount() > 0 ? 'pt-4 border-t border-border' : 'pt-2'}>
         <div class="flex justify-between gap-4 items-start">
           <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Read these</h3></div>
         </div>
@@ -229,6 +267,44 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
           >{busy() === 'do_not_contact' ? '…' : 'DNC'}</Button>
         </div>
       </Show>
+    </div>
+  </div>
+}
+
+/** Now, in the shape a datetime-local input takes: the answer being logged
+ *  is usually today's, and the form needs one to submit. */
+const localNow = () => {
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+function WaitingRow(props: { contact: WaitingReply; slug: string }) {
+  const queryClient = useQueryClient()
+  const c = () => props.contact
+  return <div class="flex flex-wrap items-start justify-between gap-3 py-3 border-b border-border last:border-0">
+    <div class="min-w-0 flex-1">
+      <strong class="block text-foreground">{c().display_name}</strong>
+      <small class="block text-muted-foreground text-sm">
+        {[targetKindLabel(c().target_kind), c().reply_label].filter(Boolean).join(' · ')}
+      </small>
+      <small class="block text-muted-foreground text-sm">
+        answered {timeAgo(c().replied_at)}
+        {c().last_written_at ? ` · you last wrote ${timeAgo(c().last_written_at)}` : ' · no message from you on record'}
+      </small>
+    </div>
+    <div class="flex flex-col items-end gap-2 flex-shrink-0">
+      <StatusBadge status={c().disposition} tone={dispositionTone(c().disposition)} />
+      <SurfaceAction
+        slug={props.slug}
+        size="xs"
+        variant="ghost"
+        action={capabilityAction('outreach-replies', 'Record a reply')}
+        label="Log their answer"
+        fixed={{ target_id: c().target_id }}
+        initial={{ disposition: c().disposition, occurred_at: localNow() }}
+        hidden={['opportunity_id']}
+        onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })}
+      />
     </div>
   </div>
 }
