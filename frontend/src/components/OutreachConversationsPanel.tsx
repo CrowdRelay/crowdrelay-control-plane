@@ -12,6 +12,7 @@ import { SkeletonRows } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
 import { SurfaceAction } from './capabilities/SurfaceAction'
 import { Button } from './app/button'
+import { OutreachContactDrawer } from './OutreachContactDrawer'
 import { cn } from '../lib/cn'
 
 // The outreach list as conversations — the process view of the act's press,
@@ -70,6 +71,8 @@ export function OutreachConversationsPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
   const [stage, setStage] = createSignal<ConversationState>('your_turn')
   const [showAll, setShowAll] = createSignal(false)
+  // The row that is open in the drawer — one contact's whole thread.
+  const [openTarget, setOpenTarget] = createSignal<string | null>(null)
   const MAX_VISIBLE = 15
 
   const list = useQuery(() => ({
@@ -99,6 +102,16 @@ export function OutreachConversationsPanel(props: { slug: string }) {
       description={platform()
         ? 'Every outreach target with its conversation state, read from the interaction ledger: the latest message decides the stage.'
         : 'Everyone you pitch — press, radio, venues, agents — and where each conversation stands. Your turn comes first: those are the ones that go cold.'}
+      action={
+        <SurfaceAction
+          slug={props.slug}
+          size="sm"
+          label="Add a contact"
+          action={capabilityAction('outreach-targets', 'Add or update a target')}
+          hidden={['version']}
+          onDone={refresh}
+        />
+      }
     >
       {/* The stages are the pipeline: each tab is a count and a filter.
           "Your turn" leads — it is the stage that goes cold. */}
@@ -125,7 +138,7 @@ export function OutreachConversationsPanel(props: { slug: string }) {
         >
           <div class="mt-3 flex flex-col">
             <For each={showAll() ? rows() : rows().slice(0, MAX_VISIBLE)}>{contact => (
-              <ConversationRow contact={contact} slug={props.slug} onDone={refresh} />
+              <ConversationRow contact={contact} slug={props.slug} onDone={refresh} onOpen={() => setOpenTarget(contact.target_id)} />
             )}</For>
           </div>
           <Show when={rows().length > MAX_VISIBLE}>
@@ -140,6 +153,12 @@ export function OutreachConversationsPanel(props: { slug: string }) {
           </Show>
         </Show>
       </Show>
+      <OutreachContactDrawer
+        slug={props.slug}
+        targetId={openTarget()}
+        onClose={() => setOpenTarget(null)}
+        onChanged={refresh}
+      />
     </Section>
   )
 }
@@ -160,7 +179,7 @@ const emptyHint = (stage: ConversationState, platform: boolean) => {
   return platform ? 'No target is in this stage.' : 'Conversations move here as they happen.'
 }
 
-function ConversationRow(props: { contact: OutreachContact; slug: string; onDone: () => void }) {
+function ConversationRow(props: { contact: OutreachContact; slug: string; onDone: () => void; onOpen: () => void }) {
   const c = () => props.contact
   const quiet = () => {
     const days = daysSince(c().last_written_at)
@@ -187,7 +206,14 @@ function ConversationRow(props: { contact: OutreachContact; slug: string; onDone
 
   return (
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-border py-3 last:border-0">
-      <div class="min-w-0 flex-1">
+      <div
+        class="min-w-0 flex-1 cursor-pointer rounded-sm outline-offset-2 hover:bg-muted/30 focus-visible:outline-2"
+        role="button"
+        tabIndex={0}
+        onClick={props.onOpen}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onOpen() } }}
+        title="Open the whole thread"
+      >
         <strong class="block text-foreground">{c().display_name}</strong>
         <small class="block text-sm text-muted-foreground">
           {[kindLabel(c().target_kind), c().reply_label].filter(Boolean).join(' · ')}

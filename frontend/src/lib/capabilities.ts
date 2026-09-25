@@ -242,7 +242,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'outreach-targets', pillar: 'grow', gap: 'No console read lists outreach targets, so a press or playlist contact added here would vanish from view. Needs a targets read first; the contacts who answered already have a row, under outreach-replies.', title: 'Outreach targets',
+    id: 'outreach-targets', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' }, title: 'Outreach targets',
     purpose: 'Playlists, press, radio, creators and labels the band pitches — add one you know.',
     actions: [
       {
@@ -272,6 +272,25 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         ],
       },
     ],
+  },
+  {
+    // One contact's whole thread — the drawer a row in the conversations
+    // list opens. Carries the suppression control too: 'I wrote back' and
+    // 'Record a reply' already live on outreach-conversations and
+    // outreach-replies; "don't contact" needed a route of its own.
+    id: 'outreach-conversation', pillar: 'grow',
+    home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' },
+    title: 'A contact’s conversation',
+    purpose: 'Every message either way, the letters the machine drafted or sent, and what happens next.',
+    read: { path: 'autopilot/outreach-targets/{target_id}/conversation', paramSources: { target_id: 'text' } },
+    actions: [{
+      label: "Don't contact", method: 'POST', path: 'autopilot/outreach-targets/{target_id}/suppression', rowParams: { target_id: 'target_id' },
+      confirm: 'No machine letter ever goes to this address again.',
+      fields: [
+        { name: 'do_not_contact', label: 'Do not contact', kind: 'bool', initial: true },
+        { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
+      ],
+    }],
   },
   {
     // The reply half of the outreach contacts: it has a row to attach to
