@@ -34,6 +34,12 @@ export const errorMessage = (value: unknown, fallback: string) => {
 /// Four animated components each carried a byte-identical copy of this, so a
 /// change to how motion preference is read — or a fix to the `window`
 /// guard — had to be made in four places or the surfaces would disagree.
+/** A beacon's kind is stored as a lowercase enum token (`local_press`), and
+ *  a folded entity wears several (`community · creator`). The list cell says
+ *  the words a person would. */
+export const beaconKindLabel = (kind: string) =>
+  kind.split('·').map(token => token.trim().replace(/_/g, ' ')).join(' · ')
+
 export const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches

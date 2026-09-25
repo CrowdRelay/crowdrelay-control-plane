@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { BeaconProfileView } from '../lib/types'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { beaconKindLabel, errorMessage, formatTimestamp } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
@@ -68,8 +68,10 @@ const EMPTY_FORM = {
 }
 
 export function BeaconConsolePanel(props: { slug: string }) {
+  // Same keys the signal panel uses — two names for one endpoint meant the
+  // roster fetched the full dashboard twice every time the tab opened.
   const roster = useQuery(() => ({
-    queryKey: ['beacon-console-roster', props.slug],
+    queryKey: ['beacon-signal-dashboard', props.slug],
     queryFn: () => api.beaconSignalDashboard(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -77,7 +79,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // Only for the researched-contact count. A button that cannot say how many
   // contacts it will bring over is a dare: press it and find out.
   const network = useQuery(() => ({
-    queryKey: ['beacon-console-network', props.slug],
+    queryKey: ['beacon-signal-network', props.slug],
     queryFn: () => api.beaconNetwork(props.slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -93,7 +95,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // Pagination — only controls what is rendered, not what is selected.
   // "Select all N shown" selects the full filtered set so bulk invite still
   // reaches every matching beacon, even those not yet rendered.
-  const MAX_VISIBLE = 10
+  const MAX_VISIBLE = 15
   const [showAll, setShowAll] = createSignal(false)
 
   const profiles = () => roster.data?.profiles ?? []
@@ -127,12 +129,18 @@ export function BeaconConsolePanel(props: { slug: string }) {
   // paused/revoked stay revivable one at a time through Re-invite.
   const invitable = (profile: BeaconProfileView) =>
     profile.contactEmail !== null &&
+    profile.verified !== false &&
+    profile.acceptsOutreach !== false &&
+    profile.doNotContact !== true &&
     (profile.status === 'unverified' ||
       (profile.status === 'invited' &&
         !(profile.inviteExpiresAt && new Date(profile.inviteExpiresAt).getTime() > Date.now())))
 
   const notInvitableReason = (profile: BeaconProfileView) => {
     if (profile.contactEmail === null) return 'No contact email — add one before inviting'
+    if (profile.doNotContact === true) return 'Marked do-not-contact'
+    if (profile.verified === false || profile.acceptsOutreach === false)
+      return 'Contact route not verified yet — the roster only invites verified addresses'
     if (profile.status === 'active') return 'Already a Signal member'
     if (profile.status === 'invited') return 'Invitation already sent — re-invites once the link expires'
     if (profile.status === 'paused') return 'Paused — use Re-invite to approach deliberately'
@@ -165,7 +173,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
       const result = await run()
       setNotice({ tone: 'good', message: typeof done === 'function' ? done(result) : done })
       await roster.refetch()
-      refreshQueries(['beacon-console-network', props.slug])
+      refreshQueries(['beacon-signal-network', props.slug], ['beacon-signal-candidates', props.slug])
     } catch (error) {
       setNotice({ tone: 'bad', message: errorMessage(error, 'That did not work') })
     } finally {
@@ -186,7 +194,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         await network.refetch()
         return result
       },
-      `Imported researched contacts. They are unverified — approve them before inviting.`,
+      `Imported researched contacts. They are unverified — the roster only invites verified addresses.`,
     )
   }
 
@@ -202,7 +210,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
         await network.refetch()
         return result
       },
-      `Imported SubmitHub curators. They are unverified — enrich contact info from the chats, then approve.`,
+      `Imported SubmitHub curators. They are unverified — enrich contact info from the chats first.`,
     ).then(() => { input.value = '' })
   }
 
@@ -211,7 +219,29 @@ export function BeaconConsolePanel(props: { slug: string }) {
     if (ids.length === 0) return
     void act(
       'invite',
-      () => api.batchInviteBeacons(props.slug, ids),
+      // One mint caps at 200 ids — a city-scale select goes in waves, each
+      // wave its own idempotent request, and the tally reports what all the
+      // waves together actually did.
+      async () => {
+        const MAX_WAVE = 200
+        let created = 0
+        let skipped = 0
+        for (let i = 0; i < ids.length; i += MAX_WAVE) {
+          try {
+            const wave = await api.batchInviteBeacons(props.slug, ids.slice(i, i + MAX_WAVE))
+            created += wave.created
+            skipped += wave.skipped
+          } catch (error) {
+            // A wave that fails after earlier waves minted is a partial send —
+            // the error says what actually went out, never a flat failure.
+            if (created === 0) throw error
+            throw new Error(
+              `${created} invitation${created === 1 ? '' : 's'} sent, then a wave failed: ${errorMessage(error, 'upstream refused')}`,
+            )
+          }
+        }
+        return { created, skipped }
+      },
       // Report what the mint actually did, not what was asked for — a
       // selection can contain rows that became ineligible between render and
       // send, and "Invited 5" that mailed 3 is the lie this panel exists
@@ -427,7 +457,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                       <div class="flex flex-col gap-0.5">
                         <strong class="text-sm text-foreground">{profile.displayName}</strong>
                         <span class="text-xs text-muted-foreground truncate">
-                          {profile.beaconKind}
+                          {beaconKindLabel(profile.beaconKind)}
                           {profile.city ? ` · ${profile.city}` : ''}
                           {profile.contactEmail ? ` · ${profile.contactEmail}` : ' · no email'}
                         </span>

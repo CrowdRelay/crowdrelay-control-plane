@@ -1,4 +1,4 @@
-import { PanelTitle } from './layout'
+import { Deferred, PanelTitle } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { BookingAgentsPanel } from './BookingAgentsPanel'
 import { BeaconConsolePanel } from './BeaconConsolePanel'
@@ -59,7 +59,7 @@ export function ContactsPanel(props: { slug: string }) {
           Fans who can also carry word — they already have an audience of
           their own, so a share from them lands warmer than an ad.
         </p>
-        <DualRoleContactsPanel slug={props.slug} />
+        <Deferred><DualRoleContactsPanel slug={props.slug} /></Deferred>
       </div>
 
       {/* Awaiting review — staged addresses awaiting classification. */}
@@ -69,7 +69,7 @@ export function ContactsPanel(props: { slug: string }) {
           Addresses staged from connected sources — promote each to a fan,
           press or booking supply, or dismiss it.
         </p>
-        <DriveContactsPanel slug={props.slug} />
+        <Deferred><DriveContactsPanel slug={props.slug} /></Deferred>
       </div>
     </div>
   )

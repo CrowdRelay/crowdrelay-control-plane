@@ -3275,6 +3275,15 @@ export type BeaconProfileView = {
   openPressRequests: number
   activeEngagements: number
   coverageCount: number
+  // Consent and identity flags — optional because older deployments did not
+  // send them; `undefined` reads as "not blocked" so the UI never invents a
+  // refusal the mint did not make.
+  verified?: boolean
+  acceptsOutreach?: boolean
+  doNotContact?: boolean
+  relevanceBasisPoints?: number
+  relationshipScore?: number
+  destinationUrl?: string | null
 }
 
 // Beacon candidates — object { candidates: [...] }, camelCase.

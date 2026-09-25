@@ -9,7 +9,7 @@ import { Dialog } from './Dialog'
 import { refreshQueries } from '../lib/refresh'
 import { SkeletonRows } from './Skeleton'
 import { Spinner } from './Spinner'
-import { ErrorCard } from './layout'
+import { ErrorCard, ShowMore, useShowMore } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -77,6 +77,16 @@ export function BookingAgentsPanel(props: { slug: string }) {
   const [guideError, setGuideError] = createSignal<string | null>(null)
   const [holdEndsAt, setHoldEndsAt] = createSignal<number | null>(null)
   const [holdLeft, setHoldLeft] = createSignal(0)
+
+  // An open door outranks a closed one — the agent you could write to today
+  // sits above the one who declined this season — and a screenful renders,
+  // not every agency the registry knows.
+  const orderedAgents = () =>
+    [...(agents.data?.agents ?? [])].sort((a, b) => {
+      const rank = { good: 0, warn: 1, muted: 2, bad: 3 } as const
+      return rank[doorTone(a)] - rank[doorTone(b)] || a.name.localeCompare(b.name)
+    })
+  const showMore = useShowMore(orderedAgents, 15)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['booking-agents', props.slug] })
   // A queued/approved/cancelled approach is the same parked action the
@@ -220,7 +230,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <For each={agents.data!.agents}>{agent => (
+              <For each={showMore.visible()}>{agent => (
                 <>
                   <TableRow>
                     <TableCell>
@@ -294,6 +304,12 @@ export function BookingAgentsPanel(props: { slug: string }) {
               )}</For>
             </TableBody>
           </Table>
+          <ShowMore
+            hidden={showMore.hidden()}
+            expanded={showMore.expanded()}
+            onToggle={showMore.toggle}
+            noun="agents"
+          />
         </Show>
       </Show>
 

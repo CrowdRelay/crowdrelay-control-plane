@@ -4,7 +4,7 @@ import { api, ApiError } from '../lib/api'
 import { writeGuard } from '../lib/read-only'
 import { errorMessage } from '../lib/format'
 import type { DualRoleContact, LatarnikInviteResult } from '../lib/types'
-import { KpiCard, KpiStrip, PanelTitle, ErrorCard } from './layout'
+import { KpiCard, KpiStrip, PanelTitle, ErrorCard, ShowMore, useShowMore } from './layout'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './app/card'
@@ -132,6 +132,18 @@ export function DualRoleContactsPanel(props: { slug: string }) {
     staleTime: 10_000,
   }))
 
+  // The actionable rows first — somebody you could ask today outranks a
+  // contact you may not touch — then a screenful, not the whole list.
+  const ordered = () =>
+    [...(review.data?.contacts ?? [])].sort((a, b) => {
+      const rank = (c: DualRoleContact) =>
+        !c.hears_the_dates && !c.already_invited && c.invitable ? 0
+        : !c.hears_the_dates && !c.already_invited ? 1
+        : !c.hears_the_dates ? 2 : 3
+      return rank(a) - rank(b) || a.display_name.localeCompare(b.display_name)
+    })
+  const showMore = useShowMore(ordered, 15)
+
   return <Card flat class="space-y-4">
     <div>
       <PanelTitle icon={<SectionIcon name="users" />}>Also an audience</PanelTitle>
@@ -171,9 +183,15 @@ export function DualRoleContactsPanel(props: { slug: string }) {
           </KpiStrip>
 
           <div class="flex flex-col gap-2">
-            <For each={data().contacts}>{(contact) =>
+            <For each={showMore.visible()}>{(contact) =>
               <DualRoleRow slug={props.slug} contact={contact} />
             }</For>
+            <ShowMore
+              hidden={showMore.hidden()}
+              expanded={showMore.expanded()}
+              onToggle={showMore.toggle}
+              noun="people"
+            />
           </div>
         </Show>
       </>}
