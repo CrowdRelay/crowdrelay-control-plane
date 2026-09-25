@@ -53,7 +53,7 @@ const OPS_SECTION_LABEL: Record<string, string> = {
   audience: 'The audience',
   growth_metrics: 'Growth metrics',
   acquisition_sources: 'Acquisition sources',
-  reply_triage: 'Reply triage',
+  reply_triage: 'Replies and answers',
   shows: 'Shows',
   attention: 'Needs you',
   next_show_timeline: 'The next show timeline',
@@ -760,14 +760,28 @@ function NeedsYouStrip(props: { model: () => TenantTodayReadModel | undefined; s
   const lapsed = () => notReported('lapsed_approvals') ? 0 : (attention()?.lapsed_approvals?.total ?? 0)
   const failedSends = () => notReported('failed_sends') ? 0 : (attention()?.failed_sends?.total ?? 0)
   const overflow = () => Math.max(0, (attention()?.awaiting_approval ?? 0) - approvals().length)
+  // People who answered and have not heard back. They come from the reply
+  // read, not the attention snapshot: a reply is not an approval, but it is
+  // the most perishable thing an outreach round produces.
+  const answered = () => props.model()?.reply_triage?.waiting_on_you ?? []
+  const answeredCount = () => props.model()?.reply_triage?.summary.waiting_on_you_count ?? answered().length
+  const answeredMeta = () => {
+    const positive = answered().filter(reply => reply.disposition === 'positive').length
+    const oldest = answered().map(reply => reply.replied_at).sort()[0]
+    return [
+      positive > 0 ? `${positive} positive` : null,
+      oldest ? `oldest answer ${formatIsoAge(oldest)}` : null,
+    ].filter(Boolean).join(' · ')
+  }
   const count = () => {
     const a = attention()
     if (!a || degraded()) return undefined
-    return (notReported('awaiting_approval') ? approvals().length : (a.awaiting_approval ?? 0)) + draftsTotal()
+    return (notReported('awaiting_approval') ? approvals().length : (a.awaiting_approval ?? 0)) + draftsTotal() + answeredCount()
   }
   const visible = () =>
     degraded()
     || approvals().length > 0
+    || answeredCount() > 0
     || draftsTotal() > 0
     || lapsed() + failedSends() > 0
     || notReported('needs_you')
@@ -829,6 +843,25 @@ function NeedsYouStrip(props: { model: () => TenantTodayReadModel | undefined; s
                 <span class="text-sm text-muted-foreground group-hover:text-foreground">
                   +{overflow()} more waiting on a decision — the queue has all of them
                 </span>
+              </Link>
+            </Show>
+            <Show when={answeredCount() > 0}>
+              <Link
+                to="/tenants/$slug/operations"
+                params={{ slug: props.slug }}
+                search={{ tab: 'replies' }}
+                hash="answered"
+                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+              >
+                <div class="min-w-0">
+                  <span class="text-sm font-medium text-foreground group-hover:underline">
+                    {answeredCount()} {answeredCount() === 1 ? 'person answered' : 'people answered'} you — your turn
+                  </span>
+                  <Show when={answeredMeta()}>
+                    <p class="mt-0.5 text-xs text-muted-foreground">{answeredMeta()}</p>
+                  </Show>
+                </div>
+                <span class="shrink-0 text-xs text-muted-foreground">on Replies</span>
               </Link>
             </Show>
             <Show when={draftsTotal() > 0}>

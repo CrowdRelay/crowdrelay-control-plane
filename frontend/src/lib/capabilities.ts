@@ -242,8 +242,8 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'outreach-targets', pillar: 'grow', gap: 'No console read lists outreach targets, so a press or playlist contact added here would vanish from view, and a reply has no row to attach to. Needs a targets read first.', title: 'Outreach targets',
-    purpose: 'Playlists, press, radio, creators and labels the band pitches — add one you know, and file what they answered.',
+    id: 'outreach-targets', pillar: 'grow', gap: 'No console read lists outreach targets, so a press or playlist contact added here would vanish from view. Needs a targets read first; the contacts who answered already have a row, under outreach-replies.', title: 'Outreach targets',
+    purpose: 'Playlists, press, radio, creators and labels the band pitches — add one you know.',
     actions: [
       {
         label: 'Add or update a target', method: 'POST', path: 'autopilot/outreach-targets',
@@ -262,15 +262,6 @@ export const SURFACE_CAPABILITIES: Capability[] = [
         ],
       },
       {
-        label: 'Record a reply', method: 'POST', path: 'autopilot/outreach-targets/{target_id}/reply', paramSources: { target_id: 'text' },
-        fields: [
-          { name: 'disposition', label: 'Answer', kind: 'select', required: true, options: ['none', 'received', 'positive', 'declined', 'do_not_contact'] },
-          { name: 'reply_text', label: 'What they said', kind: 'textarea' },
-          { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
-          { name: 'opportunity_id', label: 'Opportunity', kind: 'uuid' },
-        ],
-      },
-      {
         label: 'Submission channel', method: 'POST', path: 'autopilot/outreach/submission-channels',
         fields: [
           { name: 'slug', label: 'Slug', kind: 'text', required: true },
@@ -278,6 +269,23 @@ export const SURFACE_CAPABILITIES: Capability[] = [
           { name: 'cost_model', label: 'Cost', kind: 'select', required: true, options: ['free', 'credit', 'fee', 'paid_placement'], hint: 'paid placement is never used' },
           { name: 'submission_url', label: 'URL', kind: 'text' },
           { name: 'active', label: 'Active', kind: 'bool', initial: true },
+        ],
+      },
+    ],
+  },
+  {
+    // The reply half of the outreach contacts: it has a row to attach to
+    // now — every contact whose last word is theirs is listed with its id.
+    id: 'outreach-replies', pillar: 'grow', home: { path: '/operations?tab=replies', section: 'Answered you — your turn' }, title: 'Answers from outreach contacts',
+    purpose: 'Press, radio, venues and agents who wrote back — log how it went, and a no takes them off the list.',
+    actions: [
+      {
+        label: 'Record a reply', method: 'POST', path: 'autopilot/outreach-targets/{target_id}/reply', paramSources: { target_id: 'text' },
+        fields: [
+          { name: 'disposition', label: 'Answer', kind: 'select', required: true, options: ['none', 'received', 'positive', 'declined', 'do_not_contact'] },
+          { name: 'reply_text', label: 'What they said', kind: 'textarea' },
+          { name: 'occurred_at', label: 'When', kind: 'datetime', required: true },
+          { name: 'opportunity_id', label: 'Opportunity', kind: 'uuid' },
         ],
       },
     ],

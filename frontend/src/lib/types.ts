@@ -1824,13 +1824,31 @@ export type TenantExecutorCapabilities = {
 export type ReplyTriageView = {
   needs_human: ReplyTriageEntry[]
   recent_auto: ReplyTriageEntry[]
+  /** Contacts whose last message is theirs — positive first, then the
+   *  longest wait. Absent from an upstream that predates it. */
+  waiting_on_you?: WaitingReply[]
   summary: {
     needs_human_count: number
     auto_positive_count: number
     auto_declined_count: number
     auto_do_not_contact_count: number
     pending_count: number
+    waiting_on_you_count?: number
   }
+}
+
+/** One contact who answered and has not heard back since. */
+export type WaitingReply = {
+  target_id: string
+  display_name: string
+  target_kind: string
+  disposition: string
+  /** Their answer in the source's own words (a sheet's result column). */
+  reply_label: string | null
+  replied_at: string
+  /** The act's last message to them, before the answer; null when the log
+   *  holds none. */
+  last_written_at: string | null
 }
 
 export type ReplyTriageEntry = {
