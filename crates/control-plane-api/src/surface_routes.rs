@@ -96,6 +96,9 @@ const fn platform(surface: Surface) -> Surface {
 pub(crate) const SURFACE: &[Surface] = &[
     // What the brain did, which connections work, where actions wait.
     read_q("ops/cycles", &["state", "limit"]),
+    // The goal scoreboard: planned vs actual, learning, approvals, the
+    // lanes that produced no fans, and the Reddit account's standing.
+    read("ops/goal"),
     read("ops/connections"),
     read("ops/action-states"),
     read("ecosystem/overview"),
@@ -203,6 +206,12 @@ pub(crate) const SURFACE: &[Surface] = &[
         "POST",
         "autopilot/content-sources/{source_id}/relay-ladder/revoke",
     ),
+    // The reply lane: drafted answers to people who commented on the band's
+    // posts (Reddit, Instagram, Facebook) — approve as written or edited, or
+    // skip.
+    read("community-replies"),
+    write("POST", "community-replies/{reply_id}/approve"),
+    write("POST", "community-replies/{reply_id}/skip"),
     write("POST", "telegram-posts/{telegram_post_id}/register-manual"),
     write("POST", "discord-posts/{discord_post_id}/register-manual"),
     // Places.
