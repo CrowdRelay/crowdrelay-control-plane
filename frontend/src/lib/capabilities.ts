@@ -669,6 +669,16 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   },
 
   // ── Operate ────────────────────────────────────────────────────────
+  { id: 'goal', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Goal scoreboard' }, title: 'Goal scoreboard', purpose: 'Planned vs actual for the live objective, learning progress, approval latency, lanes that produced no fans, and the Reddit account standing.', read: { path: 'ops/goal' } },
+  {
+    id: 'community-replies', pillar: 'operate', home: { path: '/audience?tab=communities', section: 'Replies waiting' }, title: 'Replies waiting',
+    purpose: 'Drafted answers to people who commented on the band\'s posts — send as written or edited, or skip.',
+    read: { path: 'community-replies' },
+    actions: [
+      { label: 'Send reply', method: 'POST', path: 'community-replies/{reply_id}/approve', paramSources: { reply_id: 'text' }, fields: [{ name: 'text', label: 'Reply as sent', kind: 'textarea' }] },
+      { label: 'Skip reply', method: 'POST', path: 'community-replies/{reply_id}/skip', paramSources: { reply_id: 'text' } },
+    ],
+  },
   {
     id: 'cycles', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Recent cycles' }, title: "The brain's last cycles",
     purpose: 'Each autopilot cycle, newest first — and which ones ran degraded.',

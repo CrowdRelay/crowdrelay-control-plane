@@ -1,4 +1,5 @@
 import { CommunityHouseRulesPanel } from '../components/CommunityHouseRulesPanel'
+import { ReplyQueuePanel } from '../components/ReplyQueuePanel'
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -298,6 +299,8 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
   return (
     <div class="space-y-4">
       <p class="text-sm text-muted-foreground">Places your listeners already gather: subreddits, forums, Discord servers. The brain observes them; joining is a person's job, and this is the queue for it.</p>
+
+      <ReplyQueuePanel slug={props.slug} />
 
       <TabBar
         class="mb-0"

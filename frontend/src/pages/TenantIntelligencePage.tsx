@@ -1,4 +1,5 @@
 import { BrainCyclesPanel } from '../components/BrainCyclesPanel'
+import { GoalScoreboardPanel } from '../components/GoalScoreboardPanel'
 import { ReachPanel } from '../components/ReachPanel'
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
@@ -235,6 +236,7 @@ export function TenantIntelligencePage() {
             names them before an approval meets the refusal. */}
         <ExecutorCapabilitiesPanel slug={params().slug} />
         <GrowthObjectivesPanel slug={params().slug} />
+        <GoalScoreboardPanel slug={params().slug} />
         <GrowthPosturePanel slug={params().slug} />
         <RunBrainCyclePanel slug={params().slug} />
         <BrainCyclesPanel slug={params().slug} />
