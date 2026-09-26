@@ -24,6 +24,8 @@ import { relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
+import { AudienceFirstScreen } from '../components/AudienceFirstScreen'
+import { StatusBadge } from '../components/StatusBadge'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 // Each read model names its own sections — 'overview' means audience KPIs in
@@ -33,12 +35,18 @@ const AUDIENCE_SECTION_LABEL: Record<string, string> = {
   overview: 'Audience KPIs',
   fans: 'Fan list',
   segments: 'Segments',
+  growth_metrics: 'Followers per platform',
+  acquisition_sources: 'Arrival sources',
+  signal: 'Signal activity',
 }
 
 const BAND_AUDIENCE_SECTION_LABEL: Record<string, string> = {
   overview: 'Audience numbers',
   fans: 'Fan list',
   segments: 'Segments',
+  growth_metrics: 'Followers per platform',
+  acquisition_sources: 'Where fans came from',
+  signal: 'New fans',
 }
 
 const PORTFOLIO_SECTION_LABEL: Record<string, string> = {
@@ -91,6 +99,7 @@ export function AudiencePage() {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refresh = () => model.refetch()
+  const [showMessages, setShowMessages] = createSignal(window.location.hash.includes('message'))
 
   // The merged-in portfolio model — fan sources and amplification consents.
   // The settings it used to carry moved to the tenant page's Workspace tab;
@@ -122,9 +131,15 @@ export function AudiencePage() {
   return <PageShell>
     <PageHeader
       title="Audience"
-      description="Every fan from every source in one place, and the communities where they already gather."
+      description="Who follows you, and who you can reach."
       actions={
         <>
+          <Show when={model.data?.signal?.activity}>
+            {activity => <StatusBadge
+              status={activity().new_fans_7d > 0 ? `+${activity().new_fans_7d} fans this week` : 'No new fans this week'}
+              tone={activity().new_fans_7d > 0 ? 'good' : 'warn'}
+            />}
+          </Show>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <Button variant="outline" size="sm" onClick={refreshAll} disabled={refreshing()} aria-label="Refresh">
             <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
@@ -133,6 +148,9 @@ export function AudiencePage() {
         </>
       }
     />
+
+    <Show when={model.data}>{data => <AudienceFirstScreen model={data()} />}</Show>
+    <div class="mt-6" />
 
     {/* Tab bar */}
     <TabBar
@@ -164,7 +182,9 @@ export function AudiencePage() {
       </Show>
       <Show when={model.data} keyed>{(data) => <>
         <DegradedSections degraded={data.degraded} labels={AUDIENCE_SECTION_LABEL} bandLabels={BAND_AUDIENCE_SECTION_LABEL} />
-        <Show when={!data.degraded.includes('overview')}>
+        {/* The funnel itself is on the first screen now; the panel stays for
+            its empty state — the three ways to get a first fan in. */}
+        <Show when={!data.degraded.includes('overview') && (data.overview?.active_fans ?? 0) === 0}>
           <AudienceOverviewPanel slug={params().slug} overview={data.overview ?? undefined} onGoSources={() => switchTab('sources')} onGoCommunities={() => switchTab('communities')} onGoContacts={() => switchTab('contacts')} />
         </Show>
         <Show when={!data.degraded.includes('fans')}>
@@ -173,7 +193,15 @@ export function AudiencePage() {
         <Show when={!data.degraded.includes('segments')}>
           <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
         </Show>
-        <FanMessagesPanel slug={params().slug} />
+        {/* Messages to fans read their own campaign list; it loads when
+            opened so the page opens on the audience read alone. */}
+        <Show when={showMessages()} fallback={
+          <div class="mt-6 border-t border-border pt-6">
+            <Button variant="outline" size="sm" onClick={() => setShowMessages(true)}>Messages to fans</Button>
+          </div>
+        }>
+          <FanMessagesPanel slug={params().slug} />
+        </Show>
       </>}</Show>
     </TabPanel>
 
