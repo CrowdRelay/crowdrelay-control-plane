@@ -587,6 +587,9 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                     // What the approved asks produced — terminal actions
                     // with measurement verdicts; Today's "is it working".
                     | "/v1/control-plane/ops/outcomes"
+                    // Prizes to send — Today's second wave reads it directly;
+                    // the surface table also proxies it for the write path.
+                    | "/v1/control-plane/reward-fulfillments"
                     | "/v1/control-plane/ops/outbox"
                     | "/v1/control-plane/ops/deliveries"
                     | "/v1/control-plane/ops/delivery-results"

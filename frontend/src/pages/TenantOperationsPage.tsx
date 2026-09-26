@@ -359,7 +359,7 @@ export function TenantOperationsPage() {
 
       {/* Prizes owed to draw winners — a chore with a person on the other
           end. Silent when nothing is owed. */}
-      <PrizesToSendPanel slug={params().slug} />
+      <PrizesToSendPanel slug={params().slug} rows={d()?.reward_fulfillments} />
     </Show>
 
     <div class="mt-3">
@@ -852,13 +852,13 @@ const METRIC_PHRASE: Record<string, string> = {
 const metricPhrase = (key: string) => METRIC_PHRASE[key] ?? key.replaceAll('_', ' ')
 
 function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slug: string }) {
-  const outcomes = useQuery(() => ({
-    queryKey: ['ops-outcomes', props.slug],
-    queryFn: () => api.opsOutcomes(props.slug),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
-  }))
+  // The outcome ledger arrives inside the today model (`outcomes`), so the
+  // card costs no call of its own. A model without it — the section degraded
+  // — reads as "could not be read", never as an empty ledger.
+  const outcomes = {
+    get data() { return props.model()?.outcomes ?? undefined },
+    get isPending() { return props.model() == null },
+  }
 
   /// The group's honest verdict word. Mixed results name their parts —
   /// "1 improved · 2 flat" — instead of collapsing into one direction.

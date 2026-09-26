@@ -117,18 +117,6 @@ export function TenantPlacesPage() {
   const params = useParams({ from: '/tenants/$slug/places' })
   const queryClient = useQueryClient()
 
-  // AREA routes sit behind require_platform_level upstream, so a band
-  // session's probe is a guaranteed 403 — `entitled`/`enabled` can never
-  // be observed by the sessions the || branch was written for. The tab is
-  // platform-only; the probe stays only to warm the workspace's cache key.
-  const areaOverview = useQuery(() => ({
-    queryKey: ['area-overview', params().slug],
-    queryFn: () => api.areaOverview(params().slug),
-    enabled: authState.isPlatformLevel(),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  }))
-  const areaVisible = () => authState.isPlatformLevel()
 
   // The valid list follows the entitlement: a band deep link `?tab=area`
   // on a tenant without AREA has nowhere valid to land, and the URL-follow
@@ -137,6 +125,20 @@ export function TenantPlacesPage() {
   const activeTab = () => areas.active()
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
+
+  // AREA routes sit behind require_platform_level upstream, so a band
+  // session's probe is a guaranteed 403 — `entitled`/`enabled` can never
+  // be observed by the sessions the || branch was written for. The area is
+  // platform-only, and its read waits until the area is opened: the first
+  // screen is one call (`places/cities`), not two.
+  const areaVisible = () => authState.isPlatformLevel()
+  const areaOverview = useQuery(() => ({
+    queryKey: ['area-overview', params().slug],
+    queryFn: () => api.areaOverview(params().slug),
+    enabled: areaVisible() && isVisited('area'),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  }))
 
   // Each tab owns its thin read model, enabled once visited — the Cities
   // tab never pays for the venue registry, the Online tab never pays for

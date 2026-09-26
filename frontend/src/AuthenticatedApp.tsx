@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/solid-query'
+import { fetchTenantOverview } from './lib/tenantOverview'
 import { Link, RouterProvider, createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/solid-router'
 import { Shell } from './components/Shell'
 import { queryClient } from './lib/queryClient'
@@ -63,7 +64,7 @@ const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage, beforeLoad: ({ params, search }) => {
   const tab = (search as { tab?: string }).tab
   if (tab == null || tab === 'today') throw redirect({ href: `/tenants/${params.slug}/operations` })
-}, loader: ({ params }) => warm(['tenant-overview', params.slug], () => api.tenantOverview(params.slug))() })
+}, loader: ({ params }) => warm(['tenant-overview', params.slug], () => fetchTenantOverview(params.slug))() })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=portfolio` }) } })
 const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage, beforeLoad: ({ params, search }) => {
   // The places tab became a first-class destination — a deep link to it
@@ -85,7 +86,7 @@ const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, pat
 // steps. The list warms on intent like its siblings; a run's forum detail is
 // a second query that only fires when the card opens.
 const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: TenantInMotionPage, loader: ({ params }) => warm(['in-motion-model', params.slug], () => api.inMotionModel(params.slug))() })
-const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => { warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))(); warm(['tenant-delivery', params.slug], () => api.deliveryModel(params.slug))() } })
+const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
 const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() })

@@ -2,10 +2,11 @@ import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useIsFetching, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { AlertTriangle, Plug, RefreshCw } from 'lucide-solid'
-import { api, request } from '../lib/api'
+import { api } from '../lib/api'
+import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { formatIsoAge, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
-import type { AgentProviderHealth, PremiumUsage } from '../lib/types'
+import type { AgentProviderHealth } from '../lib/types'
 import { AgentPanel } from '../components/AgentPanel'
 import { PageShell } from '../components/layout'
 import { Card, DashHeader, IconAct, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
@@ -38,28 +39,31 @@ export function TenantIntegrationsPage() {
   const params = useParams({ from: '/tenants/$slug/integrations' })
   const areas = useWorkAreas(['providers'])
 
-  const health = useQuery(() => ({
-    queryKey: ['agent-health', params().slug],
-    queryFn: () => api.agentHealth(params().slug),
+  // One read for the first screen. Its three sections seed the keys the
+  // providers panel observes, so opening that panel costs nothing more.
+  const qc = useQueryClient()
+  const overview = useQuery(() => ({
+    queryKey: ['agent-integrations', params().slug],
+    queryFn: async () => {
+      const slug = params().slug
+      const model = await api.agentIntegrations(slug)
+      if (model.health) qc.setQueryData(['agent-health', slug], model.health)
+      if (model.alerts) qc.setQueryData(['agent-health-alerts', slug], model.alerts)
+      if (model.usage) qc.setQueryData(['premium-ai-usage', slug], model.usage)
+      return model
+    },
     refetchOnWindowFocus: false,
     staleTime: 30_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  const alerts = useQuery(() => ({
-    queryKey: ['agent-health-alerts', params().slug],
-    queryFn: () => api.agentHealthAlerts(params().slug),
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
-  const usage = useQuery(() => ({
-    queryKey: ['premium-ai-usage', params().slug],
-    queryFn: () => request<PremiumUsage>(`/tenants/${params().slug}/agents/premium/usage`),
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
-  }))
+  const missing = (name: 'health' | 'alerts' | 'usage') =>
+    overview.error ?? (overview.data?.degraded.includes(name) ? new Error(`${name} could not be read`) : null)
+  const health = { get data() { return overview.data?.health ?? undefined }, get error() { return missing('health') } }
+  const alerts = { get data() { return overview.data?.alerts ?? undefined }, get error() { return missing('alerts') } }
+  const usage = { get data() { return overview.data?.usage ?? undefined } }
 
   // The page's refresh reaches every agent query by prefix; "Updated" reads
   // the newest of whatever has loaded.
-  const qc = useQueryClient()
   const isAgentQuery = (key: readonly unknown[]) =>
     typeof key[0] === 'string' && AGENT_KEYS.some(prefix => (key[0] as string).startsWith(prefix)) && key[1] === params().slug
   const fetching = useIsFetching(() => ({ predicate: q => isAgentQuery(q.queryKey) }))

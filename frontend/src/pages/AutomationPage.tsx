@@ -50,9 +50,25 @@ export function AutomationPage() {
   const areas = useWorkAreas([...TABS])
   const [statusFilter, setStatusFilter] = createSignal<string>('')
 
+  // One read for the first screen: the newest events and every workflow's
+  // rules. It seeds the two keys below, which then only fetch on their own
+  // when a filter changes or a mutation invalidates them.
+  const model = useQuery(() => ({
+    queryKey: ['automation-model', slug()],
+    queryFn: async () => {
+      const s = slug()
+      const m = await api.automationModel(s)
+      queryClient.setQueryData(['automation-events', s, ''], m.events)
+      queryClient.setQueryData(['automation-workflow-configs', s], m.workflows)
+      return m
+    },
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  }))
   const events = useQuery(() => ({
     queryKey: ['automation-events', slug(), statusFilter()],
     queryFn: () => api.automationEvents(slug(), { limit: 100, status: statusFilter() || undefined }),
+    enabled: !model.isPending,
     reconcile: 'id',
     staleTime: 10_000,
     refetchOnWindowFocus: false,
@@ -60,6 +76,7 @@ export function AutomationPage() {
   const configs = useQuery(() => ({
     queryKey: ['automation-workflow-configs', slug()],
     queryFn: () => api.automationWorkflowConfigs(slug()),
+    enabled: !model.isPending,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   }))

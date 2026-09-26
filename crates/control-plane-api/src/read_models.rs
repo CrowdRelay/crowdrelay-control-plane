@@ -1066,6 +1066,7 @@ fn no_store(value: Value) -> Response {
 async fn overview(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let slug = validation::slug(&raw_slug)?;
     let cache_key = format!("{slug}:overview");
@@ -1073,12 +1074,66 @@ async fn overview(
         return Ok(no_store(cached));
     }
     let tenant = state.store.tenant_by_slug(&slug).await?;
+    // The tenant's own settings — what the Settings first screen reads — ride
+    // along so that page opens on this one call. They are the only part of
+    // this model that crosses the tunnel, so they are the only part that can
+    // be missing: a tenant that is down, parked or never deployed still gets
+    // its identity, jobs and audit, with `settings` null and named in
+    // `degraded`.
+    let settings = async {
+        if matches!(tenant.tenant.status.as_str(), "suspended" | "parked") {
+            return Err(ApiError::Conflict(format!(
+                "tenant is {}",
+                tenant.tenant.status
+            )));
+        }
+        let target = state
+            .store
+            .latest_management_url(tenant.tenant.id)
+            .await?
+            .ok_or_else(|| {
+                ApiError::Unavailable(
+                    "tenant has no successful local CrowdRelay management target".to_owned(),
+                )
+            })?;
+        state
+            .area_client
+            .request_management(
+                tenant.tenant.id,
+                &target,
+                ManagementRequest {
+                    method: "GET",
+                    path: "/v1/control-plane/tenant-settings",
+                    body: None,
+                    correlation_id: correlation(&headers),
+                    idempotency_key: None,
+                },
+            )
+            .await
+    };
     // Both list reads take the already-resolved tenant id: one lookup per
     // request, not three.
-    let (provisioning, audit) = tokio::try_join!(
-        state.store.provisioning_jobs_for(tenant.tenant.id, 20),
-        state.store.audit_for_tenant_id(tenant.tenant.id, 40),
-    )?;
+    let (lists, settings) = tokio::join!(
+        async {
+            tokio::try_join!(
+                state.store.provisioning_jobs_for(tenant.tenant.id, 20),
+                state.store.audit_for_tenant_id(tenant.tenant.id, 40),
+            )
+        },
+        settings,
+    );
+    let (provisioning, audit) = lists?;
+    let settings = match settings {
+        Ok(value) if value.is_object() => Some(value),
+        Ok(_) => {
+            tracing::warn!(slug = %slug, "tenant settings were not an object");
+            None
+        }
+        Err(error) => {
+            tracing::debug!(slug = %slug, %error, "tenant settings unavailable for the overview");
+            None
+        }
+    };
 
     // Map each provisioning row through `job_with_phase` so the frontend
     // `ProvisioningJob` contract (which requires `phase`) holds on this
@@ -1095,6 +1150,8 @@ async fn overview(
         "tenant": tenant,
         "provisioning": {"items": provisioning_with_phase},
         "audit": {"items": audit},
+        "degraded": if settings.is_some() { json!([]) } else { json!(["settings"]) },
+        "settings": settings,
         "platform": {
             "runtimeStaleAfterSeconds": state.runtime_stale_after_seconds,
             "provisionerConfigured": state.provisioner_token_hash.is_some(),
@@ -1222,42 +1279,63 @@ async fn today(
     // The dependent hop: the nearest upcoming show's timeline can only be
     // fetched once `shows` names it. No upcoming night means no section at
     // all — absent is a fact, not a degradation.
-    let next_show_timeline = match next_upcoming_show_slug(shows.as_ref().ok()) {
-        Some(event_slug) => Some(
-            state
-                .area_client
-                .request_management(
-                    tenant.tenant.id,
-                    &target,
-                    ManagementRequest {
-                        method: "GET",
-                        path: &format!("/v1/control-plane/events/{event_slug}/timeline"),
-                        body: None,
-                        correlation_id: correlation(&headers),
-                        idempotency_key: None,
-                    },
-                )
-                .await,
-        ),
-        None => None,
-    };
+    // The second wave: the nearest upcoming show's timeline can only be
+    // fetched once `shows` names it (no upcoming night means no section at
+    // all — absent is a fact, not a degradation). The outcome ledger and the
+    // prizes to send ride the same wave: the first one already fills the
+    // pool, and this hop costs its round trip either way.
+    let next_show_slug = next_upcoming_show_slug(shows.as_ref().ok());
+    let (next_show_timeline, outcomes, fulfillments) = tokio::join!(
+        async {
+            match next_show_slug {
+                Some(event_slug) => Some(
+                    state
+                        .area_client
+                        .request_management(
+                            tenant.tenant.id,
+                            &target,
+                            ManagementRequest {
+                                method: "GET",
+                                path: &format!("/v1/control-plane/events/{event_slug}/timeline"),
+                                body: None,
+                                correlation_id: correlation(&headers),
+                                idempotency_key: None,
+                            },
+                        )
+                        .await,
+                ),
+                None => None,
+            }
+        },
+        section("/v1/control-plane/ops/outcomes"),
+        section("/v1/control-plane/reward-fulfillments"),
+    );
+    // The same normalisation the dedicated outcomes endpoint applies, so the
+    // page reads one shape whichever way it arrives.
+    let outcomes = outcomes.map(crate::operations_routes::normalize_ops_outcomes);
 
-    let projected = project_today(
+    let projected = project_today_with(
         &slug,
         state.runtime_stale_after_seconds,
-        summary.as_ref(),
-        flags.as_ref(),
-        autopilot.as_ref(),
-        growth.as_ref(),
-        opportunities.as_ref(),
-        signal.as_ref(),
-        audience.as_ref(),
-        growth_metrics.as_ref(),
-        acquisition_sources.as_ref(),
-        reply_triage.as_ref(),
-        shows.as_ref(),
-        attention.as_ref(),
+        [
+            summary.as_ref(),
+            flags.as_ref(),
+            autopilot.as_ref(),
+            growth.as_ref(),
+            opportunities.as_ref(),
+            signal.as_ref(),
+            audience.as_ref(),
+            growth_metrics.as_ref(),
+            acquisition_sources.as_ref(),
+            reply_triage.as_ref(),
+            shows.as_ref(),
+            attention.as_ref(),
+        ],
         next_show_timeline.as_ref().map(Result::as_ref),
+        vec![
+            self::section("outcomes", outcomes.as_ref(), Shape::Object),
+            self::section("reward_fulfillments", fulfillments.as_ref(), Shape::Array),
+        ],
     )?;
     let mut projected = projected;
     inject_today_derived(&mut projected);
@@ -2590,17 +2668,20 @@ async fn content(
                 .await
         }
     };
-    let (pipeline, results) = tokio::join!(
+    let (pipeline, results, material) = tokio::join!(
         fetch("/v1/control-plane/content/pipeline"),
         // Fifty covers a busy week: pushes land once per fan, so twenty-five
         // rows were a handful of posts.
         fetch("/v1/control-plane/ops/delivery-results?limit=50"),
+        // "Material it works from" — the material page's own one-statement
+        // view, carried whole so opening that page costs nothing more.
+        fetch("/v1/control-plane/views/content-material"),
     );
     let projected = project_sections(
         &slug,
         state.runtime_stale_after_seconds,
         "content",
-        &content_sections(pipeline.as_ref(), results.as_ref()),
+        &content_sections(pipeline.as_ref(), results.as_ref(), material.as_ref()),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
@@ -2610,10 +2691,12 @@ async fn content(
 fn content_sections<'a>(
     pipeline: SectionResult<'a>,
     results: SectionResult<'a>,
-) -> [Section<'a>; 2] {
+    material: SectionResult<'a>,
+) -> [Section<'a>; 3] {
     [
         section("pipeline", pipeline, Shape::Object),
         section("delivery_results", results, Shape::Object),
+        section("material", material, Shape::Object),
     ]
 }
 
@@ -2859,7 +2942,10 @@ fn next_upcoming_show_slug(shows: Option<&Value>) -> Option<String> {
 /// Passing an upstream response through verbatim would let a CrowdRelay field
 /// addition enter the Control Plane contract unreviewed, and a section of the
 /// wrong JSON type is treated as a failed section rather than rendered.
+/// The tests pin the first wave through this entry point; the handler calls
+/// [`project_today_with`] directly.
 #[allow(clippy::too_many_arguments)]
+#[cfg(test)]
 fn project_today(
     slug: &str,
     runtime_stale_after_seconds: i64,
@@ -2876,6 +2962,52 @@ fn project_today(
     shows: SectionResult<'_>,
     attention: SectionResult<'_>,
     next_show_timeline: Option<SectionResult<'_>>,
+) -> Result<Value, ApiError> {
+    project_today_with(
+        slug,
+        runtime_stale_after_seconds,
+        [
+            summary,
+            flags,
+            autopilot,
+            growth,
+            opportunities,
+            signal,
+            audience,
+            growth_metrics,
+            acquisition_sources,
+            reply_triage,
+            shows,
+            attention,
+        ],
+        next_show_timeline,
+        Vec::new(),
+    )
+}
+
+/// `project_today` plus the sections fetched in the second wave, beside the
+/// next show's timeline: the outcome ledger ("Did it work") and the prizes
+/// waiting to be sent. They ride the dependent hop rather than the first
+/// wave because the first wave already fills the pool (`WIDEST_FAN_OUT`).
+fn project_today_with(
+    slug: &str,
+    runtime_stale_after_seconds: i64,
+    [
+        summary,
+        flags,
+        autopilot,
+        growth,
+        opportunities,
+        signal,
+        audience,
+        growth_metrics,
+        acquisition_sources,
+        reply_triage,
+        shows,
+        attention,
+    ]: [SectionResult<'_>; 12],
+    next_show_timeline: Option<SectionResult<'_>>,
+    later: Vec<Section<'_>>,
 ) -> Result<Value, ApiError> {
     let mut sections = vec![
         section("summary", summary, Shape::Object),
@@ -2901,6 +3033,7 @@ fn project_today(
     if let Some(timeline) = next_show_timeline {
         sections.push(section("next_show_timeline", timeline, Shape::Object));
     }
+    sections.extend(later);
     project_sections(slug, runtime_stale_after_seconds, "today", &sections)
 }
 
@@ -5411,15 +5544,17 @@ mod tests {
     #[test]
     fn content_keeps_the_drafts_when_the_results_are_down() {
         let pipeline = json!({"pending": [], "live_sources": 65});
+        let material = json!({"total": 34, "by_kind": []});
         let error = unreachable();
         let projected = project_sections(
             "virya",
             300,
             "content",
-            &content_sections(ok(&pipeline), Err(&error)),
+            &content_sections(ok(&pipeline), Err(&error), ok(&material)),
         )
         .expect("one dead section still projects the rest");
         assert_eq!(projected["pipeline"], pipeline);
+        assert_eq!(projected["material"], material);
         assert_eq!(projected["delivery_results"], Value::Null);
         assert_eq!(projected["degraded"], json!(["delivery_results"]));
     }

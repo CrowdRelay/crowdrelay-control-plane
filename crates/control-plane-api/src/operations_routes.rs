@@ -1891,7 +1891,7 @@ fn group_ops_outcome_actions(actions: &[Value]) -> Value {
     Value::Array(groups)
 }
 
-fn normalize_ops_outcomes(mut value: Value) -> Value {
+pub(crate) fn normalize_ops_outcomes(mut value: Value) -> Value {
     let Some(map) = value.as_object_mut() else {
         return value;
     };
