@@ -2609,8 +2609,12 @@ fn group_approval_batches(rows: &[Value]) -> Vec<Value> {
     }
     let mut groups: Vec<Group<'_>> = Vec::new();
     for row in rows {
+        // A row without an action kind cannot be named or grouped honestly —
+        // folding it into a ""-keyed batch would render "Approve 3 s".
+        let Some(action_kind) = row.get("action_kind").and_then(Value::as_str) else {
+            continue;
+        };
         let context = row.get("context").and_then(Value::as_str).unwrap_or("");
-        let action_kind = row.get("action_kind").and_then(Value::as_str).unwrap_or("");
         let subject_kind = row
             .get("subject_kind")
             .and_then(Value::as_str)

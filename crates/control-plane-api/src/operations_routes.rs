@@ -1759,7 +1759,9 @@ fn time_tuple_to_iso(arr: &[Value]) -> Option<String> {
     } else if arr.len() == 7 {
         int(6)?
     } else {
-        0
+        // Any other shape is not the OffsetDateTime tuple — relabeling it
+        // as UTC would print a wrong timestamp with confidence.
+        return None;
     };
     let utc = local - chrono::Duration::seconds(offset_seconds);
     Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(utc, chrono::Utc).to_rfc3339())
@@ -1802,12 +1804,29 @@ fn group_ops_outcome_actions(actions: &[Value]) -> Value {
             let rows = &by_kind[&kind];
             let (mut pending, mut unmeasured, mut measured) = (0i64, 0i64, 0i64);
             let (mut improved, mut neutral, mut worsened, mut failed) = (0i64, 0i64, 0i64, 0i64);
-            let mut latest: Option<(&str, &Value)> = None;
+            // Two separate "latest" trackers: `latest_finished` orders the
+            // group and drives its recency label (any action), while
+            // `latest_metrics` comes from the freshest *measured* action —
+            // a newer pending one carries empty outcomes and would hide the
+            // result line the group can actually show.
+            let mut latest_finished: Option<&str> = None;
+            let mut latest_measured: Option<(&str, &Value)> = None;
+            let mut first_measured: Option<&Value> = None;
             for action in rows.iter().copied() {
                 match action.get("outcome_state").and_then(Value::as_str) {
                     Some("pending") => pending += 1,
                     Some("unmeasured") => unmeasured += 1,
-                    Some("measured") => measured += 1,
+                    Some("measured") => {
+                        measured += 1;
+                        first_measured.get_or_insert(action);
+                        if let Some(finished) =
+                            action.get("finished_at").and_then(Value::as_str)
+                        {
+                            if latest_measured.is_none_or(|(current, _)| finished > current) {
+                                latest_measured = Some((finished, action));
+                            }
+                        }
+                    }
                     _ => {}
                 }
                 if action.get("status").and_then(Value::as_str) == Some("failed") {
@@ -1824,13 +1843,17 @@ fn group_ops_outcome_actions(actions: &[Value]) -> Value {
                     }
                 }
                 if let Some(finished) = action.get("finished_at").and_then(Value::as_str) {
-                    if latest.is_none_or(|(current, _)| finished > current) {
-                        latest = Some((finished, action));
+                    if latest_finished.is_none_or(|current| finished > current) {
+                        latest_finished = Some(finished);
                     }
                 }
             }
-            let latest_metrics = latest
-                .and_then(|(_, action)| action.get("outcomes"))
+            // A measured action with no finished_at still has metrics — it
+            // just can't win the recency race, so it is the fallback.
+            let latest_metrics = latest_measured
+                .map(|(_, action)| action)
+                .or(first_measured)
+                .and_then(|action| action.get("outcomes"))
                 .cloned()
                 .unwrap_or(Value::Null);
             json!({
@@ -1844,7 +1867,7 @@ fn group_ops_outcome_actions(actions: &[Value]) -> Value {
                 "neutral": neutral,
                 "worsened": worsened,
                 "failed": failed,
-                "latest_finished_at": latest.map(|(f, _)| f),
+                "latest_finished_at": latest_finished,
                 "latest_metrics": latest_metrics,
             })
         })

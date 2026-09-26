@@ -25,8 +25,7 @@ import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTab
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { TenantStatusLine } from '../components/TenantStatusLine'
-import { buttonVariants } from '../components/app/button'
-import { Button } from '../components/app/button'
+import { Button, buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
@@ -101,9 +100,12 @@ export function TenantOperationsPage() {
     if (st.failed_24h != null && st.failed_24h > 0)
       return { text: `${st.failed_24h} failed in the last day`, tone: 'warn' }
     if (st.running === false) return { text: 'the machine is off — nothing runs without you', tone: 'warn' }
-    if (st.running == null && st.done_24h == null)
-      return { text: 'the machine has not reported in', tone: 'muted' }
     const done = st.done_24h
+    if (st.running == null)
+      // Nobody reported a run state — name what was done, claim nothing more.
+      return done != null
+        ? { text: `${done} done in 24h`, tone: done > 0 ? 'good' : 'muted' }
+        : { text: 'the machine has not reported in', tone: 'muted' }
     return {
       text: done != null && done > 0 ? `on its own · ${done} done in 24h` : 'on its own',
       tone: 'good',
@@ -158,7 +160,7 @@ export function TenantOperationsPage() {
   // swap the show list while the old timeline sits in the model.
   const nextShowTimelineData = createMemo(() => {
     const tl = d()?.next_show_timeline
-    return tl && tl.event.slug === nextShow()?.slug ? tl : undefined
+    return tl && tl.event?.slug === nextShow()?.slug ? tl : undefined
   })
   const nextShowSteps = createMemo(() => {
     const rank = { due: 0, active: 1 } as const
@@ -173,7 +175,8 @@ export function TenantOperationsPage() {
   const nextShowDays = createMemo(() => {
     const show = nextShow()
     if (!show) return null
-    return Math.max(0, Math.ceil((Date.parse(show.starts_at) - Date.now()) / 86_400_000))
+    const parsed = Date.parse(show.starts_at)
+    return Number.isFinite(parsed) ? Math.max(0, Math.ceil((parsed - Date.now()) / 86_400_000)) : null
   })
 
   // Tickets sold and the room's capacity live on the sales-pace step's
@@ -181,8 +184,8 @@ export function TenantOperationsPage() {
   // — numbers get a type check, anything else reads as unknown, not zero.
   const nextShowSales = createMemo((): { sold: number | null; capacity: number | null } => {
     const tl = d()?.next_show_timeline
-    if (!tl || tl.event.slug !== nextShow()?.slug) return { sold: null, capacity: null }
-    const step = tl.steps.find(s => s.key === 'sales_pace')
+    if (!tl || tl.event?.slug !== nextShow()?.slug) return { sold: null, capacity: null }
+    const step = tl.steps?.find(s => s.key === 'sales_pace')
     const detail = step?.detail
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
     return { sold: num(detail?.['paid_tickets']), capacity: num(detail?.['capacity']) }
@@ -192,8 +195,8 @@ export function TenantOperationsPage() {
   // labels, and for the not-yet-done steps the anchor ("T-14") as the note.
   const nextShowChecklist = createMemo(() => {
     const tl = d()?.next_show_timeline
-    if (!tl || tl.event.slug !== nextShow()?.slug) return []
-    return tl.steps.map(s => ({
+    if (!tl || tl.event?.slug !== nextShow()?.slug) return []
+    return (tl.steps ?? []).map(s => ({
       key: s.key,
       label: s.label,
       state: s.state,
@@ -205,7 +208,9 @@ export function TenantOperationsPage() {
   // zero; the sections below degrade on their own rather than lying.
   const reachShare = () => {
     const a = d()?.audience
-    return a && a.active_fans > 0 ? a.marketing_consented_fans / a.active_fans : null
+    if (!a || !(a.active_fans > 0) || a.marketing_consented_fans == null) return null
+    const share = a.marketing_consented_fans / a.active_fans
+    return Number.isFinite(share) ? share : null
   }
   const shareOfActive = (value: number) => {
     const active = d()?.audience?.active_fans ?? 0
@@ -329,8 +334,8 @@ export function TenantOperationsPage() {
           value={nextShowDays() == null ? '—' : `in ${nextShowDays()}d`}
           sub={(() => {
             const tl = d()?.next_show_timeline
-            const city = tl && tl.event.slug === nextShow()?.slug
-              ? tl.event.venue_address?.split(',')[0] ?? null
+            const city = tl && tl.event?.slug === nextShow()?.slug
+              ? tl.event?.venue_address?.split(',')[0] ?? null
               : null
             return city ?? nextShow()?.title ?? 'no night booked'
           })()}
@@ -360,7 +365,7 @@ export function TenantOperationsPage() {
             show={nextShow()}
             address={(() => {
               const tl = d()?.next_show_timeline
-              return tl && tl.event.slug === nextShow()?.slug ? tl.event.venue_address : null
+              return tl && tl.event?.slug === nextShow()?.slug ? tl.event?.venue_address ?? null : null
             })()}
             showsLoaded={d()?.shows != null}
             days={nextShowDays()}
@@ -380,7 +385,7 @@ export function TenantOperationsPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'replies', label: 'Replies', count: () => d()?.derived?.work_area_counts.replies ?? 0 },
+        { id: 'replies', label: 'Replies', count: () => d()?.derived?.work_area_counts?.replies ?? 0 },
         { id: 'negotiations', label: 'Negotiations' },
         {
           id: 'outreach', label: 'Outreach',
@@ -617,7 +622,8 @@ const batchPhrase = (kind: string, count: number) => {
   const pair = BATCH_KIND_PHRASE[kind]
   if (pair) return count === 1 ? pair[0] : pair[1]
   const base = labelOr(DECISION_KIND_LABELS, kind).toLowerCase()
-  return count === 1 ? base : `${base}s`
+  if (count === 1) return base
+  return /(s|x|ch|sh)$/.test(base) ? `${base}es` : `${base}s`
 }
 
 function DoThisNext(props: {
@@ -633,7 +639,8 @@ function DoThisNext(props: {
     const subject = move.briefing?.content?.find(f => /temat|subject/i.test(f.label))?.value
     if (subject) return subject
     const [singular] = BATCH_KIND_PHRASE[move.recommended_action] ?? []
-    return singular ? `${singular[0]?.toUpperCase() ?? ''}${singular.slice(1)} to write` : move.recommended_action
+    if (singular) return `${singular[0]?.toUpperCase() ?? ''}${singular.slice(1)} to write`
+    return labelOr(DECISION_KIND_LABELS, move.decision_kind)
   }
   // Ranked by how fast each thing rots: a person who wrote back cools off,
   // an approval expires, a show step has a date on it.
@@ -948,7 +955,7 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
           <Show
             when={outcomes.data!.groups}
             fallback={
-              <For each={outcomes.data!.actions}>{line => (
+              <For each={outcomes.data!.actions ?? []}>{line => (
                 <OutcomeRow
                   label={line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
                   result={outcomeWord(line).word}
@@ -969,9 +976,9 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
               )}</For>
             )}
           </Show>
-          <Show when={outcomes.data!.actions.length === 0}>
+          <Show when={(outcomes.data!.actions ?? []).length === 0}>
             <p class="text-sm text-muted-foreground">
-              Nothing approved in the last {outcomes.data!.window_days} days — approve an ask above and what it produced lands here.
+              Nothing approved in the last {outcomes.data!.window_days ?? '—'} days — approve an ask above and what it produced lands here.
             </p>
           </Show>
         </Show>
