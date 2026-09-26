@@ -133,7 +133,10 @@ type CrewDraft = { name: string; email: string; skills: string[] }
 export function TenantWizardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const overview = useQuery(() => ({ queryKey: ['overview'], queryFn: api.overview, reconcile: 'id', staleTime: 30_000, refetchOnWindowFocus: false }))
+  // The wizard's one read: whether this plane can deploy, its default
+  // release, and the North Star vocabulary the fleet admits.
+  const wizard = useQuery(() => ({ queryKey: ['tenant-wizard'], queryFn: api.tenantWizard, staleTime: 30_000, refetchOnWindowFocus: false }))
+  const overview = { get data() { return wizard.data }, get error() { return wizard.error } }
 
   const [step, setStep] = createSignal(1)
   const [slug, setSlug] = createSignal('')
@@ -240,12 +243,7 @@ export function TenantWizardPage() {
   // server reports what the fleet admits and the list below offers only that.
   // A failed fetch leaves the parity-gated local list — the create call's
   // validator is the last guard either way.
-  const vocabulary = useQuery(() => ({
-    queryKey: ['north-star-vocabulary'],
-    queryFn: api.northStarVocabulary,
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
+  const vocabulary = { get data() { return wizard.data?.northStars } }
 
   const offeredNorthStars = createMemo(() => {
     const options = vocabulary.data?.options
@@ -336,7 +334,7 @@ export function TenantWizardPage() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['tenants'] }),
-        queryClient.invalidateQueries({ queryKey: ['overview'] }),
+        queryClient.invalidateQueries({ queryKey: ['tenant-wizard'] }),
       ])
       navigate({ to: '/tenants' })
     },

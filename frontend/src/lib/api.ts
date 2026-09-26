@@ -482,8 +482,8 @@ export const api = {
     }),
   northStarOptions: (slug: string) =>
     request<{ options: NorthStarOption[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/north-stars`),
-  northStarVocabulary: () =>
-    request<{ options: NorthStarOption[]; source: 'fleet' | 'platform' }>(`/north-star-options`),
+  tenantWizard: () =>
+    request<{ provisionerConfigured: boolean; provisionerDefaultImageTag: string | null; northStars: { options: NorthStarOption[]; source: 'fleet' | 'platform' } }>('/tenant-wizard'),
   updatePortfolioSetting: (slug: string, key: string, value: string) =>
     request<{ key: string; value: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/settings/${encodeURIComponent(key)}`, {
       method: 'POST',
