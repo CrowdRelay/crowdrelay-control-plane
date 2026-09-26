@@ -74,8 +74,11 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
             </h1>
             <p class="mt-0.5 text-sm text-muted-foreground">{nightDate(data().event_date)}</p>
 
-            <Show when={statusBadges(data().status ?? {}).length > 0}>
+            <Show when={statusBadges(data().status ?? {}).length > 0 || countdown(data().event_date)}>
               <div class="mt-3 flex flex-wrap gap-1.5">
+                <Show when={countdown(data().event_date)}>
+                  {label => <span class="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">{label()}</span>}
+                </Show>
                 <For each={statusBadges(data().status ?? {})}>
                   {badge => (
                     <span
@@ -112,7 +115,10 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
                 or '—'; zero is a number, absent is a fact about consent. */}
             <div class="mt-5 grid grid-cols-2 gap-3">
               <Fact label="People the bill can reach" value={data().combined_reachable?.toLocaleString() ?? '—'} />
-              <Fact label="Tickets sold" value={data().tickets_sold?.toLocaleString() ?? '—'} />
+              <Fact
+                label="Tickets sold"
+                value={data().tickets_sold == null ? '—' : `${data().tickets_sold!.toLocaleString()}${data().capacity != null ? ` of ${data().capacity!.toLocaleString()}` : ''}`}
+              />
               <Fact label="Room capacity" value={data().capacity?.toLocaleString() ?? '—'} />
               <Fact label="Payout to the bill" value={money(data().payout_total_minor) ?? '—'} />
             </div>
@@ -131,14 +137,26 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
             </Show>
 
             <p class="mt-8 text-xs leading-relaxed text-muted-foreground">
-              Shared by the acts on this bill. Every figure is what an act chose to
-              publish — nothing else left their side.
+              Shared by the acts on this bill. Sums only — no act's own list is shown
+              to the others, and every figure is what an act chose to publish.
             </p>
           </>
         )}
       </Show>
     </div>
   )
+}
+
+/** Days until the night, in words; null once it has passed. The night is a
+ *  UTC date, so "today" is the date itself, not a 24-hour window. */
+function countdown(isoDate: string): string | null {
+  const night = Date.parse(`${isoDate}T00:00:00Z`)
+  if (Number.isNaN(night)) return null
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
+  const days = Math.round((night - today) / 86_400_000)
+  if (days < 0) return null
+  if (days === 0) return 'Tonight'
+  return days === 1 ? '1 day to go' : `${days} days to go`
 }
 
 function Fact(props: { label: string; value: string }) {
