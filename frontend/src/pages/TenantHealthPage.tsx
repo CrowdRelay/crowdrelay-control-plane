@@ -1,4 +1,5 @@
 import { BoundsPanel } from '../components/BoundsPanel'
+import { fetchTenantOverview } from '../lib/tenantOverview'
 import { PlatformAgreementPanel } from '../components/PlatformAgreementPanel'
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
@@ -57,7 +58,10 @@ export function TenantHealthPage() {
   }))
   const overview = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],
-    queryFn: () => api.tenantOverview(params().slug),
+    queryFn: () => fetchTenantOverview(params().slug),
+    // Only the Switches area reads it (`canRedeploy`); the first screen is
+    // the today model alone.
+    enabled: isVisited('runtime'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -83,7 +87,7 @@ export function TenantHealthPage() {
   // Status-tab Refresh or a queue mutation does not pay the 5-call
   // upstream cost for a tab never visited (same idiom as AudiencePage).
   const refresh = () => Promise.all([model.refetch(), ...(delivery.isFetched ? [delivery.refetch()] : [])])
-  const refreshAll = () => { void model.refetch(); void overview.refetch(); if (delivery.isFetched) void delivery.refetch() }
+  const refreshAll = () => { void model.refetch(); if (overview.isFetched) void overview.refetch(); if (delivery.isFetched) void delivery.refetch() }
   const refreshing = () => model.isFetching || overview.isFetching || delivery.isFetching
   const d = (): TenantTodayReadModel | undefined => model.data
   const summary = () => d()?.summary

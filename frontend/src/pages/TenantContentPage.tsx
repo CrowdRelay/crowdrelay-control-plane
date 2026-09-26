@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
-import { useQuery } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { Bell, History, Layers, RefreshCw, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
@@ -194,13 +194,18 @@ export function TenantContentPage() {
   createEffect(() => {
     if (areas.active() === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
   })
-  // "Material it works from": the material page's own one-statement read.
-  const material = useQuery(() => ({
-    queryKey: ['content-material-view', params().slug],
-    queryFn: () => api.contentMaterialView(params().slug),
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
-  }))
+  // "Material it works from": the material page's own one-statement view,
+  // carried inside the content model. Seeding the material page's key with it
+  // means opening that page costs no second read.
+  const queryClient = useQueryClient()
+  const material = {
+    get data() { return model.data?.material ?? undefined },
+    get error() { return model.error ?? (model.data && !model.data.material ? new Error('The material could not be read') : null) },
+  }
+  createEffect(() => {
+    const view = model.data?.material
+    if (view) queryClient.setQueryData(['content-material-view', params().slug], view, { updatedAt: model.dataUpdatedAt })
+  })
   const sourceTitle = (id: unknown) =>
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 

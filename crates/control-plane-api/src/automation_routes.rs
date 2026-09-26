@@ -186,6 +186,7 @@ async fn join_ask_config(
 /// enforces the caller's scope before any handler runs.
 pub fn operator_router() -> Router<AppState> {
     Router::new()
+        .route("/tenants/{slug}/automation/model", get(automation_model))
         .route("/tenants/{slug}/automation/events", get(list_events))
         .route(
             "/tenants/{slug}/automation/events/{id}/ack",
@@ -309,6 +310,29 @@ async fn list_events(
         )
         .await?;
     Ok(json_no_store(json!({ "items": events })))
+}
+
+/// `GET /tenants/{slug}/automation/model` — the Automation page's first
+/// screen in one call: the newest hundred events and every workflow's rules,
+/// the same rows `list_events` and `list_workflow_configs` return. One tenant
+/// lookup, then the two indexed reads run concurrently on the pool.
+async fn automation_model(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> Result<Response, ApiError> {
+    let tenant = state.store.tenant_by_slug(&slug).await?;
+    let (events, configs) = tokio::try_join!(
+        state
+            .store
+            .list_automation_events(tenant.tenant.id, 100, None, None),
+        state
+            .store
+            .list_automation_workflow_configs(tenant.tenant.id),
+    )?;
+    Ok(json_no_store(json!({
+        "events": { "items": events },
+        "workflows": { "items": configs },
+    })))
 }
 
 async fn ack_event(

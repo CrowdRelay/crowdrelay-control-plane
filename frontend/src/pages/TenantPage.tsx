@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { fetchTenantOverview } from '../lib/tenantOverview'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -99,22 +100,13 @@ export function TenantPage() {
   const areas = useWorkAreas(['about', 'workspace', 'deployment', 'access', 'destinations'])
   const isVisited = (id: string) => areas.active() === id
 
-  // The settings the letters use — shared key with the first screen and the
-  // Workspace panel, so the pill and the card read one entry.
-  const settingsQuery = useQuery(() => ({
-    queryKey: ['tenant-settings', params().slug],
-    queryFn: () => api.tenantSettings(params().slug),
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
-
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
   // its own lazy query below so opening Settings doesn't pay for the
   // operations read model unless the operator actually visits it.
   const model = useQuery(() => ({
     queryKey: ['tenant-overview', params().slug],
-    queryFn: () => api.tenantOverview(params().slug),
+    queryFn: () => fetchTenantOverview(params().slug),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -123,6 +115,18 @@ export function TenantPage() {
   const platform = () => model.data?.platform
   const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
+
+  // The settings the letters use — shared key with the first screen and the
+  // Workspace panel, so the pill and the card read one entry. The overview
+  // seeds it (see `fetchTenantOverview`), so this waits for the overview and
+  // only fetches when the overview came back without them.
+  const settingsQuery = useQuery(() => ({
+    queryKey: ['tenant-settings', params().slug],
+    queryFn: () => api.tenantSettings(params().slug),
+    enabled: !model.isPending,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   // Operations read model — the Deployment tab is its only consumer here
   // (release ledger, instance state). Today reads it on /operations, which

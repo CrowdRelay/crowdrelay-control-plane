@@ -164,6 +164,10 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/agents/providers-overview",
             get(providers_overview),
         )
+        .route(
+            "/tenants/{slug}/agents/integrations",
+            get(integrations_overview),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_AGENT_BODY_BYTES))
         // Cookie upload allows a larger body — Netscape cookies.txt files
         // routinely exceed the 16KB default agent body limit.
@@ -246,11 +250,22 @@ async fn proxy_get_value(
     capability: AgentCapability,
 ) -> Result<Value, ApiError> {
     let (tenant, _) = crate::area_routes::target(state, slug).await?;
+    agent_get_value(state, resolve_workspace_id(&tenant), path, capability).await
+}
+
+/// One agent-service GET for an already-resolved workspace. A fan-out
+/// resolves the tenant once and calls this per section, rather than paying
+/// the tenant lookup once per section through [`proxy_get_value`].
+async fn agent_get_value(
+    state: &AppState,
+    workspace_id: Uuid,
+    path: &str,
+    capability: AgentCapability,
+) -> Result<Value, ApiError> {
     let base = state
         .agent_service_url
         .as_deref()
         .ok_or_else(|| ApiError::Unavailable("agent service is not configured".to_owned()))?;
-    let workspace_id = resolve_workspace_id(&tenant);
     let token = state
         .area_client
         .derived_management_token_with_capability(workspace_id, capability)?;
@@ -987,6 +1002,51 @@ async fn providers_overview(
         crate::read_models::cache_set_public(&state.read_model_cache, cache_key, projected.clone())
             .await;
     }
+    Ok((
+        StatusCode::OK,
+        [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],
+        Json(projected),
+    )
+        .into_response())
+}
+
+/// `GET /tenants/{slug}/agents/integrations` — the AI integrations page's
+/// first screen in one call: the provider probes, the service's own alerts
+/// and the month's premium spend. The tenant is resolved once and the three
+/// reads run concurrently. A section the service could not answer is `null`
+/// and named in `degraded`, so a dead alerts read does not blank the lanes.
+/// Never cached: the three answers are what the refresh button is for.
+async fn integrations_overview(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    _headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (tenant, _) = crate::area_routes::target(&state, &slug).await?;
+    let workspace_id = resolve_workspace_id(&tenant);
+    let fetch = |path: &'static str| {
+        let state = &state;
+        async move { agent_get_value(state, workspace_id, path, AgentCapability::Read).await }
+    };
+    let (health, alerts, usage) = tokio::join!(
+        fetch("/health/providers"),
+        fetch("/health/alerts"),
+        fetch("/premium/usage"),
+    );
+    let mut degraded = Vec::new();
+    let mut section = |name: &'static str, result: Result<Value, ApiError>| match result {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::debug!(slug = %slug, section = name, %error, "integrations section unavailable");
+            degraded.push(name);
+            Value::Null
+        }
+    };
+    let mut projected = serde_json::json!({
+        "health": section("health", health),
+        "alerts": section("alerts", alerts),
+        "usage": section("usage", usage),
+    });
+    projected["degraded"] = serde_json::json!(degraded);
     Ok((
         StatusCode::OK,
         [(CACHE_CONTROL.as_str(), PRIVATE_NO_STORE)],

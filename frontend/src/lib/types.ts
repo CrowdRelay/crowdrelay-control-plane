@@ -1101,6 +1101,10 @@ export type TenantOverviewReadModel = {
   tenant: TenantSummary
   provisioning: { items: ProvisioningJob[] }
   audit: { items: AuditEntry[] }
+  /** The tenant's own settings, carried so Settings opens on one call. Null
+   *  (and named in `degraded`) when the tenant could not answer. */
+  settings?: PortfolioSettingsReadModel | null
+  degraded?: string[]
   platform: {
     runtimeStaleAfterSeconds: number
     provisionerConfigured: boolean
@@ -1119,7 +1123,7 @@ export type TenantOverviewReadModel = {
   }
 }
 
-export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'attention' | 'next_show_timeline'
+export type TenantTodaySection = 'summary' | 'flags' | 'autopilot' | 'growth' | 'opportunities' | 'signal' | 'audience' | 'growth_metrics' | 'acquisition_sources' | 'reply_triage' | 'shows' | 'attention' | 'next_show_timeline' | 'outcomes' | 'reward_fulfillments'
 
 // Why a read-model section is missing. The Control Plane classifies each
 // failure at the tunnel instead of collapsing them all into "degraded", so a
@@ -1281,6 +1285,10 @@ export type TenantTodayReadModel = {
   // Re-projected server-side through the dedicated attention endpoint's
   // contract, so `not_reported` means the same thing here as there.
   attention: TenantAttentionReadModel | null
+  // Second wave, beside the timeline: the outcome ledger ("Did it work") and
+  // the draw prizes nobody has sent yet. Optional while an older API is live.
+  outcomes?: OpsOutcomes | null
+  reward_fulfillments?: RewardFulfillment[] | null
   // Sections the tenant channel could not serve. They render as locally
   // degraded instead of failing the whole subpage.
   degraded: TenantTodaySection[]
@@ -4914,7 +4922,32 @@ export type TenantContentModel = {
   id: string
   pipeline: ContentPipeline | null
   delivery_results: { results: DeliveryResult[] } | null
+  /** The material page's view, whole; optional while an older API is live. */
+  material?: ContentMaterialView | null
   degraded: string[]
   sections: SectionVerdicts
   fetchedAt: string
+}
+
+/** A prize a draw gave away. The fan's address stays masked. */
+export type RewardFulfillment = {
+  winner_id: string
+  draw_slug: string
+  winner_rank: number
+  fan_display_name: string | null
+  fan_email_masked: string
+  prize_name: string
+  prize_variant: string
+  quantity: number
+  status: 'pending' | 'prepared' | 'delivered' | 'cancelled'
+}
+
+/** The AI integrations first screen in one read: probes, alerts, premium
+ *  spend. A section the agent service could not answer is null and named in
+ *  `degraded`. */
+export type AgentIntegrationsOverview = {
+  health: AgentHealthResponse | null
+  alerts: AgentHealthAlertsResponse | null
+  usage: PremiumUsage | null
+  degraded: Array<'health' | 'alerts' | 'usage'>
 }
