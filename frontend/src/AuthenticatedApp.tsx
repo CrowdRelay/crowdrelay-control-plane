@@ -4,7 +4,6 @@ import { Shell } from './components/Shell'
 import { queryClient } from './lib/queryClient'
 import { api } from './lib/api'
 import { authState } from './lib/auth'
-import { fetchOperationsAttention } from './lib/attention'
 import { SkeletonPage } from './components/Skeleton'
 
 // Each route names the one read model its first screenful needs, and warms it
@@ -80,7 +79,7 @@ const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tena
 // AREA folded into Places as its fourth tab — the route redirects rather
 // than breaking old links, the way /portfolio and /beacons did before it.
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/places?tab=area` }) } })
-const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage, loader: ({ params }) => { warm(['tenant-operator-attention-snapshot', params.slug], () => fetchOperationsAttention(params.slug))(); warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() } })
+const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
 const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
 // In motion: the process view — every run the brain is working, each as its
 // steps. The list warms on intent like its siblings; a run's forum detail is

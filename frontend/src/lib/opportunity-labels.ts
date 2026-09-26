@@ -46,7 +46,7 @@ export const DECISION_KIND_LABELS: Record<string, string> = {
   'beacon.invite_batch.request': 'Send Signal Invites',
   'outreach.discovery.request': 'Discover Outreach Targets',
   'beacon.outreach.request': 'Amplifier Outreach',
-  'show.growth.request': 'Show Growth Action',
+  'show.growth.request': 'Show promotion step',
   'content.artifact.request': 'Content Artifact',
   'experiment.allocation.change': 'Adjust Experiment',
   'experiment.complete': 'Complete Experiment',
