@@ -24,10 +24,14 @@ import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } fr
 // preview, chief-of-staff, pending approvals and blocked communities into a
 // single IntelligenceBrief — the browser never orchestrates a fan-out.
 
-export function BrainBriefPanel(props: { slug: string }) {
+export function BrainBriefPanel(props: { slug: string; initial?: IntelligenceBrief | null }) {
   const brief = useQuery(() => ({
     queryKey: ['intelligence-brief', props.slug],
     queryFn: () => api.intelligence(props.slug),
+    // The Intelligence page already holds the brief inside the brain model;
+    // starting from it keeps opening the page to one read.
+    initialData: props.initial ?? undefined,
+    initialDataUpdatedAt: props.initial ? Date.now() : undefined,
     staleTime: 10_000,
     refetchOnWindowFocus: false,
     // The brain keeps working while the page sits open — a slow poll keeps

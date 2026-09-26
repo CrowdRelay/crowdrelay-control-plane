@@ -88,7 +88,7 @@ const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path:
 const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => { warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))(); warm(['tenant-delivery', params.slug], () => api.deliveryModel(params.slug))() } })
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
-const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => { warm(['intelligence-brief', params.slug], () => api.intelligence(params.slug))(); warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() } })
+const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() })
 const tenantCapabilitiesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/capabilities', component: TenantCapabilitiesPage })
 const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof', component: TenantProofPage, loader: ({ params }) => warm(['tenant-proof', params.slug], () => api.proofModel(params.slug))() })
 const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-pipeline', params.slug], () => api.contentPipeline(params.slug))() })
