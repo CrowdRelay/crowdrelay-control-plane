@@ -788,6 +788,9 @@ export type AutopilotOverview = {
   executor_confirmed_24h: number
   executor_failed_24h: number
   awaiting_executor: number
+  /** Newest-first recent actions — the In motion page tallies what
+   *  finished in the last day from these. */
+  recent_actions?: { id: string; action_kind: string; status: string; finished_at: string | null; context: string }[]
   release_ledger: ReleaseLedgerOverview
   rum_metrics_24h: RumMetric[]
 }
@@ -4860,4 +4863,17 @@ export type ContentMaterialView = {
     uses: number
     last_used_at: string | null
   }>
+}
+
+/** `GET /tenants/{slug}/in-motion/model` — the In motion page in one read:
+ *  relay runs, the autopilot overview and the intelligence brief, each a
+ *  section that degrades on its own. */
+export type TenantInMotionModel = {
+  id: string
+  relays: RelayProcessRuns | null
+  autopilot: AutopilotOverview | null
+  intelligence: IntelligenceBrief | null
+  degraded: string[]
+  sections: SectionVerdicts
+  fetchedAt: string
 }
