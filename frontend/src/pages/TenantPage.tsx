@@ -83,7 +83,9 @@ export function TenantPage() {
   // URL; Today has one home now — `/operations`, which the bare URL and
   // `?tab=today` redirect to in the router. The sidebar's Settings item
   // points at `?tab=profile`.
-  const platformView = authState.isPlatformLevel()
+  // Accessor, not a snapshot — profile() hydrates async, so freezing the
+  // level at setup would nail a platform session's tabs to the band list.
+  const platformView = () => authState.isPlatformLevel()
   // The band used to get no tab bar — a second sidebar entry it did not have
   // meant Deployment and Access were platform-only in practice. Workspace
   // (the editable settings, moved out of Audience) is exactly the surface a
@@ -92,7 +94,7 @@ export function TenantPage() {
   // link cannot mount a platform-only panel in a band session.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
     'profile',
-    platformView ? ['profile', 'workspace', 'deployment', 'access', 'destinations'] : ['profile', 'workspace'],
+    () => (platformView() ? ['profile', 'workspace', 'deployment', 'access', 'destinations'] : ['profile', 'workspace']),
   )
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
@@ -252,7 +254,9 @@ export function TenantPage() {
                 </TableRow>
                 <TableRow>
                   <TableCell><strong>AREA</strong></TableCell>
-                  <TableCell><Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places" params={{ slug: t.slug }} search={{ tab: 'area' }}>Manage rewards</Link></TableCell>
+                  <TableCell><Show when={authState.isPlatformLevel()} fallback={<span class="text-sm text-muted-foreground">—</span>}>
+                    <Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places" params={{ slug: t.slug }} search={{ tab: 'area' }}>Manage rewards</Link>
+                  </Show></TableCell>
                   <TableCell class="text-right"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></TableCell>
                 </TableRow>
                 <TableRow>
@@ -268,7 +272,7 @@ export function TenantPage() {
             </Table>
           </Section>
           <RegionalProfilePanel tenant={t} />
-          <Show when={t.teamMembers.length > 0}>
+          <Show when={(t.teamMembers ?? []).length > 0}>
             <Section
               title="Crew roster"
               icon={<SectionIcon name="users" />}
@@ -468,7 +472,7 @@ export function TenantPage() {
     return <>
       <PageHeader
         title={t.displayName}
-        description={platformView
+        description={platformView()
           ? `${t.slug} · ${t.defaultCountryCode} · ${t.workspaceId ? 'workspace ready' : 'workspace pending'}`
           : t.defaultCountryCode}
         actions={<>
@@ -492,7 +496,7 @@ export function TenantPage() {
           action that changes it. The parked notice painted its text on the
           strong warning colour and read as a blank bar. */}
       <Show when={t.status === 'parked'}>
-        <Alert tone="warning" role="status" title={platformView ? 'This tenant is parked' : 'Parked'}>
+        <Alert tone="warning" role="status" title={platformView() ? 'This tenant is parked' : 'Parked'}>
           Automated work is stopped — no new tasks or outreach. Pending deliveries still drain.
           <Show when={capabilities()?.canUnpark}>
             <div class="mt-3"><Button writes size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></div>
@@ -500,7 +504,7 @@ export function TenantPage() {
         </Alert>
       </Show>
       <Show when={t.status === 'suspended'}>
-        <Alert tone="destructive" role="status" title={platformView ? 'This tenant is suspended' : 'Suspended'}>
+        <Alert tone="destructive" role="status" title={platformView() ? 'This tenant is suspended' : 'Suspended'}>
           Nothing runs for this tenant until it is resumed.
           <Show when={capabilities()?.canSuspend !== false}>
             <div class="mt-3"><Button writes size="sm" disabled={status.isPending} onClick={() => status.mutate('resume')}>{status.isPending && <Spinner />} {status.isPending ? 'Resuming…' : 'Resume'}</Button></div>
@@ -518,7 +522,7 @@ export function TenantPage() {
         tabs={[
           { id: 'profile', label: 'Profile' },
           { id: 'workspace', label: 'Workspace' },
-          ...(platformView
+          ...(platformView()
             ? [
                 { id: 'deployment', label: 'Deployment' },
                 { id: 'access', label: 'Access' },
@@ -542,7 +546,7 @@ export function TenantPage() {
               platform-only tab — moving secrets there would take the write
               away from the people who own the accounts. Platform sessions
               see the same panel under Access. */}
-          <Show when={!platformView}>
+          <Show when={!platformView()}>
             <TenantSecretsPanel slug={t.slug} />
           </Show>
         </div>
@@ -683,7 +687,7 @@ export function TenantPage() {
           {/* Tenant-held credentials moved here from Audience: the keys are
               access material, not audience data. The band's copy lives on the
               Workspace tab because this tab is platform-only. */}
-          <Show when={platformView}>
+          <Show when={platformView()}>
             <TenantSecretsPanel slug={t.slug} />
           </Show>
           <TenantAuditPanel items={model.data?.audit.items ?? []} />

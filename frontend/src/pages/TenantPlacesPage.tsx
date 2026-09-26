@@ -19,6 +19,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { GigPlanPanel } from '../components/GigPlanPanel'
 import { RefreshCw } from 'lucide-solid'
 import { relativeTime } from '../lib/format'
+import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { count, draw, lastPlayed, organiseBand } from '../lib/organise'
@@ -93,11 +94,11 @@ function DegradedNotices(props: { degraded: readonly string[] }) {
       <Alert tone="warning" role="status">
         <Show when={authState.isPlatformLevel()} fallback={
           <>
-            <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
+            <strong>{BAND_SECTION_LABEL[section] ?? humanize(section)}</strong> couldn't be checked right
             now. The rest of the page keeps working — this comes back on its own.
           </>
         }>
-          <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
+          <strong>{SECTION_LABEL[section] ?? humanize(section)}</strong> isn't available on the connected
           CrowdRelay build right now. The rest of the page keeps working; ship a newer CrowdRelay
           release and this lights up on the next refresh.
         </Show>

@@ -1849,8 +1849,14 @@ def observe_one(config: Config, path: Path, now: str) -> None:
         payload: dict[str, Any] = {
             "apiHealthy": api_ok,
             "workerHealthy": worker_ok,
-            "lastHeartbeatAt": now,
         }
+        # Only a live API earns a heartbeat — stamping `now` on a failed probe
+        # would keep an unreachable tenant permanently "degraded" and never
+        # "stale", because the API freshness clock is min(checked_at,
+        # last_heartbeat_at) and the store refreshes both on this field.
+        # Mirrors the same fix in runtime_observer.py.
+        if api_ok:
+            payload["lastHeartbeatAt"] = now
         if isinstance(schema, int) and schema >= 0:
             payload["schemaVersion"] = schema
         if isinstance(deployed_sha, str) and re.fullmatch(r"[0-9a-f]{40}", deployed_sha):

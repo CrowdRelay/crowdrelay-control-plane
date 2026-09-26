@@ -163,7 +163,7 @@ export function PageShell(props: { children: JSX.Element; class?: string }) {
 export type Tab = {
   id: string
   label: string
-  count?: () => number
+  count?: () => number | null
   icon?: Component
 }
 
@@ -203,7 +203,7 @@ export function TabBar(props: {
         >
           <Show when={tab.icon}>{icon => icon()({})}</Show>
           {tab.label}
-          <Show when={tab.count && tab.count() > 0}>
+          <Show when={tab.count && (tab.count() ?? 0) > 0}>
             <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary/15 text-primary text-xs font-bold">{tab.count!()}</span>
           </Show>
         </Button>
@@ -305,8 +305,9 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
   // at all, and a visited-but-inactive one is `hidden`, so `scrollIntoView`
   // finds nothing or scrolls to a zero-height box. Switching the tab first is
   // the whole fix — but the panel may be mounting for the first time, so the
-  // element still does not exist on this frame. Retry for a few frames, then
-  // give up rather than spin.
+  // element still does not exist on this frame. Retry for ~1s (a lazy tab
+  // panel mounts its anchor several hundred ms after the switch), then give
+  // up rather than spin.
   const revealAnchor = (id: string, anchor?: string) => {
     switchTab(id)
     if (!anchor) return
@@ -315,7 +316,7 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
       const element = document.getElementById(anchor)
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      } else if (attempts++ < 10) {
+      } else if (attempts++ < 60) {
         requestAnimationFrame(scroll)
       }
     }

@@ -242,9 +242,9 @@ export function TenantContentPage() {
         header now carries the one sentence that explainer needed. */}
     <Show when={pipeline.data || results.data} fallback={<SkeletonKpiStrip count={3} />}>
       <KpiStrip>
-        <KpiCard label="Material in" value={(pipeline.data?.live_sources ?? 0)} sub={(pipeline.data?.live_sources ?? 0) === 1 ? 'live piece' : 'live pieces'} />
-        <KpiCard label="Waiting for your yes" value={pending().length} tone={pending().length > 0 ? 'warn' : 'default'} sub={pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
-        <KpiCard label="Went out" value={published()} tone={published() > 0 ? 'good' : 'default'} sub={published() === 1 ? 'post published' : 'posts published'} />
+        <KpiCard label="Material in" value={pipeline.data?.live_sources ?? '—'} sub={pipeline.data == null ? 'not reported' : pipeline.data.live_sources === 1 ? 'live piece' : 'live pieces'} />
+        <KpiCard label="Waiting for your yes" value={pipeline.data ? pending().length : '—'} tone={pending().length > 0 ? 'warn' : 'default'} sub={pipeline.data == null ? 'not reported' : pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
+        <KpiCard label="Went out" value={results.data ? published() : '—'} tone={published() > 0 ? 'good' : 'default'} sub={results.data == null ? 'not reported' : published() === 1 ? 'post published' : 'posts published'} />
         <Show when={pipeline.data}>
           <KpiCard label="Drafting" value={pipeline.data!.runtime_enabled ? 'on' : 'off'} tone={pipeline.data!.runtime_enabled ? 'good' : 'default'} sub={pipeline.data!.runtime_enabled ? (authState.isPlatformLevel() ? 'autopilot proposes drafts' : 'drafts on its own') : 'nothing is drafted'} />
         </Show>

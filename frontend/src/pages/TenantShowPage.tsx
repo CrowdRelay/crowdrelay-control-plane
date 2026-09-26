@@ -20,7 +20,7 @@ import { ShowSalesPanel } from '../components/show/ShowSalesPanel'
 import { ShowDoorPanel } from '../components/show/ShowDoorPanel'
 import { ShowChecklistPanel } from '../components/show/ShowChecklistPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, timestampMillis } from '../lib/format'
 import { ArrowLeft } from 'lucide-solid'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
@@ -96,7 +96,7 @@ export function TenantShowPage() {
             if (event().status === 'draft') return { tone: 'warn', text: 'Booked, not announced' }
             const due = steps().find(s => s.state === 'due')
             if (due) return { tone: 'warn', text: `${plainStep(due)} is due` }
-            if (Date.parse(event().starts_at) < Date.now()) return { tone: 'muted', text: 'Played' }
+            { const t = timestampMillis(event().starts_at); if (Number.isFinite(t) && t < Date.now()) return { tone: 'muted', text: 'Played' } }
             return { tone: 'good', text: 'On track' }
           })
           return (
@@ -200,7 +200,7 @@ const shortDate = (iso: string) =>
 const longDate = (iso: string) =>
   new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(iso))
 const daysLeft = (iso: string) => {
-  const days = Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000)
+  const days = Math.ceil((timestampMillis(iso) - Date.now()) / 86_400_000)
   return days < 0 ? 'played' : days === 0 ? 'today' : String(days)
 }
 
@@ -209,7 +209,7 @@ function stepDate(anchor: string, startsAt: string): string | null {
   const match = anchor.match(/T([+-])(\d+)/)
   if (!match) return null
   const days = Number(match[2]) * (match[1] === '-' ? -1 : 1)
-  const date = new Date(Date.parse(startsAt) + days * 86_400_000)
+  const date = new Date(timestampMillis(startsAt) + days * 86_400_000)
   return `${anchor.startsWith('before') ? 'by ' : ''}${shortDate(date.toISOString())}`
 }
 
@@ -230,7 +230,7 @@ function leftToDo(steps: ShowTimelineStep[]): LeftItem[] {
   const posting = steps.find(s => s.key === 'bands_posting')
   const asks = ((posting?.detail?.open_asks ?? []) as { kind: string; due_at: string | null }[])
   for (const ask of asks) {
-    const due = ask.due_at != null && Date.parse(ask.due_at) <= Date.now() + 86_400_000
+    const due = ask.due_at != null && timestampMillis(ask.due_at) <= Date.now() + 86_400_000
     out.push({ title: ASK_LABEL[ask.kind] ?? ask.kind.replaceAll('_', ' '), why: 'The bill posts about the night', due, when: ask.due_at ? shortDate(ask.due_at) : undefined })
   }
   for (const s of steps.filter(s => s.state === 'active' && s.key !== 'bands_posting')) {
@@ -314,7 +314,7 @@ function ShowWorkAreas(props: { data: TenantShowPageModel; slug: string; eventSl
           slug={props.slug}
           eventSlug={props.eventSlug}
           eventId={data().timeline.event.id}
-          played={Date.parse(data().timeline.event.starts_at) <= Date.now()}
+          played={(() => { const t = timestampMillis(data().timeline.event.starts_at); return Number.isFinite(t) && t <= Date.now() })()}
           economics={data().economics}
           tour={data().tour_economics}
         />

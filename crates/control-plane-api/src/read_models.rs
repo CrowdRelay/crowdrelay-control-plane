@@ -733,21 +733,25 @@ fn build_per_tenant_summary(
     let attention = json!({
         "available": att.is_some(),
         "needsYou": if not_reported("needs_you") { Value::Null } else {
-            json!(att.and_then(|a| a.get("needs_you")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0))
+            att.and_then(|a| a.get("needs_you")).and_then(|v| v.as_array()).map(|a| json!(a.len() as u64)).unwrap_or(Value::Null)
         },
         "awaitingApproval": if not_reported("awaiting_approval") { Value::Null } else {
-            json!(att.and_then(|a| a.get("awaiting_approval")).and_then(|v| v.as_u64()).unwrap_or(0))
+            att.and_then(|a| a.get("awaiting_approval")).and_then(|v| v.as_u64()).map(|n| json!(n)).unwrap_or(Value::Null)
         },
-        "openFindings": att.and_then(|a| a.get("findings")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        "openFindings": if not_reported("findings") { Value::Null } else {
+            att.and_then(|a| a.get("findings")).and_then(|v| v.as_array()).map(|a| json!(a.len() as u64)).unwrap_or(Value::Null)
+        },
         "criticalAlerts": if not_reported("alerts") { Value::Null } else {
-            json!(att.and_then(|a| a.get("alerts")).and_then(|v| v.as_array()).map(|a| {
-                a.iter().filter(|alert| {
+            att.and_then(|a| a.get("alerts")).and_then(|v| v.as_array()).map(|a| {
+                json!(a.iter().filter(|alert| {
                     alert.get("active").and_then(|v| v.as_bool()) == Some(true)
                         && alert.get("severity").and_then(|v| v.as_str()) == Some("critical")
-                }).count() as u64
-            }).unwrap_or(0))
+                }).count() as u64)
+            }).unwrap_or(Value::Null)
         },
-        "deadDeliveries": att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| a.len() as u64).unwrap_or(0),
+        "deadDeliveries": if not_reported("dead_deliveries") { Value::Null } else {
+            att.and_then(|a| a.get("dead_deliveries")).and_then(|v| v.as_array()).map(|a| json!(a.len() as u64)).unwrap_or(Value::Null)
+        },
         // Drafted posts waiting for a person to publish them — the one queue
         // blocked on the operator. The projected snapshot substitutes `[]`
         // and names "unpublished_drafts" in `not_reported` when the tenant
@@ -770,16 +774,18 @@ fn build_per_tenant_summary(
     let auto = data.autopilot.as_ref();
     let autopilot = json!({
         "available": auto.is_some(),
-        "queuedActions": auto.and_then(|a| a.get("queued_actions")).and_then(|v| v.as_u64()).unwrap_or(0),
-        "processingActions": auto.and_then(|a| a.get("processing_actions")).and_then(|v| v.as_u64()).unwrap_or(0),
-        "succeeded24h": auto.and_then(|a| a.get("succeeded_24h")).and_then(|v| v.as_u64()).unwrap_or(0),
-        "failed24h": auto.and_then(|a| a.get("failed_24h")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "queuedActions": auto.and_then(|a| a.get("queued_actions")).and_then(|v| v.as_u64()),
+        "processingActions": auto.and_then(|a| a.get("processing_actions")).and_then(|v| v.as_u64()),
+        "succeeded24h": auto.and_then(|a| a.get("succeeded_24h")).and_then(|v| v.as_u64()),
+        "failed24h": auto.and_then(|a| a.get("failed_24h")).and_then(|v| v.as_u64()),
         "unknownActions": auto.and_then(|a| a.get("recent_actions")).and_then(|v| v.as_array()).map(|a| {
             a.iter().filter(|action| {
                 action.get("outcome").and_then(|v| v.as_str()).is_none_or(|s| s == "unknown" || s == "pending")
             }).count() as u64
-        }).unwrap_or(0),
-        "runtimeEnabled": auto.and_then(|a| a.get("runtime_enabled")).and_then(|v| v.as_bool()).unwrap_or(false),
+        }),
+        // null, not a fabricated `false` — "did not answer" must never read
+        // as "switched off".
+        "runtimeEnabled": auto.and_then(|a| a.get("runtime_enabled")).and_then(|v| v.as_bool()),
         "releaseLedger": auto.and_then(|a| a.get("release_ledger")).cloned().unwrap_or(Value::Null),
     });
 
@@ -809,10 +815,10 @@ fn build_per_tenant_summary(
     };
     let learning = json!({
         "available": learn.is_some(),
-        "totalOutcomes": total_outcomes,
-        "admitted": admitted,
-        "rejected": rejected,
-        "totalDecisions": total_decisions,
+        "totalOutcomes": learn.map(|_| total_outcomes),
+        "admitted": learn.map(|_| admitted),
+        "rejected": learn.map(|_| rejected),
+        "totalDecisions": learn.map(|_| total_decisions),
     });
 
     // ── outcomes ──
@@ -822,15 +828,23 @@ fn build_per_tenant_summary(
     // waitingForObservation = pending + scheduled_campaigns + stalled_campaigns
     let out = data.outcomes.as_ref();
     let totals = out.and_then(|o| o.get("totals"));
+    // A compound total is only a number when every addend reported — one
+    // missing field summed as 0 would print a wrong figure with confidence.
+    let sum_fields = |names: &[&str]| -> Value {
+        let mut total = 0u64;
+        for name in names {
+            match totals.and_then(|t| t.get(*name)).and_then(|v| v.as_u64()) {
+                Some(n) => total += n,
+                None => return Value::Null,
+            }
+        }
+        json!(total)
+    };
     let outcomes = json!({
         "available": out.is_some(),
-        "resolved": totals.and_then(|t| t.get("delivered")).and_then(|v| v.as_u64()).unwrap_or(0)
-            + totals.and_then(|t| t.get("completed_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0)
-            + totals.and_then(|t| t.get("claimed")).and_then(|v| v.as_u64()).unwrap_or(0),
-        "unknown": totals.and_then(|t| t.get("failed")).and_then(|v| v.as_u64()).unwrap_or(0),
-        "waitingForObservation": totals.and_then(|t| t.get("pending")).and_then(|v| v.as_u64()).unwrap_or(0)
-            + totals.and_then(|t| t.get("scheduled_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0)
-            + totals.and_then(|t| t.get("stalled_campaigns")).and_then(|v| v.as_u64()).unwrap_or(0),
+        "resolved": sum_fields(&["delivered", "completed_campaigns", "claimed"]),
+        "unknown": sum_fields(&["failed"]),
+        "waitingForObservation": sum_fields(&["pending", "scheduled_campaigns", "stalled_campaigns"]),
     });
 
     // ── brain ──
@@ -985,12 +999,12 @@ fn build_per_tenant_summary(
     let objectives = json!({
         "available": objectives_raw.is_some(),
         "total": objectives_raw.map(|list| list.len() as u64),
-        "met": count_state("met"),
-        "onTrack": count_state("on_track"),
-        "behind": count_state("behind"),
-        "missed": count_state("missed"),
-        "unmeasurable": count_state("unmeasurable"),
-        "atRisk": behind_list,
+        "met": objectives_raw.map(|_| count_state("met")),
+        "onTrack": objectives_raw.map(|_| count_state("on_track")),
+        "behind": objectives_raw.map(|_| count_state("behind")),
+        "missed": objectives_raw.map(|_| count_state("missed")),
+        "unmeasurable": objectives_raw.map(|_| count_state("unmeasurable")),
+        "atRisk": if objectives_raw.is_some() { json!(behind_list) } else { Value::Null },
     });
 
     json!({
@@ -1483,14 +1497,14 @@ fn project_sections(
 
 /// Classify the freshness of one successfully projected section.
 ///
-/// Upstream payloads may carry timestamps (`checkedAt`, `lastHeartbeatAt`,
-/// `observedAt`, `generatedAt`, `lastSeen`, `updatedAt`) that say when the
-/// *fact* was observed, not just when the Control Plane fetched it. Where
-/// present, the oldest of those timestamps is propagated as `observedAt` and
-/// classified against the stale threshold. Where absent, `observedAt` is the
-/// fetch time and `classification` is `live` — the Control Plane just fetched
-/// this section successfully, so the data is fresh. Failed sections get
-/// `observedAt: null` and `classification: "unknown"`.
+/// Upstream payloads may carry timestamps (`checkedAt`, `generated_at`,
+/// `observed_at`, `last_synced_at`, …) that say when the *fact* was
+/// observed, not just when the Control Plane fetched it. Where present, the
+/// oldest of those timestamps is propagated as `observedAt` and classified
+/// against the stale threshold. Where absent we must not invent freshness:
+/// a successful fetch proves the section answered, not that its facts are
+/// recent — so `observedAt` stays `null` and the classification is
+/// `"unknown"`. Failed sections get the same `unknown` pair.
 fn freshness_for_section(
     value: &Value,
     now: chrono::DateTime<chrono::Utc>,
@@ -1498,13 +1512,7 @@ fn freshness_for_section(
 ) -> Value {
     let observed = oldest_upstream_timestamp(value);
     match observed {
-        None => {
-            // The upstream provided no timestamp, but the section was
-            // successfully fetched moments ago. Classify as "live" with the
-            // fetch time — "unknown" was technically correct but confused
-            // operators into thinking the panel was broken.
-            json!({"observedAt": now.to_rfc3339(), "classification": "live"})
-        }
+        None => json!({"observedAt": null, "classification": "unknown"}),
         Some(ts) => {
             let classification = if ts < now - chrono::Duration::seconds(stale_after_seconds.max(1))
             {
@@ -1533,46 +1541,90 @@ fn oldest_upstream_timestamp(value: &Value) -> Option<chrono::DateTime<chrono::U
 /// recursion on pathological payloads.
 const TIMESTAMP_SCAN_MAX_DEPTH: usize = 3;
 
+/// Both casings are scanned: the Control Plane's own projections emit
+/// camelCase while upstream tenant payloads emit snake_case — a section
+/// carrying `generated_at` used to be classified "live" on fetch time
+/// because the list only knew `generatedAt`. Only names that say when the
+/// *data was produced or observed* belong here — entity event times
+/// (`created_at`, `due_at`, `starts_at`, `finished_at`) would silently
+/// poison the oldest-timestamp pick on sections whose rows are old by
+/// nature.
 const TIMESTAMP_FIELD_NAMES: &[&str] = &[
     "checkedAt",
+    "checked_at",
     "lastHeartbeatAt",
+    "last_heartbeat_at",
     "observedAt",
+    "observed_at",
+    "last_observed_at",
     "generatedAt",
+    "generated_at",
     "lastSeen",
+    "last_seen",
+    "last_seen_at",
     "updatedAt",
+    "updated_at",
+    "fetchedAt",
+    "fetched_at",
+    "evaluated_at",
+    "last_evaluated_at",
+    "last_synced_at",
+    "synced_at",
+    "last_written_at",
+    "collected_at",
+    "computed_at",
+    "refreshed_at",
 ];
+
+/// Parse one timestamp field value. Strings parse as RFC 3339; arrays are
+/// `time`'s positional `OffsetDateTime` serde shape (`[year, ordinal, hour,
+/// minute, second, nanosecond, offset…]`), which upstream emits for fields
+/// like `generated_at`.
+fn parse_timestamp_field(value: &Value) -> Option<chrono::DateTime<chrono::Utc>> {
+    match value {
+        Value::String(s) => chrono::DateTime::parse_from_rfc3339(s)
+            .ok()
+            .map(|ts| ts.with_timezone(&chrono::Utc)),
+        Value::Array(arr) => crate::operations_routes::time_tuple_to_iso(arr)
+            .and_then(|iso| chrono::DateTime::parse_from_rfc3339(&iso).ok())
+            .map(|ts| ts.with_timezone(&chrono::Utc)),
+        _ => None,
+    }
+}
 
 fn collect_timestamps(
     value: &Value,
     depth: usize,
     candidates: &mut Vec<chrono::DateTime<chrono::Utc>>,
 ) {
-    let Some(object) = value.as_object() else {
-        return;
-    };
-    for &field in TIMESTAMP_FIELD_NAMES {
-        if let Some(ts_str) = object.get(field).and_then(Value::as_str) {
-            if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(ts_str) {
-                candidates.push(ts.with_timezone(&chrono::Utc));
+    match value {
+        Value::Object(object) => {
+            for &field in TIMESTAMP_FIELD_NAMES {
+                if let Some(ts) = object.get(field).and_then(parse_timestamp_field) {
+                    candidates.push(ts);
+                }
             }
-        }
-    }
-    if depth < TIMESTAMP_SCAN_MAX_DEPTH {
-        for (_, child) in object {
-            if child.is_object() {
-                collect_timestamps(child, depth + 1, candidates);
-            } else if let Some(arr) = child.as_array() {
+            if depth < TIMESTAMP_SCAN_MAX_DEPTH {
                 // Timestamps often live inside array elements (e.g.
                 // `policies[0].updatedAt`, `items[0].checkedAt`). Without
                 // descending into arrays, freshness classification misses
-                // them and falls back to fetch time — masking stale data.
-                for element in arr {
-                    if element.is_object() {
-                        collect_timestamps(element, depth + 1, candidates);
+                // them and masks stale data.
+                for child in object.values() {
+                    if matches!(child, Value::Object(_) | Value::Array(_)) {
+                        collect_timestamps(child, depth + 1, candidates);
                     }
                 }
             }
         }
+        // A section whose payload *is* an array still gets scanned — the
+        // object-only branch used to return early and miss every timestamp
+        // inside it.
+        Value::Array(arr) if depth < TIMESTAMP_SCAN_MAX_DEPTH => {
+            for element in arr {
+                collect_timestamps(element, depth + 1, candidates);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -3683,7 +3735,7 @@ mod tests {
     }
 
     #[test]
-    fn freshness_is_live_when_upstream_provides_no_timestamp() {
+    fn freshness_is_unknown_when_upstream_provides_no_timestamp() {
         let s = json!({"ok": true});
         let f = json!([{"flag": "test", "enabled": true}]);
         let a = json!({"policies": []});
@@ -3711,14 +3763,15 @@ mod tests {
         )
         .expect("complete snapshot projects");
         let freshness = &projected["freshness"]["summary"];
-        assert!(
-            freshness["observedAt"].is_string(),
-            "observedAt must be the fetch time when upstream provides no timestamp"
+        assert_eq!(
+            freshness["observedAt"],
+            json!(null),
+            "a successful fetch must not invent a fact-observation time"
         );
         assert_eq!(
             freshness["classification"],
-            json!("live"),
-            "a successfully fetched section with no upstream timestamp is live, not unknown"
+            json!("unknown"),
+            "no upstream timestamp means freshness is unmeasured, not live"
         );
     }
 
@@ -3802,11 +3855,12 @@ mod tests {
     }
 
     #[test]
-    fn freshness_uses_fetch_time_when_no_upstream_timestamp() {
-        // A section with no upstream timestamp fields gets observedAt = fetch
-        // time and classification = "live". The Control Plane just fetched
-        // this data from the upstream, so the fetch time is the honest
-        // observation time. Failed sections still get observedAt: null.
+    fn freshness_is_unknown_without_upstream_timestamp() {
+        // A section with no upstream timestamp fields gets observedAt = null
+        // and classification = "unknown". The Control Plane just fetched this
+        // data — that proves the section answered, not that its facts are
+        // recent, so freshness stays unmeasured. Failed sections get the
+        // same unknown pair.
         let s = json!({"ok": true, "data": [1, 2, 3]});
         let f = json!([{"flag": "test", "enabled": true}]);
         let a = json!({"policies": []});
@@ -3834,14 +3888,15 @@ mod tests {
         )
         .expect("complete snapshot projects");
         for name in ["summary", "flags", "autopilot", "growth", "opportunities"] {
-            assert!(
-                projected["freshness"][name]["observedAt"].is_string(),
-                "{name} must have a fetch-time observedAt"
+            assert_eq!(
+                projected["freshness"][name]["observedAt"],
+                json!(null),
+                "{name} must not carry an invented observedAt"
             );
             assert_eq!(
                 projected["freshness"][name]["classification"],
-                json!("live"),
-                "{name} must be classified live when successfully fetched"
+                json!("unknown"),
+                "{name} must be classified unknown when nothing timestamps it"
             );
         }
         // fetchedAt is still present — it's the assembly time, honestly labeled.
@@ -3975,6 +4030,168 @@ mod tests {
             freshness["classification"],
             json!("stale"),
             "an array-nested updatedAt must be found and used for freshness classification"
+        );
+    }
+
+    #[test]
+    fn freshness_finds_snake_case_timestamps() {
+        // Upstream emits `generated_at` / `observed_at` — snake_case names a
+        // camelCase-only list used to miss, silently classifying timestamped
+        // sections on fetch time instead.
+        let now = chrono::Utc::now();
+        let stale = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        let s = json!({"ok": true, "generated_at": stale});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let (sig_val, aud_val, gm_val, acq_val) = (
+            signal(),
+            audience(),
+            growth_metrics(),
+            acquisition_sources(),
+        );
+        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let projected = project_today_base(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            sig,
+            aud,
+            gm,
+            acq,
+        )
+        .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert_eq!(freshness["observedAt"], json!(stale));
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "a snake_case generated_at must be found"
+        );
+    }
+
+    #[test]
+    fn freshness_parses_tuple_timestamps() {
+        // `time` serializes OffsetDateTime positionally:
+        // [year, ordinal, hour, minute, second, nanosecond, offset_h,
+        // offset_m, offset_s]. Upstream's `generated_at` arrives exactly so.
+        let s = json!({"ok": true, "generated_at": [2000, 1, 0, 0, 0, 0, 0, 0, 0]});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let (sig_val, aud_val, gm_val, acq_val) = (
+            signal(),
+            audience(),
+            growth_metrics(),
+            acquisition_sources(),
+        );
+        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let projected = project_today_base(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            sig,
+            aud,
+            gm,
+            acq,
+        )
+        .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["summary"];
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "a tuple generated_at from 2000 must classify stale, got {}",
+            freshness
+        );
+        assert!(freshness["observedAt"].is_string());
+    }
+
+    #[test]
+    fn freshness_scans_array_shaped_sections() {
+        // A section whose payload *is* an array still carries timestamps on
+        // its elements — the object-only scan used to return early and miss
+        // them all.
+        let now = chrono::Utc::now();
+        let stale = (now - chrono::Duration::seconds(600)).to_rfc3339();
+        let s = json!({"ok": true});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": []});
+        let g = json!({"objective": "grow"});
+        let o = json!([{"id": "op1", "generated_at": stale}]);
+        let (sig_val, aud_val, gm_val, acq_val) = (
+            signal(),
+            audience(),
+            growth_metrics(),
+            acquisition_sources(),
+        );
+        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let projected = project_today_base(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            sig,
+            aud,
+            gm,
+            acq,
+        )
+        .expect("complete snapshot projects");
+        let freshness = &projected["freshness"]["opportunities"];
+        assert_eq!(
+            freshness["classification"],
+            json!("stale"),
+            "an element timestamp inside a root array section must be found"
+        );
+    }
+
+    #[test]
+    fn freshness_ignores_entity_event_times() {
+        // `created_at` / `due_at` describe the row, not the data's
+        // observation time — scanning them would mark every section holding
+        // an old pending item as stale.
+        let s = json!({"ok": true});
+        let f = json!([{"flag": "test", "enabled": true}]);
+        let a = json!({"policies": [{"context": "outreach", "created_at": "2020-01-01T00:00:00Z", "due_at": "2020-01-02T00:00:00Z"}]});
+        let g = json!({"objective": "grow"});
+        let o = json!([]);
+        let (sig_val, aud_val, gm_val, acq_val) = (
+            signal(),
+            audience(),
+            growth_metrics(),
+            acquisition_sources(),
+        );
+        let (sig, aud, gm, acq) = (ok(&sig_val), ok(&aud_val), ok(&gm_val), ok(&acq_val));
+        let projected = project_today_base(
+            "virya",
+            300,
+            ok(&s),
+            ok(&f),
+            ok(&a),
+            ok(&g),
+            ok(&o),
+            sig,
+            aud,
+            gm,
+            acq,
+        )
+        .expect("complete snapshot projects");
+        assert_eq!(
+            projected["freshness"]["autopilot"]["classification"],
+            json!("unknown"),
+            "entity event times must not count as observation timestamps"
         );
     }
 
@@ -4167,10 +4384,16 @@ mod tests {
         assert_eq!(projected["learning"]["available"], json!(false));
         assert_eq!(projected["outcomes"]["available"], json!(false));
         assert_eq!(projected["fans"]["available"], json!(false));
-        assert_eq!(projected["attention"]["needsYou"], json!(0));
-        assert_eq!(projected["autopilot"]["queuedActions"], json!(0));
-        assert_eq!(projected["learning"]["totalOutcomes"], json!(0));
-        assert_eq!(projected["outcomes"]["resolved"], json!(0));
+        // Every unmeasured number is null, not a fabricated zero — the same
+        // contract the fan KPIs already held. "available: false" says why.
+        assert_eq!(projected["attention"]["needsYou"], Value::Null);
+        assert_eq!(projected["attention"]["openFindings"], Value::Null);
+        assert_eq!(projected["attention"]["deadDeliveries"], Value::Null);
+        assert_eq!(projected["autopilot"]["queuedActions"], Value::Null);
+        assert_eq!(projected["autopilot"]["runtimeEnabled"], Value::Null);
+        assert_eq!(projected["learning"]["totalOutcomes"], Value::Null);
+        assert_eq!(projected["outcomes"]["resolved"], Value::Null);
+        assert_eq!(projected["objectives"]["met"], Value::Null);
         // Fan KPIs are null, not zero, when audience is unavailable.
         assert_eq!(projected["fans"]["activeFans"], Value::Null);
         assert_eq!(projected["fans"]["ticketBuyers"], Value::Null);

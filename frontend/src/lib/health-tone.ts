@@ -26,7 +26,7 @@ export const operationalTone = (summary: OperationsSummary | undefined | null): 
   if (!summary) return 'muted'
   const dead = summary.outbox.dead + summary.deliveries.dead + summary.push.dead
   if (summary.watchdog.critical_alerts > 0 || dead > 0) return 'bad'
-  if (summary.watchdog.active_alerts > 0 || summary.http.p95_ms > 1000 || oldestQueueAge(summary) > 300) return 'warn'
+  if (summary.watchdog.active_alerts > 0 || summary.http.p95_ms > 1000 || (oldestQueueAge(summary) ?? 0) > 300) return 'warn'
   return 'good'
 }
 

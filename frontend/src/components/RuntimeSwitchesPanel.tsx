@@ -72,7 +72,9 @@ export function RuntimeSwitchesPanel(props: {
     return override !== undefined ? override : flag.enabled
   }
 
-  const deadJobs = () => props.summary ? props.summary.outbox.dead + props.summary.deliveries.dead + props.summary.push.dead : 0
+  const deadJobs = () => props.summary
+    ? (props.summary.outbox?.dead ?? 0) + (props.summary.deliveries?.dead ?? 0) + (props.summary.push?.dead ?? 0)
+    : 0
 
   const [confirming, setConfirming] = createSignal<'redeploy' | 'replay-dead' | null>(null)
 
@@ -112,14 +114,14 @@ export function RuntimeSwitchesPanel(props: {
 
     <KpiStrip class="mt-3 mb-0" min="8rem">
       <KpiCard label="Slowest requests" value={metric(props.summary?.http.p95_ms, ' ms')} sub={`typical ${metric(props.summary?.http.p50_ms, ' ms')}`} />
-      <KpiCard label="Outbox pending" value={metric(props.summary?.outbox.pending)} sub={props.summary ? `${props.summary.outbox.processing} processing` : '—'} />
-      <KpiCard label="Delivery pending" value={metric(props.summary?.deliveries.pending)} sub={props.summary ? `${props.summary.deliveries.dead} dead` : '—'} />
-      <KpiCard label="Push pending" value={metric(props.summary?.push.pending)} sub={props.summary ? `${props.summary.push.dead} dead` : '—'} />
-      <KpiCard label="Oldest queue" value={props.summary ? seconds(oldestQueueAge(props.summary)) : '—'} sub="across async queues" />
-      <KpiCard label="Watchdog" value={metric(props.summary?.watchdog.active_alerts)} sub={props.summary ? `${props.summary.watchdog.critical_alerts} critical` : '—'} tone={(props.summary?.watchdog.critical_alerts ?? 0) > 0 ? 'bad' : 'default'} />
+      <KpiCard label="Outbox pending" value={metric(props.summary?.outbox?.pending)} sub={props.summary ? `${props.summary.outbox?.processing ?? '—'} processing` : '—'} />
+      <KpiCard label="Delivery pending" value={metric(props.summary?.deliveries?.pending)} sub={props.summary ? `${props.summary.deliveries?.dead ?? '—'} dead` : '—'} />
+      <KpiCard label="Push pending" value={metric(props.summary?.push?.pending)} sub={props.summary ? `${props.summary.push?.dead ?? '—'} dead` : '—'} />
+      <KpiCard label="Oldest queue" value={(() => { const age = props.summary ? oldestQueueAge(props.summary) : null; return age == null ? '—' : seconds(age) })()} sub="across async queues" />
+      <KpiCard label="Watchdog" value={metric(props.summary?.watchdog?.active_alerts)} sub={props.summary ? `${props.summary.watchdog?.critical_alerts ?? '—'} critical` : '—'} tone={(props.summary?.watchdog?.critical_alerts ?? 0) > 0 ? 'bad' : 'default'} />
     </KpiStrip>
 
-    <Show when={props.summary && (deadJobs() > 0 || props.summary.watchdog.critical_alerts > 0)}>
+    <Show when={props.summary && (deadJobs() > 0 || (props.summary.watchdog?.critical_alerts ?? 0) > 0)}>
       <div class="mt-3 p-4 rounded-md border border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 flex-wrap">
         <div><strong class="text-destructive">Operator attention required</strong><br /><span class="text-sm text-secondary-foreground">{deadJobs()} dead queue item(s) · {props.summary?.watchdog.critical_alerts ?? 0} critical watchdog alert(s)</span></div>
         <Show when={confirming() === 'replay-dead'}>

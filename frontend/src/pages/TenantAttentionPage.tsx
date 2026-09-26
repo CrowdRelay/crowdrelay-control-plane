@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
+import { humanize } from '../lib/opportunity-labels'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
 import { toast } from '../components/app/toast'
@@ -34,8 +35,16 @@ import { Card } from '../components/app/card'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/app/badge'
 
-const totalDead = (summary: OperationsSummary) => summary.outbox.dead + summary.deliveries.dead + summary.push.dead
-const staleAreaReservations = (summary: OperationsSummary) => summary.area.stale_voucher_reservations + summary.area.stale_ticket_reward_reservations
+// Every lane must answer or the total is unknown — a partial sum looks
+// like a real count, so missing lanes make null, not a smaller number.
+const totalDead = (summary: OperationsSummary) => {
+  const lanes = [summary.outbox?.dead, summary.deliveries?.dead, summary.push?.dead]
+  return lanes.every((v): v is number => v != null) ? lanes.reduce((a, b) => a + b, 0) : null
+}
+const staleAreaReservations = (summary: OperationsSummary) => {
+  const lanes = [summary.area?.stale_voucher_reservations, summary.area?.stale_ticket_reward_reservations]
+  return lanes.every((v): v is number => v != null) ? lanes.reduce((a, b) => a + b, 0) : null
+}
 
 /** Format a Postgres server_version_num (e.g. 190000 → "19.0"). */
 const formatPgVersion = (num: number | null | undefined): string => {
@@ -172,7 +181,11 @@ export function TenantAttentionPage() {
 
   // Mirror the board's own approvability test — an awaiting_approval entry
   // with no action_id is filed under "Noted, no action taken", not Needs you.
-  const decideCount = () => operations.data?.opportunities?.filter(o => o.authority === 'awaiting_approval' && o.action_id !== null).length ?? 0
+  const decideCount = () => {
+    if ((operations.data?.degraded ?? []).includes('opportunities')) return null
+    const ops = operations.data?.opportunities
+    return ops ? ops.filter(o => o.authority === 'awaiting_approval' && o.action_id !== null).length : null
+  }
 
   // `#…&action=<id>` links point at inbox rows, but the inbox panel does not
   // mount until its tab is visited, so the parse lives here where it always
@@ -260,7 +273,7 @@ export function TenantAttentionPage() {
     }
   }
 
-  const deadCount = () => summary.data ? totalDead(summary.data) : 0
+  const deadCount = () => summary.data ? totalDead(summary.data) : null
   const findingsCount = () => attention.data?.findings?.length ?? 0
   // Editable draft text by action id. The attention snapshot's needs_you
   // summaries carry no `revisable`; the full PendingAutopilotAction rows do,
@@ -319,13 +332,13 @@ export function TenantAttentionPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'decisions', label: 'Decisions', count: decideCount() > 0 ? () => decideCount() : undefined },
+        { id: 'decisions', label: 'Decisions', count: (decideCount() ?? 0) > 0 ? () => decideCount() : undefined },
         { id: 'inbox', label: 'Inbox' },
         // Delivery machinery and decision tracing are operator surfaces —
         // the band gets the queue and the alerts, not the plumbing.
         // Deep links (?tab=queues) still resolve.
         ...(authState.isPlatformLevel() ? [
-          { id: 'queues', label: 'Queues', count: deadCount() > 0 ? () => deadCount() : undefined },
+          { id: 'queues', label: 'Queues', count: (deadCount() ?? 0) > 0 ? () => deadCount() : undefined },
           { id: 'runtime', label: 'Runtime' },
           { id: 'trace', label: 'Trace' },
         ] : []),
@@ -367,11 +380,11 @@ export function TenantAttentionPage() {
           <AttentionInbox
             slug={params().slug}
             needsYou={attention.data?.needs_you ?? []}
-            deadJobs={summary.data ? totalDead(summary.data) : 0}
-            criticalAlerts={summary.data?.watchdog.critical_alerts ?? 0}
-            staleReservations={summary.data ? staleAreaReservations(summary.data) : 0}
-            activeAlerts={summary.data?.watchdog.active_alerts ?? 0}
-            awaitingApproval={attention.data?.awaiting_approval ?? 0}
+            deadJobs={summary.data ? totalDead(summary.data) : null}
+            criticalAlerts={summary.data?.watchdog?.critical_alerts ?? null}
+            staleReservations={summary.data ? staleAreaReservations(summary.data) : null}
+            activeAlerts={summary.data?.watchdog?.active_alerts ?? null}
+            awaitingApproval={(attention.data?.not_reported ?? []).includes('awaiting_approval') ? null : attention.data?.awaiting_approval ?? null}
             notReported={attention.data?.not_reported ?? []}
             drafts={drafts()}
             onRefresh={refreshMaintenance}
@@ -442,13 +455,13 @@ export function TenantAttentionPage() {
                 />
                 <KpiCard
                   label="Last check"
-                  value={attention.data!.ecosystem!.last_reconciliation?.status ?? '—'}
+                  value={humanize(attention.data!.ecosystem!.last_reconciliation?.status ?? '—')}
                   sub={observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}
                 />
                 <KpiCard
                   label="Bandsintown sync"
-                  value={attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0}
-                  sub={attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'running now' : 'failures in a row'}
+                  value={attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? '—'}
+                  sub={attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'running now' : attention.data!.ecosystem!.bandsintown_sync ? 'failures in a row' : 'not reported'}
                   tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
                 />
               </KpiStrip></Show>
@@ -498,7 +511,7 @@ export function TenantAttentionPage() {
         </KpiStrip>}
       </Show>
 
-      <SectionTitle title="Reservation maintenance" icon={<SectionIcon name="map-pin" />} action={<Show when={summary.data}>{data => <StatusBadge status={staleAreaReservations(data()) > 0 ? `${staleAreaReservations(data())} stale` : 'clean'} tone={staleAreaReservations(data()) > 0 ? 'bad' : 'good'} />}</Show>} />
+      <SectionTitle title="Reservation maintenance" icon={<SectionIcon name="map-pin" />} action={<Show when={summary.data}>{data => <StatusBadge status={(() => { const n = staleAreaReservations(data()); return n == null ? 'not fully reported' : n > 0 ? `${n} stale` : 'clean' })()} tone={(() => { const n = staleAreaReservations(data()); return n == null ? 'muted' : n > 0 ? 'bad' : 'good' })()} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
         {data => <KpiStrip class="mb-0" min="9rem">
           <KpiCard label="Stale vouchers" value={data().area.stale_voucher_reservations} sub={`${data().area.vouchers_issued} issued`} tone={data().area.stale_voucher_reservations > 0 ? 'bad' : 'default'} />

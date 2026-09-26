@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-ro
 import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatIsoAge, formatIsoUntil, relativeTime } from '../lib/format'
+import { compareTimestamps, formatIsoAge, formatIsoUntil, relativeTime, timestampMillis } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { NegotiationsPanel } from '../components/NegotiationsPanel'
@@ -28,7 +28,7 @@ import { TenantStatusLine } from '../components/TenantStatusLine'
 import { Button, buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
-import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr, humanize } from '../lib/opportunity-labels'
 import type { OpportunityBoardEntry, OutcomeGroup, TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
@@ -52,7 +52,7 @@ const OPS_SECTION_LABEL: Record<string, string> = {
   attention: 'Needs you',
   next_show_timeline: 'The next show timeline',
 }
-const sectionLabel = (key: string) => OPS_SECTION_LABEL[key] ?? key
+const sectionLabel = (key: string) => OPS_SECTION_LABEL[key] ?? humanize(key)
 
 // The machine's surfaces for one tenant: replies, outreach, press, releases
 // and the play ledger, each on its own tab. Decisions live on Needs you; the
@@ -154,7 +154,7 @@ export function TenantOperationsPage() {
   const nextShow = createMemo(() =>
     (d()?.shows?.events ?? [])
       .filter(e => e.upcoming)
-      .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0],
+      .sort((a, b) => compareTimestamps(a.starts_at, b.starts_at))[0],
   )
   // The timeline must be matched back to the show it's about — reconcile can
   // swap the show list while the old timeline sits in the model.
@@ -175,7 +175,7 @@ export function TenantOperationsPage() {
   const nextShowDays = createMemo(() => {
     const show = nextShow()
     if (!show) return null
-    const parsed = Date.parse(show.starts_at)
+    const parsed = timestampMillis(show.starts_at)
     return Number.isFinite(parsed) ? Math.max(0, Math.ceil((parsed - Date.now()) / 86_400_000)) : null
   })
 
@@ -385,7 +385,12 @@ export function TenantOperationsPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'replies', label: 'Replies', count: () => d()?.derived?.work_area_counts?.replies ?? 0 },
+        // Mirrors the derived `replies` definition — the summary's waiting
+        // count, then the list length, so older builds still show a badge.
+        { id: 'replies', label: 'Replies', count: () =>
+            d()?.derived?.work_area_counts?.replies
+            ?? d()?.reply_triage?.summary?.waiting_on_you_count
+            ?? (d()?.reply_triage?.waiting_on_you?.length ?? 0) },
         { id: 'negotiations', label: 'Negotiations' },
         {
           id: 'outreach', label: 'Outreach',

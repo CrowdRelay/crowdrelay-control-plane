@@ -4202,9 +4202,9 @@ export type CommandCenterTenantAttention = {
   /// named in `notReported` — never a zero nobody measured.
   needsYou: number | null
   awaitingApproval: number | null
-  openFindings: number
+  openFindings: number | null
   criticalAlerts: number | null
-  deadDeliveries: number
+  deadDeliveries: number | null
   /// Drafted posts waiting for a person to publish, summed across channels.
   /// null when the tenant does not report the queue — not the same as zero.
   unpublishedDrafts: number | null
@@ -4233,30 +4233,33 @@ export type CommandCenterTenantAttention = {
 /// Per-tenant autopilot projection in the command center.
 export type CommandCenterTenantAutopilot = {
   available: boolean
-  queuedActions: number
-  processingActions: number
-  succeeded24h: number
-  failed24h: number
-  unknownActions: number
-  runtimeEnabled: boolean
+  /// Every count is null when the tenant's snapshot omitted the field —
+  /// an unanswered queue is not an empty queue.
+  queuedActions: number | null
+  processingActions: number | null
+  succeeded24h: number | null
+  failed24h: number | null
+  unknownActions: number | null
+  /// null when the tenant did not say — never a fabricated "off".
+  runtimeEnabled: boolean | null
   releaseLedger: unknown | null
 }
 
 /// Per-tenant learning projection in the command center.
 export type CommandCenterTenantLearning = {
   available: boolean
-  totalOutcomes: number
-  admitted: number
-  rejected: number
-  totalDecisions: number
+  totalOutcomes: number | null
+  admitted: number | null
+  rejected: number | null
+  totalDecisions: number | null
 }
 
 /// Per-tenant outcomes projection in the command center.
 export type CommandCenterTenantOutcomes = {
   available: boolean
-  resolved: number
-  unknown: number
-  waitingForObservation: number
+  resolved: number | null
+  unknown: number | null
+  waitingForObservation: number | null
 }
 
 /// Per-tenant momentum projection — direction behind the magnitudes.
@@ -4285,11 +4288,11 @@ export type CommandCenterTenantMomentum = {
 export type CommandCenterTenantObjectives = {
   available: boolean
   total: number | null
-  met: number
-  onTrack: number
-  behind: number
-  missed: number
-  unmeasurable: number
+  met: number | null
+  onTrack: number | null
+  behind: number | null
+  missed: number | null
+  unmeasurable: number | null
   /// The objectives actually in trouble, soonest deadline first (max 3).
   atRisk: {
     platform: string | null
@@ -4298,7 +4301,7 @@ export type CommandCenterTenantObjectives = {
     targetValue: number | null
     deadline: string | null
     state: string | null
-  }[]
+  }[] | null
 }
 
 /// One tenant's contribution to the command center.

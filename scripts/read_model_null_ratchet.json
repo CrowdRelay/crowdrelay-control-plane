@@ -1,6 +1,6 @@
 {
   "maxZeroSubstitutions": {
-    "crates/control-plane-api/src/read_models.rs": 51,
+    "crates/control-plane-api/src/read_models.rs": 34,
     "crates/control-plane-api/src/tenant_area_client.rs": 3
   }
 }

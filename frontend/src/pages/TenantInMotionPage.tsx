@@ -4,6 +4,7 @@ import { Link, useParams } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { cn } from '../lib/cn'
+import { timestampMillis } from '../lib/format'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
@@ -54,7 +55,10 @@ export function TenantInMotionPage() {
     const since = Date.now() - 86_400_000
     const counts = new Map<string, number>()
     for (const action of autopilot()?.recent_actions ?? []) {
-      if (action.status !== 'succeeded' || !action.finished_at || Date.parse(action.finished_at) < since) continue
+      // finished_at can arrive as a time tuple — Date.parse on an array is
+      // NaN, which reads "fresh" and inflates the 24h tallies. Drop it instead.
+      const finishedAt = timestampMillis(action.finished_at)
+      if (action.status !== 'succeeded' || !Number.isFinite(finishedAt) || finishedAt < since) continue
       counts.set(action.action_kind, (counts.get(action.action_kind) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
