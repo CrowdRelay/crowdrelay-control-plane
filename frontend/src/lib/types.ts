@@ -2951,6 +2951,16 @@ export type TenantShowScanResponse = {
   checkin_count: number
   campaign_checkin_count: number | null
   max_checkins: number | null
+  /** The night the door belongs to. `tickets_sold` is null when the night
+   *  has no active ticket sale — unticketed is unmeasured, not zero. */
+  event?: {
+    title: string
+    city: string | null
+    starts_at: string
+    capacity: number | null
+    tickets_sold: number | null
+    interested: number
+  }
 }
 
 /** The T+7 counterparty artifact — `/tenants/{slug}/shows/{event}/report`.
@@ -3009,6 +3019,10 @@ export type TenantShowReportResponse = {
     inferred?: string
     rules?: string[]
   }
+  /** The tenant's next announced night — where "next time" points. The
+   *  field is absent on an API that predates it, null when nothing is
+   *  announced. */
+  next_show?: { slug: string; title: string; city: string | null; starts_at: string } | null
 }
 
 /** §4h-11 — who could help with this show: the staging queue read against a
@@ -4473,6 +4487,11 @@ export type CityVenueRow = {
   assessment: 'worth_contact' | 'insufficient_evidence' | 'closed' | 'not_assessed'
   /** The one-sentence answer in the tenant's crew locale. */
   assessment_sentence: string
+  /** Resolved room facts, each won by its best provenance — null when no
+   *  source has claimed one. The genres are a ", "-joined tag list. */
+  genres_fact?: string | null
+  address_fact?: string | null
+  website_fact?: string | null
 }
 
 /** Why the planner proposes this city — `GET /tenants/{slug}/gig-plan`.
@@ -4690,4 +4709,72 @@ export type JoinAskGap = {
   reason: string
   /// What a person does about it.
   remedy: string
+}
+
+/** `GET /tenants/{slug}/views/cities/{city}` — the city page's first screen
+ *  in one read. `funnel` is null when no fan named the city, `verdict` null
+ *  when the planner did not consider it; both are answers, not failures. */
+export type CityViewModel = {
+  city_slug: string
+  funnel: CityFunnelRow | null
+  rooms: CityVenueRow[]
+  verdict: {
+    proposed: boolean
+    reason: string | null
+    /** Fans who asked to hear about a show here; null = cannot be measured. */
+    reachable: number | null
+    /** The audience a show needs; present only when that bar is the reason. */
+    floor: number | null
+  } | null
+  shows: CityViewShow[]
+  last_show: (CityViewShow & {
+    /** Null without a ticket sale for the night. */
+    paid_buyers: number | null
+    ticket_clicks: number
+    interested: number
+    /** Null without a door campaign — the room was not measured. */
+    checkins: number | null
+  }) | null
+}
+
+export type CityViewShow = {
+  slug: string
+  title: string
+  venue: string | null
+  starts_at: string
+  status: string
+}
+
+/** `GET /tenants/{slug}/views/content-material` — the material page's first
+ *  screen. "Usable" is active and not past `expires_at`; a use is one
+ *  content-supply action taken on the source. */
+export type ContentMaterialView = {
+  total: number
+  usable: number
+  used: number
+  uses_total: number
+  newest: { source_id: string; kind: ContentSourceKind; platform: string; title: string; occurred_at: string } | null
+  by_kind: Array<{
+    kind: ContentSourceKind
+    total: number
+    usable: number
+    used: number
+    uses: number
+    /** Songs counted once per title rather than per single/EP/album copy —
+     *  a title fold, so the page says "about". */
+    distinct_titles: number
+    oldest_unused_at: string | null
+    newest_unused_at: string | null
+  }>
+  recent: Array<{
+    source_id: string
+    kind: ContentSourceKind
+    platform: string
+    title: string
+    occurred_at: string
+    expires_at: string
+    usable: boolean
+    uses: number
+    last_used_at: string | null
+  }>
 }

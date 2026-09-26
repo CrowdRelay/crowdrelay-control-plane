@@ -1,6 +1,8 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
-import { PageShell, PageHeader, Section } from '../components/layout'
+import { PageShell, PageHeader, Section, KpiStrip, KpiCard } from '../components/layout'
+import { SectionIcon } from '../components/SectionIcon'
+import { RowTag, StatusPill, WorkRow } from '../components/ViewBlocks'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/app/badge'
 import { EmptyState } from '../components/ui/empty-state'
@@ -31,6 +33,15 @@ export function TenantCapabilitiesPage() {
     ...SURFACE_CAPABILITIES.filter(c => c.pillar === pillar).map(c => ({ title: c.title, purpose: c.purpose, where: c.home?.path ?? null, section: c.home?.section ?? null, gap: c.gap ?? null, platformOnly: c.platformOnly ?? false })),
   ].filter(e => matches(e.title) || matches(e.purpose) || matches(e.section ?? '')))
 
+  // The page's question is "what has no home?" — the answer opens it. A gap
+  // whose note starts "Deliberately" is a choice someone made, not a
+  // missing read, and is tagged so.
+  const all = [...PAGE_CAPABILITIES, ...SURFACE_CAPABILITIES]
+  const gaps = SURFACE_CAPABILITIES.filter(c => c.gap)
+  const inPillar = (pillar: Pillar) => all.filter(c => c.pillar === pillar)
+  const gapsIn = (pillar: Pillar) => gaps.filter(c => c.pillar === pillar).length
+  const byChoice = (gap: string) => gap.startsWith('Deliberately')
+
   return (
     <PageShell>
       <Show when={authState.isPlatformLevel()} fallback={<EmptyState label="This map is for the people who run the console." />}>
@@ -38,8 +49,35 @@ export function TenantCapabilitiesPage() {
           eyebrow="Where things live"
           title="Capabilities"
           description="Every feature, grouped by what it does for the fans, with the page and section where it is used. Nothing is operated from here."
-          actions={<Input class="w-64" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />}
+          actions={<StatusPill tone={gaps.length > 0 ? 'warn' : 'good'}>{gaps.length > 0 ? `${gaps.length} of ${all.length} have no screen yet` : `All ${all.length} have a home`}</StatusPill>}
         />
+        <KpiStrip>
+          <For each={PILLARS}>{pillar => (
+            <KpiCard
+              label={pillar.title}
+              value={inPillar(pillar.id).length}
+              sub={gapsIn(pillar.id) === 0 ? 'all placed' : `${gapsIn(pillar.id)} without a home`}
+              tone={gapsIn(pillar.id) > 0 ? 'warn' : undefined}
+            />
+          )}</For>
+        </KpiStrip>
+        <Show when={gaps.length > 0}>
+          <Section title="No home yet" icon={<SectionIcon name="alert-triangle" />} description="What blocks each one from a screen — the gap is a finding, not a form.">
+            <div class="flex flex-col">
+              <For each={gaps}>{gap => (
+                <WorkRow
+                  tag={<RowTag tone={byChoice(gap.gap!) ? 'muted' : 'bad'}>{byChoice(gap.gap!) ? 'by choice' : 'no read'}</RowTag>}
+                  title={gap.title}
+                  why={gap.gap}
+                />
+              )}</For>
+            </div>
+          </Section>
+        </Show>
+        <div class="mt-6 flex items-center justify-between gap-3">
+          <p class="text-sm text-muted-foreground">Find a feature — each links to the page and section where it is used.</p>
+          <Input class="w-64" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />
+        </div>
         <For each={PILLARS}>{(pillar) => {
           const list = entries(pillar.id)
           return (

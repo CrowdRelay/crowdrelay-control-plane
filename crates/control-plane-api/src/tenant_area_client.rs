@@ -647,6 +647,8 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                     | "/v1/control-plane/audience/acquisition-sources"
                     | "/v1/control-plane/audience/city-funnel"
                     | "/v1/control-plane/audience/city-venues"
+                    // Console views: one read per page's first screen.
+                    | "/v1/control-plane/views/content-material"
                     | "/v1/control-plane/audience/registry-verification-brief"
                     | "/v1/control-plane/audience/fans"
                     | "/v1/control-plane/audience/segments"
@@ -693,6 +695,8 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                 || safe_segment_between(path, "/v1/control-plane/events/", "/timeline")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/scan")
                 || safe_segment_between(path, "/v1/control-plane/events/", "/report")
+                // The city page's one read: funnel row, rooms, verdict, shows.
+                || safe_segment_between(path, "/v1/control-plane/views/cities/", "")
                 // §4h-11: the night's candidate shortlist — who could help
                 // with this show. Read-only like the timeline beside it.
                 || safe_segment_between(path, "/v1/control-plane/events/", "/who-can-help")
@@ -2244,6 +2248,30 @@ mod tests {
         assert!(valid_operations_request(
             "GET",
             "/v1/control-plane/audience/city-venues"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/views/content-material"
+        ));
+        assert!(valid_operations_request(
+            "GET",
+            "/v1/control-plane/views/cities/pending-migr-d-f9f5726f6a"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/views/cities/wroclaw/extra"
+        ));
+        assert!(!valid_operations_request(
+            "GET",
+            "/v1/control-plane/views/cities/Wroc%C5%82aw"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/views/cities/wroclaw"
+        ));
+        assert!(!valid_operations_request(
+            "POST",
+            "/v1/control-plane/views/content-material"
         ));
         assert!(!valid_operations_request(
             "GET",

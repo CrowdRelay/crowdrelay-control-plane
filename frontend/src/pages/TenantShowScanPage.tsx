@@ -3,7 +3,8 @@ import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { generateQr } from '../lib/qrCode'
-import { PageShell, PageHeader } from '../components/layout'
+import { PageShell, PageHeader, KpiStrip, KpiCard } from '../components/layout'
+import { StatusPill, type ViewTone } from '../components/ViewBlocks'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { formatTimestamp } from '../lib/format'
@@ -45,6 +46,19 @@ export function TenantShowScanPage() {
     return count != null && max != null && count >= max
   }
 
+  // The one sentence the person at the door needs before anything else.
+  const doorState = (): { tone: ViewTone; text: string } => {
+    const data = model.data
+    if (!data?.checkin_url) return { tone: 'muted', text: 'No door QR for this night yet' }
+    if (full()) return { tone: 'bad', text: 'Full — every further scan is turned away' }
+    if (notYetOpen()) return { tone: 'warn', text: `Opens ${doorTime(data.valid_from!)}` }
+    return { tone: 'good', text: data.valid_until ? `Open · until ${doorTime(data.valid_until)}` : 'Open' }
+  }
+  const backLabel = () => {
+    const event = model.data?.event
+    if (!event) return 'The night'
+    return [event.city, shortDate(event.starts_at)].filter(Boolean).join(' · ')
+  }
   return (
     <PageShell>
       <div class="mb-2">
@@ -53,7 +67,7 @@ export function TenantShowScanPage() {
           params={{ slug: params().slug, eventSlug: params().eventSlug }}
           class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft class="size-3.5" aria-hidden="true" /> The night
+          <ArrowLeft class="size-3.5" aria-hidden="true" /> {backLabel()}
         </Link>
       </div>
       <Show when={model.data} fallback={
@@ -78,6 +92,7 @@ export function TenantShowScanPage() {
               eyebrow="THE SCAN"
               title={data().campaign_label ?? 'The scan'}
               description={data().valid_until ? `Good until ${formatTimestamp(data().valid_until!)}` : undefined}
+              actions={<StatusPill tone={doorState().tone}>{doorState().text}</StatusPill>}
             />
             <Show
               when={data().checkin_url && qr() && !full()}
@@ -115,9 +130,26 @@ export function TenantShowScanPage() {
               <div class="mt-4 text-center">
                 <span class="text-3xl font-semibold tabular-nums text-foreground">{data().checkin_count}</span>
                 <span class="ml-2 text-sm text-muted-foreground">
-                  checked in{data().max_checkins != null ? ` · cap ${data().max_checkins}` : ''}
+                  checked in{data().max_checkins != null ? ` · cap ${data().max_checkins}` : ' · no cap'}
                 </span>
               </div>
+              <p class="mt-1 text-center text-xs text-muted-foreground">The count refreshes while the door is open</p>
+            </Show>
+            {/* The two questions the door gets asked. Tickets are null on a
+                night with no ticket sale — unticketed, not sold out of zero. */}
+            <Show when={data().event}>
+              {event => (
+                <div class="mx-auto mt-4 w-full max-w-sm">
+                  <KpiStrip class="mb-0">
+                    <KpiCard
+                      label="Tickets"
+                      value={event().tickets_sold == null ? '—' : event().tickets_sold!.toLocaleString()}
+                      sub={event().tickets_sold == null ? 'no ticket sale' : event().capacity != null ? `of ${event().capacity}` : undefined}
+                    />
+                    <KpiCard label="Interested" value={event().interested.toLocaleString()} />
+                  </KpiStrip>
+                </div>
+              )}
             </Show>
           </>
         )}
@@ -125,3 +157,10 @@ export function TenantShowScanPage() {
     </PageShell>
   )
 }
+
+/** "Sat 15:30" — the door's own clock, in the browser's zone. */
+const doorTime = (iso: string) =>
+  new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+
+const shortDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(iso))

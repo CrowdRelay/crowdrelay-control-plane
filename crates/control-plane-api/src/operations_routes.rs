@@ -553,6 +553,17 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/shows/{event_slug}/scan",
             get(tenant_show_scan),
         )
+        // Console views: a page's first screen in one request, answered by
+        // one upstream read. What sits behind the page's tabs keeps its own
+        // route and is fetched when the tab opens.
+        .route(
+            "/tenants/{slug}/views/cities/{city_slug}",
+            get(tenant_city_view),
+        )
+        .route(
+            "/tenants/{slug}/views/content-material",
+            get(tenant_content_material_view),
+        )
         // The T+7 artifact: what the counterparty's email looks like —
         // the mailed payload once issued, a live preview before.
         .route(
@@ -5303,6 +5314,42 @@ async fn tenant_show_scan(
     )
     .await?;
     object_no_store(value, "show scan")
+}
+
+async fn tenant_city_view(
+    State(state): State<AppState>,
+    Path((slug, city_slug)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        &format!("/v1/control-plane/views/cities/{city_slug}"),
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "city view")
+}
+
+async fn tenant_content_material_view(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/views/content-material",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "content material view")
 }
 
 async fn tenant_show_report(
