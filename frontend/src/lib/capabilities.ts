@@ -669,6 +669,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   },
 
   // ── Operate ────────────────────────────────────────────────────────
+  { id: 'content-hooks', pillar: 'operate', home: { path: '/content', section: 'What held attention' }, title: 'What held attention', purpose: "The band's own posts from the last 60 days, judged against its own median watch time and saves/shares — which openings held attention and which lost people.", read: { path: 'content/hooks' } },
   { id: 'goal', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Goal scoreboard' }, title: 'Goal scoreboard', purpose: 'Planned vs actual for the live objective, learning progress, approval latency, lanes that produced no fans, and the Reddit account standing.', read: { path: 'ops/goal' } },
   {
     id: 'community-replies', pillar: 'operate', home: { path: '/audience?tab=communities', section: 'Replies waiting' }, title: 'Replies waiting',

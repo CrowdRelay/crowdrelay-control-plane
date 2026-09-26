@@ -19,6 +19,7 @@ import { toast } from '../components/app/toast'
 import { fillPath, surface } from '../lib/surface'
 import { capabilityAction } from '../lib/capabilities'
 import { TrackedLinksPanel } from '../components/TrackedLinksPanel'
+import { HookScorecardPanel } from '../components/HookScorecardPanel'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
 import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar } from '../components/layout'
@@ -481,6 +482,8 @@ export function TenantContentPage() {
         </Show>
       </Show>
     </Section>
+    <HookScorecardPanel slug={params().slug} />
+
     <Section title="Tracked links" icon={<SectionIcon name="link" />} description="Links that count who clicked through to tickets and releases.">
       <Show when={showLinks()} fallback={
         <Button variant="outline" size="sm" onClick={() => setShowLinks(true)}>Open tracked links</Button>
