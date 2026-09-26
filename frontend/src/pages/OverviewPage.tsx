@@ -1,6 +1,5 @@
 import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { errorMessage, relativeTime } from '../lib/format'
@@ -8,9 +7,9 @@ import { authState } from '../lib/auth'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 import { cn } from '../lib/cn'
 import { EmptyState } from '../components/ui/empty-state'
-import { Button, buttonVariants } from '../components/app/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/app/card'
-import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { PageShell, ErrorCard } from '../components/layout'
+import { DashHeader, IconAct, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { FleetList } from '../components/FleetList'
 import { useOverviewModel, NeedsYouCard, NorthStarStrip, NorthStarSkeleton, TenantsTable, AutopilotSummary, ServicesRow } from '../components/OverviewBlocks'
 
 // The overview answers three questions in order: what needs a person, are we
@@ -52,65 +51,83 @@ export function OverviewPage() {
     void qc.invalidateQueries({ queryKey: ['command-center'] })
   }
 
+  const areas = useWorkAreas(['needs', 'northstar', 'autopilot', 'table'])
+  const t = () => ov.cc()?.tenants ?? null
+  const notReporting = () => ov.silentTenants() + (t()?.unknown ?? 0) + (t()?.stale ?? 0)
+  const pill = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
+    const cc = ov.cc()
+    if (!cc) return null
+    if (cc.attention.criticalAlerts > 0) return { tone: 'bad', text: `${cc.attention.criticalAlerts} critical alert${cc.attention.criticalAlerts === 1 ? '' : 's'}` }
+    if (notReporting() > 0) return { tone: 'warn', text: `${notReporting()} ${notReporting() === 1 ? 'tenant' : 'tenants'} not reporting` }
+    return { tone: 'good', text: 'Fleet healthy' }
+  }
+  const northStar = () => {
+    const values = (ov.cc()?.perTenant ?? []).map(p => p.momentum.northStarLatest).filter((v): v is number => v != null)
+    return values.length ? values.reduce((a, b) => a + b, 0) : null
+  }
+  const waitingTenants = () => (ov.cc()?.perTenant ?? []).filter(p => (p.attention.needsYou ?? 0) > 0)
+
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Overview"
-      description="What needs a person, whether the fans are growing, and how each tenant is doing."
+      subtitle="The fleet, and who needs attention first"
+      pill={pill()}
       actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={refresh} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
     <Show when={commandCenter.isError}>
       <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
     </Show>
+    <Show when={tenants.isError}>
+      <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
+    </Show>
 
-    {/* 1. What needs a person, ranked. */}
-    <NeedsYouCard ov={ov} loading={ccLoading()} />
+    <Tiles>
+      <Tile label="Tenants" value={t()?.total ?? tenants.data?.items.length} sub={t() ? `${t()!.healthy} healthy · ${t()!.unknown + t()!.stale} unknown` : undefined} />
+      <Tile
+        label="Services"
+        value={ov.platformServices().length ? <>{ov.healthyServices()}<span class="text-sm font-normal text-muted-foreground/70"> / {ov.platformServices().length}</span></> : null}
+        sub={ov.platformServices().map(s => s.label).join(' · ') || undefined}
+      />
+      <Tile label="North star, all tenants" value={northStar()} sub="each tenant's own measure, added" />
+      <Tile label="Waiting on people" value={ov.cc()?.attention.needsYou} sub={waitingTenants().length === 1 ? `all in ${waitingTenants()[0]!.displayName}` : `in ${waitingTenants().length} tenants`} />
+    </Tiles>
 
-    {/* 2. Are we getting more fans. */}
-    <section aria-labelledby="north-star-heading" class="space-y-3">
-      <h2 id="north-star-heading" class="text-base font-semibold text-foreground">North star</h2>
+    <FleetList rows={ov.rows()} canCreate={authState.isAdmin()} />
+
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'needs', label: 'What needs a person', count: ov.needsYou().length || null },
+        { id: 'northstar', label: 'North star' },
+        { id: 'autopilot', label: 'Autopilot' },
+        { id: 'table', label: 'Tenant table' },
+      ]}
+    />
+    <WorkAreaPanel id="needs" active={areas.active()}>
+      <NeedsYouCard ov={ov} loading={ccLoading()} />
+    </WorkAreaPanel>
+    <WorkAreaPanel id="northstar" active={areas.active()}>
       <Show when={!ccLoading()} fallback={<NorthStarSkeleton />}>
         <Show when={ov.cc()}><NorthStarStrip ov={ov} /></Show>
       </Show>
-    </section>
-
-    {/* 3. How each tenant is doing. */}
-    <Card>
-      <CardHeader class="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-        <CardTitle class="text-base">Tenants</CardTitle>
-        <Show when={authState.isPlatformLevel()}>
-          <Link to="/tenants" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Manage tenants</Link>
-        </Show>
-      </CardHeader>
-      <CardContent class="p-0">
-        <Show when={tenants.isError}>
-          <div class="p-4"><ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard></div>
-        </Show>
-        <Show when={!tenants.isError}>
-          <Show when={tenants.data && ov.rows().length === 0}>
-            <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
-          </Show>
-          <Show when={!tenants.data || ov.rows().length > 0}>
-            <TenantsTable rows={ov.rows()} loading={!tenants.data} ccLoading={ccLoading()} />
-          </Show>
-        </Show>
-      </CardContent>
-    </Card>
-
-    {/* 4. What the machine is doing on its own, closed by default. */}
-    <Show when={ov.cc()}><AutopilotSummary ov={ov} /></Show>
-
-    {/* 5. Platform services, one line. A failing one is already listed above. */}
-    <Show when={ov.platformServices().length > 0}>
-      <ServicesRow services={ov.platformServices()} />
-    </Show>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="autopilot" active={areas.active()}>
+      <Show when={ov.cc()}><AutopilotSummary ov={ov} /></Show>
+      <Show when={ov.platformServices().length > 0}><ServicesRow services={ov.platformServices()} /></Show>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="table" active={areas.active()}>
+      <Show when={tenants.data && ov.rows().length === 0}>
+        <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
+      </Show>
+      <Show when={!tenants.data || ov.rows().length > 0}>
+        <TenantsTable rows={ov.rows()} loading={!tenants.data} ccLoading={ccLoading()} />
+      </Show>
+    </WorkAreaPanel>
   </PageShell>
 }

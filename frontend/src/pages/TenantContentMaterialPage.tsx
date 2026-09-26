@@ -1,18 +1,16 @@
-import { For, Show, createSignal } from 'solid-js'
-import { useNavigate, useParams } from '@tanstack/solid-router'
+import { For, Show } from 'solid-js'
+import { useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { authState } from '../lib/auth'
 import type { ContentMaterialView, ContentSourceKind } from '../lib/types'
 import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
-import { PageShell, PageHeader, TabBar, KpiStrip, KpiCard, Section } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
-import { Button } from '../components/app/button'
+import { PageShell } from '../components/layout'
+import { Act, Bar, Card, DashHeader, MoreRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { ChartBar, Database, Layers } from 'lucide-solid'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import { BarRow, OutcomeRow, RowTag, StatusPill, WorkRow, type ViewTone } from '../components/ViewBlocks'
+import type { Tone as ViewTone } from '../components/ui/dash'
 import { formatIsoAge } from '../lib/format'
-import { CONTENT_TABS } from '../lib/nav'
 
 /// Everything the system may say publicly comes from this material — videos
 /// the watcher picked up, releases, events, and the stories the band writes
@@ -50,9 +48,6 @@ const platformLabel = (platform: string) =>
 
 export function TenantContentMaterialPage() {
   const params = useParams({ from: '/tenants/$slug/content/material' })
-  const navigate = useNavigate()
-  // A deep link into one source (`#…`) needs the full list mounted.
-  const [showAll, setShowAll] = createSignal(window.location.hash.length > 1)
 
   const view = useQuery(() => ({
     queryKey: ['content-material-view', params().slug],
@@ -76,20 +71,14 @@ export function TenantContentMaterialPage() {
     return { tone: fresh ? 'good' : 'warn', text: `${m.usable} usable · ${fresh ? 'newest this week' : 'nothing new this week'}` }
   }
 
-  return <PageShell>
-    <PageHeader
-      eyebrow={authState.isPlatformLevel() ? 'CONTENT' : undefined}
-      title="Material"
-      description="Everything the machine may talk about — nothing else. Videos and releases land here on their own; add stories yourself."
-      actions={<Show when={model()}><StatusPill tone={status().tone}>{status().text}</StatusPill></Show>}
-    />
+  const areas = useWorkAreas(['all'])
 
-    <TabBar
-      tabs={CONTENT_TABS}
-      active="material"
-      onChange={(id) => {
-        if (id === 'pipeline') void navigate({ to: '/tenants/$slug/content', params: { slug: params().slug } })
-      }}
+  return <PageShell>
+    <DashHeader
+      title="Material"
+      subtitle="Everything the machine may talk about"
+      pill={model() ? status() : null}
+      back={{ label: 'Content', to: '/tenants/$slug/content', params: { slug: params().slug } }}
     />
 
     <Show when={view.error}>
@@ -103,86 +92,79 @@ export function TenantContentMaterialPage() {
     <Show when={model()}>
       {m => (
         <>
-          <KpiStrip>
-            <KpiCard label="Usable now" value={m().usable.toLocaleString()} sub={`of ${m().total} on record · ${m().total - m().usable} aged out`} />
-            <KpiCard label="Used at least once" value={m().used.toLocaleString()} sub={`${m().uses_total.toLocaleString()} times in all`} />
-            <KpiCard
+          <Tiles>
+            <Tile label="Usable now" value={m().usable} sub={`of ${m().total} on record · ${m().total - m().usable} aged out`} />
+            <Tile label="Used at least once" value={m().used} sub={`${m().uses_total.toLocaleString()} times in all`} />
+            <Tile
               label="Never used"
-              value={neverUsed().toLocaleString()}
+              value={neverUsed()}
+              valueTone={neverUsed() * 2 > m().total ? 'warn' : undefined}
               sub={kind('social_post') ? `${kind('social_post')!.total - kind('social_post')!.used} of them your own posts` : undefined}
-              tone={neverUsed() * 2 > m().total ? 'warn' : undefined}
             />
-            <KpiCard
+            <Tile
               label="Newest"
-              value={m().newest ? formatIsoAge(m().newest!.occurred_at) : '—'}
+              value={m().newest ? formatIsoAge(m().newest!.occurred_at) : null}
               sub={m().newest ? [platformLabel(m().newest!.platform), shortDate(m().newest!.occurred_at)].filter(Boolean).join(' · ') : 'nothing on record'}
             />
-          </KpiStrip>
+          </Tiles>
 
-          <div class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <Section title="Newest first" icon={<SectionIcon name="list-checks" />} description="The five most recent sources and how often the machine used each.">
-              <div class="flex flex-col">
-                <For each={m().recent}>{row => (
-                  <WorkRow
-                    tag={<RowTag tone={row.usable ? 'muted' : 'warn'}>{row.usable ? KIND_SINGULAR[row.kind] ?? row.kind : 'aged out'}</RowTag>}
-                    title={row.title}
-                    why={[platformLabel(row.platform), shortDate(row.occurred_at), row.usable ? `good until ${shortDate(row.expires_at)}` : null].filter(Boolean).join(' · ')}
-                    action={row.uses === 0 ? 'never used' : `used ${row.uses}×`}
-                  />
-                )}</For>
-                <Show when={m().total > m().recent.length}>
-                  <Button variant="link" size="sm" class="h-auto px-0 mt-2 self-start text-xs" onClick={() => setShowAll(true)}>
-                    {m().total - m().recent.length} more — all material →
-                  </Button>
-                </Show>
-              </div>
-            </Section>
-
-            <Section title="What there is" icon={<SectionIcon name="database" />}>
-              <div class="flex flex-col">
-                <For each={m().by_kind.slice().sort((a, b) => b.total - a.total)}>{row => (
-                  <BarRow
-                    label={KIND_LABEL[row.kind] ?? row.kind}
-                    value={row.kind === 'release' ? row.distinct_titles : row.total}
-                    display={row.kind === 'release' ? `~${row.distinct_titles}` : undefined}
-                    max={largest()}
-                  />
-                )}</For>
-              </div>
-              <Show when={kind('release') && kind('release')!.total !== kind('release')!.distinct_titles}>
-                <p class="mt-2 text-xs text-muted-foreground">
-                  Songs counted once each, not once per single, EP and album copy ({kind('release')!.total} releases on record).
-                </p>
+          <Split>
+            <Card title="Newest first" icon={<Layers />} aside="times used">
+              <For each={m().recent}>{row => (
+                <Row>
+                  <Pill tone={row.usable ? 'muted' : 'warn'}>{row.usable ? (KIND_SINGULAR[row.kind] ?? row.kind) : 'aged out'}</Pill>
+                  <div class="min-w-0 flex-1">
+                    <p class="m-0 truncate text-sm text-foreground">{row.title}</p>
+                    <p class="m-0 text-xs text-muted-foreground/70">
+                      {[platformLabel(row.platform), shortDate(row.occurred_at), row.usable ? `good until ${shortDate(row.expires_at)}` : null].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <span class="w-8 shrink-0 text-right text-sm tabular-nums text-foreground">{row.uses || '—'}</span>
+                  <Act onClick={() => areas.open('all')}>Spread</Act>
+                </Row>
+              )}</For>
+              <Show when={m().total > m().recent.length}>
+                <MoreRow text={`${m().total - m().recent.length} more`} link={<Act onClick={() => areas.open('all')}>All material</Act>} />
               </Show>
-            </Section>
-          </div>
+            </Card>
 
-          <Section title="Is it being used" icon={<SectionIcon name="trending-up" />} description="Per kind: how much of it the machine has ever drawn on.">
-            <div class="flex flex-col">
-              <For each={m().by_kind.slice().sort((a, b) => (b.total - b.used) - (a.total - a.used))}>{row => {
-                const unused = row.total - row.used
-                return (
-                  <OutcomeRow
-                    label={`${KIND_LABEL[row.kind] ?? row.kind} · ${row.used} of ${row.total} used${row.uses > 0 ? `, ${row.uses} times` : ''}`}
-                    result={unused === 0 ? 'all used' : `${unused} never used${row.newest_unused_at ? ` · newest ${shortDate(row.newest_unused_at)}` : ''}`}
-                    tone={unused === 0 ? 'good' : unused * 2 > row.total ? 'warn' : 'muted'}
-                  />
-                )
-              }}</For>
-            </div>
-          </Section>
+            <Card title="What there is" icon={<Database />}>
+              <For each={m().by_kind.slice().sort((a, b) => b.total - a.total)}>{row => (
+                <Bar
+                  label={KIND_LABEL[row.kind] ?? row.kind}
+                  value={row.kind === 'release' ? row.distinct_titles : row.total}
+                  display={row.kind === 'release' ? `~${row.distinct_titles}` : undefined}
+                  max={largest()}
+                />
+              )}</For>
+              <Show when={kind('release') && kind('release')!.total !== kind('release')!.distinct_titles}>
+                <Note>Songs counted once each, not once per single, EP and album copy ({kind('release')!.total} releases on record).</Note>
+              </Show>
+            </Card>
+          </Split>
+
+          <Card title="Is it being used" icon={<ChartBar />} class="mb-3">
+            <For each={m().by_kind.slice().sort((a, b) => (b.total - b.used) - (a.total - a.used))}>{row => {
+              const unused = row.total - row.used
+              return (
+                <StatRow
+                  label={`${KIND_LABEL[row.kind] ?? row.kind} · ${row.used} of ${row.total} used${row.uses > 0 ? `, ${row.uses} times` : ''}`}
+                  value={<Pill tone={unused === 0 ? 'good' : unused * 2 > row.total ? 'warn' : 'muted'}>{unused === 0 ? 'all used' : `${unused} never used`}</Pill>}
+                />
+              )
+            }}</For>
+          </Card>
         </>
       )}
     </Show>
 
-    <Section title="All material" icon={<SectionIcon name="book-open" />} description="Every source, its send trail and spread; add a story or a link here.">
-      <Show when={showAll()} fallback={
-        <Button variant="link" size="sm" class="h-auto px-0 text-sm" onClick={() => setShowAll(true)}>
-          Open all {model()?.total ?? ''} sources
-        </Button>
-      }>
-        <ContentSourcesPanel slug={params().slug} />
-      </Show>
-    </Section>
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[{ id: 'all', label: 'All material, stories and each source\'s spread', count: model()?.total ?? null }]}
+    />
+    <WorkAreaPanel id="all" active={areas.active()}>
+      <ContentSourcesPanel slug={params().slug} />
+    </WorkAreaPanel>
   </PageShell>
 }

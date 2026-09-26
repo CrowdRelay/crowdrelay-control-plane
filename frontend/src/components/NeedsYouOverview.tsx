@@ -1,14 +1,10 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import type { OpportunityBoardEntry, TenantTodayReadModel } from '../lib/types'
-import { formatIsoAge, formatIsoUntil } from '../lib/format'
+import { formatIsoAge } from '../lib/format'
 import { DECISION_KIND_LABELS, APPROVE_EFFECT, labelOr, opportunityTitle } from '../lib/opportunity-labels'
-import { KpiCard, KpiStrip, Section } from './layout'
-import { SectionIcon } from './SectionIcon'
 import { ApproveAllButton } from './ApproveAllButton'
-import { Button } from './app/button'
-import { Badge } from './app/badge'
-import { WorkList, WorkRow } from './work'
+import { Act, Card, MoreRow, Note, Pill, Row, RowButton, Split, StatRow, Tile, Tiles } from './ui/dash'
 import { cn } from '../lib/cn'
 
 // Needs you, first screen (approved mockup `console-mockups/needs-you.html`):
@@ -27,9 +23,6 @@ type Batch = {
   expiresAt: string | null
   entry: OpportunityBoardEntry | null
 }
-
-const shortWhen = (iso: string) =>
-  new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 
 export function NeedsYouOverview(props: {
   slug: string
@@ -82,151 +75,126 @@ export function NeedsYouOverview(props: {
     return batch.count > 1 ? `${batch.count} × ${title}` : title
   }
 
+  // The pill word for a batch: "letters", "gig", "post".
+  const kindWord = (batch: Batch) => {
+    const words: Record<string, [string, string]> = {
+      'outreach.request': ['letter', 'letters'],
+      'booking.outreach.request': ['gig', 'gigs'],
+      'opportunity.live.apply': ['gig', 'gigs'],
+      'community.post': ['post', 'posts'],
+      'social.post': ['post', 'posts'],
+      'beacon.discovery.request': ['search', 'searches'],
+      'booking.target_discovery.request': ['search', 'searches'],
+      'show.growth.request': ['show', 'shows'],
+    }
+    const pair = words[batch.actionKind] ?? ['ask', 'asks']
+    return batch.count > 1 ? pair[1] : pair[0]
+  }
+
   // A briefing names a show by the first eight characters of its id; the
   // show list in the same read knows its title.
   const showTitle = (value: string) =>
     props.model.shows?.events.find(show => show.id.startsWith(value))?.title ?? value
 
+  const expiresShort = (iso: string) =>
+    new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+
   return (
     <>
-      <KpiStrip>
-        <KpiCard
-          label="Waiting for your yes"
-          value={batchesWithheld() ? '—' : waiting()}
-          sub={batchesWithheld() ? 'could not be read' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'wave' : 'waves'} · ${singles()} single`}
-          tone={batchesWithheld() ? 'default' : waiting() > 0 ? 'warn' : 'good'}
+      <Tiles>
+        <Tile
+          label="Waiting for yes"
+          value={batchesWithheld() ? null : waiting()}
+          sub={batchesWithheld() ? 'could not be read' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'batch' : 'batches'} · ${singles()} single`}
         />
-        <KpiCard
-          label="Expire in 24 h"
-          value={lapsed() ? lapsed()!.expiring_within_24h : '—'}
-          sub={soonest() ? `next: ${shortWhen(soonest()!)}` : 'none pending'}
-          tone={(lapsed()?.expiring_within_24h ?? 0) > 0 ? 'warn' : undefined}
-        />
-        <KpiCard
-          label="Your turn to reply"
-          value={props.model.reply_triage ? replies().length : '—'}
-          sub={saidYes() > 0 ? `${saidYes()} said yes` : 'people who wrote back'}
-        />
-        <KpiCard
+        <Tile label="Expire in 24 h" value={lapsed()?.expiring_within_24h} sub={soonest() ? `next: ${expiresShort(soonest()!)}` : 'none pending'} />
+        <Tile label="Your turn to reply" value={props.model.reply_triage ? replies().length : null} sub={`${saidYes()} said yes`} />
+        <Tile
           label="Lost this week"
-          value={lapsed() ? lapsed()!.total : '—'}
+          value={lapsed()?.total}
+          valueTone={(lapsed()?.total ?? 0) > 0 ? 'bad' : undefined}
           sub="expired with no answer"
-          tone={(lapsed()?.total ?? 0) > 0 ? 'bad' : undefined}
         />
-      </KpiStrip>
+      </Tiles>
 
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <Section
-          title="Waiting for your yes"
-          icon={<SectionIcon name="inbox" />}
-          description="One row per wave. If nobody answers, an ask expires and the machine moves on."
-        >
-          <Show when={batches().length > 0} fallback={
-            <p class="text-sm text-muted-foreground">Nothing waits for your yes. The next thing that needs a say lands here.</p>
-          }>
-            <WorkList>
-              <For each={batches()}>{batch => (
-                <WorkRow
-                  class={cn('cursor-pointer transition-colors hover:border-foreground/30', selected()?.key === batch.key && 'border-primary/60 bg-primary/5')}
-                  badge={<Badge variant={batch.count > 1 ? 'warning' : 'muted'}>{batch.count > 1 ? 'wave' : 'single'}</Badge>}
-                  title={batchTitle(batch)}
-                  why={[batch.entry?.reason, batch.expiresAt ? `expires ${formatIsoUntil(batch.expiresAt)}` : null].filter(Boolean).join(' · ')}
-                  action={
-                    <Button size="sm" variant={selected()?.key === batch.key ? 'default' : 'outline'} onClick={() => setSelectedKey(batch.key)}>
-                      Review
-                    </Button>
-                  }
-                />
-              )}</For>
-            </WorkList>
-          </Show>
-        </Section>
-
-        <Section title={selected() ? batchTitle(selected()!) : 'The ask'} icon={<SectionIcon name="mail" />}>
-          <Show when={selected()} fallback={<p class="text-sm text-muted-foreground">Pick a row to read what it would do.</p>}>
-            {batch => {
-              const entry = () => batch().entry
-              const draft = () => batch().actionIds.map(id => revisable().get(id)).find(Boolean) ?? null
-              return (
-                <div class="flex flex-col gap-3">
-                  <Show when={entry()?.briefing?.why_it_matters}>
-                    <p class="text-sm leading-relaxed text-foreground">{entry()!.briefing!.why_it_matters}</p>
-                  </Show>
-                  <Show when={draft()}>
-                    {fields => (
-                      <div class="rounded-md border border-border bg-background p-3">
-                        <For each={Object.entries(fields())}>{([key, text]) => (
-                          <div class="mb-2 last:mb-0">
-                            <p class="text-xs uppercase tracking-wide text-muted-foreground">{key.replaceAll('_', ' ')}</p>
-                            <p class="whitespace-pre-line text-sm text-foreground">{text}</p>
-                          </div>
-                        )}</For>
-                        <Show when={batch().count > 1}>
-                          <p class="mt-2 text-xs text-muted-foreground">1 of {batch().count} — the rest follow the same template.</p>
-                        </Show>
-                      </div>
-                    )}
-                  </Show>
-                  <Show when={(entry()?.briefing?.content ?? []).length > 0}>
-                    <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                      <For each={entry()!.briefing!.content}>{field => (
-                        <>
-                          <dt class="text-muted-foreground">{field.label}</dt>
-                          <dd class="text-foreground">{field.label === 'Event' ? showTitle(field.value) : field.value}</dd>
-                        </>
-                      )}</For>
-                    </dl>
-                  </Show>
-                  <Show when={APPROVE_EFFECT[batch().actionKind]}>
-                    <p class="text-xs text-muted-foreground">Approving: {APPROVE_EFFECT[batch().actionKind]}</p>
-                  </Show>
-                  <Show when={entry()?.consequence}>
-                    <p class="text-xs text-muted-foreground">If nobody answers: {entry()!.consequence}.</p>
-                  </Show>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <ApproveAllButton slug={props.slug} actionIds={batch().actionIds} onDone={props.refresh} />
-                    <Button size="sm" variant="ghost" onClick={props.onOpenDecisions}>Pick some or skip</Button>
-                  </div>
-                </div>
-              )
-            }}
-          </Show>
-        </Section>
-      </div>
-
-      <Section
-        title="Your turn to reply"
-        icon={<SectionIcon name="mail" />}
-        description="People who wrote back and are waiting on you — from the Gmail ledger, it updates itself."
-        count={replies().length}
-      >
-        <Show when={replies().length > 0} fallback={<p class="text-sm text-muted-foreground">Nobody is waiting on an answer from you.</p>}>
-          <WorkList>
-            <For each={replies().slice(0, 3)}>{reply => (
-              <WorkRow
-                badge={<Badge variant={reply.disposition === 'positive' ? 'success' : 'muted'}>{reply.disposition === 'positive' ? 'said yes' : 'answered'}</Badge>}
-                title={reply.display_name}
-                why={`${reply.target_kind.replaceAll('_', ' ')} · ${formatIsoAge(reply.replied_at)}`}
-                action={
-                  <Link to="/tenants/$slug/operations" params={{ slug: props.slug }} search={{ tab: 'replies' }} class="text-xs font-medium text-primary">
-                    Reply
-                  </Link>
-                }
-              />
+      <Split>
+        <Card title="Waiting for your yes">
+          <Show when={batches().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing waits for your yes.</p>}>
+            <For each={batches()}>{batch => (
+              <RowButton selected={selected()?.key === batch.key} onClick={() => setSelectedKey(batch.key)}>
+                <Pill tone={batch.count > 1 ? 'accent' : 'muted'}>{batch.count > 1 ? `${batch.count} ${kindWord(batch)}` : kindWord(batch)}</Pill>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm text-foreground">{batchTitle(batch)}</span>
+                  <span class="block text-xs text-muted-foreground/70">
+                    {[batch.entry?.reason, batch.expiresAt ? `expires ${expiresShort(batch.expiresAt)}` : null].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+              </RowButton>
             )}</For>
-          </WorkList>
+          </Show>
+          <Note>If nobody answers, an ask expires and the machine moves on.</Note>
+        </Card>
+
+        <Show when={selected()} fallback={<Card title="The ask"><p class="m-0 text-sm text-muted-foreground">Pick a row to read what it would do.</p></Card>}>
+          {batch => {
+            const entry = () => batch().entry
+            const draft = () => batch().actionIds.map(id => revisable().get(id)).find(Boolean) ?? null
+            return (
+              <Card title={batchTitle(batch())} aside={batch().count > 1 ? `1 of ${batch().count}` : undefined}>
+                <Show when={entry()?.briefing?.why_it_matters}>
+                  <p class="m-0 text-xs text-muted-foreground/70">{entry()!.briefing!.why_it_matters}</p>
+                </Show>
+                <Show when={draft()}>
+                  {fields => (
+                    <div class="my-2.5 rounded-lg border border-border px-3 py-2.5 text-xs leading-relaxed">
+                      <For each={Object.entries(fields())}>{([key, text]) => (
+                        <p class={cn('m-0 mb-1.5 whitespace-pre-line last:mb-0', key.includes('subject') || key.includes('title') ? 'font-medium text-foreground' : 'text-foreground')}>{text}</p>
+                      )}</For>
+                    </div>
+                  )}
+                </Show>
+                <Show when={!draft() && (entry()?.briefing?.content ?? []).length > 0}>
+                  <div class="my-2.5">
+                    <For each={entry()!.briefing!.content}>{field => (
+                      <StatRow label={field.label} value={<span class="text-foreground">{field.label === 'Event' ? showTitle(field.value) : field.value}</span>} />
+                    )}</For>
+                  </div>
+                </Show>
+                <Show when={APPROVE_EFFECT[batch().actionKind] || entry()?.consequence}>
+                  <Note>
+                    {[APPROVE_EFFECT[batch().actionKind] ? `Approving: ${APPROVE_EFFECT[batch().actionKind]}` : null,
+                      entry()?.consequence ? `If nobody answers: ${entry()!.consequence}.` : null].filter(Boolean).join(' ')}
+                  </Note>
+                </Show>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <ApproveAllButton slug={props.slug} actionIds={batch().actionIds} onDone={props.refresh} />
+                  <Act onClick={props.onOpenDecisions}>Pick some</Act>
+                  <Act onClick={props.onOpenDecisions}>Edit</Act>
+                  <Act onClick={props.onOpenDecisions}>Skip</Act>
+                </div>
+              </Card>
+            )
+          }}
+        </Show>
+      </Split>
+
+      <Card title="Your turn to reply" aside="from your Gmail, updates itself" class="mb-3">
+        <Show when={replies().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nobody is waiting on an answer from you.</p>}>
+          <For each={replies().slice(0, 3)}>{reply => (
+            <Row>
+              <Pill tone={reply.disposition === 'positive' ? 'good' : 'muted'}>{reply.disposition === 'positive' ? 'said yes' : 'answered'}</Pill>
+              <span class="min-w-0 flex-1 truncate text-sm text-foreground">{reply.display_name} · {reply.target_kind.replaceAll('_', ' ')}</span>
+              <span class="shrink-0 text-xs text-muted-foreground/70">{formatIsoAge(reply.replied_at)}</span>
+            </Row>
+          )}</For>
           <Show when={replies().length > 3}>
-            <Link to="/tenants/$slug/operations" params={{ slug: props.slug }} search={{ tab: 'replies' }} class="mt-2 inline-block text-xs text-muted-foreground hover:text-foreground">
-              {replies().length - 3} more — open replies →
-            </Link>
+            <MoreRow
+              text={`${replies().length - 3} more`}
+              link={<Link to="/tenants/$slug/operations" params={{ slug: props.slug }} search={{ tab: 'replies' }}>Open replies</Link>}
+            />
           </Show>
         </Show>
-        <Show when={(lapsed()?.total ?? 0) > 0}>
-          <p class="mt-3 text-xs text-muted-foreground">
-            {lapsed()!.total} {lapsed()!.total === 1 ? 'ask' : 'asks'} expired unanswered in the last {lapsed()!.window_days} days.
-          </p>
-        </Show>
-      </Section>
+      </Card>
     </>
   )
 }
@@ -238,9 +206,12 @@ export function needsYouStatus(model: TenantTodayReadModel | undefined): { tone:
   if (batches == null) return { tone: 'muted', text: 'The queue could not be read' }
   const count = batches.reduce((sum, b) => sum + b.count, 0)
   if (count === 0) return { tone: 'good', text: 'Nothing waits for your yes' }
-  const soonest = batches.map(b => b.earliest_expires_at).filter((v): v is string => Boolean(v)).sort()[0]
+  // Every ask in the queue has expired by the last batch's first expiry.
+  const latest = batches.map(b => b.earliest_expires_at).filter((v): v is string => Boolean(v)).sort().at(-1)
   return {
     tone: 'warn',
-    text: soonest ? `${count} waiting · first expires ${shortWhen(soonest)}` : `${count} waiting for your yes`,
+    text: latest
+      ? `${count} expire before ${new Intl.DateTimeFormat('en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(latest))}`
+      : `${count} waiting for your yes`,
   }
 }

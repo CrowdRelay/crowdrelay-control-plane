@@ -8,7 +8,9 @@ import { errorMessage, formatIsoAge } from '../lib/format'
 import { healthLabel, healthTone } from '../lib/health-tone'
 import type { TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
-import { ErrorCard, PageHeader, PageShell } from '../components/layout'
+import { ErrorCard, PageShell } from '../components/layout'
+import { DashHeader, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { FleetList } from '../components/FleetList'
 import { buttonVariants } from '../components/app/button'
 import { Card, CardContent } from '../components/app/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
@@ -40,22 +42,25 @@ export function TenantsPage() {
     return items().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
   })
   const open = (slug: string) => navigate({ to: '/tenants/$slug', params: { slug } })
+  const areas = useWorkAreas(['details'])
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title={isPlatformLevel() ? 'Tenants' : 'Your tenant'}
-      description={isPlatformLevel()
-        ? 'Every team on the platform, with its status, runtime health and region.'
-        : 'Your team on the platform: status, runtime health and region.'}
-      actions={
-        <Show when={isAdmin()}>
-          <Link to="/tenants/new" class={buttonVariants({ size: 'sm' })}>
-            <Plus aria-hidden="true" /> New tenant
-          </Link>
-        </Show>
-      }
+      subtitle={isPlatformLevel() ? 'Every team on the platform, most urgent first' : 'Your team on the platform'}
+      pill={tenants.data
+        ? (items().some(t => t.runtimeHealth === 'unknown' || t.runtimeHealth === 'stale')
+          ? { tone: 'warn', text: `${items().filter(t => t.runtimeHealth === 'unknown' || t.runtimeHealth === 'stale').length} not reporting` }
+          : { tone: 'good', text: `${items().length} reporting` })
+        : null}
     />
 
+    <Show when={!tenants.isError && tenants.data}>
+      <FleetList rows={items()} canCreate={isAdmin()} />
+    </Show>
+
+    <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[{ id: 'details', label: 'Status, runtime and region', count: items().length || null }]} />
+    <WorkAreaPanel id="details" active={areas.active()}>
     <Show when={tenants.isError}>
       <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
     </Show>
@@ -155,5 +160,6 @@ export function TenantsPage() {
         </CardContent>
       </Card>
     </Show>
+    </WorkAreaPanel>
   </PageShell>
 }

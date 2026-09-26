@@ -6,7 +6,9 @@ import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { PanelTitle } from '../components/layout'
-import { PageShell, PageHeader, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { PageShell } from '../components/layout'
+import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { PlacesFirstScreen, placesStatus } from '../components/PlacesFirstScreen'
 import { SectionIcon } from '../components/SectionIcon'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonSection } from '../components/Skeleton'
@@ -46,6 +48,8 @@ const SECTION_LABEL: Record<string, string> = {
   city_venues: 'Rooms',
   audience_places: 'Gathering places',
   gig_plan: 'The plan',
+  rooms_summary: 'Room counts',
+  online_summary: 'Online place counts',
 }
 
 const BAND_SECTION_LABEL: Record<string, string> = {
@@ -53,6 +57,8 @@ const BAND_SECTION_LABEL: Record<string, string> = {
   city_venues: 'The rooms',
   audience_places: 'Where fans gather',
   gig_plan: 'The plan',
+  rooms_summary: 'Room counts',
+  online_summary: 'Online place counts',
 }
 
 /** The first screen's row budget — every list shows its top slice and a
@@ -127,12 +133,10 @@ export function TenantPlacesPage() {
   // The valid list follows the entitlement: a band deep link `?tab=area`
   // on a tenant without AREA has nowhere valid to land, and the URL-follow
   // effect puts it back on cities once the probe answers.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
-    'cities',
-    () => (areaVisible()
-      ? ['cities', 'rooms', 'online', 'area']
-      : ['cities', 'rooms', 'online']),
-  )
+  const areas = useWorkAreas(['cities', 'rooms', 'online', 'area'])
+  const activeTab = () => areas.active()
+  const switchTab = (id: string) => areas.open(id)
+  const isVisited = (id: string) => areas.active() === id
 
   // Each tab owns its thin read model, enabled once visited — the Cities
   // tab never pays for the venue registry, the Online tab never pays for
@@ -141,7 +145,7 @@ export function TenantPlacesPage() {
   const cities = useQuery(() => ({
     queryKey: ['tenant-places', params().slug, 'cities'],
     queryFn: () => api.placesCities(params().slug),
-    enabled: isVisited('cities'),
+    // The first screen reads this model whichever tab is open.
     reconcile: 'id' as const,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
@@ -203,33 +207,31 @@ export function TenantPlacesPage() {
   })
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Places"
-      description="Where to play next, the rooms near your fans, where they gather online, and the AREA game."
+      subtitle="Where your fans are, and where to play next"
+      pill={placesStatus(cities.data)}
       actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={activeQuery().isFetching} aria-label="Refresh">
-            <RefreshCw class={cn(activeQuery().isFetching && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={refresh} disabled={activeQuery().isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', activeQuery().isFetching && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        { id: 'cities', label: 'Cities' },
-        { id: 'rooms', label: 'Rooms' },
-        { id: 'online', label: 'Online' },
+    <Show when={cities.data}>{data => <PlacesFirstScreen slug={params().slug} model={data()} onOpenTab={switchTab} />}</Show>
+
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'cities', label: 'Cities', count: cities.data?.city_funnel?.length ?? null },
+        { id: 'rooms', label: 'Rooms', count: cities.data?.rooms_summary?.total ?? null },
+        { id: 'online', label: 'Online', count: cities.data?.online_summary?.total ?? null },
         ...(areaVisible() ? [{ id: 'area', label: 'AREA' }] : []),
       ]}
     />
 
-    <TabPanel active={activeTab()} id="cities" visited={isVisited('cities')}>
+    <WorkAreaPanel id="cities" active={areas.active()}>
       <Show when={cities.error}>
         <SectionFailureCard error={cities.error} fallback="Cities unavailable" onRetry={() => void cities.refetch()} />
       </Show>
@@ -260,9 +262,9 @@ export function TenantPlacesPage() {
           <LazyGigPlan slug={params().slug} initialPlan={data.gig_plan} />
         </div>
       </>}</Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
-    <TabPanel active={activeTab()} id="rooms" visited={isVisited('rooms')}>
+    <WorkAreaPanel id="rooms" active={areas.active()}>
       <Show when={rooms.error}>
         <SectionFailureCard error={rooms.error} fallback="Rooms unavailable" onRetry={() => void rooms.refetch()} />
       </Show>
@@ -282,9 +284,9 @@ export function TenantPlacesPage() {
       </>}</Show>
       {/* The acts whose past nights make a room provable — operator curation. */}
       <ComparableActsPanel slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
 
-    <TabPanel active={activeTab()} id="online" visited={isVisited('online')}>
+    <WorkAreaPanel id="online" active={areas.active()}>
       <Show when={online.error}>
         <SectionFailureCard error={online.error} fallback="Gathering places unavailable" onRetry={() => void online.refetch()} />
       </Show>
@@ -301,14 +303,14 @@ export function TenantPlacesPage() {
           degraded={data.degraded.includes('audience_places')}
         />
       </>}</Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* The AREA workspace mounts only once the tab is visited and only for
         a session allowed to see it — for a band on a tenant without AREA the
         tab is neither listed nor mounted. */}
-    <TabPanel active={activeTab()} id="area" visited={isVisited('area') && areaVisible()}>
+    <WorkAreaPanel id="area" active={areaVisible() ? areas.active() : null}>
       <AreaWorkspace slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
   </PageShell>
 }
 

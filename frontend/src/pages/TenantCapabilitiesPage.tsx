@@ -1,8 +1,8 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
-import { PageShell, PageHeader, Section, KpiStrip, KpiCard } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
-import { RowTag, StatusPill, WorkRow } from '../components/ViewBlocks'
+import { PageShell, Section } from '../components/layout'
+import { Card, DashHeader, ItemRow, Tile, Tiles } from '../components/ui/dash'
+import { Puzzle } from 'lucide-solid'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/app/badge'
 import { EmptyState } from '../components/ui/empty-state'
@@ -45,34 +45,30 @@ export function TenantCapabilitiesPage() {
   return (
     <PageShell>
       <Show when={authState.isPlatformLevel()} fallback={<EmptyState label="This map is for the people who run the console." />}>
-        <PageHeader
-          eyebrow="Where things live"
+        <DashHeader
           title="Capabilities"
-          description="Every feature, grouped by what it does for the fans, with the page and section where it is used. Nothing is operated from here."
-          actions={<StatusPill tone={gaps.length > 0 ? 'warn' : 'good'}>{gaps.length > 0 ? `${gaps.length} of ${all.length} have no screen yet` : `All ${all.length} have a home`}</StatusPill>}
+          subtitle="Where every feature lives, and which have no home"
+          pill={gaps.length > 0 ? { tone: 'warn', text: `${gaps.length} of ${all.length} have no screen yet` } : { tone: 'good', text: `All ${all.length} have a home` }}
         />
-        <KpiStrip>
+        <Tiles>
           <For each={PILLARS}>{pillar => (
-            <KpiCard
+            <Tile
               label={pillar.title}
               value={inPillar(pillar.id).length}
               sub={gapsIn(pillar.id) === 0 ? 'all placed' : `${gapsIn(pillar.id)} without a home`}
-              tone={gapsIn(pillar.id) > 0 ? 'warn' : undefined}
             />
           )}</For>
-        </KpiStrip>
+        </Tiles>
         <Show when={gaps.length > 0}>
-          <Section title="No home yet" icon={<SectionIcon name="alert-triangle" />} description="What blocks each one from a screen — the gap is a finding, not a form.">
-            <div class="flex flex-col">
-              <For each={gaps}>{gap => (
-                <WorkRow
-                  tag={<RowTag tone={byChoice(gap.gap!) ? 'muted' : 'bad'}>{byChoice(gap.gap!) ? 'by choice' : 'no read'}</RowTag>}
-                  title={gap.title}
-                  why={gap.gap}
-                />
-              )}</For>
-            </div>
-          </Section>
+          <Card title="No home yet" icon={<Puzzle />} aside="what blocks it" class="mb-3">
+            <For each={gaps}>{gap => (
+              <ItemRow
+                pill={{ tone: byChoice(gap.gap!) ? 'muted' : 'bad', text: byChoice(gap.gap!) ? 'by choice' : 'no read' }}
+                title={gap.title}
+                sub={gap.gap}
+              />
+            )}</For>
+          </Card>
         </Show>
         <div class="mt-6 flex items-center justify-between gap-3">
           <p class="text-sm text-muted-foreground">Find a feature — each links to the page and section where it is used.</p>

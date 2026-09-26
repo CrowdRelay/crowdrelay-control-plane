@@ -3,16 +3,13 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { authState } from '../lib/auth'
 import type { TenantShow } from '../lib/types'
-import { PageShell, PageHeader, ErrorCard, TabBar, TabPanel, useTabPanels, KpiCard, KpiStrip, Section } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
-import { StatusBadge } from '../components/StatusBadge'
-import { Badge } from '../components/app/badge'
+import { PageShell, ErrorCard } from '../components/layout'
+import { Act, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Row, Split, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { BookingJourneyPanel } from '../components/BookingJourneyPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
-import { EmptyState } from '../components/ui/empty-state'
 import { Dialog } from '../components/Dialog'
 import { Field, FieldGrid } from '../components/ui/field'
 import { Input } from '../components/ui/input'
@@ -37,7 +34,8 @@ export function TenantShowsPage() {
   // pipeline that produced them. The booking model is an eight-section
   // fan-out — it only fires once the tab mounts (visit, prefetch, or a
   // ?tab=booking deep link), so the default page costs the shows list only.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('nights', ['nights', 'booking', 'merch'])
+  // `nights` was the old default tab; it is the page itself now.
+  const areas = useWorkAreas(['booking', 'merch'])
   const [adding, setAdding] = createSignal(false)
 
   const upcoming = createMemo(() =>
@@ -53,8 +51,6 @@ export function TenantShowsPage() {
   const ticketsSold = () => upcoming().reduce((sum, show) => sum + (show.tickets_sold ?? 0), 0)
   const capacityKnown = () => upcoming().some(show => show.tickets_sold != null && show.capacity != null)
   const capacity = () => upcoming().reduce((sum, show) => sum + (show.tickets_sold != null ? show.capacity ?? 0 : 0), 0)
-  const interested = () => upcoming().reduce((sum, show) => sum + (show.interested ?? 0), 0)
-  const interestedKnown = () => upcoming().some(show => show.interested != null)
   const measuredPast = () => past().filter(show => (show.door_campaigns ?? 0) > 0).length
   const scans = () => past().reduce((sum, show) => sum + show.scan_count, 0)
   const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
@@ -65,30 +61,104 @@ export function TenantShowsPage() {
     return { tone: 'good', text: `Next: ${next()!.city ?? next()!.title} in ${daysUntil(next()!.starts_at)}` }
   }
 
+  // "Get booked": the people who answered outreach, from the Today read
+  // the console already keeps warm — the same key, the same retry rule.
+  const today = useQuery(() => ({
+    queryKey: ['tenant-today', params().slug],
+    queryFn: () => api.tenantToday(params().slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: whileIncomplete(hasDegradedSections),
+  }))
+  const answered = () => today.data?.reply_triage?.waiting_on_you ?? []
+  const saidYes = () => answered().filter(r => r.disposition === 'positive').length
+  const thisYear = () => past().filter(show => new Date(show.starts_at).getFullYear() === new Date().getFullYear())
+
   return (
     <PageShell>
-      <PageHeader
-        eyebrow={authState.isPlatformLevel() ? 'TENANT' : undefined}
+      <DashHeader
         title="Shows"
-        description="Which nights are coming, and which one needs you."
-        actions={
-          <>
-            <Show when={status()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
-            <Button size="sm" writes onClick={() => setAdding(true)}>
-              Add show
-            </Button>
-          </>
-        }
+        subtitle="Nights on the books and gigs to get"
+        pill={status()}
+        actions={<Act onClick={() => setAdding(true)}>Add show</Act>}
       />
-      <AddShowDialog
-        slug={params().slug}
-        open={adding()}
-        onClose={() => setAdding(false)}
-      />
+      <AddShowDialog slug={params().slug} open={adding()} onClose={() => setAdding(false)} />
 
-      <TabBar
-        tabs={[
-          { id: 'nights', label: 'Nights' },
+      <Show when={model.error}>
+        <SectionFailureCard error={model.error} fallback="Shows unavailable" onRetry={() => void model.refetch()} />
+      </Show>
+      <Show when={!model.error && !model.data}>
+        <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
+      </Show>
+
+      <Show when={model.data}>
+        <Tiles>
+          <Tile
+            label="Next show"
+            value={next() ? daysUntil(next()!.starts_at) : null}
+            sub={next() ? [next()!.city, shortDate(next()!.starts_at)].filter(Boolean).join(' · ') : 'nothing booked'}
+          />
+          <Tile
+            label="Tickets sold"
+            value={ticketsKnown()
+              ? <>{ticketsSold().toLocaleString()}<Show when={capacityKnown()}><span class="text-sm font-normal text-muted-foreground/70"> / {capacity().toLocaleString()}</span></Show></>
+              : null}
+            sub={ticketsKnown() ? 'upcoming nights' : 'no ticket sale on the upcoming nights'}
+          />
+          <Tile
+            label="Venues talking"
+            value={today.data?.reply_triage ? answered().length : null}
+            sub={`${saidYes()} said yes · reply waiting`}
+          />
+          <Tile
+            label="Played this year"
+            value={thisYear().length}
+            sub={measuredPast() === 0 ? '0 door scans' : `${scans().toLocaleString()} door scans`}
+          />
+        </Tiles>
+
+        <Split even>
+          <Card title="Coming up">
+            <Show when={upcoming().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing booked ahead.</p>}>
+              <div class="flex flex-col gap-2.5">
+                <For each={upcoming().slice(0, 3)}>{show => <UpcomingCard show={show} slug={params().slug} />}</For>
+              </div>
+              <Note>
+                {upcoming().length === 1 ? `Nothing else booked after ${shortDate(upcoming()[0]!.starts_at)}.` : `${upcoming().length} nights booked.`}
+              </Note>
+            </Show>
+          </Card>
+          <Card title="Get booked">
+            <Show when={answered().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No venue or promoter is waiting on an answer.</p>}>
+              <For each={answered().slice(0, 4)}>{reply => (
+                <ItemRow
+                  pill={reply.disposition === 'positive' ? { tone: 'good', text: 'said yes' } : { tone: 'muted', text: 'answered' }}
+                  title={reply.display_name}
+                  action={<Act to="/tenants/$slug/operations" params={{ slug: params().slug }} search={{ tab: 'replies' }}>Reply</Act>}
+                />
+              )}</For>
+              <Show when={answered().length > 4}>
+                <MoreRow text={`${answered().length - 4} more`} link={<Link to="/tenants/$slug/operations" params={{ slug: params().slug }} search={{ tab: 'replies' }}>All replies</Link>} />
+              </Show>
+            </Show>
+          </Card>
+        </Split>
+
+        <Card title="Played" class="mb-3">
+          <Show when={past().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No played shows in the last ninety days.</p>}>
+            <For each={past()}>{show => <PlayedRow show={show} slug={params().slug} />}</For>
+            <Show when={measuredPast() === 0}>
+              <Note>A door QR scan turns the room into fans. None of these nights used it.</Note>
+            </Show>
+          </Show>
+        </Card>
+      </Show>
+
+      <WorkAreas
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
           // "Booking" is taken — the tenant wizard's crew-skill option is
           // parity-locked to TeamSkill upstream. The journey's own words.
           { id: 'booking', label: 'Get booked' },
@@ -96,84 +166,13 @@ export function TenantShowsPage() {
           // before a run of shows and sold at the door.
           { id: 'merch', label: 'Merch table' },
         ]}
-        active={activeTab()}
-        onChange={switchTab}
-        onPrefetch={prefetch}
       />
-
-      <TabPanel active={activeTab()} id="nights" visited={isVisited('nights')}>
-      <Show when={model.error}>
-        <SectionFailureCard
-          error={model.error}
-          fallback="Shows unavailable"
-          onRetry={() => void model.refetch()}
-        />
-      </Show>
-
-      <Show when={!model.error && !model.data}>
-        <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
-        <SkeletonSection titleWidth="120px" lines={4} minHeight="180px" />
-      </Show>
-
-      <Show when={model.data}>
-        <Show
-          when={(model.data?.events.length ?? 0) > 0}
-          fallback={
-            <EmptyState
-              label="No shows yet"
-              hint="Add a show above — or publish a gig in CrowdRelay — and it lands here: announced, played, everything the room scanned."
-            />
-          }
-        >
-          <KpiStrip>
-            <KpiCard
-              label="Next show"
-              value={next() ? daysUntil(next()!.starts_at) : '—'}
-              sub={next() ? [next()!.city, shortDate(next()!.starts_at)].filter(Boolean).join(' · ') : 'nothing booked'}
-            />
-            <KpiCard
-              label="Tickets sold"
-              value={ticketsKnown() ? ticketsSold().toLocaleString() : '—'}
-              sub={ticketsKnown() ? (capacityKnown() ? `of ${capacity().toLocaleString()} across upcoming nights` : 'across upcoming nights') : 'no ticket sale on the upcoming nights'}
-            />
-            <KpiCard label="Interested" value={interestedKnown() ? interested().toLocaleString() : '—'} sub={interestedKnown() ? 'fans who asked to be told' : 'no show reports interest yet'} />
-            <KpiCard
-              label="Played, 90 days"
-              value={past().length}
-              sub={measuredPast() === 0 ? 'no door QR used' : `${scans().toLocaleString()} door scans`}
-            />
-          </KpiStrip>
-
-          <Section title="Coming up" icon={<SectionIcon name="play" />} count={upcoming().length}>
-            <Show when={upcoming().length > 0} fallback={<p class="text-sm text-muted-foreground">Nothing announced.</p>}>
-              <div class="flex flex-col gap-2">
-                <For each={upcoming()}>{show => <UpcomingCard show={show} slug={params().slug} />}</For>
-              </div>
-            </Show>
-          </Section>
-
-          <Section title="Played" icon={<SectionIcon name="history" />} count={past().length}>
-            <Show when={past().length > 0} fallback={<p class="text-sm text-muted-foreground">No played shows in the last ninety days.</p>}>
-              <div class="flex flex-col">
-                <For each={past()}>{show => <PlayedRow show={show} slug={params().slug} />}</For>
-              </div>
-              <Show when={measuredPast() === 0}>
-                <p class="mt-3 text-xs text-muted-foreground">
-                  A door QR scan turns the room into fans. None of these nights used one — the next night's door page has it ready.
-                </p>
-              </Show>
-            </Show>
-          </Section>
-        </Show>
-      </Show>
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="merch" visited={isVisited('merch')}>
+      <WorkAreaPanel id="merch" active={areas.active()}>
         <MerchTablePanel slug={params().slug} />
-      </TabPanel>
-      <TabPanel active={activeTab()} id="booking" visited={isVisited('booking')}>
+      </WorkAreaPanel>
+      <WorkAreaPanel id="booking" active={areas.active()}>
         <BookingJourneyPanel slug={params().slug} />
-      </TabPanel>
+      </WorkAreaPanel>
     </PageShell>
   )
 }
@@ -399,39 +398,34 @@ const daysUntil = (iso: string) => {
 const roomOf = (show: TenantShow) =>
   show.room ?? (show.venue && show.venue !== show.title ? show.venue : null)
 
-/** One upcoming night: where, when, how far off, and the two numbers that say
- *  whether it will sell — tickets against capacity and fans who asked. */
+/** One upcoming night, as the mockup's inner card: city and a days pill,
+ *  date · room · title, tickets against capacity as a bar, interested. */
 function UpcomingCard(props: { show: TenantShow; slug: string }) {
   const sold = () => props.show.tickets_sold
   const cap = () => props.show.capacity
   const share = () => (sold() != null && cap() ? Math.min(100, Math.round((sold()! / cap()!) * 100)) : 0)
+  const days = () => Math.ceil((new Date(props.show.starts_at).getTime() - Date.now()) / 86_400_000)
+  const warn = () => props.show.status === 'draft' || (sold() != null && sold() === 0 && days() <= 21)
   return (
     <Link
       to="/tenants/$slug/shows/$eventSlug"
       params={{ slug: props.slug, eventSlug: props.show.slug }}
-      class="group block rounded-lg border border-border bg-background p-4 transition-colors hover:border-foreground/30"
+      class={`block rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30 ${warn() ? 'border-warning-foreground/60' : 'border-border'}`}
     >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="truncate text-base font-medium text-foreground group-hover:underline">{props.show.city ?? props.show.title}</span>
-            <Show when={props.show.status === 'draft'}><Badge variant="warning">not announced</Badge></Show>
-          </div>
-          <p class="mt-0.5 text-xs text-muted-foreground">
-            {[shortDate(props.show.starts_at), roomOf(props.show), props.show.city ? props.show.title : null].filter(Boolean).join(' · ')}
-          </p>
-        </div>
-        <span class="shrink-0 text-sm font-medium tabular-nums text-foreground">{daysUntil(props.show.starts_at)}</span>
+      <div class="flex items-baseline justify-between gap-2">
+        <span class="truncate text-sm font-medium text-foreground">{props.show.city ?? props.show.title}</span>
+        <Pill tone={props.show.status === 'draft' ? 'warn' : warn() ? 'warn' : 'muted'}>{props.show.status === 'draft' ? 'not announced' : daysUntil(props.show.starts_at)}</Pill>
       </div>
-      <div class="mt-3 flex items-center gap-3">
-        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-          <div class="h-full rounded-full bg-primary" style={{ width: `${share()}%` }} />
-        </div>
-        <span class="shrink-0 text-xs text-muted-foreground">
-          {sold() == null ? 'no ticket sale' : `${sold()} ${cap() ? `of ${cap()}` : ''} tickets`}
-          {` · ${props.show.interested ?? 0} interested`}
-        </span>
+      <p class="m-0 text-xs text-muted-foreground/70">
+        {[shortDate(props.show.starts_at), roomOf(props.show), props.show.city ? props.show.title : null].filter(Boolean).join(' · ')}
+      </p>
+      <div class="my-2 h-1.5 overflow-hidden rounded bg-muted/55">
+        <div class="h-full rounded bg-info-foreground" style={{ width: `${Math.max(share(), sold() === 0 ? 2 : 0)}%` }} />
       </div>
+      <p class="m-0 text-xs text-muted-foreground/70">
+        {sold() == null ? 'no ticket sale' : `${sold()} ${cap() ? `of ${cap()} ` : ''}tickets`}
+        {props.show.interested != null ? ` · ${props.show.interested} ${props.show.interested === 1 ? 'fan' : 'fans'} interested` : ''}
+      </p>
     </Link>
   )
 }
@@ -439,19 +433,14 @@ function UpcomingCard(props: { show: TenantShow; slug: string }) {
 /** One played night: date, where, and whether the door was measured. */
 function PlayedRow(props: { show: TenantShow; slug: string }) {
   const measured = () => (props.show.door_campaigns ?? 0) > 0
+  const day = () => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(props.show.starts_at))
   return (
-    <Link
-      to="/tenants/$slug/shows/$eventSlug/report"
-      params={{ slug: props.slug, eventSlug: props.show.slug }}
-      class="group flex items-center gap-3 border-t border-border py-2.5 text-sm first:border-t-0"
-    >
-      <span class="w-24 shrink-0 text-xs tabular-nums text-muted-foreground">{shortDate(props.show.starts_at)}</span>
-      <span class="min-w-0 flex-1 truncate text-foreground group-hover:underline">
+    <Row>
+      <span class="w-12 shrink-0 text-xs text-muted-foreground/70">{day()}</span>
+      <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: props.slug, eventSlug: props.show.slug }} class="min-w-0 flex-1 truncate text-sm text-foreground hover:underline">
         {[props.show.city, roomOf(props.show)].filter(Boolean).join(' · ') || props.show.title}
-      </span>
-      <span class={`shrink-0 text-xs ${measured() ? 'text-foreground' : 'text-muted-foreground'}`}>
-        {measured() ? `${props.show.scan_count} scanned` : 'no door scan'}
-      </span>
-    </Link>
+      </Link>
+      <Pill tone={measured() ? 'good' : 'muted'}>{measured() ? `${props.show.scan_count} scanned` : 'no door scan'}</Pill>
+    </Row>
   )
 }

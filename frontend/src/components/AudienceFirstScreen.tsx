@@ -1,8 +1,7 @@
 import { For, Show, createMemo } from 'solid-js'
 import type { AudienceReadModel } from '../lib/types'
-import { KpiCard, KpiStrip, Section } from './layout'
-import { SectionIcon } from './SectionIcon'
-import { cn } from '../lib/cn'
+import { Bar, Card, Note, Split, StatRow, Tile, Tiles } from './ui/dash'
+import { Link as LinkIcon, Megaphone, TrendingUp, Users } from 'lucide-solid'
 
 // Audience, first screen (mockup `console-mockups/audience.html`): who
 // follows you, and who you can actually reach. From the one audience read:
@@ -31,7 +30,7 @@ const SOURCE_LABEL: Record<string, string> = {
   import: 'Imported list',
 }
 
-export function AudienceFirstScreen(props: { model: AudienceReadModel }) {
+export function AudienceFirstScreen(props: { slug: string; model: AudienceReadModel }) {
   const overview = () => props.model.overview ?? null
   const activity = () => props.model.signal?.activity ?? null
   // One figure per platform: the largest un-scoped audience series.
@@ -64,92 +63,82 @@ export function AudienceFirstScreen(props: { model: AudienceReadModel }) {
   }
   const funnelMax = () => Math.max(1, ...funnel().map(step => step.value ?? 0))
 
+  const growth28 = () => {
+    let sum = 0
+    let known = false
+    for (const series of props.model.growth_metrics?.series ?? []) {
+      if (series.subject_id || NOT_FOLLOWERS.has(series.platform) || !FOLLOWER_KEYS.has(series.metric_key)) continue
+      if (series.delta_28d != null) { sum += series.delta_28d; known = true }
+    }
+    return known ? sum : null
+  }
+  const sources = () => props.model.acquisition_sources?.sources ?? []
+  const tracked = () => props.model.acquisition_sources?.tracked_fans ?? 0
+  const topSource = () => sources()[0] ?? null
+
   return (
     <>
-      <KpiStrip>
-        <KpiCard label="Followers, all platforms" value={followers().length ? totalFollowers().toLocaleString() : '—'} sub={`${followers().length} platforms`} />
-        <KpiCard
+      <Tiles>
+        <Tile
+          label="Followers, all platforms"
+          value={followers().length ? totalFollowers().toLocaleString() : null}
+          sub={growth28() != null ? <><span class="text-success-foreground">{growth28()! >= 0 ? '+' : ''}{growth28()}</span> this month</> : `${followers().length} platforms`}
+        />
+        <Tile
           label="Fans in Signal"
-          value={fans() == null ? '—' : fans()!.toLocaleString()}
-          sub={activity() ? `+${activity()!.new_fans_30d} in 30 days · +${activity()!.new_fans_7d} this week` : undefined}
+          value={fans()}
+          sub={activity() ? <><span class={activity()!.new_fans_30d > 0 ? 'text-success-foreground' : undefined}>+{activity()!.new_fans_30d}</span> in 30 days</> : undefined}
         />
-        <KpiCard
+        <Tile
           label="You can reach"
-          value={reachable() == null ? '—' : reachable()!.toLocaleString()}
+          value={reachable()}
           sub={fans() && reachable() != null ? `${Math.round((reachable()! / fans()!) * 100)}% said yes to messages` : 'said yes to messages'}
-          tone="primary"
         />
-        <KpiCard
-          label="Came to a show"
-          value={overview() ? overview()!.attendees.toLocaleString() : '—'}
-          sub={overview() ? `${overview()!.ticket_buyers} bought a ticket` : undefined}
-        />
-      </KpiStrip>
+        <Tile label="Came to a show" value={overview()?.attendees} sub={overview() ? `${overview()!.ticket_buyers} bought a ticket` : undefined} />
+      </Tiles>
 
-      <div class="grid gap-6 lg:grid-cols-2">
-        <Section title="Followers you can turn into fans" icon={<SectionIcon name="users" />} description="Per platform, against the fans you can message.">
-          <Show when={followers().length > 0} fallback={<p class="text-sm text-muted-foreground">No follower counts synced yet.</p>}>
-            <div class="flex flex-col">
-              <For each={top()}>{([platform, count]) => <Bar label={PLATFORM_LABEL[platform] ?? platform} value={count} max={maxBar()} />}</For>
-              <Show when={others() > 0}><Bar label="Others" value={others()} max={maxBar()} /></Show>
-              <Show when={fans() != null}><Bar label="Signal fans" value={fans()!} max={maxBar()} accent /></Show>
-            </div>
+      <Split mid>
+        <Card title="Followers you can turn into fans" icon={<Users />} aside="per platform">
+          <Show when={followers().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No follower counts synced yet.</p>}>
+            <For each={top()}>{([platform, count]) => <Bar label={PLATFORM_LABEL[platform] ?? platform} value={count} max={maxBar()} />}</For>
+            <Show when={others() > 0}><Bar label="Others" value={others()} max={maxBar()} /></Show>
+            <Show when={fans() != null}><Bar label="Signal fans" value={fans()!} max={maxBar()} tone="good" /></Show>
             <Show when={ratio()}>
-              <p class="mt-2 text-xs text-muted-foreground">
-                About 1 in {ratio()!.toLocaleString()} followers is a fan you can message. The join ask is how the rest cross over.
-              </p>
+              <Note>Fewer than 1 in {ratio()!.toLocaleString()} followers is a fan you can message. The join ask is how the rest cross over.</Note>
             </Show>
           </Show>
-        </Section>
+        </Card>
+        <Card title="The join ask" icon={<Megaphone />}>
+          <p class="m-0 py-2 text-sm text-muted-foreground">
+            Joins from each ask are not measured yet — signups carry no campaign until the tracked join links land.
+          </p>
+          <Note>Once they do, each post shows how many people it brought in.</Note>
+        </Card>
+      </Split>
 
-        <Section title="From fan to the room" icon={<SectionIcon name="trending-up" />}>
-          <Show when={funnel().length > 0} fallback={<p class="text-sm text-muted-foreground">The fan counts could not be read.</p>}>
-            <div class="flex flex-col">
-              <For each={funnel()}>{step => <Bar label={step.label} value={step.value} max={funnelMax()} />}</For>
-            </div>
-            <p class="mt-2 text-xs text-muted-foreground">
-              {overview()!.paid_ticket_orders} paid orders · {overview()!.qualified_referrals} qualified referrals · {overview()!.synesthesia_participants} Synesthesia players
-            </p>
+      <Split even>
+        <Card title="From fan to the room" icon={<TrendingUp />}>
+          <Show when={funnel().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">The fan counts could not be read.</p>}>
+            <For each={funnel()}>{step => <Bar label={step.label} value={step.value} max={funnelMax()} />}</For>
             <Show when={overview()!.attendees === 0}>
-              <p class="mt-2 text-xs text-muted-foreground">No one was scanned at a door yet — the next night's door QR counts the room.</p>
+              <Note>No one was scanned at the door yet — use the next night's door QR.</Note>
             </Show>
           </Show>
-        </Section>
-      </div>
-
-      <Section title="How fans arrived" icon={<SectionIcon name="link" />}>
-        <Show when={(props.model.acquisition_sources?.sources ?? []).length > 0} fallback={<p class="text-sm text-muted-foreground">No tracked arrivals yet.</p>}>
-          <div class="flex flex-col">
-            <For each={props.model.acquisition_sources!.sources}>{source => (
-              <Bar
-                label={SOURCE_LABEL[source.source] ?? source.source.replaceAll('_', ' ')}
-                value={source.fans}
-                max={Math.max(1, props.model.acquisition_sources!.tracked_fans)}
-                note={`${source.fans_30d} in 30 days`}
-              />
+        </Card>
+        <Card title="How fans arrived" icon={<LinkIcon />}>
+          <Show when={sources().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No tracked arrivals yet.</p>}>
+            <Show when={topSource() && topSource()!.fans === tracked()}>
+              <p class="m-0 text-sm text-foreground">All {tracked()} tracked fans came through {(SOURCE_LABEL[topSource()!.source] ?? topSource()!.source).toLowerCase()}</p>
+            </Show>
+            <For each={sources()}>{source => (
+              <StatRow label={SOURCE_LABEL[source.source] ?? source.source.replaceAll('_', ' ')} value={<span class="tabular-nums text-foreground">{source.fans}</span>} />
             )}</For>
-          </div>
-          <Show when={props.model.acquisition_sources!.active_fans > props.model.acquisition_sources!.tracked_fans}>
-            <p class="mt-2 text-xs text-muted-foreground">
-              {props.model.acquisition_sources!.active_fans - props.model.acquisition_sources!.tracked_fans} joined before arrivals were tracked.
-            </p>
+            <Show when={(props.model.acquisition_sources?.active_fans ?? 0) > tracked()}>
+              <StatRow label="Before tracking" value={<span class="tabular-nums text-foreground">{props.model.acquisition_sources!.active_fans - tracked()}</span>} />
+            </Show>
           </Show>
-        </Show>
-      </Section>
+        </Card>
+      </Split>
     </>
-  )
-}
-
-function Bar(props: { label: string; value: number | null; max: number; accent?: boolean; note?: string }) {
-  const width = () => (props.value == null ? 0 : Math.max(2, Math.round((props.value / props.max) * 100)))
-  return (
-    <div class="flex items-center gap-3 border-t border-border py-2 text-xs first:border-t-0">
-      <span class="w-28 shrink-0 text-foreground">{props.label}</span>
-      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-        <div class={cn('h-full rounded-full', props.accent ? 'bg-success-foreground' : 'bg-primary/75')} style={{ width: `${width()}%` }} />
-      </div>
-      <span class="w-14 shrink-0 text-right tabular-nums text-foreground">{props.value == null ? '—' : props.value.toLocaleString()}</span>
-      <Show when={props.note}><span class="w-24 shrink-0 text-right text-muted-foreground">{props.note}</span></Show>
-    </div>
   )
 }

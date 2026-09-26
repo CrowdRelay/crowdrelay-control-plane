@@ -7,7 +7,11 @@ import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { processMapLive } from '../lib/process-map-live'
 import { ProcessMap } from '../components/ProcessMap'
 import { SkeletonSection } from '../components/Skeleton'
-import { PageShell, PageHeader, ErrorCard } from '../components/layout'
+import { PageShell, ErrorCard } from '../components/layout'
+import { DashHeader, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { brainCycleStages } from '../lib/brain-cycle'
+import { Link } from '@tanstack/solid-router'
+import { cn } from '../lib/cn'
 import { Alert } from '../components/app/alert'
 import { NativeSelect } from '../components/ui/native-select'
 
@@ -21,6 +25,17 @@ const SECTION_LABEL: Record<string, { platform: string; band: string }> = {
   measurement: { platform: 'the measurement ledger', band: 'the numbers' },
   attention: { platform: 'what needs a person', band: 'what needs you' },
   action_states: { platform: 'the action state machine', band: "what's in progress" },
+}
+
+/** The mockup's six words for the loop, and the page that owns each. */
+const STAGE_NAME: Record<string, string> = { sense: 'Sense', decide: 'Decide', authorize: 'Approve', act: 'Act', measure: 'Measure', learn: 'Learn' }
+const STAGE_PAGE: Record<string, string> = {
+  sense: '/tenants/$slug/intelligence',
+  decide: '/tenants/$slug/intelligence',
+  authorize: '/tenants/$slug/attention',
+  act: '/tenants/$slug/in-motion',
+  measure: '/tenants/$slug/intelligence',
+  learn: '/tenants/$slug/intelligence',
 }
 
 export function FlowPage() {
@@ -75,12 +90,17 @@ export function FlowPage() {
     return label ? (platform() ? label.platform : label.band) : s
   })
 
+  const areas = useWorkAreas(['map'])
+  const stages = createMemo(() => (brain.data ? brainCycleStages(brain.data, true, now()) : []))
+  const stuck = () => stages().find(stage => stage.stuck) ?? null
+
   return (
     <PageShell>
-      <PageHeader eyebrow={platform() ? 'BIG PICTURE' : undefined} title="Process map" description={platform()
-        ? 'Sources feed the deterministic Rust autopilot, which decides. What that decision is allowed to do is the fork: some actions queue immediately, some wait for a person and expire after 72 hours if nobody answers, and some are recorded and never executed. Delivery is at-least-once, so only what comes back with a receipt updates the causal model and shapes the next decision. Click any block to jump to its page — the counts on it are live.'
-        : 'Sources feed the brain, which decides. What a decision may do is the fork: some things go straight to work, some wait for a person and expire after 72 hours if nobody answers, and some are only recorded. Nothing counts until it actually came back — and what came back shapes the next decision. Click any block to jump to its page — the numbers are live.'} />
-
+      <DashHeader
+        title="Process map"
+        subtitle={<>The brain's loop, with live counts · {tenantName()}</>}
+        pill={stuck() ? { tone: 'warn', text: `stuck at: ${stuck()!.label.toLowerCase()}` } : brain.data ? { tone: 'good', text: 'Loop moving' } : null}
+      />
       <Show
         when={slug()}
         fallback={<>
@@ -139,6 +159,30 @@ export function FlowPage() {
           </Alert>
         </Show>
 
+        <Show when={stages().length > 0}>
+          <div class="mb-2 flex flex-wrap items-stretch gap-1.5">
+            <For each={stages()}>{(stage, index) => (
+              <>
+                <Show when={index() > 0}><span class="flex items-center text-muted-foreground/70" aria-hidden="true">›</span></Show>
+                <Link
+                  to={STAGE_PAGE[stage.key] ?? '/tenants/$slug/intelligence'}
+                  params={{ slug: slug() }}
+                  class={cn('min-w-0 flex-1 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30',
+                    stage.key === stuck()?.key ? 'border-warning-foreground/70 bg-warning-foreground/10' : 'border-border bg-muted/55')}
+                >
+                  <p class="m-0 text-sm font-medium text-foreground">{STAGE_NAME[stage.key] ?? stage.label}</p>
+                  <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground/70')}>
+                    {[stage.count != null ? String(stage.count) : null, typeof stage.detail === 'string' ? stage.detail : null].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </Link>
+              </>
+            )}</For>
+          </div>
+          <p class="m-0 mb-3 text-xs text-muted-foreground/70">Each block opens the page that owns it. The stuck block is where the loop loses the most.</p>
+        </Show>
+
+        <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[{ id: 'map', label: 'The full map' }]} />
+        <WorkAreaPanel id="map" active={areas.active()}>
         <div class="process-map-legend">
           <span><i class="legend-swatch legend-inputs" />Sources</span>
           <span><i class="legend-swatch legend-intel" />Intelligence</span>
@@ -148,6 +192,7 @@ export function FlowPage() {
           <span><i class="legend-swatch legend-learning" />Learning loop</span>
         </div>
         <ProcessMap slug={slug} live={live} />
+        </WorkAreaPanel>
       </Show>
     </PageShell>
   )

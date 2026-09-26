@@ -32,10 +32,9 @@ import { Alert } from '../components/app/alert'
 import type { TenantBrainReadModel } from '../lib/types'
 import { JourneyRail } from '../components/Journey'
 import { brainCycleStages } from '../lib/brain-cycle'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, PanelTitle } from '../components/layout'
-import { Button } from '../components/app/button'
+import { PageShell, PanelTitle } from '../components/layout'
+import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { StatusBadge } from '../components/StatusBadge'
 import { IntelligenceOverview, brainStatus } from '../components/IntelligenceOverview'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
@@ -89,7 +88,9 @@ export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const navigate = useNavigate()
   // The id list makes `?tab=` deep links land on the right tab.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
+  const areas = useWorkAreas([...TABS])
+  const switchTab = (id: string) => areas.open(id)
+  const activeTab = () => areas.active()
   // A retired `?tab=` id remaps onto the tab its evidence moved to — the hook
   // alone would snap it back to the brief and the intent would be lost.
   const locationSearch = useRouterState({ select: s => s.location.search })
@@ -146,18 +147,14 @@ export function TenantIntelligencePage() {
   })
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Intelligence"
-      description="Is the brain getting anywhere, and what is it trying next?"
+      subtitle="Is the brain getting anywhere, and what next"
+      pill={brainStatus(model.data)}
       actions={
-        <>
-          <Show when={brainStatus(model.data)}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={() => void model.refetch()} disabled={model.isFetching} aria-label="Refresh">
-            <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
@@ -184,16 +181,15 @@ export function TenantIntelligencePage() {
       )}</For>
 
       <IntelligenceOverview slug={params().slug} model={data()} />
-      <div class="mt-6" />
     </>}</Show>
 
     {/* The tabs say what each one holds, in the order the loop runs. The
         first tab is the story — the other seven are the evidence. */}
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
+    <WorkAreas
+      label="Details"
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
         { id: 'brief', label: 'Are we getting anywhere' },
         { id: 'standing', label: 'Where it stands' },
         { id: 'decisions', label: 'What it decided' },
@@ -205,7 +201,7 @@ export function TenantIntelligencePage() {
         it must not wait on the brain model, an unrelated channel whose
         failure would hide the one thing this page exists to say. The other
         three tabs are evidence surfaces and keep the shared gate. */}
-    <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>
+    <WorkAreaPanel id="brief" active={areas.active()}>
       <Show when={model.data}>
         <div class="mb-5">
         <PanelTitle as="h3" class="mb-2">
@@ -215,11 +211,11 @@ export function TenantIntelligencePage() {
       </div>
         <BrainBriefPanel slug={params().slug} initial={model.data?.intelligence} />
       </Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* Intelligence and Operations share the query key, so the skeleton
         shows whenever the read model is absent, not only on first fetch. */}
-    <Show when={!model.error && !model.data && activeTab() !== 'brief'}>
+    <Show when={!model.error && !model.data && activeTab() != null && activeTab() !== 'brief'}>
       <SkeletonBrainGroup />
       <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
     </Show>
@@ -228,7 +224,7 @@ export function TenantIntelligencePage() {
 
       {/* ── Where it stands — posture, capabilities, objectives, beliefs,
             and the material it may speak with ── */}
-      <TabPanel active={activeTab()} id="standing" visited={isVisited('standing')}>
+      <WorkAreaPanel id="standing" active={areas.active()}>
         <Show when={data().scorecard}>{d => <ScorecardPanel slug={params().slug} data={d()} />}</Show>
         <ReachPanel slug={params().slug} />
         {/* N.9 — the dispatch gate's registry per lane: which capabilities
@@ -242,11 +238,11 @@ export function TenantIntelligencePage() {
         <BrainCyclesPanel slug={params().slug} />
         <GrowthIntelligencePanel slug={params().slug} />
         <ContentSourcesPanel slug={params().slug} />
-      </TabPanel>
+      </WorkAreaPanel>
 
       {/* ── What it decided — the decision log and what came of the
             decisions: growth, channels, attribution, the funnel ── */}
-      <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
+      <WorkAreaPanel id="decisions" active={areas.active()}>
         <IntelligenceTransparencyPanel slug={params().slug} />
         <GrowthMetricsPanel slug={params().slug} />
         <AcquisitionChannelsPanel slug={params().slug} />
@@ -255,11 +251,11 @@ export function TenantIntelligencePage() {
             produced them, and when the growth rate itself shifted. */}
         <FanAttributionPanel slug={params().slug} />
         <GrowthFunnelPanel slug={params().slug} />
-      </TabPanel>
+      </WorkAreaPanel>
 
       {/* ── What it learned — the loop, the beliefs it closed, the gate's
             refusals in its own words, and the ledger that judges it ── */}
-      <TabPanel active={activeTab()} id="learning" visited={isVisited('learning')}>
+      <WorkAreaPanel id="learning" active={areas.active()}>
         <Show when={data().learning}>{d => <LearningLoopPanel slug={params().slug} data={d()} />}</Show>
         <Show when={data().learning_proof}>{d => <LearningProofPanel slug={params().slug} data={d()} />}</Show>
         <Show when={data().attention}>{att => (
@@ -269,7 +265,7 @@ export function TenantIntelligencePage() {
           />
         )}</Show>
         <Show when={data().measurement}>{d => <MeasurementPanel slug={params().slug} data={d()} />}</Show>
-      </TabPanel>
+      </WorkAreaPanel>
     </>}</Show>
   </PageShell>
 }
