@@ -32,6 +32,7 @@ pub fn admin_router() -> Router<AppState> {
         .route("/overview", get(overview))
         .route("/tenants", get(list_tenants).post(create_tenant))
         .route("/north-star-options", get(north_star_options))
+        .route("/tenant-wizard", get(tenant_wizard))
         .route("/fleet/status", get(fleet_status))
 }
 
@@ -219,11 +220,36 @@ async fn north_star_options(
     Extension(identity): Extension<Arc<Identity>>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     identity.require_platform_admin()?;
+    Ok(Json(north_star_vocabulary(&state, &headers).await?))
+}
+
+/// `GET /tenant-wizard` — everything the new-tenant wizard reads before the
+/// operator types a letter, in one call: whether this plane can deploy (and
+/// with which default release), and the North Star vocabulary the fleet
+/// admits. Platform-admin only, like both halves it replaces: creating a
+/// tenant is a platform action, and the vocabulary probe crosses the tunnel.
+async fn tenant_wizard(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Extension(identity): Extension<Arc<Identity>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    identity.require_platform_admin()?;
+    let north_stars = north_star_vocabulary(&state, &headers).await?;
+    Ok(Json(json!({
+        "provisionerConfigured": state.provisioner_token_hash.is_some(),
+        "provisionerDefaultImageTag": state.provisioner_default_image_tag.as_deref(),
+        "northStars": north_stars,
+    })))
+}
+
+/// The North Star options a new tenant may pick: the first live tenant's
+/// admitted list, or the platform's own list when no tenant answers.
+async fn north_star_vocabulary(state: &AppState, headers: &HeaderMap) -> Result<Value, ApiError> {
     for tenant in state.store.list_tenants().await? {
         if matches!(tenant.tenant.status.as_str(), "suspended" | "parked") {
             continue;
         }
-        let Ok((_, target)) = crate::area_routes::target(&state, &tenant.tenant.slug).await else {
+        let Ok((_, target)) = crate::area_routes::target(state, &tenant.tenant.slug).await else {
             continue;
         };
         let Ok(value) = state
@@ -235,7 +261,7 @@ async fn north_star_options(
                     method: "GET",
                     path: "/v1/control-plane/tenant-settings/north-stars",
                     body: None,
-                    correlation_id: crate::operations_routes::correlation(&headers),
+                    correlation_id: crate::operations_routes::correlation(headers),
                     idempotency_key: None,
                 },
             )
@@ -248,7 +274,7 @@ async fn north_star_options(
         };
         let offered = admitted_north_star_options(options);
         if !offered.is_empty() {
-            return Ok(Json(json!({ "options": offered, "source": "fleet" })));
+            return Ok(json!({ "options": offered, "source": "fleet" }));
         }
     }
     let options: Vec<Value> = validation::NORTH_STAR_METRICS
@@ -271,7 +297,7 @@ async fn north_star_options(
             })
         })
         .collect();
-    Ok(Json(json!({ "options": options, "source": "platform" })))
+    Ok(json!({ "options": options, "source": "platform" }))
 }
 
 /// Fleet-reported options reduced to what this plane will also accept at
