@@ -151,6 +151,7 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/brain", get(brain))
         .route("/tenants/{slug}/delivery", get(delivery))
         .route("/tenants/{slug}/proof", get(proof))
+        .route("/tenants/{slug}/in-motion/model", get(in_motion))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -2295,6 +2296,72 @@ async fn proof(
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
+}
+
+/// In motion — "what is the machine doing right now on its own?" in one
+/// read: the relay runs the page lists, the autopilot overview (queue depth,
+/// what ran in 24 h, what landed, the recent actions the "finished" tallies
+/// count) and the intelligence brief (the stuck work by kind and what the
+/// cycle stopped). Three sections concurrently; each degrades on its own.
+async fn in_motion(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:in-motion");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let (relays, autopilot, intelligence) = tokio::join!(
+        fetch("/v1/control-plane/processes/relays"),
+        fetch("/v1/control-plane/autopilot/overview"),
+        fetch("/v1/control-plane/ops/intelligence"),
+    );
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "in_motion",
+        &in_motion_sections(relays.as_ref(), autopilot.as_ref(), intelligence.as_ref()),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// The section table the in-motion handler projects.
+fn in_motion_sections<'a>(
+    relays: SectionResult<'a>,
+    autopilot: SectionResult<'a>,
+    intelligence: SectionResult<'a>,
+) -> [Section<'a>; 3] {
+    [
+        section("relays", relays, Shape::Object),
+        section("autopilot", autopilot, Shape::Object),
+        section("intelligence", intelligence, Shape::Object),
+    ]
 }
 
 /// The section table the proof handler projects.
@@ -4839,6 +4906,26 @@ mod tests {
         ] {
             assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
         }
+    }
+
+    #[test]
+    fn in_motion_keeps_the_runs_when_the_brief_is_down() {
+        // The relay list is the page; losing the brief must cost only the
+        // stuck-work card, never the runs.
+        let relays = json!({"runs": [{"source_id": "s1"}]});
+        let autopilot = json!({"queued_actions": 1});
+        let error = unreachable();
+        let projected = project_sections(
+            "virya",
+            300,
+            "in_motion",
+            &in_motion_sections(ok(&relays), ok(&autopilot), Err(&error)),
+        )
+        .expect("one dead section still projects the rest");
+        assert_eq!(projected["relays"], relays);
+        assert_eq!(projected["autopilot"], autopilot);
+        assert_eq!(projected["intelligence"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["intelligence"]));
     }
 
     #[test]

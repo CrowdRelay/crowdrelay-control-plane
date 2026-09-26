@@ -84,7 +84,7 @@ const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, pat
 // In motion: the process view — every run the brain is working, each as its
 // steps. The list warms on intent like its siblings; a run's forum detail is
 // a second query that only fires when the card opens.
-const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: TenantInMotionPage, loader: ({ params }) => warm(['relay-process-runs', params.slug], () => api.relayProcessRuns(params.slug))() })
+const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: TenantInMotionPage, loader: ({ params }) => warm(['in-motion-model', params.slug], () => api.inMotionModel(params.slug))() })
 const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => { warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))(); warm(['tenant-delivery', params.slug], () => api.deliveryModel(params.slug))() } })
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
