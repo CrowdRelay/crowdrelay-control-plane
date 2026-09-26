@@ -29,6 +29,15 @@ type HookPost = {
   keep_index_bps: number | null
 }
 
+type FanLink = {
+  channel: string
+  slug: string
+  creative: string | null
+  destination_url: string | null
+  fans: number
+  stayed: number
+}
+
 const VERDICT: Record<HookPost['verdict'], { label: string; variant: 'success' | 'warning' | 'muted' }> = {
   held_attention: { label: 'held attention', variant: 'success' },
   lost_early: { label: 'lost them early', variant: 'warning' },
@@ -60,13 +69,14 @@ function HookRow(props: { post: HookPost }) {
 export function HookScorecardPanel(props: { slug: string }) {
   const hooks = useQuery(() => ({
     queryKey: ['surface', props.slug, 'content-hooks'],
-    queryFn: () => surface.read<{ window_days: number; posts: HookPost[] }>(props.slug, capability('content-hooks').read!.path),
+    queryFn: () => surface.read<{ window_days: number; posts: HookPost[]; links?: FanLink[] }>(props.slug, capability('content-hooks').read!.path),
     staleTime: 5 * 60_000,
     retry: 1,
   }))
   const posts = () => hooks.data?.posts ?? []
   const held = () => posts().filter(post => post.verdict === 'held_attention')
   const lost = () => posts().filter(post => post.verdict === 'lost_early')
+  const links = () => hooks.data?.links ?? []
 
   return (
     <Section
@@ -94,6 +104,19 @@ export function HookScorecardPanel(props: { slug: string }) {
                 </ul>
               </div>
             </div>
+          </Show>
+          <Show when={links().length > 0}>
+            <p class="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Links that brought fans, 90 days</p>
+            <ul class="mt-2 space-y-1 text-sm">
+              <For each={links()}>{link => (
+                <li class="flex flex-wrap items-baseline gap-2">
+                  <Badge variant={link.stayed > 0 ? 'success' : 'muted'}>{link.stayed} of {link.fans} stayed</Badge>
+                  <span class="text-foreground">{link.channel}{link.creative ? ` · ${link.creative}` : ''}</span>
+                  <span class="text-xs text-muted-foreground">/l/{link.slug}</span>
+                </li>
+              )}</For>
+            </ul>
+            <p class="mt-1 text-xs text-muted-foreground">Stayed: still subscribed, still hearing from you, and did something in the last 30 days. Give each post or story its own link and it earns its own line here.</p>
           </Show>
         </Show>
       </Show>
