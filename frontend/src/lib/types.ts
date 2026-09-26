@@ -3821,6 +3821,13 @@ export type BookingAgent = {
   approached_at?: string
   refused_until?: string
   approach_pending: boolean
+  /// An answer to their reply already sits on the approval board.
+  reply_pending?: boolean
+  /// An answerable reply (`received`/`positive`/`signed`) nobody has
+  /// answered — the row's draft affordance keys off this.
+  awaiting_reply?: boolean
+  reply_waiting_at?: string
+  reply_waiting_disposition?: string
   version: number
 }
 

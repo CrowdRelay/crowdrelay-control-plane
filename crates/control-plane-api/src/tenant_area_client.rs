@@ -830,6 +830,10 @@ pub(crate) fn valid_operations_request(method: &str, path: &str) -> bool {
                 || path == "/v1/control-plane/booking-agents/approach"
                 || path == "/v1/control-plane/booking-agents/approach-wave"
                 || uuid_segment_between(path, "/v1/control-plane/booking-agents/", "/reply")
+                // The reply lane's draft: the band asks for an answer to an
+                // agent who wrote back — same brokered send, same approval
+                // card, queued the same way.
+                || uuid_segment_between(path, "/v1/control-plane/booking-agents/", "/reply-draft")
                 || uuid_segment_between(
                     path,
                     "/v1/control-plane/autopilot/beacon-press-requests/",
