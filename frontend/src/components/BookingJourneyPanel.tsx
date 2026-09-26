@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { ArrowRight } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, money } from '../lib/format'
+import { compareTimestamps, confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, money } from '../lib/format'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { toast } from './app/toast'
 import { Alert } from './app/alert'
@@ -79,7 +79,7 @@ export function BookingJourneyPanel(props: { slug: string }) {
       .sort((a, b) =>
         b.fit_basis_points - a.fit_basis_points
         || b.confidence_basis_points - a.confidence_basis_points
-        || (b.source_observed_at ?? '').localeCompare(a.source_observed_at ?? ''),
+        || compareTimestamps(b.source_observed_at, a.source_observed_at),
       ),
   )
   const [shownFound, setShownFound] = createSignal(10)

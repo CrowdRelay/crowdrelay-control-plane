@@ -7,6 +7,7 @@ import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { relativeTime } from '../lib/format'
+import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { BrainBriefPanel } from '../components/BrainBriefPanel'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
@@ -171,11 +172,11 @@ export function TenantIntelligencePage() {
         <Alert tone="warning" role="status" class="mb-4">
           <Show when={authState.isPlatformLevel()} fallback={
             <>
-              <strong>{BAND_SECTION_LABEL[section] ?? section}</strong> couldn't be checked right
+              <strong>{BAND_SECTION_LABEL[section] ?? humanize(section)}</strong> couldn't be checked right
               now. The rest of the page keeps working — it comes back on its own.
             </>
           }>
-            <strong>{SECTION_LABEL[section] ?? section}</strong> isn't available on the connected
+            <strong>{SECTION_LABEL[section] ?? humanize(section)}</strong> isn't available on the connected
             tenant right now. The rest of the page keeps working — it recovers on the next poll.
           </Show>
         </Alert>

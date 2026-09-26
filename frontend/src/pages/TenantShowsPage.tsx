@@ -20,6 +20,7 @@ import { Checkbox } from '../components/app/checkbox'
 import { Button } from '../components/app/button'
 import { Spinner } from '../components/Spinner'
 import { toast } from '../components/app/toast'
+import { compareTimestamps } from '../lib/format'
 
 /** `/tenants/$slug/shows` — the gig list: next up first, then past shows,
  * newest first. The noun every show-day capability hangs off; the night
@@ -39,8 +40,12 @@ export function TenantShowsPage() {
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('nights', ['nights', 'booking', 'merch'])
   const [adding, setAdding] = createSignal(false)
 
-  const upcoming = createMemo(() => (model.data?.events ?? []).filter(event => event.upcoming))
-  const past = createMemo(() => (model.data?.events ?? []).filter(event => !event.upcoming))
+  const upcoming = createMemo(() =>
+    (model.data?.events ?? []).filter(event => event.upcoming)
+      .sort((a, b) => compareTimestamps(a.starts_at, b.starts_at)))
+  const past = createMemo(() =>
+    (model.data?.events ?? []).filter(event => !event.upcoming)
+      .sort((a, b) => compareTimestamps(b.starts_at, a.starts_at)))
   const next = () => upcoming()[0] ?? null
   // Sums over the nights that measure the thing: a night with no ticket
   // sale adds nothing to "sold" and does not turn the total into a zero.
@@ -49,6 +54,7 @@ export function TenantShowsPage() {
   const capacityKnown = () => upcoming().some(show => show.tickets_sold != null && show.capacity != null)
   const capacity = () => upcoming().reduce((sum, show) => sum + (show.tickets_sold != null ? show.capacity ?? 0 : 0), 0)
   const interested = () => upcoming().reduce((sum, show) => sum + (show.interested ?? 0), 0)
+  const interestedKnown = () => upcoming().some(show => show.interested != null)
   const measuredPast = () => past().filter(show => (show.door_campaigns ?? 0) > 0).length
   const scans = () => past().reduce((sum, show) => sum + show.scan_count, 0)
   const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
@@ -130,7 +136,7 @@ export function TenantShowsPage() {
               value={ticketsKnown() ? ticketsSold().toLocaleString() : '—'}
               sub={ticketsKnown() ? (capacityKnown() ? `of ${capacity().toLocaleString()} across upcoming nights` : 'across upcoming nights') : 'no ticket sale on the upcoming nights'}
             />
-            <KpiCard label="Interested" value={interested().toLocaleString()} sub="fans who asked to be told" />
+            <KpiCard label="Interested" value={interestedKnown() ? interested().toLocaleString() : '—'} sub={interestedKnown() ? 'fans who asked to be told' : 'no show reports interest yet'} />
             <KpiCard
               label="Played, 90 days"
               value={past().length}

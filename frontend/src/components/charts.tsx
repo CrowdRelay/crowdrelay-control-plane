@@ -32,7 +32,8 @@ export function Widget(props: {
 /** A change against a window: arrow, signed figure, window label. Zero and
  *  unknown are drawn as flat, not as a green nothing. */
 export function DeltaBadge(props: { value: number | null | undefined; label: string; class?: string }) {
-  const dir = () => (props.value == null || props.value === 0 ? 0 : props.value > 0 ? 1 : -1)
+  const finite = () => typeof props.value === 'number' && Number.isFinite(props.value)
+  const dir = () => (!finite() || props.value === 0 ? 0 : props.value! > 0 ? 1 : -1)
   return (
     <span
       class={cn(
@@ -46,7 +47,7 @@ export function DeltaBadge(props: { value: number | null | undefined; label: str
       <Show when={dir() > 0} fallback={<Show when={dir() < 0} fallback={<Minus class="size-3" aria-hidden="true" />}><TrendingDown class="size-3" aria-hidden="true" /></Show>}>
         <TrendingUp class="size-3" aria-hidden="true" />
       </Show>
-      {props.value == null ? '—' : `${props.value > 0 ? '+' : ''}${props.value.toLocaleString()}`}
+      {!finite() ? '—' : `${props.value! > 0 ? '+' : ''}${props.value!.toLocaleString()}`}
       <span class="font-normal opacity-80">{props.label}</span>
     </span>
   )
@@ -89,11 +90,12 @@ export type Segment = { key: string; label: string; value: number; class: string
 export function Donut(props: { segments: Segment[]; label: string; class?: string; children?: JSX.Element }) {
   const total = () => props.segments.reduce((sum, s) => sum + s.value, 0)
   // Each arc starts where the previous ended; a small gap separates them
-  // when there is more than one.
+  // when there is more than one. Non-finite or negative segments cannot
+  // draw an arc — leaving them in writes "NaN" into stroke-dasharray.
   const arcs = () => {
     const t = total()
-    if (t === 0) return []
-    const visible = props.segments.filter(s => s.value > 0)
+    if (!(t > 0) || !Number.isFinite(t)) return []
+    const visible = props.segments.filter(s => s.value > 0 && Number.isFinite(s.value))
     const gap = visible.length > 1 ? 1.2 : 0
     let offset = 0
     return visible.map(s => {
@@ -133,10 +135,10 @@ export function StackBar(props: { segments: Segment[]; label: string; class?: st
       aria-label={props.label}
       class={cn('flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-muted', props.class)}
     >
-      <For each={props.segments.filter(s => s.value > 0)}>{s => (
+      <For each={props.segments.filter(s => s.value > 0 && Number.isFinite(s.value))}>{s => (
         <div
           class={cn('h-full transition-all duration-500', s.class)}
-          style={{ width: `${(s.value / total()) * 100}%` }}
+          style={{ width: `${total() > 0 && Number.isFinite(total()) ? (s.value / total()) * 100 : 0}%` }}
           title={`${s.label}: ${s.value.toLocaleString()}`}
         />
       )}</For>

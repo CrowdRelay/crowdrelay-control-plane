@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams, Link } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { relativeTime, formatTimestamp } from '../lib/format'
+import { compareTimestamps, relativeTime, formatTimestamp } from '../lib/format'
+import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { ListingPanel } from '../components/ListingPanel'
 import { AttestationsPanel } from '../components/AttestationsPanel'
@@ -53,7 +54,7 @@ export function TenantProofPage() {
 
   const reports = createMemo(() =>
     (model.data?.shows?.events ?? []).filter(reportable)
-      .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
+      .sort((a, b) => compareTimestamps(b.starts_at, a.starts_at))
   )
 
   // "Updated 2m ago" has to keep moving while the page sits open.
@@ -92,7 +93,7 @@ export function TenantProofPage() {
     <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => <>
       <For each={data().degraded}>{section => (
         <Alert tone="warning" role="status" class="mb-4">
-          <strong>{SECTION_LABEL[section] ?? section}</strong> couldn't be checked right now.
+          <strong>{SECTION_LABEL[section] ?? humanize(section)}</strong> couldn't be checked right now.
           The rest of the drawer keeps working — it comes back on its own.
         </Alert>
       )}</For>

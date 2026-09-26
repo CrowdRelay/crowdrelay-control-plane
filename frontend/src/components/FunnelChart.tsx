@@ -26,18 +26,24 @@ export const FunnelChart: Component<{
   const stageH = () => H() / Math.max(1, props.stages.length)
   const pad = 16
 
-  const maxVal = () => Math.max(1, ...props.stages.map(s => s.value))
+  // A section that could not answer arrives as null; a JSON.stringify'd
+  // NaN/Infinity arrives as null too. None of them may render "NaN" or bend
+  // a trapezoid.
+  const val = (v: number): number =>
+    typeof v === 'number' && Number.isFinite(v) ? v : 0
+
+  const maxVal = () => Math.max(1, ...props.stages.map(s => val(s.value)))
 
   // Width of a stage's top edge (proportional to previous stage value,
   // or full width for the first stage).
   const topWidth = (i: number): number => {
     if (i === 0) return W() - pad * 2
-    const prev = props.stages[i - 1]!.value
+    const prev = val(props.stages[i - 1]!.value)
     return Math.max(40, ((prev / maxVal()) * (W() - pad * 2)))
   }
 
   const bottomWidth = (i: number): number => {
-    const v = props.stages[i]!.value
+    const v = val(props.stages[i]!.value)
     return Math.max(40, ((v / maxVal()) * (W() - pad * 2)))
   }
 
@@ -54,8 +60,8 @@ export const FunnelChart: Component<{
 
   const conversionRate = (i: number): number | null => {
     if (i === 0) return null
-    const prev = props.stages[i - 1]!.value
-    const curr = props.stages[i]!.value
+    const prev = val(props.stages[i - 1]!.value)
+    const curr = val(props.stages[i]!.value)
     if (prev <= 0) return null
     return Math.round((curr / prev) * 100)
   }
@@ -110,7 +116,7 @@ export const FunnelChart: Component<{
             fill="var(--color-muted-foreground)"
             font-size="11"
           >
-            {stage.value}
+            {Number.isFinite(stage.value) ? stage.value : '—'}
             {conversionRate(i()) != null && `  ·  ${conversionRate(i())}% from previous`}
           </text>
         </g>

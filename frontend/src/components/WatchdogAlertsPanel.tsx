@@ -156,10 +156,12 @@ export function WatchdogAlertsPanel(props: {
   const open = () => props.alerts.filter(alert => alert.active)
   const recovered = () => props.alerts.filter(alert => !alert.active)
   // Actions that lead to surfaces the band does not have — the operations
-  // page, or the platform-gated reconciliation section — hide for the band;
+  // page, the platform-gated reconciliation section, or the dead-queue
+  // anchors (their owning Queues tab is not in the band's tab bar, so the
+  // reveal would mount a panel with no tab selected) — hide for the band;
   // the alert itself still says what is wrong.
   const visibleAction = (a: AlertGuide['action']) =>
-    !a || (!authState.isPlatformLevel() && ('operations' in a || a.anchor === 'reconciliation-findings')) ? undefined : a
+    !a || (!authState.isPlatformLevel() && ('operations' in a || a.anchor === 'reconciliation-findings' || a.anchor?.startsWith('dead-'))) ? undefined : a
 
   return <>
     <div id="watchdog-alerts" class="flex items-start justify-between gap-4 mb-3">

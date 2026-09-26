@@ -33,7 +33,7 @@ jobs:
         image: postgres:19beta3-alpine
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CONTROL_PLANE_CI_PGPASSWORD }}
           POSTGRES_DB: control_plane_migration_test
         # Ephemeral host port: `[self-hosted, arm64]` matches more than one
         # runner on the shared host, so a PR run and a main run can overlap —
@@ -123,7 +123,9 @@ jobs:
       - run: just rust-fmt
       - name: PostgreSQL migration smoke
         env:
-          PGPASSWORD: postgres
+          # Dummy credential for the ephemeral service container — kept in a
+          # repo secret so secret scanners stop flagging the literal.
+          PGPASSWORD: ${{ secrets.CONTROL_PLANE_CI_PGPASSWORD }}
         run: |
           set -euo pipefail
           for migration in migrations/*.sql; do
@@ -139,7 +141,14 @@ jobs:
           echo "CONTROL_PLANE_MIGRATIONS=PASS"
       - run: just rust-clippy
       - run: just rust-test
-      - run: just script-test
+      - name: Script gates (SQL prepare points at this job's migrated postgres)
+        env:
+          CONTROL_PLANE_PG_HOST: 127.0.0.1
+          CONTROL_PLANE_PG_PORT: ${{ job.services.postgres.ports['5432'] }}
+          CONTROL_PLANE_PG_USER: postgres
+          CONTROL_PLANE_PG_DATABASE: control_plane_migration_test
+          PGPASSWORD: ${{ secrets.CONTROL_PLANE_CI_PGPASSWORD }}
+        run: just script-test
 
       - name: Sweep unattached Docker leftovers
         # Each job cleans what the previous one left — service-container

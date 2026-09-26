@@ -210,7 +210,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
       {/* The Signal push leg — the owned-audience half of the same decision. */}
       <Show when={run().push_decided || run().push_status}>
         <p class="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
-          Signal push{run().push_status ? `: ${run()!.push_status}` : ' decided'}
+          Signal push{(() => { const st = run()!.push_status; return st ? `: ${st.replaceAll('_', ' ')}` : ' decided' })()}
         </p>
       </Show>
 

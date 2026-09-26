@@ -127,7 +127,7 @@ export const VALUE_TIER_LABELS: Record<string, string> = {
 // dotted (`agent.content`). Splitting on underscores alone left the dotted ones
 // as "Agent.content" on the scorecard — still the machine's word, only
 // capitalised. Both separators are word boundaries here.
-const humanize = (value: string) =>
+export const humanize = (value: string) =>
   value
     .split(/[._]/)
     .filter(Boolean)

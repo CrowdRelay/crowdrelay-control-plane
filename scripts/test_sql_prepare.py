@@ -30,6 +30,14 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTAINER = os.environ.get("CONTROL_PLANE_PG_CONTAINER", "crowdrelay-control-plane-postgres-1")
 DATABASE = os.environ.get("CONTROL_PLANE_PG_DATABASE", "control_plane")
 
+# Direct-psql mode: when CONTROL_PLANE_PG_HOST is set, prepare against that
+# server instead of `docker exec`-ing the local compose container. CI wires
+# this to its own migrated service database so the gate validates the PR's
+# schema — not whatever ambient stack happens to sit on the host.
+PG_HOST = os.environ.get("CONTROL_PLANE_PG_HOST", "")
+PG_PORT = os.environ.get("CONTROL_PLANE_PG_PORT", "5432")
+PG_USER = os.environ.get("CONTROL_PLANE_PG_USER", "control_plane")
+
 QUERY = re.compile(
     r"sqlx::query(?:_as|_scalar)?(?:::<[^;{}]*?>)?\(\s*"
     r'(?:r#"(?P<raw>.*?)"#|"(?P<plain>(?:[^"\\]|\\.)*)")',
@@ -61,7 +69,16 @@ def statements() -> list[tuple[str, int, str]]:
     return found
 
 
-def container_running() -> bool:
+def database_reachable() -> bool:
+    if PG_HOST:
+        try:
+            ready = subprocess.run(
+                ["pg_isready", "-h", PG_HOST, "-p", PG_PORT, "-d", DATABASE],
+                capture_output=True, text=True, timeout=20,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return ready.returncode == 0
     try:
         listed = subprocess.run(
             ["docker", "ps", "--format", "{{.Names}}"], capture_output=True, text=True, timeout=20
@@ -77,10 +94,21 @@ def failures(items: list[tuple[str, int, str]]) -> dict[int, str]:
         script.append(f"PREPARE gate_{index} AS {sql};")
         script.append(f"\\if :ERROR\n\\echo FAIL_{index} :LAST_ERROR_MESSAGE\n\\endif")
     script.append("DEALLOCATE ALL;")
+    command = (
+        ["psql", "-h", PG_HOST, "-p", PG_PORT, "-U", PG_USER, "-d", DATABASE, "-At"]
+        if PG_HOST
+        else ["docker", "exec", "-i", CONTAINER, "psql", "-U", "control_plane", "-d", DATABASE, "-At"]
+    )
     result = subprocess.run(
-        ["docker", "exec", "-i", CONTAINER, "psql", "-U", "control_plane", "-d", DATABASE, "-At"],
+        command,
         input="\n".join(script), capture_output=True, text=True, timeout=300,
     )
+    # A dead psql prints nothing: no FAIL_ markers, an empty found dict, a
+    # silent PASS. The transport failing is not the same as zero failures.
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"psql exec failed (rc={result.returncode}): {result.stderr.strip()[:400]}"
+        )
     found = {}
     for line in result.stdout.splitlines():
         if line.startswith("FAIL_"):
@@ -91,8 +119,14 @@ def failures(items: list[tuple[str, int, str]]) -> dict[int, str]:
 
 class SqlPrepares(unittest.TestCase):
     def setUp(self) -> None:
-        if not container_running():
-            self.skipTest(f"no local {CONTAINER} container")
+        if not database_reachable():
+            target = f"{PG_HOST}:{PG_PORT}/{DATABASE}" if PG_HOST else f"local {CONTAINER} container"
+            # A skipped test still prints SQL_PREPARE=PASS, so under CI the
+            # missing database is a failure — the gate must prepare against
+            # a schema it controls, not pass vacuously on a bare runner.
+            if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
+                self.fail(f"no database at {target} — the gate would pass vacuously")
+            self.skipTest(f"no {target}")
 
     def test_every_statement_prepares(self) -> None:
         items = statements()

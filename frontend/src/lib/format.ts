@@ -44,9 +44,41 @@ export const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+/// Epoch milliseconds for a timestamp that may arrive as RFC 3339 text or a
+/// `time` tuple; NaN for anything absent or unparseable — callers sort NaN
+/// last via `compareTimestamps`, never let it decay into epoch 0.
+export const timestampMillis = (value: string | number[] | null | undefined): number => {
+  if (value == null) return NaN
+  if (Array.isArray(value)) {
+    if (isOffsetDateTimeTuple(value)) return timeArrayToDate(value).getTime()
+    if (isDateTuple(value)) return Date.UTC(value[0] ?? 0, 0, value[1] ?? 1)
+    return NaN
+  }
+  return Date.parse(value)
+}
+
+/// Ascending comparator with the unparseable at the end — a row whose
+/// timestamp cannot be read sorts after real dates instead of pretending to
+/// be 1970.
+export const compareTimestamps = (
+  a: string | number[] | null | undefined,
+  b: string | number[] | null | undefined,
+): number => {
+  const ta = timestampMillis(a)
+  const tb = timestampMillis(b)
+  if (!Number.isFinite(ta)) return Number.isFinite(tb) ? 1 : 0
+  if (!Number.isFinite(tb)) return -1
+  return ta - tb
+}
+
 export const formatTimestamp = (value: string | number[] | null | undefined) => {
   if (!value) return '—'
-  const parsed = Array.isArray(value) ? timeArrayToDate(value) : new Date(value)
+  // A bare number[] is only a timestamp when it matches the OffsetDateTime
+  // tuple shape — a 2-element Date tuple or stray array used to render a
+  // plausible-but-wrong date (year 1901 and the like).
+  const parsed = Array.isArray(value)
+    ? (isOffsetDateTimeTuple(value) ? timeArrayToDate(value) : new Date(NaN))
+    : new Date(value)
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
 }
 
@@ -91,7 +123,7 @@ export const wireJsonReplacer = (_key: string, value: unknown): unknown => {
 }
 
 export const formatAge = (seconds: number) => {
-  if (seconds <= 0) return '—'
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—'
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`
   return `${(seconds / 3600).toFixed(seconds < 36_000 ? 1 : 0)}h`
@@ -129,6 +161,7 @@ export const formatIsoUntil = (iso: string) => {
 /// '45s' / '12m' / '3h' / '2d' — a compact duration for live surfaces.
 /// Distinct from `formatAge`, which never reaches days.
 export const compactDuration = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return '—'
   if (seconds < 60) return `${seconds}s`
   const mins = Math.floor(seconds / 60)
   if (mins < 60) return `${mins}m`
@@ -160,15 +193,18 @@ export const relativeTime = (timestamp: number | undefined): string => {
   return `${hours}h ago`
 }
 
+/// Oldest pending item across the async lanes that actually reported.
+/// All three absent means nobody answered — null, not a confident 0s.
 export const oldestQueueAge = (summary: {
-  outbox: { oldest_pending_seconds: number }
-  deliveries: { oldest_pending_seconds: number }
-  push: { oldest_pending_seconds: number }
-}) => Math.max(
-  summary.outbox.oldest_pending_seconds,
-  summary.deliveries.oldest_pending_seconds,
-  summary.push.oldest_pending_seconds,
-)
+  outbox?: { oldest_pending_seconds: number } | null
+  deliveries?: { oldest_pending_seconds: number } | null
+  push?: { oldest_pending_seconds: number } | null
+}) => {
+  const ages = [summary.outbox, summary.deliveries, summary.push]
+    .map(lane => lane?.oldest_pending_seconds)
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  return ages.length > 0 ? Math.max(...ages) : null
+}
 
 /** Money the operator sees, from the micro-USD the LLM ledger stores.
  *

@@ -21,6 +21,7 @@ import { Alert } from '../components/app/alert'
 import { Button } from '../components/app/button'
 import { RefreshCw } from 'lucide-solid'
 import { relativeTime } from '../lib/format'
+import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
@@ -55,8 +56,8 @@ const BAND_PORTFOLIO_SECTION_LABEL: Record<string, string> = {
 function DegradedSections(props: { degraded: string[]; labels: Record<string, string>; bandLabels?: Record<string, string> }) {
   const labelFor = (section: string) =>
     authState.isPlatformLevel()
-      ? (props.labels[section] ?? section)
-      : (props.bandLabels?.[section] ?? props.labels[section] ?? section)
+      ? (props.labels[section] ?? humanize(section))
+      : (props.bandLabels?.[section] ?? props.labels[section] ?? humanize(section))
   return <Show when={props.degraded.length}>
     <For each={props.degraded}>{section => (
       <Alert tone="warning" role="status">

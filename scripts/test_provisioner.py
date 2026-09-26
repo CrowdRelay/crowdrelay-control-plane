@@ -626,6 +626,46 @@ class ProvisionerContractTests(unittest.TestCase):
         self.assertEqual(report.call_count, 12)
         self.assertLessEqual(peak, 4)
 
+    def test_failed_probe_reports_no_heartbeat(self):
+        # A `lastHeartbeatAt` stamped on a failed probe would refresh the
+        # freshness clock for a tenant that cannot answer — degraded forever,
+        # never stale. Only a live API may carry the timestamp.
+        root = Path(tempfile.mkdtemp())
+        config = DummyConfig(root)
+        config.telemetry_token = "t" * 32
+        slug = "tenant1"
+        (root / slug).mkdir()
+        (root / slug / "deployment.json").write_text(
+            json.dumps(
+                {
+                    "tenantSlug": slug,
+                    "composeProject": f"crowdrelay-{slug}",
+                    "apiPort": 28100,
+                }
+            ),
+            encoding="utf-8",
+        )
+        with (
+            mock.patch.object(provisioner, "api_healthy", return_value=False),
+            mock.patch.object(provisioner, "container_running", return_value=False),
+            mock.patch.object(provisioner, "api_with_token") as report,
+        ):
+            provisioner.observe_deployments(config)
+        self.assertEqual(report.call_count, 1)
+        payload = report.call_args.args[4]
+        self.assertEqual(payload["apiHealthy"], False)
+        self.assertNotIn("lastHeartbeatAt", payload)
+
+        with (
+            mock.patch.object(provisioner, "api_healthy", return_value=True),
+            mock.patch.object(provisioner, "container_running", return_value=True),
+            mock.patch.object(provisioner, "api_with_token") as report_ok,
+        ):
+            provisioner.observe_deployments(config)
+        payload_ok = report_ok.call_args.args[4]
+        self.assertEqual(payload_ok["apiHealthy"], True)
+        self.assertIn("lastHeartbeatAt", payload_ok)
+
     def test_lease_is_renewed_while_a_long_step_runs(self):
         config = DummyConfig(Path(tempfile.mkdtemp()))
         config.worker_id = "worker-1"

@@ -1755,7 +1755,7 @@ async fn ops_outcomes(
 /// timestamp reached the page as "recently". Convert to RFC 3339; a tuple
 /// that does not parse becomes `null` — a wrong timestamp is worse than a
 /// missing one.
-fn time_tuple_to_iso(arr: &[Value]) -> Option<String> {
+pub(crate) fn time_tuple_to_iso(arr: &[Value]) -> Option<String> {
     let int = |i: usize| -> Option<i64> { arr.get(i).and_then(Value::as_i64) };
     let date = chrono::NaiveDate::from_yo_opt(int(0)? as i32, int(1)? as u32)?;
     let time = chrono::NaiveTime::from_hms_nano_opt(

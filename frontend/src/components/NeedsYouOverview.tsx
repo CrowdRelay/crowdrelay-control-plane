@@ -94,7 +94,7 @@ export function NeedsYouOverview(props: {
           label="Waiting for your yes"
           value={batchesWithheld() ? '—' : waiting()}
           sub={batchesWithheld() ? 'could not be read' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'wave' : 'waves'} · ${singles()} single`}
-          tone={waiting() > 0 ? 'warn' : 'good'}
+          tone={batchesWithheld() ? 'default' : waiting() > 0 ? 'warn' : 'good'}
         />
         <KpiCard
           label="Expire in 24 h"

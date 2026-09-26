@@ -3,7 +3,7 @@ import { KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { relativeTime } from '../lib/format'
+import { relativeTime, timestampMillis } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
@@ -90,7 +90,7 @@ export function FanAttributionPanel(props: { slug: string }) {
       </Show>}
     >{snapshot => <>
       <p class="m-0 mt-4 text-xs text-muted-foreground">
-        Captured {relativeTime(Date.parse(snapshot().captured_at))} · {snapshot().resolved_observations.toLocaleString()} resolved observations
+        Captured {relativeTime(timestampMillis(snapshot().captured_at))} · {snapshot().resolved_observations.toLocaleString()} resolved observations
         <Show when={brainState()}>{state => <> · brain: {state()}</>}</Show>
         {' · detected shifts: '}{shifts().length}
       </p>

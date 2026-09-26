@@ -66,14 +66,14 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
   const a = t.attention
   if (a.available) {
     if ((a.criticalAlerts ?? 0) > 0) items.push(attention('critical', 0, plural(a.criticalAlerts!, 'critical alert')))
-    if (a.deadDeliveries > 0) items.push({ ...attention('dead', 0, plural(a.deadDeliveries, 'dead delivery', 'dead deliveries'), 'Messages that will not be retried on their own.'), to: '/tenants/$slug/operations' })
+    if ((a.deadDeliveries ?? 0) > 0) items.push({ ...attention('dead', 0, plural(a.deadDeliveries!, 'dead delivery', 'dead deliveries'), 'Messages that will not be retried on their own.'), to: '/tenants/$slug/operations' })
     if ((a.needsYou ?? 0) > 0) items.push(attention('needs-you', 1, plural(a.needsYou!, 'decision needs you', 'decisions need you')))
     if ((a.awaitingApproval ?? 0) > 0) items.push(attention('approval', 1, plural(a.awaitingApproval!, 'action awaiting approval', 'actions awaiting approval')))
     if ((a.unpublishedDrafts ?? 0) > 0) {
       const channels = (a.unpublishedDraftChannels ?? []).filter(c => c.drafts > 0).map(c => `${fmt(c.drafts)} on ${c.channel}`).join(' · ')
       items.push(attention('drafts', 1, plural(a.unpublishedDrafts!, 'post written, not published', 'posts written, not published'), channels || undefined))
     }
-    if (a.openFindings > 0) items.push(attention('findings', 2, plural(a.openFindings, 'open finding')))
+    if ((a.openFindings ?? 0) > 0) items.push(attention('findings', 2, plural(a.openFindings!, 'open finding')))
   }
   if (t.brain?.needs_attention) {
     items.push({ ...attention('brain', 1, 'The brain needs attention', t.brain.state ? `State: ${t.brain.state}` : undefined), to: '/tenants/$slug/intelligence' })
@@ -86,8 +86,8 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
       items.push({ ...attention(`objective:${name}`, 2, `${name} is ${o.state === 'missed' ? 'missed' : 'behind'}`, [pace, due].filter(Boolean).join(' · ') || undefined), to: '/tenants/$slug/intelligence' })
     }
   }
-  if (t.autopilot.available && t.autopilot.failed24h > 0) {
-    items.push({ ...attention('failed', 2, plural(t.autopilot.failed24h, 'autopilot action failed', 'autopilot actions failed'), 'In the last 24 hours.'), to: '/tenants/$slug/intelligence' })
+  if (t.autopilot.available && (t.autopilot.failed24h ?? 0) > 0) {
+    items.push({ ...attention('failed', 2, plural(t.autopilot.failed24h!, 'autopilot action failed', 'autopilot actions failed'), 'In the last 24 hours.'), to: '/tenants/$slug/intelligence' })
   }
   if (t.runtimeHealth === 'degraded' || t.runtimeHealth === 'stale') {
     items.push({ ...attention('runtime', t.runtimeHealth === 'degraded' ? 0 : 2, `Runtime ${healthLabel(t.runtimeHealth)}`), to: '/tenants/$slug/health' })
@@ -343,8 +343,14 @@ const tenantNeedsYou = (t: CommandCenterTenantSummary | undefined) => {
   return reported.length === 0 ? null : reported.reduce((sum, p) => sum + p, 0)
 }
 
-const inFlight = (t: CommandCenterTenantSummary | undefined) =>
-  t?.autopilot.available ? t.autopilot.queuedActions + t.autopilot.processingActions : null
+const inFlight = (t: CommandCenterTenantSummary | undefined) => {
+  if (!t?.autopilot.available) return null
+  // Same partial-sum rule as tenantNeedsYou — a missing lane is "not
+  // reported", never a zero added in.
+  const parts = [t.autopilot.queuedActions, t.autopilot.processingActions]
+  const reported = parts.filter((p): p is number => p != null)
+  return reported.length === 0 ? null : reported.reduce((sum, p) => sum + p, 0)
+}
 
 export function TenantsTable(props: { rows: TenantRow[]; loading: boolean; ccLoading: boolean }) {
   const navigate = useNavigate()

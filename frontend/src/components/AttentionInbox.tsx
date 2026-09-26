@@ -57,11 +57,13 @@ export type AttentionItem = {
 export function AttentionInbox(props: {
   slug: string
   needsYou: PendingActionSummary[]
-  deadJobs: number
-  criticalAlerts: number
-  staleReservations: number
-  activeAlerts: number
-  awaitingApproval: number
+  // `null` = the section never reported — the corresponding row stays out
+  // of the inbox rather than asserting an unmeasured zero.
+  deadJobs: number | null
+  criticalAlerts: number | null
+  staleReservations: number | null
+  activeAlerts: number | null
+  awaitingApproval: number | null
   /// Sections the tenant does not report. A counter named here is unknown,
   /// not zero, so the inbox says so instead of staying quiet — "nothing needs
   /// you" and "this build cannot tell you" are different answers.
@@ -162,7 +164,7 @@ export function AttentionInbox(props: {
     // URGENT: dead deliveries, critical alerts, stale reservations.
     // Delivery queues and AREA reservations are operator machinery — the
     // band's tabs do not carry them, so the band's inbox does not either.
-    if (platform && props.deadJobs > 0) {
+    if (platform && (props.deadJobs ?? 0) > 0) {
       list.push({
         id: 'dead-jobs',
         tier: 'urgent',
@@ -172,7 +174,7 @@ export function AttentionInbox(props: {
         goto: { label: 'Open queues', tab: 'queues', anchor: 'dead-outbox' },
       })
     }
-    if (props.criticalAlerts > 0) {
+    if ((props.criticalAlerts ?? 0) > 0) {
       list.push({
         id: 'critical-alerts',
         tier: 'urgent',
@@ -186,7 +188,7 @@ export function AttentionInbox(props: {
         goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
-    if (platform && props.staleReservations > 0) {
+    if (platform && (props.staleReservations ?? 0) > 0) {
       list.push({
         id: 'stale-reservations',
         tier: 'urgent',
@@ -254,7 +256,7 @@ export function AttentionInbox(props: {
       // Only what is not already a row above. The count and the rows come from
       // the same query, so printing both in full said "3 awaiting decision"
       // directly under the three of them.
-      const rest = Math.max(0, props.awaitingApproval - stillListed() - shown.length)
+      const rest = Math.max(0, (props.awaitingApproval ?? 0) - stillListed() - shown.length)
       if (rest > 0) {
         list.push({
           id: 'awaiting-approval',
@@ -269,7 +271,7 @@ export function AttentionInbox(props: {
     }
 
     // INFORMATIONAL: active (non-critical) alerts
-    if (props.activeAlerts > 0) {
+    if ((props.activeAlerts ?? 0) > 0) {
       list.push({
         id: 'active-alerts',
         tier: 'informational',
