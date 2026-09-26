@@ -91,7 +91,7 @@ const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() })
 const tenantCapabilitiesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/capabilities', component: TenantCapabilitiesPage })
 const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof', component: TenantProofPage, loader: ({ params }) => warm(['tenant-proof', params.slug], () => api.proofModel(params.slug))() })
-const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-pipeline', params.slug], () => api.contentPipeline(params.slug))() })
+const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-model', params.slug], () => api.contentModel(params.slug))() })
 const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/material', component: TenantContentMaterialPage, loader: ({ params }) => warm(['content-material-view', params.slug], () => api.contentMaterialView(params.slug))() })
 const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
 // Notifiers live on the tenant page's Destinations tab — the route redirects

@@ -4884,3 +4884,15 @@ export type TenantInMotionModel = {
   sections: SectionVerdicts
   fetchedAt: string
 }
+
+/** `GET /tenants/{slug}/content/model` — the Content page in one read: the
+ *  drafting pipeline and the recent delivery results (upstream's
+ *  `{ results }` envelope), each a section that degrades on its own. */
+export type TenantContentModel = {
+  id: string
+  pipeline: ContentPipeline | null
+  delivery_results: { results: DeliveryResult[] } | null
+  degraded: string[]
+  sections: SectionVerdicts
+  fetchedAt: string
+}
