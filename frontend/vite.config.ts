@@ -44,14 +44,16 @@ export default defineConfig(({ command, mode }) => {
       port: 4173,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8090',
+          // The local stack's default; point at another listener (a capture
+          // mock, a staging build) with CONTROL_PLANE_API_URL.
+          target: env.CONTROL_PLANE_API_URL?.trim() ?? 'http://127.0.0.1:8090',
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
               proxyReq.setHeader('Authorization', `Bearer ${adminToken}`)
             })
           },
         },
-        '/healthz': 'http://127.0.0.1:8090',
+        '/healthz': env.CONTROL_PLANE_API_URL?.trim() ?? 'http://127.0.0.1:8090',
       },
     },
   }

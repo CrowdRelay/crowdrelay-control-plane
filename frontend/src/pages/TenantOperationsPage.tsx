@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-ro
 import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatTimestamp, formatIsoAge, formatIsoUntil, relativeTime } from '../lib/format'
+import { formatIsoAge, formatIsoUntil, relativeTime } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { NegotiationsPanel } from '../components/NegotiationsPanel'
@@ -19,25 +19,18 @@ import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { BarList, DeltaBadge, Donut, Legend, Ring, Widget, type Segment } from '../components/charts'
+import { Metric, MetricRow } from '../components/ui/metric'
+import { CountdownRing, OutcomeRow, StepChecklist, WorkList, WorkRow } from '../components/work'
 import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { TenantStatusLine } from '../components/TenantStatusLine'
-import { buttonVariants } from '../components/app/button'
-import { Button } from '../components/app/button'
+import { Button, buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
-import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { operationalTone, operationalLabel } from '../lib/health-tone'
-import type { TenantTodayReadModel } from '../lib/types'
+import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
+import type { OpportunityBoardEntry, OutcomeGroup, TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
-
-const TONE_DOT = {
-  good: 'bg-success-foreground',
-  warn: 'bg-warning-foreground',
-  bad: 'bg-error-foreground',
-  muted: 'bg-muted-foreground/40',
-} as const
 
 const metric = (value: number | undefined | null, suffix = '') =>
   value == null ? '—' : `${value.toLocaleString()}${suffix}`
@@ -95,22 +88,37 @@ export function TenantOperationsPage() {
   const refresh = () => void model.refetch()
 
   const d = (): TenantTodayReadModel | undefined => model.error ? undefined : model.data
-  const autopilot = () => d()?.autopilot
-  const summary = () => d()?.summary
-  const deadJobs = () => {
-    const s = summary()
-    if (!s) return 0
-    return s.outbox.dead + s.deliveries.dead + s.push.dead
-  }
-  const healthTone = () => operationalTone(summary())
-  const healthLabel = () => operationalLabel(summary())
-  // The operator's health vocabulary is the read model's own words; the band
-  // gets the same states in the words its console uses — "attention" is
-  // "needs you", and a degraded machine is just something broken.
-  const healthBadgeLabel = () => {
-    const label = healthLabel()
-    if (authState.isPlatformLevel()) return label
-    return label === 'attention' ? 'needs you' : label === 'degraded' ? 'something is broken' : label
+  // The header pill — one plain sentence for the machine's state, read off
+  // the derived block the read model now assembles. Broken beats idle beats
+  // working; an absent derived block (older build) simply keeps the pill
+  // hidden rather than claiming a state nobody reported.
+  const statusPill = createMemo((): { text: string; tone: 'good' | 'warn' | 'bad' | 'muted' } | null => {
+    const st = d()?.derived?.status
+    if (!st) return null
+    if (st.dead_jobs != null && st.dead_jobs > 0)
+      return { text: `${st.dead_jobs} send${st.dead_jobs === 1 ? '' : 's'} stuck — needs a look`, tone: 'bad' }
+    if (st.failed_24h != null && st.failed_24h > 0)
+      return { text: `${st.failed_24h} failed in the last day`, tone: 'warn' }
+    if (st.running === false) return { text: 'the machine is off — nothing runs without you', tone: 'warn' }
+    const done = st.done_24h
+    if (st.running == null)
+      // Nobody reported a run state — name what was done, claim nothing more.
+      return done != null
+        ? { text: `${done} done in 24h`, tone: done > 0 ? 'good' : 'muted' }
+        : { text: 'the machine has not reported in', tone: 'muted' }
+    return {
+      text: done != null && done > 0 ? `on its own · ${done} done in 24h` : 'on its own',
+      tone: 'good',
+    }
+  })
+
+  // One human-gate number for the KPI strip: answers owed + asks parked +
+  // drafts waiting. It exists only when all three are reported — a sum of
+  // the parts that happen to be visible reads as a total and is not one.
+  const waitingTotal = () => {
+    const c = d()?.derived?.work_area_counts
+    if (!c || c.replies == null || c.approvals == null || c.drafts == null) return null
+    return c.replies + c.approvals + c.drafts
   }
 
   // Whether the autopilot is *working*, not merely switched on. Failures
@@ -139,36 +147,20 @@ export function TenantOperationsPage() {
       s => s.platform === 'signal' && s.metric_key === 'active_fans' && !s.stale,
     ),
   )
-  // The next show — the timeline of the nearest upcoming night for the
-  // two-or-three steps that still need a person.
-  const shows = useQuery(() => ({
-    queryKey: ['tenant-shows', params().slug],
-    queryFn: () => api.shows(params().slug),
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
+  // The next show and its timeline ride the same `tenant-today` read model —
+  // `shows` lists the nights and `next_show_timeline` is the dependent hop
+  // the server fetched for the nearest one. No second requests: the page's
+  // whole band answers in one fan-out.
   const nextShow = createMemo(() =>
-    (shows.data?.events ?? [])
+    (d()?.shows?.events ?? [])
       .filter(e => e.upcoming)
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0],
   )
-  const nextShowTimeline = useQuery(() => ({
-    queryKey: ['tenant-show-timeline', params().slug, nextShow()?.slug ?? ''],
-    queryFn: () => api.showTimeline(params().slug, nextShow()!.slug),
-    enabled: nextShow() != null,
-    reconcile: 'id',
-    refetchOnWindowFocus: false,
-    staleTime: 15_000,
-  }))
-  // Due steps outrank active ones; within each rank the timeline's own
-  // T-21→T+7 order stands. Three at most — a list of ten is a list nobody
-  // works. The global queryClient keeps previous data across a key change,
-  // so the payload must be matched back to the show it's about — otherwise
-  // one refresh renders last month's steps under next month's title.
+  // The timeline must be matched back to the show it's about — reconcile can
+  // swap the show list while the old timeline sits in the model.
   const nextShowTimelineData = createMemo(() => {
-    const tl = nextShowTimeline.data
-    return tl && tl.event.slug === nextShow()?.slug ? tl : undefined
+    const tl = d()?.next_show_timeline
+    return tl && tl.event?.slug === nextShow()?.slug ? tl : undefined
   })
   const nextShowSteps = createMemo(() => {
     const rank = { due: 0, active: 1 } as const
@@ -178,11 +170,47 @@ export function TenantOperationsPage() {
       .slice(0, 3)
   })
 
+  // Days to the nearest upcoming night — plain ms math, the countdown's
+  // window is a month out (the ring is full when the show is tonight).
+  const nextShowDays = createMemo(() => {
+    const show = nextShow()
+    if (!show) return null
+    const parsed = Date.parse(show.starts_at)
+    return Number.isFinite(parsed) ? Math.max(0, Math.ceil((parsed - Date.now()) / 86_400_000)) : null
+  })
+
+  // Tickets sold and the room's capacity live on the sales-pace step's
+  // detail until the shows section carries them. `detail` is upstream JSON
+  // — numbers get a type check, anything else reads as unknown, not zero.
+  const nextShowSales = createMemo((): { sold: number | null; capacity: number | null } => {
+    const tl = d()?.next_show_timeline
+    if (!tl || tl.event?.slug !== nextShow()?.slug) return { sold: null, capacity: null }
+    const step = tl.steps?.find(s => s.key === 'sales_pace')
+    const detail = step?.detail
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+    return { sold: num(detail?.['paid_tickets']), capacity: num(detail?.['capacity']) }
+  })
+
+  // The checklist the card draws — the timeline's own order, its plain
+  // labels, and for the not-yet-done steps the anchor ("T-14") as the note.
+  const nextShowChecklist = createMemo(() => {
+    const tl = d()?.next_show_timeline
+    if (!tl || tl.event?.slug !== nextShow()?.slug) return []
+    return (tl.steps ?? []).map(s => ({
+      key: s.key,
+      label: s.label,
+      state: s.state,
+      note: s.state === 'done' ? undefined : s.anchor,
+    }))
+  })
+
   // A section named in `degraded` never answered — its count is absent, not
   // zero; the sections below degrade on their own rather than lying.
   const reachShare = () => {
     const a = d()?.audience
-    return a && a.active_fans > 0 ? a.marketing_consented_fans / a.active_fans : null
+    if (!a || !(a.active_fans > 0) || a.marketing_consented_fans == null) return null
+    const share = a.marketing_consented_fans / a.active_fans
+    return Number.isFinite(share) ? share : null
   }
   const shareOfActive = (value: number) => {
     const active = d()?.audience?.active_fans ?? 0
@@ -239,14 +267,11 @@ export function TenantOperationsPage() {
       title="Today"
       description={authState.isPlatformLevel() ? 'Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom.' : 'Your daily worklist. Anything the brain needs a decision on is here — work the list top to bottom.'}
       actions={
-        // Hidden for now — the widgets below already carry health and the
-        // autopilot state; kept in the tree so it can come back with a class.
-        <div class="hidden">
+        <div class="flex items-center gap-3">
           <Show when={model.data && !model.error}>
-            <StatusBadge status={healthBadgeLabel()} tone={healthTone()} />
-            <Show when={autopilot()?.runtime_enabled}>
-              <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
-            </Show>
+            {/* One sentence for the machine's state — running, done, broken.
+                On an older read model it stays hidden rather than guessing. */}
+            <Show when={statusPill()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
           </Show>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <Button variant="outline" size="sm" onClick={refresh} disabled={model.isFetching} aria-label="Refresh">
@@ -278,38 +303,79 @@ export function TenantOperationsPage() {
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* A section the tenant could not answer is named here once, above the
-          widgets, so "0" below is never read as "checked and empty". */}
-      <For each={model.data!.degraded}>{section => (
+      {/* A section the tenant could not answer is named once, compactly —
+          the pill already says "something is broken", this line says what.
+          A null below is never read as "checked and empty" while it shows. */}
+      <Show when={model.data!.degraded.length > 0}>
         <Alert tone="warning" role="status" class="mb-4">
-          <strong>{sectionLabel(section)}</strong> couldn't be checked right now — the rest of the page keeps working and it recovers on the next poll.
+          {model.data!.degraded.length === 1
+            ? <><strong>{sectionLabel(model.data!.degraded[0]!)}</strong> couldn't be checked right now</>
+            : <><strong>{model.data!.degraded.map(sectionLabel).join(', ')}</strong> couldn't be checked right now</>
+          }{' '}— the rest of the page keeps working and it recovers on the next poll.
         </Alert>
-      )}</For>
-      {/* Three answers, in the order a person asks them: what to do, what
-          it produced, whether the machine is fine on its own. The detail
-          lives below the tabs — everything that was here still renders. */}
-      <DoThisNext
-        model={d}
-        slug={params().slug}
-        nextShow={nextShow()}
-        nextShowSteps={nextShowSteps()}
-        weekMoves={weekMoves()}
-      />
-      <IsItWorking model={d} slug={params().slug} />
-      <RunningWithoutYou
-        model={d}
-        slug={params().slug}
-        healthLabel={healthBadgeLabel()}
-        healthTone={deadJobs() > 0 ? 'bad' : healthTone()}
-        deadJobs={deadJobs()}
-      />
-    </Show>
+      </Show>
 
-    {/* The queue's losses and the answers still owed to people — the strip
-        that names them rides just under the three answers so the page still
-        opens on them when they exist. */}
-    <Show when={model.data && !model.error}>
-      <NeedsYouStrip model={d} slug={params().slug} />
+      {/* The four numbers the band asks for first, as one divided rail.
+          Each is null-safe: an unreported figure draws "—", never a 0. */}
+      <MetricRow class="mb-5">
+        <Metric
+          label="Fans you can reach"
+          value={metric(d()?.audience?.marketing_consented_fans)}
+          sub="active fans who consented to be contacted"
+        />
+        <Metric
+          label="Waiting on you"
+          value={metric(waitingTotal())}
+          sub="answers owed, asks parked, drafts waiting"
+          tone={waitingTotal() != null && waitingTotal()! > 0 ? 'warn' : 'default'}
+        />
+        <Metric
+          label="Next show"
+          value={nextShowDays() == null ? '—' : `in ${nextShowDays()}d`}
+          sub={(() => {
+            const tl = d()?.next_show_timeline
+            const city = tl && tl.event?.slug === nextShow()?.slug
+              ? tl.event?.venue_address?.split(',')[0] ?? null
+              : null
+            return city ?? nextShow()?.title ?? 'no night booked'
+          })()}
+        />
+        <Metric
+          label="Tickets sold"
+          value={nextShowSales().sold == null ? '—' : `${nextShowSales().sold}${nextShowSales().capacity != null ? ` / ${nextShowSales().capacity}` : ''}`}
+          sub={nextShow() ? 'for the nearest night' : 'no night booked'}
+        />
+      </MetricRow>
+
+      {/* The two bands a person reads next: what to do (~60%) beside the
+          night it is doing it for (~40%). */}
+      <div class="grid gap-4 lg:grid-cols-5">
+        <div id="needs-you" class="lg:col-span-3">
+          <DoThisNext
+            model={d}
+            slug={params().slug}
+            nextShow={nextShow()}
+            nextShowSteps={nextShowSteps()}
+            weekMoves={weekMoves()}
+          />
+        </div>
+        <div class="lg:col-span-2">
+          <NextShowCard
+            slug={params().slug}
+            show={nextShow()}
+            address={(() => {
+              const tl = d()?.next_show_timeline
+              return tl && tl.event?.slug === nextShow()?.slug ? tl.event?.venue_address ?? null : null
+            })()}
+            showsLoaded={d()?.shows != null}
+            days={nextShowDays()}
+            sales={nextShowSales()}
+            checklist={nextShowChecklist()}
+          />
+        </div>
+      </div>
+
+      <IsItWorking model={d} slug={params().slug} />
     </Show>
 
     {/* Tab bar — static, renders immediately. Count callbacks return 0
@@ -319,9 +385,14 @@ export function TenantOperationsPage() {
       onChange={switchTab}
       onPrefetch={prefetch}
       tabs={[
-        { id: 'replies', label: 'Replies' },
+        { id: 'replies', label: 'Replies', count: () => d()?.derived?.work_area_counts?.replies ?? 0 },
         { id: 'negotiations', label: 'Negotiations' },
-        { id: 'outreach', label: 'Outreach' },
+        {
+          id: 'outreach', label: 'Outreach',
+          count: () => (d()?.derived?.approval_batches ?? [])
+            .filter(b => b.context === 'outreach')
+            .reduce((n, b) => n + b.count, 0),
+        },
         { id: 'press', label: 'Press' },
         { id: 'releases', label: 'Releases' },
         { id: 'plays', label: 'Play ledger' },
@@ -511,87 +582,6 @@ export function TenantOperationsPage() {
       </Section>
     </Show>
 
-    {/* The next night — under the fans, before the machine. Up to three
-        steps that still need a person; the whole block is one door into
-        the gig page. No upcoming show says so plainly — an absent night
-        is a fact, not a skeleton. */}
-    <Show when={nextShow()}>
-      {show => (
-        <Section
-          title="The next night"
-          icon={<SectionIcon name="map-pin" />}
-          description="The nearest show on the books and what it still needs."
-        >
-          <Link
-            to="/tenants/$slug/shows/$eventSlug"
-            params={{ slug: params().slug, eventSlug: show().slug }}
-            class="group block rounded-md border border-border p-4 transition-colors hover:border-foreground/30"
-          >
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span class="text-lg font-semibold text-foreground group-hover:underline">{show().title}</span>
-              <span class="text-sm text-muted-foreground">{formatTimestamp(show().starts_at)}</span>
-              <Show when={show().venue}><span class="text-sm text-muted-foreground">· {show().venue}</span></Show>
-            </div>
-            <div class="mt-3 flex flex-col gap-1.5">
-              <For each={nextShowSteps()}>{step => (
-                <div class="flex items-center gap-2 text-sm">
-                  <StatusBadge
-                    status={step.state}
-                    tone={step.state === 'due' ? 'warn' : 'muted'}
-                  />
-                  <span class="text-foreground">{step.label}</span>
-                  <Show when={step.owner}><span class="text-muted-foreground">— {step.owner}</span></Show>
-                </div>
-              )}</For>
-              <Show when={nextShowTimelineData() && nextShowSteps().length === 0}>
-                <span class="text-sm text-muted-foreground">Everything on track — nothing waiting on a person.</span>
-              </Show>
-            </div>
-          </Link>
-        </Section>
-      )}
-    </Show>
-    <Show when={shows.data && !nextShow()}>
-      <p class="text-sm text-muted-foreground">
-        No upcoming show on the books — publish a gig in CrowdRelay and the next announced night lands{' '}
-        <Link to="/tenants/$slug/shows" params={{ slug: params().slug }} class="underline underline-offset-2">here</Link>.
-      </p>
-    </Show>
-
-    {/* Worth doing this week — the three moves that carry most of it.
-        Each row is one door into the decision queue on Needs you, where
-        the real approve/dismiss buttons live. A degraded section hides
-        the whole block; an empty queue says so plainly. Moved here from
-        the tenant page — the moves are the operational read, not settings. */}
-    <Show when={d()?.opportunities}>
-      <Section
-        title="Worth doing this week"
-        icon={<SectionIcon name="target" />}
-        description="The moves that carry most of it, ranked upstream. Needs you has the approve buttons."
-      >
-        <div class="flex flex-col gap-3">
-          <For each={weekMoves()}>{move => (
-            <Link
-              to="/tenants/$slug/attention"
-              params={{ slug: params().slug }}
-              class="group block rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-            >
-              <div class="flex items-baseline gap-2">
-                <span class="text-sm font-medium text-foreground group-hover:underline">{move.recommended_action}</span>
-              </div>
-              <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{move.reason}</p>
-              <Show when={move.consequence}>
-                <p class="mt-1 text-xs text-warning-foreground">If nobody acts: {move.consequence}</p>
-              </Show>
-            </Link>
-          )}</For>
-          <Show when={weekMoves().length === 0}>
-            <p class="text-sm text-muted-foreground">Nothing needs you this week — the queue is empty.</p>
-          </Show>
-        </div>
-      </Section>
-    </Show>
-
     {/* Prizes owed to draw winners — a chore with a person on the other
         end, so it sits with the week's moves. Silent when nothing is owed. */}
     <PrizesToSendPanel slug={params().slug} />
@@ -599,187 +589,14 @@ export function TenantOperationsPage() {
   </PageShell>
 }
 
-// ── Needs-you strip ──────────────────────────────────────────────────
-// The merged human gate, bounded: the asks parked on a person, capped so
-// the strip stays a worklist and not a second inbox. Every row is a door
-// into the Needs-you queue — approvals deep-link to their inbox row, the
-// rest land on the tab that owns them. A healthy-empty queue renders
-// nothing: the widget band already carries "nothing to decide".
-// `model` is the page's accessor, not a snapshot: reconcile patches or
-// replaces the read model on every poll, and a captured object would freeze
-// the strip at whatever the first fetch returned.
-function NeedsYouStrip(props: { model: () => TenantTodayReadModel | undefined; slug: string }) {
-  const attention = () => props.model()?.attention
-  const degraded = () => props.model()?.degraded.includes('attention') ?? false
-  const notReported = (name: string) => (attention()?.not_reported ?? []).includes(name)
+// ── Do this next ────────────────────────────────────────────────────
+// The one ranked list the redesign opened with: answers owed first (a warm
+// reply cools), then approval waves (expiry is a real deadline), then the
+// next night's due steps, then the machine's ranked suggestions. A wave of
+// same-kind letters is one row, not sixteen cards — the derived block's
+// `approval_batches` does the folding cp-side, and the count row opens the
+// whole batch on Needs you.
 
-  // Approvals that die soonest lead — expiry is the only ordering the
-  // queue itself insists on. Three at most: the "+N more" row owns the
-  // rest so the strip never becomes the inbox it points at.
-  const approvals = createMemo(() =>
-    (attention()?.needs_you ?? [])
-      .slice()
-      .sort((a, b) => (a.approval_expires_at ?? '9999').localeCompare(b.approval_expires_at ?? '9999'))
-      .slice(0, 3),
-  )
-  const drafts = () => notReported('unpublished_drafts') ? [] : (attention()?.unpublished_drafts ?? [])
-  const draftsTotal = () => drafts().reduce((n, c) => n + c.drafts, 0)
-  const draftsMeta = () => {
-    const channels = drafts().map(c => c.channel).join(' · ')
-    const oldest = drafts().map(c => c.oldest_drafted_at).filter((t): t is string => t != null).sort()[0]
-    return [channels, oldest ? `oldest ${formatIsoAge(oldest)}` : null].filter(Boolean).join(' · ')
-  }
-  // The queue's losses — asks that died waiting and sends that failed.
-  // They are not work (nothing to approve twice), so they close the
-  // strip as a cost line rather than rows.
-  const lapsed = () => notReported('lapsed_approvals') ? 0 : (attention()?.lapsed_approvals?.total ?? 0)
-  const failedSends = () => notReported('failed_sends') ? 0 : (attention()?.failed_sends?.total ?? 0)
-  const overflow = () => Math.max(0, (attention()?.awaiting_approval ?? 0) - approvals().length)
-  // People who answered and have not heard back. They come from the reply
-  // read, not the attention snapshot: a reply is not an approval, but it is
-  // the most perishable thing an outreach round produces.
-  const answered = () => props.model()?.reply_triage?.waiting_on_you ?? []
-  const answeredCount = () => props.model()?.reply_triage?.summary.waiting_on_you_count ?? answered().length
-  const answeredMeta = () => {
-    const positive = answered().filter(reply => reply.disposition === 'positive').length
-    const oldest = answered().map(reply => reply.replied_at).sort()[0]
-    return [
-      positive > 0 ? `${positive} positive` : null,
-      oldest ? `oldest answer ${formatIsoAge(oldest)}` : null,
-    ].filter(Boolean).join(' · ')
-  }
-  const count = () => {
-    const a = attention()
-    if (!a || degraded()) return undefined
-    return (notReported('awaiting_approval') ? approvals().length : (a.awaiting_approval ?? 0)) + draftsTotal() + answeredCount()
-  }
-  const visible = () =>
-    degraded()
-    || approvals().length > 0
-    || answeredCount() > 0
-    || draftsTotal() > 0
-    || lapsed() + failedSends() > 0
-    || notReported('needs_you')
-    || notReported('awaiting_approval')
-
-  return (
-    <Show when={visible()}>
-      <div id="needs-you">
-        <Section
-          title="Needs you"
-          icon={<SectionIcon name="inbox" />}
-          count={count()}
-          description="The asks only a person can say yes to. The full queue — dead sends, alerts, findings — lives on Needs you."
-          action={
-            <Link to="/tenants/$slug/attention" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-              Open the queue
-            </Link>
-          }
-        >
-          <div class="flex flex-col gap-3">
-            <Show when={degraded()}>
-              <Alert tone="warning" title="The needs-you queue did not answer">
-                Approvals and drafts may be parked that this strip cannot see — the section is named in the page's degraded list and keeps retrying.
-              </Alert>
-            </Show>
-            <Show when={notReported('needs_you') || notReported('awaiting_approval')}>
-              <Alert tone="info" title="Pending approvals are not reported">
-                This build does not publish the approval queue — work may be parked awaiting a decision without appearing here.
-              </Alert>
-            </Show>
-            <For each={approvals()}>{action => (
-              <Link
-                to="/tenants/$slug/attention"
-                params={{ slug: props.slug }}
-                search={{ tab: 'inbox' }}
-                hash={`action=${action.id}`}
-                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-              >
-                <div class="min-w-0">
-                  <span class="text-sm font-medium text-foreground group-hover:underline">
-                    Approve {labelOr(DECISION_KIND_LABELS, action.action_kind)}
-                  </span>
-                  <p class="mt-0.5 text-xs text-muted-foreground">
-                    {[action.title ?? labelOr(CONTEXT_LABELS, action.context), labelOr(SUBJECT_KIND_LABELS, action.subject_kind)].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <Show when={action.approval_expires_at}>
-                  {expires => <span class="shrink-0 text-xs text-warning-foreground">closes {formatIsoUntil(expires())}</span>}
-                </Show>
-              </Link>
-            )}</For>
-            <Show when={overflow() > 0}>
-              <Link
-                to="/tenants/$slug/attention"
-                params={{ slug: props.slug }}
-                search={{ tab: 'inbox' }}
-                class="group block rounded-md border border-dashed border-border p-3 transition-colors hover:border-foreground/30"
-              >
-                <span class="text-sm text-muted-foreground group-hover:text-foreground">
-                  +{overflow()} more waiting on a decision — the queue has all of them
-                </span>
-              </Link>
-            </Show>
-            <Show when={answeredCount() > 0}>
-              <Link
-                to="/tenants/$slug/operations"
-                params={{ slug: props.slug }}
-                search={{ tab: 'replies' }}
-                hash="answered"
-                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-              >
-                <div class="min-w-0">
-                  <span class="text-sm font-medium text-foreground group-hover:underline">
-                    {answeredCount()} {answeredCount() === 1 ? 'person answered' : 'people answered'} you — your turn
-                  </span>
-                  <Show when={answeredMeta()}>
-                    <p class="mt-0.5 text-xs text-muted-foreground">{answeredMeta()}</p>
-                  </Show>
-                </div>
-                <span class="shrink-0 text-xs text-muted-foreground">on Replies</span>
-              </Link>
-            </Show>
-            <Show when={draftsTotal() > 0}>
-              <Link
-                to="/tenants/$slug/attention"
-                params={{ slug: props.slug }}
-                search={{ tab: 'inbox' }}
-                class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-              >
-                <div class="min-w-0">
-                  <span class="text-sm font-medium text-foreground group-hover:underline">
-                    {draftsTotal()} draft{draftsTotal() === 1 ? '' : 's'} written — nothing posted yet
-                  </span>
-                  <Show when={draftsMeta()}>
-                    <p class="mt-0.5 text-xs text-muted-foreground">{draftsMeta()}</p>
-                  </Show>
-                </div>
-                <span class="shrink-0 text-xs text-muted-foreground">publish on Needs you</span>
-              </Link>
-            </Show>
-            <Show when={lapsed() + failedSends() > 0}>
-              <p class="text-xs text-muted-foreground">
-                While these waited: {[
-                  lapsed() > 0 ? `${lapsed()} ask${lapsed() === 1 ? '' : 's'} expired unanswered` : null,
-                  failedSends() > 0 ? `${failedSends()} send${failedSends() === 1 ? '' : 's'} failed` : null,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            </Show>
-          </div>
-        </Section>
-      </div>
-    </Show>
-  )
-}
-
-// ── The three answers ────────────────────────────────────────────────
-// "Do this next" / "Is it working" / "Running without you" — the page
-// opens on the work, the proof, and the machine's own word, in that
-// order. Everything the old widgets showed still renders below the tabs;
-// these three rows decide what a person does with the rest.
-
-/// One move in "Do this next": a title, the one line on why it is worth
-/// a minute, and where the real control for it lives.
 type NextMove = {
   title: string
   why: string
@@ -789,42 +606,80 @@ type NextMove = {
   hash?: string
 }
 
+/// A batch's name in the band's own words — "16 letters" reads better than
+/// "16 Outreach Request". Kinds without a phrase fall back to the decision
+/// kind's label, pluralised plainly.
+const BATCH_KIND_PHRASE: Record<string, [string, string]> = {
+  'outreach.request': ['letter', 'letters'],
+  'booking.outreach.request': ['booking ask', 'booking asks'],
+  'beacon.outreach.request': ['amplifier ask', 'amplifier asks'],
+  'community.post': ['community post', 'community posts'],
+  'social.post': ['post', 'posts'],
+  'signal.push.request': ['push', 'pushes'],
+  'opportunity.live.apply': ['application', 'applications'],
+}
+const batchPhrase = (kind: string, count: number) => {
+  const pair = BATCH_KIND_PHRASE[kind]
+  if (pair) return count === 1 ? pair[0] : pair[1]
+  const base = labelOr(DECISION_KIND_LABELS, kind).toLowerCase()
+  if (count === 1) return base
+  return /(s|x|ch|sh)$/.test(base) ? `${base}es` : `${base}s`
+}
+
 function DoThisNext(props: {
   model: () => TenantTodayReadModel | undefined
   slug: string
   nextShow: { slug: string; title: string } | undefined
   nextShowSteps: { state: string; label: string; owner: string | null }[]
-  weekMoves: { recommended_action: string; reason: string }[]
+  weekMoves: OpportunityBoardEntry[]
 }) {
-  // Ranked by how likely the move is to leave a real fan behind it, which
-  // in practice is the order things rot: a person who wrote back cools
-  // off, an approval expires, a show step has a date on it.
+  // recommended_action is a machine kind ("outreach.request") — the
+  // briefing's own subject line is the human title when it carries one.
+  const weekMoveTitle = (move: OpportunityBoardEntry) => {
+    const subject = move.briefing?.content?.find(f => /temat|subject/i.test(f.label))?.value
+    if (subject) return subject
+    const [singular] = BATCH_KIND_PHRASE[move.recommended_action] ?? []
+    if (singular) return `${singular[0]?.toUpperCase() ?? ''}${singular.slice(1)} to write`
+    return labelOr(DECISION_KIND_LABELS, move.decision_kind)
+  }
+  // Ranked by how fast each thing rots: a person who wrote back cools off,
+  // an approval expires, a show step has a date on it.
   const moves = createMemo((): NextMove[] => {
     const out: NextMove[] = []
     const waiting = props.model()?.reply_triage?.waiting_on_you ?? []
     for (const reply of waiting.slice(0, 2)) {
+      // reply_label is the source's own words — quote it when it reads like
+      // words. A SHOUTY_SNAKE token is a pipeline state, not their answer.
+      const humanLabel = reply.reply_label && /[a-z]/.test(reply.reply_label)
+      const answered = humanLabel
+        ? `They wrote "${reply.reply_label}"`
+        : reply.disposition === 'positive'
+          ? 'They said yes'
+          : 'They wrote back'
       out.push({
         title: `Answer ${reply.display_name}`,
-        why: reply.disposition === 'positive'
-          ? `They said yes ${formatIsoAge(reply.replied_at)} — a warm answer cools fast.`
-          : `They wrote back ${formatIsoAge(reply.replied_at)} — the thread is still open.`,
+        why: `${answered} ${formatIsoAge(reply.replied_at)} — a warm answer cools fast.`,
         to: '/tenants/$slug/operations',
         params: { slug: props.slug },
         search: { tab: 'replies' },
         hash: 'answered',
       })
     }
-    const approvals = (props.model()?.attention?.needs_you ?? [])
-      .slice()
-      .sort((a, b) => (a.approval_expires_at ?? '9999').localeCompare(b.approval_expires_at ?? '9999'))
-    for (const action of approvals.slice(0, 2)) {
+    // Approval waves as one row each — the derived batch already carries
+    // the count and the soonest expiry.
+    for (const batch of (props.model()?.derived?.approval_batches ?? []).slice(0, 3)) {
       out.push({
-        title: `Approve ${labelOr(DECISION_KIND_LABELS, action.action_kind)}`,
-        why: `${action.title ?? labelOr(CONTEXT_LABELS, action.context)}${action.approval_expires_at ? ` — expires ${formatIsoUntil(action.approval_expires_at)}` : ''}`,
+        title: `Approve ${batch.count > 1 ? `${batch.count} ` : ''}${batchPhrase(batch.action_kind, batch.count)}`,
+        why: [
+          batch.title ?? labelOr(CONTEXT_LABELS, batch.context),
+          batch.earliest_expires_at ? `closes ${formatIsoUntil(batch.earliest_expires_at)}` : null,
+        ].filter(Boolean).join(' · '),
         to: '/tenants/$slug/attention',
         params: { slug: props.slug },
         search: { tab: 'inbox' },
-        hash: `action=${action.id}`,
+        hash: batch.count === 1 && typeof batch.action_ids[0] === 'string'
+          ? `action=${batch.action_ids[0]}`
+          : undefined,
       })
     }
     for (const step of props.nextShowSteps.filter(s => s.state === 'due').slice(0, 1)) {
@@ -835,58 +690,205 @@ function DoThisNext(props: {
         params: { slug: props.slug, eventSlug: props.nextShow?.slug ?? '' },
       })
     }
-    for (const move of props.weekMoves.slice(0, 1)) {
+    for (const move of props.weekMoves.slice(0, 2)) {
       out.push({
-        title: move.recommended_action,
+        title: weekMoveTitle(move),
         why: move.reason,
         to: '/tenants/$slug/attention',
         params: { slug: props.slug },
       })
     }
-    return out.slice(0, 3)
+    return out.slice(0, 5)
   })
-  const overflow = () => (props.model()?.attention?.awaiting_approval ?? 0)
+
+
+  // The cost line under the list: asks that died waiting and sends that
+  // failed while the queue sat. Attention's own names, absent → silent.
+  const attention = () => props.model()?.attention
+  const lapsed = () => (attention()?.not_reported ?? []).includes('lapsed_approvals')
+    ? null : (attention()?.lapsed_approvals?.total ?? null)
+  const failedSends = () => (attention()?.not_reported ?? []).includes('failed_sends')
+    ? null : (attention()?.failed_sends?.total ?? null)
+  const totalWaiting = () => props.model()?.attention?.awaiting_approval
 
   return (
     <Section
       title="Do this next"
       icon={<SectionIcon name="target" />}
-      description="The moves most likely to leave a fan behind them, ranked. Each row opens the control that does it."
+      count={totalWaiting() ?? undefined}
+      description="Ranked by what rots first — a warm reply cools, an approval expires. Each row opens the control that does it."
     >
-      <div class="flex flex-col gap-3">
+      <WorkList>
         <For each={moves()}>{move => (
-          <Link
-            to={move.to}
-            params={move.params}
-            search={move.search}
-            hash={move.hash}
-            class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
-          >
-            <div class="min-w-0">
-              <span class="text-sm font-medium text-foreground group-hover:underline">{move.title}</span>
-              <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">{move.why}</p>
-            </div>
-            <span class="shrink-0 text-xs font-medium text-primary">Open</span>
-          </Link>
+          <WorkRow
+            title={move.title}
+            why={move.why}
+            action={
+              <Link
+                to={move.to}
+                params={move.params}
+                search={move.search}
+                hash={move.hash}
+                class={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                Open
+              </Link>
+            }
+          />
         )}</For>
-        <Show when={moves().length === 0}>
-          <p class="text-sm text-muted-foreground">
-            Nothing is waiting on you — the machine is working, and the first thing that needs a say lands here.
-          </p>
-        </Show>
-        <Show when={overflow() > 0}>
-          <Link
-            to="/tenants/$slug/attention"
-            params={{ slug: props.slug }}
-            class="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            {overflow()} waiting on a decision in all — the full queue is on Needs you
-          </Link>
-        </Show>
-      </div>
+      </WorkList>
+      <Show when={moves().length === 0}>
+        <p class="text-sm text-muted-foreground">
+          Nothing is waiting on you — the machine is working, and the first thing that needs a say lands here.
+        </p>
+      </Show>
+      <Show when={(totalWaiting() ?? 0) > 0}>
+        <Link
+          to="/tenants/$slug/attention"
+          params={{ slug: props.slug }}
+          class="mt-3 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {totalWaiting()} waiting on a decision in all — the full queue is on Needs you
+        </Link>
+      </Show>
+      <Show when={(lapsed() ?? 0) + (failedSends() ?? 0) > 0}>
+        <p class="mt-2 text-xs text-muted-foreground">
+          While these waited: {[
+            (lapsed() ?? 0) > 0 ? `${lapsed()} ask${lapsed() === 1 ? '' : 's'} expired unanswered` : null,
+            (failedSends() ?? 0) > 0 ? `${failedSends()} send${failedSends() === 1 ? '' : 's'} failed` : null,
+          ].filter(Boolean).join(' · ')}
+        </p>
+      </Show>
     </Section>
   )
 }
+
+// ── Next show ───────────────────────────────────────────────────────────
+// The right-hand card beside the work list: where the night is, how far
+// away, what the room holds, and the promotion steps as a checklist —
+// done, or the anchor it runs on.
+
+function NextShowCard(props: {
+  slug: string
+  show: { slug: string; title: string; venue: string | null; starts_at: string } | undefined
+  /** The timeline event's venue_address, matched back to this show's slug. */
+  address?: string | null
+  showsLoaded: boolean
+  days: number | null
+  sales: { sold: number | null; capacity: number | null }
+  checklist: { key: string; label: string; state: string; note?: string }[]
+}) {
+  // The venue field has carried a tour title where a room name belongs
+  // (seen in production: venue == title). Where they collide, the address
+  // line is the honest one to show.
+  const where = () => {
+    const s = props.show
+    if (!s) return null
+    const venue = s.venue && s.venue !== s.title ? s.venue : null
+    const city = props.address?.split(',')[0] ?? null
+    return [venue, city].filter(Boolean).join(' · ') || null
+  }
+  // Compact date for the card — "Fri 17 Oct, 19:30"; seconds carry nothing.
+  const showDay = (iso: string) => {
+    const t = new Date(iso)
+    return Number.isNaN(t.getTime()) ? null
+      : t.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  }
+  return (
+    <Section
+      title="Next show"
+      icon={<SectionIcon name="map-pin" />}
+      description="The nearest night on the books and how its promotion is going."
+      action={<Link to="/tenants/$slug/shows" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>All shows</Link>}
+    >
+      <Show
+        when={props.show}
+        fallback={
+          <Show when={props.showsLoaded}>
+            <p class="text-sm text-muted-foreground">
+              No upcoming night on the books — publish a gig in CrowdRelay and it lands{' '}
+              <Link to="/tenants/$slug/shows" params={{ slug: props.slug }} class="underline underline-offset-2">here</Link>.
+            </p>
+          </Show>
+        }
+      >
+        {show => (
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-4">
+              <CountdownRing days={props.days} label={`Days until ${show().title}`} />
+              <div class="min-w-0">
+                <Link
+                  to="/tenants/$slug/shows/$eventSlug"
+                  params={{ slug: props.slug, eventSlug: show().slug }}
+                  class="text-base font-semibold text-foreground underline-offset-2 hover:underline"
+                >
+                  {show().title}
+                </Link>
+                <p class="mt-0.5 text-sm text-muted-foreground">
+                  {[where(), showDay(show().starts_at)].filter(Boolean).join(' · ')}
+                </p>
+                <p class="mt-1 text-sm text-muted-foreground">
+                  Tickets sold{' '}
+                  <span class="font-medium tabular-nums text-foreground">
+                    {props.sales.sold == null ? '—' : props.sales.sold}
+                  </span>
+                  <Show when={props.sales.capacity != null}>
+                    {' '}of {props.sales.capacity}
+                  </Show>
+                </p>
+              </div>
+            </div>
+            <Show when={props.checklist.length > 0}>
+              <div class="border-t border-border pt-3">
+                <StepChecklist steps={props.checklist} />
+              </div>
+            </Show>
+          </div>
+        )}
+      </Show>
+    </Section>
+  )
+}
+
+// ── Is it working ───────────────────────────────────────────────────────
+// The fan headline, then what the machine's approved work produced — folded
+// into one row per kind by the read model ("4 pushes to fans · measuring"),
+// because an outcome row per action id is a log, not an answer. On an older
+// control plane the flat action list still renders.
+
+/// A kind's words for what it did — "4 pushes to fans", not
+/// `signal.push.request`. Kinds without a phrase pluralise the kind label.
+const OUTCOME_KIND_PHRASE: Record<string, [string, string]> = {
+  'signal.push.request': ['push to fans', 'pushes to fans'],
+  'forum.post': ['forum post', 'forum posts'],
+  'community.post': ['community post', 'community posts'],
+  'community.engage.request': ['community reply', 'community replies'],
+  'social.post': ['post', 'posts'],
+  'outreach.request': ['letter', 'letters'],
+  'booking.outreach.request': ['booking ask', 'booking asks'],
+  'beacon.outreach.request': ['amplifier ask', 'amplifier asks'],
+  'content.artifact.request': ['piece of content', 'pieces of content'],
+  'agent.run.request': ['agent run', 'agent runs'],
+  'show.growth.request': ['show push', 'show pushes'],
+}
+const outcomePhrase = (kind: string, count: number) => {
+  const pair = OUTCOME_KIND_PHRASE[kind]
+  if (pair) return `${count} ${count === 1 ? pair[0] : pair[1]}`
+  const base = labelOr(DECISION_KIND_LABELS, kind).toLowerCase()
+  return count === 1 ? base : `${count} ${base}s`
+}
+
+/// A measured metric's plain name — `fans_interested` reads "interested".
+const METRIC_PHRASE: Record<string, string> = {
+  fans_interested: 'interested',
+  new_fans: 'new fans',
+  new_fans_7d: 'new fans',
+  active_fans: 'active fans',
+  attendees: 'came',
+  ticket_buyers: 'bought tickets',
+  plays: 'plays',
+}
+const metricPhrase = (key: string) => METRIC_PHRASE[key] ?? key.replaceAll('_', ' ')
 
 function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slug: string }) {
   const outcomes = useQuery(() => ({
@@ -899,14 +901,24 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
   const audience = () => props.model()?.audience
   const activity = () => props.model()?.signal?.activity
 
-  const outcomeWord = (line: { outcome_state: string; status: string; outcomes: { verdict: string | null }[] }) => {
-    if (line.status === 'failed') return { word: 'failed', tone: 'bad' as const }
-    const verdict = line.outcomes.find(o => o.verdict)?.verdict
-    if (verdict === 'improved') return { word: 'it worked', tone: 'good' as const }
-    if (verdict === 'worsened') return { word: 'it went down', tone: 'bad' as const }
-    if (verdict === 'neutral') return { word: 'no change yet', tone: 'muted' as const }
-    if (line.outcome_state === 'pending') return { word: 'still measuring', tone: 'muted' as const }
-    return { word: 'not measured yet', tone: 'muted' as const }
+  /// The group's honest verdict word. Mixed results name their parts —
+  /// "1 improved · 2 flat" — instead of collapsing into one direction.
+  const groupWord = (g: OutcomeGroup): { word: string; tone: 'good' | 'bad' | 'warn' | 'muted' } => {
+    if (g.failed > 0) return { word: `${g.failed} failed`, tone: 'bad' }
+    const parts: string[] = []
+    if (g.improved > 0) parts.push(`${g.improved} improved`)
+    if (g.worsened > 0) parts.push(`${g.worsened} went down`)
+    if (g.neutral > 0) parts.push(`${g.neutral} no change`)
+    if (parts.length > 0)
+      return { word: parts.join(' · '), tone: g.worsened > 0 ? 'bad' : g.improved > 0 ? 'good' : 'muted' }
+    if (g.pending > 0) return { word: 'measuring', tone: 'muted' }
+    return { word: 'not measured yet', tone: 'muted' }
+  }
+  /// The freshest measured action's own result line — "1 interested" —
+  /// appended when the group carried one.
+  const groupResult = (g: OutcomeGroup): string | null => {
+    const metric = (g.latest_metrics ?? []).find(m => m.observed != null)
+    return metric ? `${metric.observed} ${metricPhrase(metric.metric)}` : null
   }
 
   return (
@@ -938,22 +950,35 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
             <p class="text-sm text-muted-foreground">The outcome ledger could not be read — try refreshing.</p>
           </Show>
         }>
-          <For each={outcomes.data!.actions}>{line => (
-            <div class="flex items-baseline justify-between gap-3 text-sm">
-              <span class="min-w-0 truncate text-foreground">
-                {line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
-              </span>
-              <span class={cn('shrink-0 text-xs',
-                outcomeWord(line).tone === 'good' ? 'text-success-foreground'
-                : outcomeWord(line).tone === 'bad' ? 'text-destructive'
-                : 'text-muted-foreground')}>
-                {outcomeWord(line).word}{line.finished_at ? ` · ${formatIsoAge(line.finished_at)}` : ''}
-              </span>
-            </div>
-          )}</For>
-          <Show when={outcomes.data!.actions.length === 0}>
+          {/* The grouped read is preferred; an older control plane without
+              `groups` falls back to the flat action lines. */}
+          <Show
+            when={outcomes.data!.groups}
+            fallback={
+              <For each={outcomes.data!.actions ?? []}>{line => (
+                <OutcomeRow
+                  label={line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
+                  result={outcomeWord(line).word}
+                  resultTone={outcomeWord(line).tone}
+                  when={line.finished_at ? formatIsoAge(line.finished_at) : undefined}
+                />
+              )}</For>
+            }
+          >
+            {groups => (
+              <For each={groups()}>{g => (
+                <OutcomeRow
+                  label={outcomePhrase(g.kind, g.count)}
+                  result={[groupWord(g).word, groupResult(g)].filter(Boolean).join(' — ')}
+                  resultTone={groupWord(g).tone}
+                  when={g.latest_finished_at ? formatIsoAge(g.latest_finished_at) : undefined}
+                />
+              )}</For>
+            )}
+          </Show>
+          <Show when={(outcomes.data!.actions ?? []).length === 0}>
             <p class="text-sm text-muted-foreground">
-              Nothing approved in the last {outcomes.data!.window_days} days — approve an ask above and what it produced lands here.
+              Nothing approved in the last {outcomes.data!.window_days ?? '—'} days — approve an ask above and what it produced lands here.
             </p>
           </Show>
         </Show>
@@ -962,43 +987,14 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
   )
 }
 
-function RunningWithoutYou(props: {
-  model: () => TenantTodayReadModel | undefined
-  slug: string
-  healthLabel: string
-  healthTone: 'good' | 'warn' | 'bad' | 'muted'
-  deadJobs: number
-}) {
-  const autopilot = () => props.model()?.autopilot
-  const line = () => {
-    const a = autopilot()
-    if (!a) return 'The machine has not reported in — refresh to ask again.'
-    if (!a.runtime_enabled) return 'The brain is off — nothing runs without you.'
-    const parts = [
-      'The brain is on',
-      `${a.queued_actions ?? 0} waiting to run`,
-    ]
-    if ((a.failed_24h ?? 0) > 0) parts.push(`${a.failed_24h} failed in the last day`)
-    else if ((a.succeeded_24h ?? 0) > 0) parts.push(`${a.succeeded_24h} done in the last day`)
-    if (props.deadJobs > 0) parts.push(`${props.deadJobs} send${props.deadJobs === 1 ? '' : 's'} stuck`)
-    return parts.join(' · ')
-  }
-  return (
-    <Section
-      title="Running without you"
-      icon={<SectionIcon name="activity" />}
-      description="One line on what the machine is doing, and whether anything is broken."
-      action={<Show when={authState.isPlatformLevel()}>
-        <Link to="/tenants/$slug/health" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Health</Link>
-      </Show>}
-    >
-      <div class="flex items-center gap-3 rounded-md border border-border p-4">
-        <span class={cn('size-2.5 shrink-0 rounded-full', TONE_DOT[props.healthTone])} aria-hidden="true" />
-        <p class="text-sm text-foreground">{line()}</p>
-        <Show when={props.deadJobs > 0 || props.healthTone === 'bad'}>
-          <StatusBadge status={props.healthLabel} tone="bad" />
-        </Show>
-      </div>
-    </Section>
-  )
+/// The per-action verdict word, kept for the fallback path — a control
+/// plane build without `groups` still renders honest rows.
+function outcomeWord(line: { outcome_state: string; status: string; outcomes: { verdict: string | null }[] }) {
+  if (line.status === 'failed') return { word: 'failed', tone: 'bad' as const }
+  const verdict = line.outcomes.find(o => o.verdict)?.verdict
+  if (verdict === 'improved') return { word: 'it worked', tone: 'good' as const }
+  if (verdict === 'worsened') return { word: 'it went down', tone: 'bad' as const }
+  if (verdict === 'neutral') return { word: 'no change yet', tone: 'muted' as const }
+  if (line.outcome_state === 'pending') return { word: 'still measuring', tone: 'muted' as const }
+  return { word: 'not measured yet', tone: 'muted' as const }
 }

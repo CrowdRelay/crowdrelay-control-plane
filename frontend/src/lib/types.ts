@@ -1214,9 +1214,45 @@ export type TenantAttentionReadModel = {
   not_reported?: string[]
 }
 
+/// Facts assembled cp-side from the Today fan-out — the header pill's
+/// running/done/broken summary, the approval inbox grouped into waves, and
+/// per-work-area counts. Assembled, not fetched: `derived` is absent on
+/// control-plane builds that predate it, and each field inside is `null`
+/// when the section it reads degraded.
+export type TodayDerived = {
+  status: {
+    running: boolean | null
+    done_24h: number | null
+    failed_24h: number | null
+    queued: number | null
+    dead_jobs: number | null
+    waiting_on_you: number | null
+  }
+  /// One row per same-kind wave (`context|action_kind|subject_kind`), soonest
+  /// expiry first. `action_ids` keeps every ask's id so the attention page
+  /// can still act on them one by one. `null` when attention is degraded or
+  /// the tenant does not report the queue — never `[]` for "unknown".
+  approval_batches: {
+    key: string
+    context: string
+    action_kind: string
+    subject_kind: string
+    title: string | null
+    count: number
+    action_ids: string[]
+    earliest_expires_at: string | null
+  }[] | null
+  work_area_counts: {
+    replies: number | null
+    approvals: number | null
+    drafts: number | null
+  }
+}
+
 export type TenantTodayReadModel = {
   id: string
   summary: OperationsSummary | null
+  derived?: TodayDerived | null
   flags: FeatureFlag[] | null
   autopilot: AutopilotOverview | null
   growth: GrowthOverview | null
@@ -1767,11 +1803,38 @@ export type ActionOutcomeLine = {
   next_measurement_due: string | null
 }
 
+/// One wave of approved asks, folded by kind cp-side so the page can say
+/// "4 pushes to fans · measuring" instead of listing raw action ids.
+/// `latest_metrics` is the freshest measured action's outcome lines — what
+/// one representative result looks like; absent until something measures.
+export type OutcomeGroup = {
+  kind: string
+  context: string | null
+  count: number
+  pending: number
+  unmeasured: number
+  measured: number
+  improved: number
+  neutral: number
+  worsened: number
+  failed: number
+  latest_finished_at: string | null
+  latest_metrics: {
+    metric: string
+    verdict: 'improved' | 'neutral' | 'worsened' | null
+    observed: number
+    baseline: number | null
+  }[] | null
+}
+
 /// `GET /tenants/{slug}/operations/outcomes` — the approved asks' report
 /// card for the trailing window.
 export type OpsOutcomes = {
   window_days: number
   actions: ActionOutcomeLine[]
+  /// Kind-folded view of the same actions, added by the control-plane proxy.
+  /// Absent on builds that predate it — the caller falls back to `actions`.
+  groups?: OutcomeGroup[]
 }
 
 export type MeasurementLedger = {

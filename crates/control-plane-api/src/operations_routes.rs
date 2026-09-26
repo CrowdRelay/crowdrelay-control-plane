@@ -1715,7 +1715,11 @@ async fn autopilot_measurement(
 
 /// Approved actions and what they produced — the per-action outcome lines
 /// Today's "is it working" section renders. Read-only proxy to CrowdRelay's
-/// outcomes read model.
+/// outcomes read model. The proxy repairs two things upstream cannot yet
+/// send: timestamp fields that arrive as `time`'s positional tuple
+/// (deserialized NaN by every browser) are normalized to RFC 3339, and a
+/// per-kind `groups` summary is attached so the page can say "4 pushes to
+/// fans · measuring" instead of listing raw action ids.
 async fn ops_outcomes(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -1731,7 +1735,168 @@ async fn ops_outcomes(
         None,
     )
     .await?;
-    object_no_store(value, "ops outcomes")
+    object_no_store(normalize_ops_outcomes(value), "ops outcomes")
+}
+
+/// `time`'s serde-without-well-known emits `OffsetDateTime` as the positional
+/// tuple `[year, ordinal, hour, minute, second, nanosecond, offset_h,
+/// offset_m, offset_s]`. A browser `new Date(tuple)` is NaN, so every
+/// timestamp reached the page as "recently". Convert to RFC 3339; a tuple
+/// that does not parse becomes `null` — a wrong timestamp is worse than a
+/// missing one.
+fn time_tuple_to_iso(arr: &[Value]) -> Option<String> {
+    let int = |i: usize| -> Option<i64> { arr.get(i).and_then(Value::as_i64) };
+    let date = chrono::NaiveDate::from_yo_opt(int(0)? as i32, int(1)? as u32)?;
+    let time = chrono::NaiveTime::from_hms_nano_opt(
+        int(2)? as u32,
+        int(3)? as u32,
+        int(4)? as u32,
+        int(5)? as u32,
+    )?;
+    let local = date.and_time(time);
+    let offset_seconds = if arr.len() >= 9 {
+        int(6)? * 3600 + int(7)? * 60 + int(8)?
+    } else if arr.len() == 7 {
+        int(6)?
+    } else {
+        // Any other shape is not the OffsetDateTime tuple — relabeling it
+        // as UTC would print a wrong timestamp with confidence.
+        return None;
+    };
+    let utc = local - chrono::Duration::seconds(offset_seconds);
+    Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(utc, chrono::Utc).to_rfc3339())
+}
+
+fn normalize_ops_outcome_timestamps(action: &mut Value) {
+    let Some(map) = action.as_object_mut() else {
+        return;
+    };
+    for field in ["finished_at", "approved_at", "next_measurement_due"] {
+        if let Some(Value::Array(arr)) = map.get(field) {
+            let fixed = time_tuple_to_iso(arr).map_or(Value::Null, |iso| json!(iso));
+            map.insert(field.to_owned(), fixed);
+        }
+    }
+}
+
+/// One row per action kind: counts by measurement state and verdict, plus the
+/// freshest measured action's metric lines so the page can name a result
+/// ("1 interested") without the raw action. Groups sort latest-first, so the
+/// row order is stable across calls.
+fn group_ops_outcome_actions(actions: &[Value]) -> Value {
+    let mut order: Vec<String> = Vec::new();
+    let mut by_kind: std::collections::HashMap<String, Vec<&Value>> =
+        std::collections::HashMap::new();
+    for action in actions {
+        let kind = action
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_owned();
+        if !by_kind.contains_key(&kind) {
+            order.push(kind.clone());
+        }
+        by_kind.entry(kind).or_default().push(action);
+    }
+    let mut groups: Vec<Value> = order
+        .into_iter()
+        .map(|kind| {
+            let rows = &by_kind[&kind];
+            let (mut pending, mut unmeasured, mut measured) = (0i64, 0i64, 0i64);
+            let (mut improved, mut neutral, mut worsened, mut failed) = (0i64, 0i64, 0i64, 0i64);
+            // Two separate "latest" trackers: `latest_finished` orders the
+            // group and drives its recency label (any action), while
+            // `latest_metrics` comes from the freshest *measured* action —
+            // a newer pending one carries empty outcomes and would hide the
+            // result line the group can actually show.
+            let mut latest_finished: Option<&str> = None;
+            let mut latest_measured: Option<(&str, &Value)> = None;
+            let mut first_measured: Option<&Value> = None;
+            for action in rows.iter().copied() {
+                match action.get("outcome_state").and_then(Value::as_str) {
+                    Some("pending") => pending += 1,
+                    Some("unmeasured") => unmeasured += 1,
+                    Some("measured") => {
+                        measured += 1;
+                        first_measured.get_or_insert(action);
+                        if let Some(finished) =
+                            action.get("finished_at").and_then(Value::as_str)
+                        {
+                            if latest_measured.is_none_or(|(current, _)| finished > current) {
+                                latest_measured = Some((finished, action));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                if action.get("status").and_then(Value::as_str) == Some("failed") {
+                    failed += 1;
+                }
+                if let Some(outcomes) = action.get("outcomes").and_then(Value::as_array) {
+                    for outcome in outcomes {
+                        match outcome.get("verdict").and_then(Value::as_str) {
+                            Some("improved") => improved += 1,
+                            Some("neutral") => neutral += 1,
+                            Some("worsened") => worsened += 1,
+                            _ => {}
+                        }
+                    }
+                }
+                if let Some(finished) = action.get("finished_at").and_then(Value::as_str) {
+                    if latest_finished.is_none_or(|current| finished > current) {
+                        latest_finished = Some(finished);
+                    }
+                }
+            }
+            // A measured action with no finished_at still has metrics — it
+            // just can't win the recency race, so it is the fallback.
+            let latest_metrics = latest_measured
+                .map(|(_, action)| action)
+                .or(first_measured)
+                .and_then(|action| action.get("outcomes"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            json!({
+                "kind": kind,
+                "context": rows.first().and_then(|a| a.get("context")).cloned().unwrap_or(Value::Null),
+                "count": rows.len(),
+                "pending": pending,
+                "unmeasured": unmeasured,
+                "measured": measured,
+                "improved": improved,
+                "neutral": neutral,
+                "worsened": worsened,
+                "failed": failed,
+                "latest_finished_at": latest_finished,
+                "latest_metrics": latest_metrics,
+            })
+        })
+        .collect();
+    groups.sort_by(|a, b| {
+        b["latest_finished_at"]
+            .as_str()
+            .cmp(&a["latest_finished_at"].as_str())
+    });
+    Value::Array(groups)
+}
+
+fn normalize_ops_outcomes(mut value: Value) -> Value {
+    let Some(map) = value.as_object_mut() else {
+        return value;
+    };
+    let actions = match map.get_mut("actions") {
+        Some(Value::Array(actions)) => {
+            for action in actions.iter_mut() {
+                normalize_ops_outcome_timestamps(action);
+            }
+            actions.clone()
+        }
+        // Malformed upstream payload: pass it through untouched rather than
+        // fabricate an empty group list that would read as "nothing done".
+        _ => return value,
+    };
+    map.insert("groups".to_owned(), group_ops_outcome_actions(&actions));
+    value
 }
 
 /// Reply triage: which inbound replies need human review, and how recent
@@ -7116,5 +7281,84 @@ mod tests {
             "sk_live_123456789012345678"
         ));
         assert!(!valid_tenant_secret("stripe_secret_key", &"x".repeat(201)));
+    }
+
+    #[test]
+    fn outcomes_normalize_time_tuples_to_iso() {
+        // time::OffsetDateTime's positional serde: year, ordinal, h, m, s,
+        // nanos, offset h/m/s. 2026 day 269 12:06:22.917996 UTC.
+        let iso = time_tuple_to_iso(&[
+            json!(2026),
+            json!(269),
+            json!(12),
+            json!(6),
+            json!(22),
+            json!(917996000),
+            json!(0),
+            json!(0),
+            json!(0),
+        ])
+        .expect("a nine-field tuple decodes");
+        assert!(iso.starts_with("2026-09-26T12:06:22"), "got {iso}");
+        // +02:00 shifts the instant back to UTC.
+        let shifted = time_tuple_to_iso(&[
+            json!(2026),
+            json!(269),
+            json!(12),
+            json!(0),
+            json!(0),
+            json!(0),
+            json!(2),
+            json!(0),
+            json!(0),
+        ])
+        .expect("offset tuple decodes");
+        assert!(shifted.starts_with("2026-09-26T10:00:00"), "got {shifted}");
+        assert!(time_tuple_to_iso(&[json!("nope")]).is_none());
+    }
+
+    #[test]
+    fn outcomes_grouping_names_the_wave_and_keeps_the_result() {
+        let payload = json!({
+            "window_days": 7,
+            "actions": [
+                {"id": "1", "kind": "signal.push.request", "context": "signal",
+                 "status": "succeeded", "outcome_state": "pending",
+                 "finished_at": [2026, 269, 12, 6, 22, 917996000, 0, 0, 0],
+                 "outcomes": []},
+                {"id": "2", "kind": "signal.push.request", "context": "signal",
+                 "status": "succeeded", "outcome_state": "measured",
+                 "finished_at": [2026, 270, 12, 6, 22, 0, 0, 0, 0],
+                 "outcomes": [{"metric": "fans_interested", "observed": 1,
+                               "baseline": 0, "verdict": "improved", "at": "x"}]},
+                {"id": "3", "kind": "forum.post", "context": "community",
+                 "status": "failed", "outcome_state": "unmeasured",
+                 "finished_at": null, "outcomes": []}
+            ]
+        });
+        let fixed = normalize_ops_outcomes(payload);
+        // The browser-visible timestamp is RFC 3339 now, not the tuple.
+        assert!(
+            fixed["actions"][0]["finished_at"]
+                .as_str()
+                .unwrap()
+                .starts_with("2026-09-26")
+        );
+        let groups = fixed["groups"].as_array().expect("groups");
+        assert_eq!(groups.len(), 2);
+        // Latest finished first: signal push (Sep 27) ahead of forum.post.
+        let push = &groups[0];
+        assert_eq!(push["kind"], json!("signal.push.request"));
+        assert_eq!(push["count"], json!(2));
+        assert_eq!(push["pending"], json!(1));
+        assert_eq!(push["measured"], json!(1));
+        assert_eq!(push["improved"], json!(1));
+        assert_eq!(
+            push["latest_metrics"][0]["metric"],
+            json!("fans_interested")
+        );
+        let forum = &groups[1];
+        assert_eq!(forum["kind"], json!("forum.post"));
+        assert_eq!(forum["failed"], json!(1));
     }
 }

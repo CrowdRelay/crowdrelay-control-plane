@@ -26,6 +26,7 @@ export const ErrorBoundaryPanel: Component<{
 
   return <ErrorBoundary fallback={(error, retry) => {
     reset = retry
+    console.error('[boundary]', error instanceof Error ? error.stack : error)
     const detail = error instanceof Error ? error.message : String(error ?? 'Unknown error')
     return <ErrorCard>
       <strong>{props.title ?? 'Something failed to render'}</strong>
