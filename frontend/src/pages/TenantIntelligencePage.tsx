@@ -34,6 +34,7 @@ import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, PanelTitle } fro
 import { Button } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { StatusBadge } from '../components/StatusBadge'
+import { IntelligenceOverview, brainStatus } from '../components/IntelligenceOverview'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const TABS = ['brief', 'standing', 'decisions', 'learning'] as const
@@ -58,6 +59,7 @@ const SECTION_LABEL: Record<string, string> = {
   measurement: 'The measurement ledger',
   attention: 'What needs a person',
   action_states: 'The action state machine',
+  intelligence: 'The intelligence brief',
 }
 const BAND_SECTION_LABEL: Record<string, string> = {
   autopilot: 'Autopilot posture',
@@ -67,6 +69,7 @@ const BAND_SECTION_LABEL: Record<string, string> = {
   measurement: 'The numbers',
   attention: 'What needs you',
   action_states: "What's in progress",
+  intelligence: 'How the brain is doing',
 }
 
 /**
@@ -83,7 +86,6 @@ const BAND_SECTION_LABEL: Record<string, string> = {
 export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const navigate = useNavigate()
-  const autopilot = () => model.data?.autopilot
   // The id list makes `?tab=` deep links land on the right tab.
   const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('brief', [...TABS])
   // A retired `?tab=` id remaps onto the tab its evidence moved to — the hook
@@ -144,19 +146,10 @@ export function TenantIntelligencePage() {
   return <PageShell>
     <PageHeader
       title="Intelligence"
-      description={authState.isPlatformLevel()
-        ? 'What the autopilot decided to do, what it did, and how the growth numbers moved.'
-        : 'What the system decided to do, what it did, and how the growth numbers moved.'}
+      description="Is the brain getting anywhere, and what is it trying next?"
       actions={
         <>
-          <Show when={!model.error && model.data}>
-            <div class="flex items-center gap-2">
-              <Show when={autopilot()?.runtime_enabled}>
-                <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'working on its own'} tone="good" />
-              </Show>
-              <StatusBadge status={autopilot()?.queued_actions ? `${autopilot()!.queued_actions} ${authState.isPlatformLevel() ? 'queued' : 'waiting'}` : 'idle'} tone={autopilot()?.queued_actions ? 'warn' : 'muted'} />
-            </div>
-          </Show>
+          <Show when={brainStatus(model.data)}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <Button variant="outline" size="sm" onClick={() => void model.refetch()} disabled={model.isFetching} aria-label="Refresh">
             <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
@@ -188,12 +181,8 @@ export function TenantIntelligencePage() {
         </Alert>
       )}</For>
 
-      <div class="mb-5">
-        <PanelTitle as="h3" class="mb-2">
-          {authState.isPlatformLevel() ? 'The autopilot cycle, live' : 'How the brain works for you, right now'}
-        </PanelTitle>
-        <JourneyRail stages={cycleStages()} />
-      </div>
+      <IntelligenceOverview slug={params().slug} model={data()} />
+      <div class="mt-6" />
     </>}</Show>
 
     {/* The tabs say what each one holds, in the order the loop runs. The
@@ -215,8 +204,15 @@ export function TenantIntelligencePage() {
         failure would hide the one thing this page exists to say. The other
         three tabs are evidence surfaces and keep the shared gate. */}
     <TabPanel active={activeTab()} id="brief" visited={isVisited('brief')}>
-      <BrainBriefPanel slug={params().slug} />
-      <ReachPanel slug={params().slug} />
+      <Show when={model.data}>
+        <div class="mb-5">
+        <PanelTitle as="h3" class="mb-2">
+          {authState.isPlatformLevel() ? 'The autopilot cycle, live' : 'How the brain works for you, right now'}
+        </PanelTitle>
+        <JourneyRail stages={cycleStages()} />
+      </div>
+        <BrainBriefPanel slug={params().slug} initial={model.data?.intelligence} />
+      </Show>
     </TabPanel>
 
     {/* Intelligence and Operations share the query key, so the skeleton
@@ -232,6 +228,7 @@ export function TenantIntelligencePage() {
             and the material it may speak with ── */}
       <TabPanel active={activeTab()} id="standing" visited={isVisited('standing')}>
         <Show when={data().scorecard}>{d => <ScorecardPanel slug={params().slug} data={d()} />}</Show>
+        <ReachPanel slug={params().slug} />
         {/* N.9 — the dispatch gate's registry per lane: which capabilities
             are live, held, or missing. The scorecard counts them; this
             names them before an approval meets the refusal. */}

@@ -1378,6 +1378,7 @@ export type TenantBrainSection =
   | 'measurement'
   | 'attention'
   | 'action_states'
+  | 'intelligence'
 
 /** `GET /v1/control-plane/ops/action-states` — per-state depth and the
  * oldest entry's timestamp for every in-flight action state. Always all six
@@ -1412,6 +1413,9 @@ export type TenantBrainReadModel = {
   // the actions list cannot answer. Absent on an older CrowdRelay (404 →
   // named in `degraded`).
   action_states: ActionStatesReport | null
+  /** The intelligence brief — the page's first screen. Absent on an older
+   *  control plane; null when the tenant could not answer it. */
+  intelligence?: IntelligenceBrief | null
   degraded: TenantBrainSection[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap

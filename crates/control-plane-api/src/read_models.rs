@@ -2060,7 +2060,16 @@ async fn brain(
                 .await
         }
     };
-    let (autopilot, scorecard, learning, learning_proof, measurement, attention, action_states) = tokio::join!(
+    let (
+        autopilot,
+        scorecard,
+        learning,
+        learning_proof,
+        measurement,
+        attention,
+        action_states,
+        intelligence,
+    ) = tokio::join!(
         fetch("/v1/control-plane/autopilot/overview"),
         fetch("/v1/control-plane/autopilot/scorecard"),
         fetch("/v1/control-plane/autopilot/learning-loop"),
@@ -2072,6 +2081,10 @@ async fn brain(
         // Older CrowdRelay versions answer 404 → the section names
         // itself in `degraded` rather than blanking the model.
         fetch("/v1/control-plane/ops/action-states"),
+        // The Intelligence page's first screen — the brain's state, what ran
+        // on its own, the cycle's ranked templates — so the page opens on
+        // this one read instead of this plus `operations/intelligence`.
+        fetch("/v1/control-plane/ops/intelligence"),
     );
 
     let attention = match attention {
@@ -2094,6 +2107,7 @@ async fn brain(
             measurement.as_ref(),
             attention.as_ref(),
             action_states.as_ref(),
+            intelligence.as_ref(),
         ),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
@@ -2101,7 +2115,9 @@ async fn brain(
 }
 
 /// The section table the brain handler projects — named so the tests assert
-/// the real wiring rather than a copy of it.
+/// the real wiring rather than a copy of it. One argument per upstream read,
+/// like `project_show`: a struct would only rename the same eight results.
+#[allow(clippy::too_many_arguments)]
 fn brain_sections<'a>(
     autopilot: SectionResult<'a>,
     scorecard: SectionResult<'a>,
@@ -2110,7 +2126,8 @@ fn brain_sections<'a>(
     measurement: SectionResult<'a>,
     attention: SectionResult<'a>,
     action_states: SectionResult<'a>,
-) -> [Section<'a>; 7] {
+    intelligence: SectionResult<'a>,
+) -> [Section<'a>; 8] {
     [
         section("autopilot", autopilot, Shape::Object),
         section("scorecard", scorecard, Shape::Object),
@@ -2119,6 +2136,7 @@ fn brain_sections<'a>(
         section("measurement", measurement, Shape::Object),
         section("attention", attention, Shape::Object),
         section("action_states", action_states, Shape::Object),
+        section("intelligence", intelligence, Shape::Object),
     ]
 }
 
@@ -4802,6 +4820,7 @@ mod tests {
         let measurement = json!({"claims": []});
         let attention = json!({"needs_you": [], "rejected_agent_outcomes": []});
         let action_states = json!({"in_flight": [{"state": "QUEUED", "count": 2}]});
+        let intelligence = json!({"brain": {"state": "learning"}, "cycle": {}});
 
         let projected = project_sections(
             "virya",
@@ -4815,9 +4834,10 @@ mod tests {
                 ok(&measurement),
                 ok(&attention),
                 ok(&action_states),
+                ok(&intelligence),
             ),
         )
-        .expect("all seven sections answer");
+        .expect("all eight sections answer");
 
         assert_eq!(projected["id"], json!("virya"));
         assert_eq!(projected["autopilot"], autopilot);
@@ -4827,6 +4847,7 @@ mod tests {
         assert_eq!(projected["measurement"], measurement);
         assert_eq!(projected["attention"], attention);
         assert_eq!(projected["action_states"], action_states);
+        assert_eq!(projected["intelligence"], intelligence);
         assert_eq!(projected["degraded"], json!([]));
         for name in [
             "autopilot",
@@ -4836,6 +4857,7 @@ mod tests {
             "measurement",
             "attention",
             "action_states",
+            "intelligence",
         ] {
             assert_eq!(projected["sections"][name]["state"], json!("ok"), "{name}");
         }
@@ -4852,6 +4874,7 @@ mod tests {
         let error = unreachable();
         let attention = json!({"needs_you": []});
         let action_states = json!({"in_flight": []});
+        let intelligence = json!({"brain": {"state": "learning"}});
 
         let projected = project_sections(
             "virya",
@@ -4865,6 +4888,7 @@ mod tests {
                 Err(&error),
                 ok(&attention),
                 ok(&action_states),
+                ok(&intelligence),
             ),
         )
         .expect("one dead section still projects the rest");
@@ -4882,6 +4906,7 @@ mod tests {
             300,
             "brain",
             &brain_sections(
+                Err(&error),
                 Err(&error),
                 Err(&error),
                 Err(&error),
@@ -4909,6 +4934,7 @@ mod tests {
         let measurement = json!({"claims": []});
         let attention = json!({"needs_you": []});
         let action_states = json!({"in_flight": []});
+        let intelligence = json!({"brain": {"state": "learning"}});
 
         let projected = project_sections(
             "virya",
@@ -4922,6 +4948,7 @@ mod tests {
                 ok(&measurement),
                 ok(&attention),
                 ok(&action_states),
+                ok(&intelligence),
             ),
         )
         .expect("a misshapen section degrades, it does not fail the model");
