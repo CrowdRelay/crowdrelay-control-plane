@@ -52,7 +52,10 @@ PAGE_SOURCES = sorted((FRONTEND / "pages").glob("*.tsx"))
 #   label for that same destination — one concept, two label sites.
 # - places: the every-day nav item for /tenants/$slug/places and the show
 #   page's owner link that jumps to that same page — the beacons pattern.
-ALLOWED_DUPLICATES: set[str] = {"shows", "places"}
+# - content, tenants: the dashboard header's back link on Content › Material
+#   and on the new-tenant wizard, each pointing at the very nav destination
+#   of the same name — the same pattern as places.
+ALLOWED_DUPLICATES: set[str] = {"shows", "places", "content", "tenants"}
 
 
 def labels(text: str) -> list[str]:

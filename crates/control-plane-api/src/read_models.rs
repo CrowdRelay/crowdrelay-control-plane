@@ -2045,19 +2045,128 @@ const PLACES_ONLINE_SPEC: &[(&str, &str, Shape)] = &[(
     Shape::Object,
 )];
 
+/// The default Places tab also carries the page's first screen: how many
+/// rooms are worth a call and where, and how many online places are known
+/// and on which platforms. The browser gets two small summaries, not the
+/// registry and the place list — those stay on the Rooms and Online tabs'
+/// own reads, fetched when those tabs open.
 async fn places_cities(
     State(state): State<AppState>,
     Path(raw_slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    places_tab(
-        &state,
-        &raw_slug,
-        &headers,
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:places:cities");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let correlation_id = correlation(&headers);
+    let paths = PLACES_CITIES_SPEC
+        .iter()
+        .map(|&(path, _, _)| path)
+        .chain([PLACES_ROOMS_SPEC[0].0, PLACES_ONLINE_SPEC[0].0]);
+    let results = futures_util::future::join_all(paths.map(|path| {
+        state.area_client.request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "GET",
+                path,
+                body: None,
+                correlation_id,
+                idempotency_key: None,
+            },
+        )
+    }))
+    .await;
+    let (spec_results, extra) = results.split_at(PLACES_CITIES_SPEC.len());
+    let [rooms_read, online_read] = extra else {
+        return Err(ApiError::Unavailable(
+            "places read returned the wrong number of sections".into(),
+        ));
+    };
+    let rooms_summary = rooms_read.as_ref().map(summarize_rooms);
+    let online_summary = online_read.as_ref().map(summarize_online);
+    let mut sections = spec_sections(PLACES_CITIES_SPEC, spec_results);
+    sections.push(section(
+        "rooms_summary",
+        rooms_summary.as_ref().map_err(|e| *e),
+        Shape::Object,
+    ));
+    sections.push(section(
+        "online_summary",
+        online_summary.as_ref().map_err(|e| *e),
+        Shape::Object,
+    ));
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
         "places:cities",
-        PLACES_CITIES_SPEC,
-    )
-    .await
+        &sections,
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// Counts over the venue registry: rooms by assessment, rooms already
+/// played, the cities with the most rooms, and the room played last.
+fn summarize_rooms(venues: &Value) -> Value {
+    let rows = venues.as_array().map(Vec::as_slice).unwrap_or(&[]);
+    let count = |assessment: &str| {
+        rows.iter()
+            .filter(|row| row.get("assessment").and_then(Value::as_str) == Some(assessment))
+            .count()
+    };
+    let mut by_city: std::collections::BTreeMap<(String, String), usize> = Default::default();
+    for row in rows {
+        let name = row.get("city_name").and_then(Value::as_str).unwrap_or("");
+        let slug = row.get("city_slug").and_then(Value::as_str).unwrap_or("");
+        *by_city
+            .entry((name.to_owned(), slug.to_owned()))
+            .or_default() += 1;
+    }
+    let mut by_city: Vec<_> = by_city.into_iter().collect();
+    by_city.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    let last_played = rows
+        .iter()
+        .filter_map(|row| Some((row.get("last_played_at")?.as_str()?, row)))
+        .max_by(|a, b| a.0.cmp(b.0))
+        .map(|(at, row)| {
+            json!({
+                "display_name": row.get("display_name"),
+                "city_name": row.get("city_name"),
+                "last_played_at": at,
+                "shows_played": row.get("shows_played"),
+            })
+        });
+    json!({
+        "total": rows.len(),
+        "worth_contact": count("worth_contact"),
+        "insufficient_evidence": count("insufficient_evidence"),
+        "not_assessed": count("not_assessed"),
+        "played": rows.iter().filter(|row| row.get("shows_played").and_then(Value::as_i64).is_some_and(|n| n > 0)).count(),
+        "by_city": by_city.iter().take(5).map(|((name, slug), rooms)| json!({"city_name": name, "city_slug": slug, "rooms": rooms})).collect::<Vec<_>>(),
+        "last_played": last_played,
+    })
+}
+
+/// Counts over the online places: how many, and on which platforms.
+fn summarize_online(registry: &Value) -> Value {
+    let places = registry
+        .get("places")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let mut by_platform: std::collections::BTreeMap<String, usize> = Default::default();
+    for place in places {
+        let platform = place
+            .get("platform")
+            .and_then(Value::as_str)
+            .unwrap_or("other");
+        *by_platform.entry(platform.to_owned()).or_default() += 1;
+    }
+    json!({"total": places.len(), "by_platform": by_platform})
 }
 
 async fn places_rooms(
@@ -5313,6 +5422,31 @@ mod tests {
         assert_eq!(projected["pipeline"], pipeline);
         assert_eq!(projected["delivery_results"], Value::Null);
         assert_eq!(projected["degraded"], json!(["delivery_results"]));
+    }
+
+    #[test]
+    fn places_summaries_count_what_the_first_screen_shows() {
+        let venues = json!([
+            {"display_name": "Klub", "city_name": "Wrocław", "city_slug": "wroclaw", "assessment": "worth_contact", "shows_played": 1, "last_played_at": "2026-09-11T18:00:00Z"},
+            {"display_name": "Alive", "city_name": "Wrocław", "city_slug": "wroclaw", "assessment": "worth_contact", "shows_played": 0, "last_played_at": null},
+            {"display_name": "Avalon", "city_name": "Namysłów", "city_slug": "namyslow", "assessment": "insufficient_evidence", "shows_played": 1, "last_played_at": "2026-09-05T17:30:00Z"}
+        ]);
+        let rooms = summarize_rooms(&venues);
+        assert_eq!(rooms["total"], 3);
+        assert_eq!(rooms["worth_contact"], 2);
+        assert_eq!(rooms["insufficient_evidence"], 1);
+        assert_eq!(rooms["played"], 2);
+        assert_eq!(rooms["by_city"][0]["city_slug"], "wroclaw");
+        assert_eq!(rooms["by_city"][0]["rooms"], 2);
+        assert_eq!(rooms["last_played"]["display_name"], "Klub");
+
+        let online = summarize_online(&json!({"places": [
+            {"platform": "reddit"}, {"platform": "reddit"}, {"platform": "discord"}
+        ]}));
+        assert_eq!(online["total"], 3);
+        assert_eq!(online["by_platform"]["reddit"], 2);
+        // An envelope with no list is an empty registry, not a crash.
+        assert_eq!(summarize_online(&json!({}))["total"], 0);
     }
 
     #[test]

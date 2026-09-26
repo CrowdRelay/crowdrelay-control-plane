@@ -12,7 +12,10 @@ import { Checkbox } from '../components/app/checkbox'
 import { SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
-import { PageShell, PageHeader, KpiStrip, KpiCard, ErrorCard, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { PageShell, ErrorCard, Section } from '../components/layout'
+import { formatIsoAge } from '../lib/format'
+import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Activity, Workflow } from 'lucide-solid'
 import { Button } from '../components/app/button'
 import { Badge } from '../components/app/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
@@ -44,7 +47,7 @@ export function AutomationPage() {
   const slug = () => params().slug
   const queryClient = useQueryClient()
   // The id list makes `?tab=` deep links land on the right tab.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('events', [...TABS])
+  const areas = useWorkAreas([...TABS])
   const [statusFilter, setStatusFilter] = createSignal<string>('')
 
   const events = useQuery(() => ({
@@ -146,39 +149,63 @@ export function AutomationPage() {
     finally { setBusyId(null) }
   }
 
+  const byCategory = (category: string) => [...configMap().values()].filter(c => c.category === category).length
+
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Automation"
-      description="What the n8n workflows did, and what each workflow's events are allowed to do. Real work routes to Discord; everything else stays here."
+      subtitle="The workflows that carry the machine's work out"
+      pill={eventsReady()
+        ? (errorCount() > 0 ? { tone: 'bad', text: `${errorCount()} errors in the last 100 events` }
+          : newCount() > 0 ? { tone: 'warn', text: `${newCount()} events need an ack` }
+          : { tone: 'good', text: 'No events waiting' })
+        : null}
       actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={() => invalidate(slug())} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={() => invalidate(slug())} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
-    <KpiStrip>
-      <KpiCard label="New events" value={eventsReady() ? newCount() : '—'} tone={newCount() > 0 ? 'warn' : 'default'} sub="not acknowledged yet" />
-      <KpiCard label="Errors" value={eventsReady() ? errorCount() : '—'} tone={errorCount() > 0 ? 'bad' : 'default'} sub="in the last 100 events" />
-      <KpiCard label="Workflows" value={configsReady() ? configMap().size : '—'} sub={mutedCount() > 0 ? `${mutedCount()} muted` : 'with routing rules'} />
-    </KpiStrip>
+    <Tiles>
+      <Tile label="Workflows" value={configsReady() ? configMap().size : null} sub={configsReady() ? `${byCategory('real_work')} do real work` : undefined} />
+      <Tile label="Muted" value={configsReady() ? mutedCount() : null} sub="send no alerts" />
+      <Tile label="Open events" value={eventsReady() ? newCount() : null} valueTone={newCount() > 0 ? 'warn' : undefined} sub="need an ack" />
+      <Tile label="Errors" value={eventsReady() ? errorCount() : null} valueTone={errorCount() > 0 ? 'bad' : undefined} sub="in the last 100 events" />
+    </Tiles>
 
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        { id: 'events', label: 'Events', count: () => newCount() },
+    <Split mid>
+      <Card title="Latest events" icon={<Activity />}>
+        <Show when={(events.data?.items ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{events.error ? 'The events could not be read.' : 'No events yet.'}</p>}>
+          <For each={(events.data?.items ?? []).slice(0, 5)}>{event => (
+            <ItemRow
+              pill={{ tone: event.severity === 'error' ? 'bad' : event.severity === 'warn' ? 'warn' : 'muted', text: event.status }}
+              title={`${event.workflowName} · ${event.message}`}
+              sub={formatIsoAge(event.occurredAt)}
+            />
+          )}</For>
+          <MoreRow text="Every event, with ack, retry and resolve" link={<Act onClick={() => areas.open('events')}>Open</Act>} />
+        </Show>
+      </Card>
+      <Card title="Workflows by kind" icon={<Workflow />}>
+        <StatRow label="Real work · routes to Discord" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('real_work') : '—'}</span>} />
+        <StatRow label="Status" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('status') : '—'}</span>} />
+        <StatRow label="System" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('system') : '—'}</span>} />
+        <div class="mt-3"><Act onClick={() => areas.open('routing')}>Workflow routing</Act></div>
+      </Card>
+    </Split>
+
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'events', label: 'Events', count: newCount() || null },
         { id: 'routing', label: 'Workflow routing' },
       ]}
     />
 
     {/* ─── Events ─────────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="events" visited={isVisited('events')}>
+    <WorkAreaPanel id="events" active={areas.active()}>
       <Section
         flush
         title="Recent events"
@@ -249,10 +276,10 @@ export function AutomationPage() {
           </Show>
         </Show>
       </Section>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ─── Workflow routing ───────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="routing" visited={isVisited('routing')}>
+    <WorkAreaPanel id="routing" active={areas.active()}>
       <Section
         flush
         title="Workflow routing"
@@ -325,6 +352,6 @@ export function AutomationPage() {
           </Show>
         </Show>
       </Section>
-    </TabPanel>
+    </WorkAreaPanel>
   </PageShell>
 }

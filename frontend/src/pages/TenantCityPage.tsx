@@ -4,16 +4,16 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { CityViewModel, CityViewShow, GigPlanOutcome } from '../lib/types'
-import { PageShell, PageHeader, KpiStrip, KpiCard, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
-import { Button } from '../components/app/button'
+import { PageShell, KpiStrip, KpiCard } from '../components/layout'
+import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Pill, Ring, Split, StatRow, Steps, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Building, ChartBar, MapPin, Target } from 'lucide-solid'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Badge } from '../components/app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from '../components/GigPlanProposalCard'
-import { BarRow, OutcomeRow, RowTag, StatusPill, WorkRow, type ViewTone } from '../components/ViewBlocks'
+import type { Tone as ViewTone } from '../components/ui/dash'
 import { formatTimestamp } from '../lib/format'
 import { count, draw, lastPlayed } from '../lib/organise'
 
@@ -91,30 +91,13 @@ const daysSince = (iso: string) => {
 const shortDate = (iso: string) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(iso))
 
-/** The planner's audience bar as a ring: who asked, against who a show needs. */
-function ReachRing(props: { reachable: number; floor: number }) {
-  const share = () => Math.max(0, Math.min(100, Math.round((props.reachable / props.floor) * 100)))
-  return (
-    <svg width="56" height="56" viewBox="0 0 36 36" role="img" aria-label={`${props.reachable} of ${props.floor}`}>
-      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--color-border)" stroke-width="3" />
-      <circle
-        cx="18" cy="18" r="15.9" fill="none" stroke="var(--color-warning-foreground)" stroke-width="3"
-        stroke-dasharray={`${share()} ${100 - share()}`} transform="rotate(-90 18 18)"
-      />
-      <text x="18" y="21" text-anchor="middle" class="fill-foreground" style={{ 'font-size': '8px' }}>
-        {props.reachable}/{props.floor}
-      </text>
-    </svg>
-  )
-}
-
 const TABS = ['rooms', 'fans', 'shows', 'contacts', 'plan'] as const
 
 export function TenantCityPage() {
   const params = useParams({ from: '/tenants/$slug/cities/$cityId' })
   const slug = () => params().slug
   const citySlug = () => params().cityId
-  const tabs = useTabPanels('rooms', [...TABS])
+  const tabs = useWorkAreas([...TABS])
 
   const view = useQuery(() => ({
     queryKey: ['city-view', slug(), citySlug()],
@@ -164,16 +147,11 @@ export function TenantCityPage() {
 
   return (
     <PageShell>
-      <div class="mb-2">
-        <Link to="/tenants/$slug/places" params={{ slug: slug() }} class="text-xs text-muted-foreground hover:text-foreground">
-          ← Places
-        </Link>
-      </div>
-      <PageHeader
-        eyebrow={authState.isPlatformLevel() ? 'CITY' : undefined}
+      <DashHeader
         title={cityName()}
-        description={funnelRow()?.region ?? undefined}
-        actions={<Show when={model()}><StatusPill tone={status().tone}>{status().text}</StatusPill></Show>}
+        subtitle={funnelRow()?.region ?? undefined}
+        pill={model() ? status() : null}
+        back={{ label: 'Places', to: '/tenants/$slug/places', params: { slug: slug() } }}
       />
 
       <Show when={view.error}>
@@ -189,111 +167,108 @@ export function TenantCityPage() {
       </Show>
 
       <Show when={model()}>
-        <KpiStrip>
-          <KpiCard
+        <Tiles>
+          <Tile
             label="Fans here"
-            value={count(funnelRow()?.fans)}
-            sub={funnelRow() ? `+${funnelRow()!.new_30d} in 30 days · ${funnelRow()!.active_30d} active` : 'no fan has named the city'}
+            value={funnelRow()?.fans}
+            sub={funnelRow() ? <><span class="text-success-foreground">+{funnelRow()!.new_30d}</span> in 30 days · {funnelRow()!.active_30d} active</> : 'no fan has named the city'}
           />
-          <KpiCard label="Within reach" value={count(verdict()?.reachable ?? funnelRow()?.reachable)} sub="fans in or near the city" tone="primary" />
-          <KpiCard label="Rooms known" value={count(rooms().length)} sub={`${played()} you played · ${rooms().length - played()} researched`} />
-          <KpiCard
+          <Tile label="Within reach" value={verdict()?.reachable ?? funnelRow()?.reachable} sub="fans in or near the city" />
+          <Tile label="Rooms known" value={rooms().length} sub={`${played()} you played · ${rooms().length - played()} researched`} />
+          <Tile
             label="Last night here"
-            value={lastShow() ? daysSince(lastShow()!.starts_at) : '—'}
+            value={lastShow() ? daysSince(lastShow()!.starts_at) : null}
             sub={lastShow() ? `${lastShow()!.venue ?? lastShow()!.title} · ${shortDate(lastShow()!.starts_at)}` : 'never played here'}
           />
-        </KpiStrip>
+        </Tiles>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <Section title="What would make it a plan" icon={<SectionIcon name="target" />} description="Rooms you can write to, ranked: the ones you played first.">
-            <div class="flex flex-col">
-              <For each={workRooms().slice(0, 4)}>{room => (
-                <WorkRow
-                  tag={<RowTag tone={room.shows_played > 0 ? 'good' : 'muted'}>room</RowTag>}
-                  title={room.display_name}
-                  why={roomWhy(room)}
-                  action="Open"
-                  to="/tenants/$slug/cities/$cityId"
-                  params={{ slug: slug(), cityId: citySlug() }}
-                  search={{ tab: 'rooms' }}
-                />
-              )}</For>
-              <Show when={workRooms().length === 0}>
-                <p class="text-sm text-muted-foreground">No room here is on record as worth a letter yet — the Rooms tab lists what is known.</p>
-              </Show>
-              <Show when={rooms().length > 4}>
-                <Button variant="link" size="sm" class="h-auto px-0 mt-2 self-start text-xs" onClick={() => tabs.switchTab('rooms')}>
-                  {rooms().length - Math.min(4, workRooms().length)} more rooms →
-                </Button>
-              </Show>
-            </div>
-          </Section>
+        <Split>
+          <Card title="What would make it a plan" icon={<Target />} aside="rooms you played first">
+            <For each={workRooms().slice(0, 4)}>{room => (
+              <ItemRow
+                pill={{ tone: room.shows_played > 0 ? 'good' : 'muted', text: 'room' }}
+                title={room.display_name}
+                sub={roomWhy(room)}
+                action={<Act onClick={() => tabs.open('rooms')}>Open</Act>}
+              />
+            )}</For>
+            <Show when={workRooms().length === 0}>
+              <p class="m-0 py-2 text-sm text-muted-foreground">No room here is on record as worth a letter yet.</p>
+            </Show>
+            <Show when={rooms().length > 4}>
+              <MoreRow text={`${rooms().length - Math.min(4, workRooms().length)} more rooms`} link={<Act onClick={() => tabs.open('rooms')}>All rooms</Act>} />
+            </Show>
+          </Card>
 
-          <Section title="What the planner says" icon={<SectionIcon name="map-pin" />}>
+          <Card title="What the planner says" icon={<MapPin />}>
             <Show when={verdict()} fallback={
-              <p class="text-sm text-muted-foreground">Not considered — the planner looks at cities where fans said they live.</p>
+              <p class="m-0 text-sm text-muted-foreground">Not considered — the planner looks at cities where fans said they live.</p>
             }>
               {v => (
                 <>
-                  <div class="flex items-center gap-3">
+                  <div class="my-3 flex items-center gap-3">
                     <Show when={v().floor != null && v().reachable != null}>
-                      <ReachRing reachable={v().reachable!} floor={v().floor!} />
+                      <Ring share={v().reachable! / v().floor!} label={`${v().reachable}/${v().floor}`} tone="warn" />
                     </Show>
                     <div class="min-w-0">
-                      <p class="text-sm text-foreground">{v().proposed ? 'Proposed — open the plan to approve' : 'Passed, not refused'}</p>
+                      <p class="m-0 text-sm text-foreground">{v().proposed ? 'Proposed — approve it in the plan' : 'Passed, not refused'}</p>
                       <Show when={v().reason}>
-                        <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">{v().reason}</p>
+                        <p class="m-0 mt-0.5 text-xs text-muted-foreground/70">{v().reason}</p>
                       </Show>
                     </div>
                   </div>
-                  <Button variant="link" size="sm" class="h-auto px-0 mt-3 text-xs" onClick={() => tabs.switchTab('plan')}>
-                    The plan for this city →
-                  </Button>
+                  <Steps steps={[
+                    { label: lastShow() ? `Played here · ${shortDate(lastShow()!.starts_at)}` : 'Never played here', state: lastShow() ? 'done' : 'waiting' },
+                    { label: `${rooms().length} rooms known`, state: rooms().length > 0 ? 'done' : 'waiting' },
+                    ...(v().floor != null && v().reachable != null && v().reachable! < v().floor!
+                      ? [{ label: `${v().floor! - v().reachable!} more who ask to hear from you`, state: 'waiting' }]
+                      : []),
+                  ]} />
+                  <div class="mt-3"><Act onClick={() => tabs.open('plan')}>The plan for this city</Act></div>
                 </>
               )}
             </Show>
-          </Section>
-        </div>
+          </Card>
+        </Split>
 
-        <div class="grid gap-6 lg:grid-cols-2">
-          <Section title={lastShow() ? `Last night here · ${shortDate(lastShow()!.starts_at)}` : 'Last night here'} icon={<SectionIcon name="trending-up" />}
-            description={lastShow() ? `${lastShow()!.title}${lastShow()!.venue ? ` · ${lastShow()!.venue}` : ''}` : undefined}>
-            <Show when={lastShow()} fallback={<p class="text-sm text-muted-foreground">No night here on record yet.</p>}>
+        <Split even>
+          <Card title={lastShow() ? `Last night here · ${shortDate(lastShow()!.starts_at)}` : 'Last night here'} icon={<ChartBar />}>
+            <Show when={lastShow()} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No night here on record yet.</p>}>
               {last => (
-                <div class="flex flex-col">
-                  <OutcomeRow label="Paid tickets" result={last().paid_buyers == null ? 'not measured · no ticket sale' : String(last().paid_buyers)} tone={last().paid_buyers ? 'good' : 'muted'} />
-                  <OutcomeRow label="Ticket link clicks" result={String(last().ticket_clicks)} />
-                  <OutcomeRow label="Fans interested" result={String(last().interested)} tone={last().interested > 0 ? 'good' : 'muted'} />
-                  <OutcomeRow label="In the room" result={last().checkins == null ? 'not measured · no door QR' : `${last().checkins} checked in`} tone={last().checkins ? 'good' : 'muted'} />
-                </div>
+                <>
+                  <p class="m-0 text-xs text-muted-foreground/70">{last().title}{last().venue ? ` · ${last().venue}` : ''}</p>
+                  <div class="mt-1.5">
+                    <StatRow label="Paid tickets" value={last().paid_buyers == null ? <Pill>not measured · no ticket sale</Pill> : <span class="text-foreground">{last().paid_buyers}</span>} />
+                    <StatRow label="Ticket link clicks" value={<span class="text-foreground">{last().ticket_clicks}</span>} />
+                    <StatRow label="Fans interested" value={<span class="text-foreground">{last().interested}</span>} />
+                    <StatRow label="In the room" value={last().checkins == null ? <Pill>not measured · no door QR</Pill> : <span class="text-foreground">{last().checkins} checked in</span>} />
+                  </div>
+                </>
               )}
             </Show>
-          </Section>
-          <Section title="Rooms, by what we know" icon={<SectionIcon name="map-pin" />}>
-            <div class="flex flex-col">
-              <BarRow label="Worth a letter" value={byAssessment('worth_contact')} max={rooms().length} tone="good" />
-              <BarRow label="Too little known" value={byAssessment('insufficient_evidence')} max={rooms().length} tone="warn" />
-              <Show when={byAssessment('not_assessed') > 0}>
-                <BarRow label="Not assessed" value={byAssessment('not_assessed')} max={rooms().length} />
-              </Show>
-            </div>
-          </Section>
-        </div>
+          </Card>
+          <Card title="Rooms, by what we know" icon={<Building />}>
+            <Bar label="Worth a letter" value={byAssessment('worth_contact')} max={Math.max(1, rooms().length)} tone="good" labelWidth="md" />
+            <Bar label="Too little known" value={byAssessment('insufficient_evidence')} max={Math.max(1, rooms().length)} tone="warn" labelWidth="md" />
+            <Show when={byAssessment('not_assessed') > 0}>
+              <Bar label="Not assessed" value={byAssessment('not_assessed')} max={Math.max(1, rooms().length)} tone="muted" labelWidth="md" />
+            </Show>
+          </Card>
+        </Split>
 
-        <div class="mt-6">
-          <TabBar
-            tabs={[
-              { id: 'rooms', label: 'Rooms here', count: () => rooms().length },
-              { id: 'fans', label: 'Fans here', count: () => funnelRow()?.fans ?? 0 },
-              { id: 'shows', label: 'Shows here', count: () => model()?.shows.length ?? 0 },
+        <div>
+          <WorkAreas
+            active={tabs.active()}
+            onToggle={tabs.toggle}
+            areas={[
+              { id: 'rooms', label: 'Rooms here', count: rooms().length },
+              { id: 'fans', label: 'Fans here', count: funnelRow()?.fans ?? null },
+              { id: 'shows', label: 'Shows here', count: model()?.shows.length ?? null },
               { id: 'contacts', label: 'Contacts here' },
               { id: 'plan', label: 'The plan' },
             ]}
-            active={tabs.activeTab()}
-            onChange={tabs.switchTab}
-            onPrefetch={tabs.prefetch}
           />
-          <TabPanel active={tabs.activeTab()} id="rooms" visited={tabs.isVisited('rooms')}>
+          <WorkAreaPanel id="rooms" active={tabs.active()}>
             <Show when={rooms().length > 0} fallback={<EmptyState label="No rooms on record here" hint="A room lands here once a show marks it or research finds it." />}>
             <Table>
               <TableHeader>
@@ -361,8 +336,8 @@ export function TenantCityPage() {
               </TableBody>
             </Table>
             </Show>
-          </TabPanel>
-          <TabPanel active={tabs.activeTab()} id="fans" visited={tabs.isVisited('fans')}>
+          </WorkAreaPanel>
+          <WorkAreaPanel id="fans" active={tabs.active()}>
             <Show when={funnelRow()} fallback={<EmptyState label="No fan here yet" hint="A city fills in once a fan says they live here." />}>
               {row => (
                 <>
@@ -384,20 +359,20 @@ export function TenantCityPage() {
                 </>
               )}
             </Show>
-          </TabPanel>
-          <TabPanel active={tabs.activeTab()} id="shows" visited={tabs.isVisited('shows')}>
+          </WorkAreaPanel>
+          <WorkAreaPanel id="shows" active={tabs.active()}>
             <Show when={(model()?.shows.length ?? 0) > 0} fallback={<EmptyState label="No show here on record" />}>
               <div class="flex flex-col gap-2">
                 <For each={model()!.shows}>{show => <ShowRow show={show} slug={slug()} />}</For>
               </div>
             </Show>
-          </TabPanel>
-          <TabPanel active={tabs.activeTab()} id="contacts" visited={tabs.isVisited('contacts')}>
+          </WorkAreaPanel>
+          <WorkAreaPanel id="contacts" active={tabs.active()}>
             <CityContacts slug={slug()} citySlug={citySlug()} cityName={cityName()} />
-          </TabPanel>
-          <TabPanel active={tabs.activeTab()} id="plan" visited={tabs.isVisited('plan')}>
+          </WorkAreaPanel>
+          <WorkAreaPanel id="plan" active={tabs.active()}>
             <CityPlan slug={slug()} citySlug={citySlug()} />
-          </TabPanel>
+          </WorkAreaPanel>
         </div>
       </Show>
     </PageShell>

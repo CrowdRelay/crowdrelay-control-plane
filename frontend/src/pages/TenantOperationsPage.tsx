@@ -17,15 +17,12 @@ import { ReleasePlanPanel } from '../components/ReleasePlanPanel'
 import { OutreachWavesPanel } from '../components/OutreachWavesPanel'
 import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
-import { SkeletonSection } from '../components/Skeleton'
 import { BarList, DeltaBadge, Donut, Legend, Ring, Widget, type Segment } from '../components/charts'
-import { Metric, MetricRow } from '../components/ui/metric'
-import { CountdownRing, OutcomeRow, StepChecklist, WorkList, WorkRow } from '../components/work'
-import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { PageShell, Section, SkeletonBlock } from '../components/layout'
+import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Ring as DashRing, IconAct, Split, StatRow, Steps, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
 import { SectionIcon } from '../components/SectionIcon'
-import { StatusBadge } from '../components/StatusBadge'
 import { TenantStatusLine } from '../components/TenantStatusLine'
-import { Button, buttonVariants } from '../components/app/button'
+import { buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr, humanize } from '../lib/opportunity-labels'
@@ -62,9 +59,7 @@ export function TenantOperationsPage() {
   // The valid list is what makes `?tab=` work both ways — without it a
   // deep link or a Booking-journey drill-through lands on Replies and
   // `switchTab` never writes the param back.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('replies', [
-    'replies', 'negotiations', 'outreach', 'press', 'releases', 'plays',
-  ])
+  const areas = useWorkAreas(['replies', 'negotiations', 'outreach', 'press', 'releases', 'plays', 'growth'])
   // The listing tab dissolved into /proof — a pre-dissolve deep link keeps
   // its intent instead of snapping back to Replies.
   const navigate = useNavigate()
@@ -191,6 +186,17 @@ export function TenantOperationsPage() {
     return { sold: num(detail?.['paid_tickets']), capacity: num(detail?.['capacity']) }
   })
 
+  // The night's city as the timeline names it, else the show list's.
+  const nextShowCity = () => {
+    const tl = nextShowTimelineData()
+    return tl?.event?.city ?? nextShow()?.city ?? tl?.event?.venue_address?.split(',')[0] ?? null
+  }
+  const nextShowInterested = () => nextShowTimelineData()?.event?.interested ?? nextShow()?.interested ?? null
+  const shortDay = (iso: string) => {
+    const t = timestampMillis(iso)
+    return Number.isFinite(t) ? new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(t)) : null
+  }
+
   // The checklist the card draws — the timeline's own order, its plain
   // labels, and for the not-yet-done steps the anchor ("T-14") as the note.
   const nextShowChecklist = createMemo(() => {
@@ -263,22 +269,14 @@ export function TenantOperationsPage() {
   })
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Today"
-      description={authState.isPlatformLevel() ? 'Your daily worklist. Anything the autopilot needs a decision on is here — work the list top to bottom.' : 'Your daily worklist. Anything the brain needs a decision on is here — work the list top to bottom.'}
+      subtitle={new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(now()))}
+      pill={model.data && !model.error ? statusPill() : null}
       actions={
-        <div class="flex items-center gap-3">
-          <Show when={model.data && !model.error}>
-            {/* One sentence for the machine's state — running, done, broken.
-                On an older read model it stays hidden rather than guessing. */}
-            <Show when={statusPill()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
-          </Show>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={model.isFetching} aria-label="Refresh">
-            <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </div>
+        <IconAct onClick={refresh} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
@@ -287,161 +285,132 @@ export function TenantOperationsPage() {
     </Show>
 
     {/* The band's "is anything broken for me" — one plain line, silent when
-        fine, on the first screen they open. The machine's detail stays on
-        the operator's Health page. */}
+        fine. The machine's detail stays on the operator's Health page. */}
     <Show when={!authState.isPlatformLevel()}>
       <TenantStatusLine slug={params().slug} operations={model.data} />
     </Show>
 
-    {/* Operations and Intelligence share the query key, so the skeleton
-        shows whenever there is no data to render, not only on first fetch. */}
     <Show when={!model.error && !model.data}>
-      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <For each={[0, 1, 2, 3]}>{() => <SkeletonBlock style={{ 'min-height': '180px' }} />}</For>
+      <div class="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <For each={[0, 1, 2, 3]}>{() => <SkeletonBlock style={{ 'min-height': '84px' }} />}</For>
       </div>
-      <SkeletonBlock style={{ 'min-height': '320px' }} />
+      <SkeletonBlock style={{ 'min-height': '260px' }} />
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* A section the tenant could not answer is named once, compactly —
-          the pill already says "something is broken", this line says what.
-          A null below is never read as "checked and empty" while it shows. */}
       <Show when={model.data!.degraded.length > 0}>
-        <Alert tone="warning" role="status" class="mb-4">
-          {model.data!.degraded.length === 1
-            ? <><strong>{sectionLabel(model.data!.degraded[0]!)}</strong> couldn't be checked right now</>
-            : <><strong>{model.data!.degraded.map(sectionLabel).join(', ')}</strong> couldn't be checked right now</>
-          }{' '}— the rest of the page keeps working and it recovers on the next poll.
+        <Alert tone="warning" role="status" class="mb-3">
+          <strong>{model.data!.degraded.map(sectionLabel).join(', ')}</strong> couldn't be checked right now — the rest of the page keeps working and it recovers on the next poll.
         </Alert>
       </Show>
 
-      {/* The four numbers the band asks for first, as one divided rail.
-          Each is null-safe: an unreported figure draws "—", never a 0. */}
-      <MetricRow class="mb-5">
-        <Metric
+      <Tiles>
+        <Tile
           label="Fans you can reach"
           value={metric(d()?.audience?.marketing_consented_fans)}
-          sub="active fans who consented to be contacted"
+          sub={d()?.signal?.activity
+            ? <><span class="text-success-foreground">+{d()!.signal!.activity!.new_fans_30d}</span> in 30 days · {d()!.signal!.activity!.new_fans_7d} this week</>
+            : 'fans who said yes to messages'}
         />
-        <Metric
+        <Tile
           label="Waiting on you"
           value={metric(waitingTotal())}
-          sub="answers owed, asks parked, drafts waiting"
-          tone={waitingTotal() != null && waitingTotal()! > 0 ? 'warn' : 'default'}
-        />
-        <Metric
-          label="Next show"
-          value={nextShowDays() == null ? '—' : `in ${nextShowDays()}d`}
           sub={(() => {
-            const tl = d()?.next_show_timeline
-            const city = tl && tl.event?.slug === nextShow()?.slug
-              ? tl.event?.venue_address?.split(',')[0] ?? null
-              : null
-            return city ?? nextShow()?.title ?? 'no night booked'
+            const c = d()?.derived?.work_area_counts
+            return c ? `${c.replies ?? '—'} answers · ${c.approvals ?? '—'} approvals` : undefined
           })()}
         />
-        <Metric
-          label="Tickets sold"
-          value={nextShowSales().sold == null ? '—' : `${nextShowSales().sold}${nextShowSales().capacity != null ? ` / ${nextShowSales().capacity}` : ''}`}
-          sub={nextShow() ? 'for the nearest night' : 'no night booked'}
+        <Tile
+          label="Next show"
+          value={nextShowDays() == null ? '—' : nextShowDays() === 0 ? 'today' : `${nextShowDays()} ${nextShowDays() === 1 ? 'day' : 'days'}`}
+          sub={nextShow() ? [nextShowCity(), shortDay(nextShow()!.starts_at)].filter(Boolean).join(' · ') : 'no night booked'}
         />
-      </MetricRow>
+        <Tile
+          label="Tickets sold"
+          value={nextShowSales().sold == null ? '—' : nextShowSales().sold}
+          sub={nextShowInterested() != null ? `${nextShowInterested()} ${nextShowInterested() === 1 ? 'fan' : 'fans'} interested` : nextShow() ? 'for the nearest night' : undefined}
+        />
+      </Tiles>
 
-      {/* The two bands a person reads next: what to do (~60%) beside the
-          night it is doing it for (~40%). */}
-      <div class="grid gap-4 lg:grid-cols-5">
-        <div id="needs-you" class="lg:col-span-3">
-          <DoThisNext
-            model={d}
-            slug={params().slug}
-            nextShow={nextShow()}
-            nextShowSteps={nextShowSteps()}
-            weekMoves={weekMoves()}
-          />
-        </div>
-        <div class="lg:col-span-2">
-          <NextShowCard
-            slug={params().slug}
-            show={nextShow()}
-            address={(() => {
-              const tl = d()?.next_show_timeline
-              return tl && tl.event?.slug === nextShow()?.slug ? tl.event?.venue_address ?? null : null
-            })()}
-            showsLoaded={d()?.shows != null}
-            days={nextShowDays()}
-            sales={nextShowSales()}
-            checklist={nextShowChecklist()}
-          />
-        </div>
-      </div>
+      <Split>
+        <DoThisNext
+          model={d}
+          slug={params().slug}
+          nextShow={nextShow()}
+          nextShowSteps={nextShowSteps()}
+          weekMoves={weekMoves()}
+        />
+        <NextShowCard
+          slug={params().slug}
+          show={nextShow()}
+          city={nextShowCity()}
+          showsLoaded={d()?.shows != null}
+          days={nextShowDays()}
+          sales={nextShowSales()}
+          interested={nextShowInterested()}
+          checklist={nextShowChecklist()}
+        />
+      </Split>
 
-      <IsItWorking model={d} slug={params().slug} />
+      <Split even>
+        <FansCard model={d} />
+        <IsItWorking model={d} slug={params().slug} />
+      </Split>
+
+      {/* Prizes owed to draw winners — a chore with a person on the other
+          end. Silent when nothing is owed. */}
+      <PrizesToSendPanel slug={params().slug} />
     </Show>
 
-    {/* Tab bar — static, renders immediately. Count callbacks return 0
-        while data is pending, which is the correct placeholder. */}
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        // Mirrors the derived `replies` definition — the summary's waiting
-        // count, then the list length, so older builds still show a badge.
-        { id: 'replies', label: 'Replies', count: () =>
-            d()?.derived?.work_area_counts?.replies
-            ?? d()?.reply_triage?.summary?.waiting_on_you_count
-            ?? (d()?.reply_triage?.waiting_on_you?.length ?? 0) },
-        { id: 'negotiations', label: 'Negotiations' },
-        {
-          id: 'outreach', label: 'Outreach',
-          count: () => (d()?.derived?.approval_batches ?? [])
-            .filter(b => b.context === 'outreach')
-            .reduce((n, b) => n + b.count, 0),
-        },
-        { id: 'press', label: 'Press' },
-        { id: 'releases', label: 'Releases' },
-        { id: 'plays', label: 'Play ledger' },
-      ]}
-    />
+    <div class="mt-3">
+      <WorkAreas
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
+          { id: 'replies', label: 'Replies', count: d()?.derived?.work_area_counts?.replies ?? d()?.reply_triage?.summary?.waiting_on_you_count ?? null },
+          { id: 'outreach', label: 'Outreach', count: (d()?.derived?.approval_batches ?? []).filter(b => b.context === 'outreach').reduce((n, b) => n + b.count, 0) || null },
+          { id: 'negotiations', label: 'Negotiations' },
+          { id: 'press', label: 'Press' },
+          { id: 'releases', label: 'Releases' },
+          { id: 'plays', label: 'Play ledger' },
+          { id: 'growth', label: 'Fan growth' },
+        ]}
+      />
+    </div>
 
-    <Show when={!model.error && !model.data && isVisited(activeTab())}>
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
-    </Show>
-
-    {/* Each panel runs its own queries, so it loads independently of the
-        read model. TabPanel's Suspense boundary shows the first skeleton. */}
-    <TabPanel active={activeTab()} id="replies" visited={isVisited('replies')}>
+    <WorkAreaPanel id="replies" active={areas.active()}>
       <ReplyTriagePanel />
-    </TabPanel>
+    </WorkAreaPanel>
     {/* P.7: the negotiation table — live terms conversations with the
         ladder and the parked move, plus the record of settled ones. */}
-    <TabPanel active={activeTab()} id="negotiations" visited={isVisited('negotiations')}>
+    <WorkAreaPanel id="negotiations" active={areas.active()}>
       <NegotiationsPanel />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="outreach" active={areas.active()}>
       <OutreachConversationsPanel slug={params().slug} />
       <OutreachWavesPanel slug={params().slug} />
       <OutreachPipelinePanel slug={params().slug} />
       <OpportunityShortlistPanel />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="press" visited={isVisited('press')}>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="press" active={areas.active()}>
       <PressRoomPanel slug={params().slug} />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="releases" active={areas.active()}>
       <ReleasePlanPanel slug={params().slug} />
       <ReleaseCampaignsPanel slug={params().slug} />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="plays" visited={isVisited('plays')}>
+    </WorkAreaPanel>
+    <WorkAreaPanel id="plays" active={areas.active()}>
       <PlayLedgerPanel slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
 
+
+    <WorkAreaPanel id="growth" active={areas.active()}>
     {/* Fan growth — the north star, moved off the tenant landing so this
         daily page opens on recent progress. Degrades silently per field:
         an unanswered section simply does not render. */}
     <Show when={model.data && !model.error}>
       <Section
         flush
-        lead
         title="Fan growth"
         icon={<SectionIcon name="users" />}
         description="The north star. Everything else on this page exists to move the headline number."
@@ -587,10 +556,7 @@ export function TenantOperationsPage() {
       </Section>
     </Show>
 
-    {/* Prizes owed to draw winners — a chore with a person on the other
-        end, so it sits with the week's moves. Silent when nothing is owed. */}
-    <PrizesToSendPanel slug={params().slug} />
-
+    </WorkAreaPanel>
   </PageShell>
 }
 
@@ -603,6 +569,8 @@ export function TenantOperationsPage() {
 // whole batch on Needs you.
 
 type NextMove = {
+  pill: { tone: Tone; text: string }
+  action: string
   title: string
   why: string
   to: string
@@ -662,6 +630,8 @@ function DoThisNext(props: {
           ? 'They said yes'
           : 'They wrote back'
       out.push({
+        pill: reply.disposition === 'positive' ? { tone: 'good', text: 'said yes' } : { tone: 'muted', text: 'answered' },
+        action: 'Reply',
         title: `Answer ${reply.display_name}`,
         why: `${answered} ${formatIsoAge(reply.replied_at)} — a warm answer cools fast.`,
         to: '/tenants/$slug/operations',
@@ -674,7 +644,11 @@ function DoThisNext(props: {
     // the count and the soonest expiry.
     for (const batch of (props.model()?.derived?.approval_batches ?? []).slice(0, 3)) {
       out.push({
-        title: `Approve ${batch.count > 1 ? `${batch.count} ` : ''}${batchPhrase(batch.action_kind, batch.count)}`,
+        pill: batch.earliest_expires_at
+          ? { tone: 'warn', text: `expires ${new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(batch.earliest_expires_at))}` }
+          : { tone: 'muted', text: 'waits' },
+        action: 'Review',
+        title: `Review ${batch.count > 1 ? `${batch.count} ` : ''}${batchPhrase(batch.action_kind, batch.count)}`,
         why: [
           batch.title ?? labelOr(CONTEXT_LABELS, batch.context),
           batch.earliest_expires_at ? `closes ${formatIsoUntil(batch.earliest_expires_at)}` : null,
@@ -689,6 +663,8 @@ function DoThisNext(props: {
     }
     for (const step of props.nextShowSteps.filter(s => s.state === 'due').slice(0, 1)) {
       out.push({
+        pill: { tone: 'warn', text: 'show' },
+        action: 'Open',
         title: step.label,
         why: `Due for ${props.nextShow?.title ?? 'the next night'}${step.owner ? ` — ${step.owner}` : ''}`,
         to: '/tenants/$slug/shows/$eventSlug',
@@ -697,6 +673,8 @@ function DoThisNext(props: {
     }
     for (const move of props.weekMoves.slice(0, 2)) {
       out.push({
+        pill: { tone: 'muted', text: 'suggested' },
+        action: 'Open',
         title: weekMoveTitle(move),
         why: move.reason,
         to: '/tenants/$slug/attention',
@@ -717,54 +695,33 @@ function DoThisNext(props: {
   const totalWaiting = () => props.model()?.attention?.awaiting_approval
 
   return (
-    <Section
-      title="Do this next"
-      icon={<SectionIcon name="target" />}
-      count={totalWaiting() ?? undefined}
-      description="Ranked by what rots first — a warm reply cools, an approval expires. Each row opens the control that does it."
-    >
-      <WorkList>
-        <For each={moves()}>{move => (
-          <WorkRow
-            title={move.title}
-            why={move.why}
-            action={
-              <Link
-                to={move.to}
-                params={move.params}
-                search={move.search}
-                hash={move.hash}
-                class={buttonVariants({ variant: 'outline', size: 'sm' })}
-              >
-                Open
-              </Link>
-            }
-          />
-        )}</For>
-      </WorkList>
+    <Card title="Do this next" icon={<Target />} aside="ranked by what rots first">
+      <For each={moves()}>{move => (
+        <ItemRow
+          pill={move.pill}
+          title={move.title}
+          sub={move.why}
+          action={<Act to={move.to} params={move.params} search={move.search} hash={move.hash}>{move.action}</Act>}
+        />
+      )}</For>
       <Show when={moves().length === 0}>
-        <p class="text-sm text-muted-foreground">
-          Nothing is waiting on you — the machine is working, and the first thing that needs a say lands here.
-        </p>
+        <p class="m-0 py-2 text-sm text-muted-foreground">Nothing is waiting on you — the first thing that needs a say lands here.</p>
       </Show>
-      <Show when={(totalWaiting() ?? 0) > 0}>
-        <Link
-          to="/tenants/$slug/attention"
-          params={{ slug: props.slug }}
-          class="mt-3 inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        >
-          {totalWaiting()} waiting on a decision in all — the full queue is on Needs you
-        </Link>
+      <Show when={(totalWaiting() ?? 0) > moves().length}>
+        <MoreRow
+          text={`${totalWaiting()} waiting on a decision in all`}
+          link={<Link to="/tenants/$slug/attention" params={{ slug: props.slug }}>All of it →</Link>}
+        />
       </Show>
       <Show when={(lapsed() ?? 0) + (failedSends() ?? 0) > 0}>
-        <p class="mt-2 text-xs text-muted-foreground">
+        <Note>
           While these waited: {[
             (lapsed() ?? 0) > 0 ? `${lapsed()} ask${lapsed() === 1 ? '' : 's'} expired unanswered` : null,
             (failedSends() ?? 0) > 0 ? `${failedSends()} send${failedSends() === 1 ? '' : 's'} failed` : null,
           ].filter(Boolean).join(' · ')}
-        </p>
+        </Note>
       </Show>
-    </Section>
+    </Card>
   )
 }
 
@@ -776,82 +733,81 @@ function DoThisNext(props: {
 function NextShowCard(props: {
   slug: string
   show: { slug: string; title: string; venue: string | null; starts_at: string } | undefined
-  /** The timeline event's venue_address, matched back to this show's slug. */
-  address?: string | null
+  city: string | null
   showsLoaded: boolean
   days: number | null
   sales: { sold: number | null; capacity: number | null }
+  interested: number | null
   checklist: { key: string; label: string; state: string; note?: string }[]
 }) {
-  // The venue field has carried a tour title where a room name belongs
-  // (seen in production: venue == title). Where they collide, the address
-  // line is the honest one to show.
-  const where = () => {
-    const s = props.show
-    if (!s) return null
-    const venue = s.venue && s.venue !== s.title ? s.venue : null
-    const city = props.address?.split(',')[0] ?? null
-    return [venue, city].filter(Boolean).join(' · ') || null
-  }
-  // Compact date for the card — "Fri 17 Oct, 19:30"; seconds carry nothing.
-  const showDay = (iso: string) => {
+  const shortDate = (iso: string) => {
     const t = new Date(iso)
-    return Number.isNaN(t.getTime()) ? null
-      : t.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    return Number.isNaN(t.getTime()) ? '' : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(t)
   }
+  // The venue field has carried the tour title where a room name belongs.
+  const venue = () => (props.show?.venue && props.show.venue !== props.show.title ? props.show.venue : null)
   return (
-    <Section
-      title="Next show"
-      icon={<SectionIcon name="map-pin" />}
-      description="The nearest night on the books and how its promotion is going."
-      action={<Link to="/tenants/$slug/shows" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>All shows</Link>}
-    >
-      <Show
-        when={props.show}
-        fallback={
+    <Show
+      when={props.show}
+      fallback={
+        <Card title="Next show" icon={<MapPin />}>
           <Show when={props.showsLoaded}>
-            <p class="text-sm text-muted-foreground">
-              No upcoming night on the books — publish a gig in CrowdRelay and it lands{' '}
-              <Link to="/tenants/$slug/shows" params={{ slug: props.slug }} class="underline underline-offset-2">here</Link>.
+            <p class="m-0 text-sm text-muted-foreground">
+              No night on the books — add one on <Link to="/tenants/$slug/shows" params={{ slug: props.slug }} class="underline underline-offset-2">Shows</Link>.
             </p>
           </Show>
-        }
-      >
-        {show => (
-          <div class="flex flex-col gap-4">
-            <div class="flex items-center gap-4">
-              <CountdownRing days={props.days} label={`Days until ${show().title}`} />
-              <div class="min-w-0">
-                <Link
-                  to="/tenants/$slug/shows/$eventSlug"
-                  params={{ slug: props.slug, eventSlug: show().slug }}
-                  class="text-base font-semibold text-foreground underline-offset-2 hover:underline"
-                >
-                  {show().title}
-                </Link>
-                <p class="mt-0.5 text-sm text-muted-foreground">
-                  {[where(), showDay(show().starts_at)].filter(Boolean).join(' · ')}
-                </p>
-                <p class="mt-1 text-sm text-muted-foreground">
-                  Tickets sold{' '}
-                  <span class="font-medium tabular-nums text-foreground">
-                    {props.sales.sold == null ? '—' : props.sales.sold}
-                  </span>
-                  <Show when={props.sales.capacity != null}>
-                    {' '}of {props.sales.capacity}
-                  </Show>
-                </p>
-              </div>
+        </Card>
+      }
+    >
+      {show => (
+        <Card
+          title={<Link to="/tenants/$slug/shows/$eventSlug" params={{ slug: props.slug, eventSlug: show().slug }} class="hover:underline">{[props.city ?? show().title, shortDate(show().starts_at)].filter(Boolean).join(' · ')}</Link>}
+          icon={<MapPin />}
+        >
+          <p class="m-0 text-xs text-muted-foreground/70">{[props.city ? show().title : null, venue()].filter(Boolean).join(' · ')}</p>
+          <div class="my-3 flex items-center gap-3">
+            <DashRing share={props.days == null ? 0 : 1 - Math.min(props.days, 30) / 30} label={props.days == null ? '—' : `${props.days}d`} title={`${props.days ?? '—'} days left`} />
+            <div class="min-w-0">
+              <p class="m-0 text-sm text-foreground">
+                {props.sales.sold == null ? 'No ticket sale' : `${props.sales.sold} ${props.sales.sold === 1 ? 'ticket' : 'tickets'}`}
+                {props.interested != null ? ` · ${props.interested} interested` : ''}
+              </p>
+              <p class="m-0 mt-0.5 text-xs text-muted-foreground/70">
+                {props.sales.capacity != null ? `${props.sales.capacity} capacity · ` : ''}the machine promotes it
+              </p>
             </div>
-            <Show when={props.checklist.length > 0}>
-              <div class="border-t border-border pt-3">
-                <StepChecklist steps={props.checklist} />
-              </div>
-            </Show>
           </div>
+          <Steps steps={props.checklist.map(step => ({ label: step.label, state: step.state, note: step.note }))} />
+        </Card>
+      )}
+    </Show>
+  )
+}
+
+/** "Fans, last 30 days": how many arrived, this week against the month's
+ *  pace, and a plain line when arrivals stopped. The mockup's per-day bars
+ *  need a daily series the read model does not carry yet. */
+function FansCard(props: { model: () => TenantTodayReadModel | undefined }) {
+  const act = () => props.model()?.signal?.activity ?? null
+  const weekRate = () => (act() ? act()!.new_fans_7d / 7 : null)
+  const monthRate = () => (act() ? act()!.new_fans_30d / 30 : null)
+  return (
+    <Card title="Fans, last 30 days" icon={<ChartLine />}>
+      <Show when={act()} fallback={<p class="m-0 text-sm text-muted-foreground">Arrivals could not be read.</p>}>
+        {a => (
+          <>
+            <Bar label="Last 30 days" value={a().new_fans_30d} max={Math.max(1, a().new_fans_30d)} display={`+${a().new_fans_30d}`} />
+            <Bar label="This week" value={a().new_fans_7d} max={Math.max(1, a().new_fans_30d)} display={`+${a().new_fans_7d}`} />
+            <Bar label="Show interests" value={a().event_interests_30d} max={Math.max(1, a().new_fans_30d, a().event_interests_30d)} />
+            <Note>
+              {a().new_fans_7d === 0
+                ? 'No new fans this week.'
+                : `${weekRate()!.toFixed(1)} a day this week against ${monthRate()!.toFixed(1)} a day this month.`}
+            </Note>
+          </>
         )}
       </Show>
-    </Section>
+    </Card>
   )
 }
 
@@ -903,8 +859,6 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   }))
-  const audience = () => props.model()?.audience
-  const activity = () => props.model()?.signal?.activity
 
   /// The group's honest verdict word. Mixed results name their parts —
   /// "1 improved · 2 flat" — instead of collapsing into one direction.
@@ -927,73 +881,40 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
   }
 
   return (
-    <Section
-      title="Is it working"
-      icon={<SectionIcon name="trending-up" />}
-      description="The fan headline, then what each approved ask produced in the last two weeks."
-      action={<Link to="/tenants/$slug/audience" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Audience</Link>}
-    >
-      <div class="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-md border border-border p-4">
-        <span class="text-4xl font-bold tracking-tight tabular-nums text-foreground">
-          <Show when={audience()?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
-            {audience()!.marketing_consented_fans!.toLocaleString()}
-          </Show>
-        </span>
-        <span class="pb-1.5 text-sm text-muted-foreground">fans you can reach</span>
-        <div class="flex flex-wrap gap-1.5 pb-1.5">
-          <Show when={activity()?.new_fans_7d != null}>
-            <DeltaBadge value={activity()!.new_fans_7d} label="new · 7d" />
-          </Show>
-          <Show when={activity()?.new_fans_30d != null}>
-            <DeltaBadge value={activity()!.new_fans_30d} label="new · 30d" />
-          </Show>
-        </div>
-      </div>
-      <div class="mt-3 flex flex-col gap-2">
-        <Show when={outcomes.data} fallback={
-          <Show when={!outcomes.isPending}>
-            <p class="text-sm text-muted-foreground">The outcome ledger could not be read — try refreshing.</p>
-          </Show>
-        }>
-          {/* The grouped read is preferred; an older control plane without
-              `groups` falls back to the flat action lines. */}
-          <Show
-            when={outcomes.data!.groups}
-            fallback={
-              <For each={outcomes.data!.actions ?? []}>{line => (
-                <OutcomeRow
-                  label={line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
-                  result={outcomeWord(line).word}
-                  resultTone={outcomeWord(line).tone}
-                  when={line.finished_at ? formatIsoAge(line.finished_at) : undefined}
-                />
-              )}</For>
-            }
-          >
-            {groups => (
-              <For each={groups()}>{g => (
-                <OutcomeRow
-                  label={outcomePhrase(g.kind, g.count)}
-                  result={[groupWord(g).word, groupResult(g)].filter(Boolean).join(' — ')}
-                  resultTone={groupWord(g).tone}
-                  when={g.latest_finished_at ? formatIsoAge(g.latest_finished_at) : undefined}
-                />
-              )}</For>
-            )}
-          </Show>
-          <Show when={(outcomes.data!.actions ?? []).length === 0}>
-            <p class="text-sm text-muted-foreground">
-              Nothing approved in the last {outcomes.data!.window_days ?? '—'} days — approve an ask above and what it produced lands here.
-            </p>
-          </Show>
+    <Card title="Did it work" icon={<Ticket />} aside={<Link to="/tenants/$slug/audience" params={{ slug: props.slug }} class="hover:text-foreground">Audience →</Link>}>
+      <Show when={outcomes.data} fallback={
+        <Show when={!outcomes.isPending}>
+          <p class="m-0 text-sm text-muted-foreground">The outcome ledger could not be read — try refreshing.</p>
         </Show>
-      </div>
-    </Section>
+      }>
+        <Show
+          when={outcomes.data!.groups}
+          fallback={
+            <For each={(outcomes.data!.actions ?? []).slice(0, 5)}>{line => (
+              <StatRow
+                label={line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
+                value={<Pill tone={outcomeWord(line).tone}>{outcomeWord(line).word}</Pill>}
+              />
+            )}</For>
+          }
+        >
+          {groups => (
+            <For each={groups().slice(0, 5)}>{g => (
+              <StatRow
+                label={outcomePhrase(g.kind, g.count)}
+                value={<Pill tone={groupWord(g).tone}>{[groupWord(g).word, groupResult(g)].filter(Boolean).join(' · ')}</Pill>}
+              />
+            )}</For>
+          )}
+        </Show>
+        <Show when={(outcomes.data!.groups ?? outcomes.data!.actions ?? []).length === 0}>
+          <p class="m-0 text-sm text-muted-foreground">Nothing approved in the last {outcomes.data!.window_days} days — what an approved ask produces lands here.</p>
+        </Show>
+      </Show>
+    </Card>
   )
 }
 
-/// The per-action verdict word, kept for the fallback path — a control
-/// plane build without `groups` still renders honest rows.
 function outcomeWord(line: { outcome_state: string; status: string; outcomes: { verdict: string | null }[] }) {
   if (line.status === 'failed') return { word: 'failed', tone: 'bad' as const }
   const verdict = line.outcomes.find(o => o.verdict)?.verdict

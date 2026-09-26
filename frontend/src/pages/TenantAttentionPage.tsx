@@ -18,6 +18,7 @@ import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { NeedsYouOverview, needsYouStatus } from '../components/NeedsYouOverview'
+import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
@@ -28,7 +29,7 @@ import { ActionLedgerPanel } from '../components/ActionLedgerPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon, type IconName } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { TabBar, TabPanel, useTabPanels, KpiCard, KpiStrip, PageShell, PageHeader, ErrorCard, SectionTitle, PanelTitle } from '../components/layout'
+import { KpiCard, KpiStrip, PageShell, ErrorCard, SectionTitle, PanelTitle } from '../components/layout'
 import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
@@ -149,7 +150,20 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
   // Decisions is the default tab: a queue of decisions is what a person has.
-  const { activeTab, switchTab, prefetch, revealAnchor, isVisited } = useTabPanels('decisions', ['decisions', 'inbox', 'queues', 'runtime', 'trace'])
+  const areas = useWorkAreas(['decisions', 'inbox', 'queues', 'runtime', 'trace'])
+  // Open a work area, then scroll to something inside it once it mounts.
+  const revealAnchor = (id: string, anchor?: string) => {
+    areas.open(id)
+    if (!anchor) return
+    let attempts = 0
+    const scroll = () => {
+      const element = document.getElementById(anchor)
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (attempts++ < 10) requestAnimationFrame(scroll)
+    }
+    requestAnimationFrame(scroll)
+  }
+  const isVisited = (id: string) => areas.active() === id
   // Which tab owns which anchor. The failed-queue sections live in Queues;
   // everything else an alert or inbox item points at is on the Inbox tab.
   const reveal = (anchor: string) => revealAnchor(anchor.startsWith('dead-') ? 'queues' : 'inbox', anchor)
@@ -287,20 +301,14 @@ export function TenantAttentionPage() {
   })
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Needs you"
-      description="What waits for your yes, and what happens if you say nothing."
+      subtitle="What waits for your yes"
+      pill={needsYouStatus(operations.data)}
       actions={
-        <>
-          <Show when={needsYouStatus(operations.data)}>
-            {pill => <StatusBadge status={pill().text} tone={pill().tone} />}
-          </Show>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={() => void refreshMaintenance()} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={() => void refreshMaintenance()} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
@@ -320,33 +328,34 @@ export function TenantAttentionPage() {
         <NeedsYouOverview
           slug={params().slug}
           model={data()}
-          onOpenDecisions={() => switchTab('decisions')}
+          onOpenDecisions={() => areas.open('decisions')}
           refresh={() => void operations.refetch()}
         />
       )}
     </Show>
 
-    <div class="mt-6" />
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        { id: 'decisions', label: 'Decisions', count: (decideCount() ?? 0) > 0 ? () => decideCount() : undefined },
-        { id: 'inbox', label: 'Inbox' },
-        // Delivery machinery and decision tracing are operator surfaces —
-        // the band gets the queue and the alerts, not the plumbing.
-        // Deep links (?tab=queues) still resolve.
-        ...(authState.isPlatformLevel() ? [
-          { id: 'queues', label: 'Queues', count: (deadCount() ?? 0) > 0 ? () => deadCount() : undefined },
-          { id: 'runtime', label: 'Runtime' },
-          { id: 'trace', label: 'Trace' },
-        ] : []),
-      ]}
-    />
+    <div class="mt-3">
+      <WorkAreas
+        label="Also here"
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
+          { id: 'decisions', label: 'Decision history', count: decideCount() || null },
+          { id: 'inbox', label: 'Inbox' },
+          // Delivery machinery and decision tracing are operator surfaces —
+          // the band gets the queue and the alerts, not the plumbing.
+          // Deep links (?tab=queues) still resolve.
+          ...(authState.isPlatformLevel() ? [
+            { id: 'queues', label: 'Queues', count: deadCount() || null },
+            { id: 'runtime', label: 'Runtime' },
+            { id: 'trace', label: 'Trace' },
+          ] : []),
+        ]}
+      />
+    </div>
 
     {/* ─── Decisions ─────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="decisions" visited={isVisited('decisions')}>
+    <WorkAreaPanel id="decisions" active={areas.active()}>
       <Show when={operations.error}>
         <SectionFailureCard error={operations.error} fallback={authState.isPlatformLevel() ? 'Decision queue unavailable' : 'Decisions'} onRetry={() => void operations.refetch()} />
       </Show>
@@ -361,10 +370,10 @@ export function TenantAttentionPage() {
           refresh={() => operations.refetch()}
         />
       )}</Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ─── Inbox ─────────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="inbox" visited={isVisited('inbox')}>
+    <WorkAreaPanel id="inbox" active={areas.active()}>
       <Show when={summary.error}>
         <ErrorCard>{errorMessage(summary.error, authState.isPlatformLevel() ? 'Operations attention snapshot unavailable' : 'The Needs you list could not be loaded')}</ErrorCard>
       </Show>
@@ -480,10 +489,10 @@ export function TenantAttentionPage() {
           </Show>
         </div>
       </Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ─── Queues ────────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="queues" visited={isVisited('queues')}>
+    <WorkAreaPanel id="queues" active={areas.active()}>
       <DeadQueuesPanel
         slug={params().slug}
         summary={summary.data}
@@ -494,10 +503,10 @@ export function TenantAttentionPage() {
         isLoading={attention.isLoading}
         onRefresh={refreshMaintenance}
       />
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ─── Runtime ───────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
+    <WorkAreaPanel id="runtime" active={areas.active()}>
       <Show when={summary.error}>
         <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'We couldn\'t reach the runtime. Try refreshing — if it persists, the tenant may be down.')}</ErrorCard>
       </Show>
@@ -522,10 +531,10 @@ export function TenantAttentionPage() {
       </Show>
 
       <SignalOverviewPanel slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ─── Trace ─────────────────────────────────────────────────── */}
-    <TabPanel active={activeTab()} id="trace" visited={isVisited('trace')}>
+    <WorkAreaPanel id="trace" active={areas.active()}>
       <div class="space-y-4">
         <p class="text-sm text-muted-foreground">Metadata-only trace of one request across audit, outbox, delivery and operator actions. A trace ID from the action ledger works too.</p>
         <form class="flex flex-col gap-2 sm:flex-row" onSubmit={e => { e.preventDefault(); void lookupTimeline() }}>
@@ -577,6 +586,6 @@ export function TenantAttentionPage() {
         </Card>}</Show>
         <ActionLedgerPanel slug={params().slug} />
       </div>
-    </TabPanel>
+    </WorkAreaPanel>
   </PageShell>
 }

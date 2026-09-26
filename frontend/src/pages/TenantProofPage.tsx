@@ -11,11 +11,11 @@ import { ListingPanel } from '../components/ListingPanel'
 import { AttestationsPanel } from '../components/AttestationsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { SectionIcon } from '../components/SectionIcon'
 import { EmptyState } from '../components/ui/empty-state'
 import { Alert } from '../components/app/alert'
-import { PageShell, PageHeader, Section } from '../components/layout'
-import { Button } from '../components/app/button'
+import { PageShell } from '../components/layout'
+import { Act, Card, DashHeader, IconAct, ItemRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { BookOpen, Users } from 'lucide-solid'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import type { TenantProofReadModel, TenantShow } from '../lib/types'
 
@@ -66,91 +66,129 @@ export function TenantProofPage() {
     return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
   })
 
+  const areas = useWorkAreas(['listing', 'cards', 'reports', 'story'])
+
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Proof"
-      description="What you can hand a promoter: the listing link, signed proof cards, and the reports your shows produced."
+      subtitle="What you can show a promoter, an agent or a label"
+      pill={model.data ? (model.data.listing?.listing ? { tone: 'good', text: 'Listing is live' } : { tone: 'warn', text: 'No listing yet' }) : null}
       actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={() => void model.refetch()} disabled={model.isFetching} aria-label="Refresh">
-            <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Proof channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
-
     <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
-      <SkeletonSection titleWidth="140px" lines={3} minHeight="140px" />
     </Show>
 
     <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => <>
       <For each={data().degraded}>{section => (
-        <Alert tone="warning" role="status" class="mb-4">
+        <Alert tone="warning" role="status" class="mb-3">
           <strong>{SECTION_LABEL[section] ?? humanize(section)}</strong> couldn't be checked right now.
-          The rest of the drawer keeps working — it comes back on its own.
+          The rest of the page keeps working — it comes back on its own.
         </Alert>
       )}</For>
-
-      {/* The listing — what the share link admits an agent or label to, who
-          they may approach, and this month's allowance. A section that did
-          not answer leaves the panel to ask for itself rather than mount
-          half-fed. */}
-      <ListingPanel
-        slug={params().slug}
-        data={data().listing ?? undefined}
-        targets={data().representation ?? undefined}
+      <ProofFirstScreen
+        data={data()}
+        reports={reports().length}
+        measuredReports={reports().filter(show => show.scan_count > 0).length}
+        onOpen={areas.open}
       />
-
-      {/* The signed cards — measured from the tenant's own ledgers at issue
-          time, carried by a link a reader verifies without an account. */}
-      <Show when={data().attestations !== null}>
-        <AttestationsPanel slug={params().slug} data={data().attestations!} />
-      </Show>
-
-      {/* The reports the nights produced — the newest first, each a door
-          into the report a promoter reads as the night's receipts. */}
-      <Show when={data().shows !== null}>
-        <Section
-          title="Show reports"
-          icon={<SectionIcon name="trending-up" />}
-          count={reports().length}
-          description="What each night produced once it was over — the numbers a promoter asks for."
-        >
-          <Show
-            when={reports().length > 0}
-            fallback={<EmptyState label="No reports yet" hint="A night that has happened files its report here." />}
-          >
-            <div class="grid gap-2">
-              <For each={reports()}>{show => (
-                <Link
-                  to="/tenants/$slug/shows/$eventSlug/report"
-                  params={{ slug: params().slug, eventSlug: show.slug }}
-                  class="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-foreground/30 transition-colors"
-                >
-                  <div class="min-w-0">
-                    <div class="truncate font-medium text-foreground">{show.title}</div>
-                    <div class="text-xs text-muted-foreground mt-0.5">
-                      {formatTimestamp(show.starts_at)}{show.venue ? ` · ${show.venue}` : ''}
-                    </div>
-                  </div>
-                  <div class="text-right shrink-0">
-                    <div class="text-sm font-medium text-foreground tabular-nums">{show.scan_count}</div>
-                    <div class="text-xs text-muted-foreground">scans</div>
-                  </div>
-                </Link>
-              )}</For>
-            </div>
-          </Show>
-        </Section>
-      </Show>
     </>}</Show>
-    <RosterStoryPanel slug={params().slug} />
+
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'listing', label: 'Listing and who to approach' },
+        { id: 'cards', label: 'Signed proof cards', count: model.data?.attestations?.length ?? null },
+        { id: 'reports', label: 'Show reports', count: reports().length || null },
+        { id: 'story', label: 'The roster story' },
+      ]}
+    />
+    <Show when={model.data}>{data => <>
+      <WorkAreaPanel id="listing" active={areas.active()}>
+        <ListingPanel slug={params().slug} data={data().listing ?? undefined} targets={data().representation ?? undefined} />
+      </WorkAreaPanel>
+      <WorkAreaPanel id="cards" active={areas.active()}>
+        <Show when={data().attestations !== null}>
+          <AttestationsPanel slug={params().slug} data={data().attestations!} />
+        </Show>
+      </WorkAreaPanel>
+      <WorkAreaPanel id="reports" active={areas.active()}>
+        <Show when={reports().length > 0} fallback={<EmptyState label="No reports yet" hint="A night that has happened files its report here." />}>
+          <For each={reports()}>{show => (
+            <Row>
+              <span class="w-24 shrink-0 text-xs text-muted-foreground/70">{formatTimestamp(show.starts_at)}</span>
+              <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: params().slug, eventSlug: show.slug }} class="min-w-0 flex-1 truncate text-sm text-foreground hover:underline">
+                {show.title}{show.venue && show.venue !== show.title ? ` · ${show.venue}` : ''}
+              </Link>
+              <span class="shrink-0 text-xs text-muted-foreground">{show.scan_count} scans</span>
+            </Row>
+          )}</For>
+        </Show>
+      </WorkAreaPanel>
+    </>}</Show>
+    <WorkAreaPanel id="story" active={areas.active()}>
+      <RosterStoryPanel slug={params().slug} />
+    </WorkAreaPanel>
   </PageShell>
+}
+
+/** Proof, first screen (mockup `console-mockups/places-proof.html`, screen
+ *  2): the numbers a promoter asks for, and — while there is no listing —
+ *  what the listing will carry, since every approach waits on it. */
+function ProofFirstScreen(props: { data: TenantProofReadModel; reports: number; measuredReports: number; onOpen: (area: string) => void }) {
+  const targets = () => (props.data.representation?.targets ?? []).filter(t => t.active && !t.do_not_contact)
+  const agents = () => targets().filter(t => t.kind === 'agent').length
+  const labels = () => targets().filter(t => t.kind === 'label').length
+  const allowance = () => props.data.representation?.monthly_approach_allowance ?? props.data.listing?.monthly_approach_allowance ?? null
+  const used = () => props.data.representation?.approaches_used_this_month ?? props.data.listing?.approaches_used_this_month ?? null
+  const cards = () => (props.data.attestations ?? []).filter(card => !card.revoked).length
+  const hasListing = () => Boolean(props.data.listing?.listing)
+  const check = (done: boolean) => <span class={done ? 'text-success-foreground' : 'text-muted-foreground/70'}>{done ? 'done' : 'not yet'}</span>
+  return (
+    <>
+      <Tiles>
+        <Tile label="Shows on record" value={props.data.shows ? props.reports : null} sub={`${props.measuredReports} with a door count`} />
+        <Tile label="Signed proof cards" value={props.data.attestations ? cards() : null} sub="verifiable without an account" />
+        <Tile label="Agents and labels" value={props.data.representation ? targets().length : null} sub={`${agents()} agents · ${labels()} ${labels() === 1 ? 'label' : 'labels'}`} />
+        <Tile
+          label="Approaches this month"
+          value={used() != null && allowance() != null ? <>{used()}<span class="text-sm font-normal text-muted-foreground/70"> / {allowance()}</span></> : null}
+          sub={used() != null && allowance() != null ? `allowance left: ${allowance()! - used()!}` : undefined}
+        />
+      </Tiles>
+      <Split even>
+        <Card title="Your listing" icon={<BookOpen />}>
+          <p class="m-0 text-xs text-muted-foreground/70">One page an agent can read in a minute: sound, shows, fans, links.</p>
+          <div class="mt-2">
+            <StatRow label="Shows and dates" value={check(props.reports > 0)} />
+            <StatRow label="Door counts from a show" value={check(props.measuredReports > 0)} />
+            <StatRow label="Signed proof (attestations)" value={check(cards() > 0)} />
+            <StatRow label="The listing itself" value={check(hasListing())} />
+          </div>
+          <div class="mt-3"><Act primary onClick={() => props.onOpen('listing')}>{hasListing() ? 'Open listing' : 'Create listing'}</Act></div>
+        </Card>
+        <Card title="Who to approach" icon={<Users />}>
+          <Show when={targets().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No agent or label on the list yet.</p>}>
+            <For each={targets().slice(0, 1)}>{target => (
+              <ItemRow title={target.display_name} sub={target.kind} action={<Pill tone={target.verified ? 'good' : 'muted'}>{target.verified ? 'verified' : 'unverified'}</Pill>} />
+            )}</For>
+            <Show when={agents() > 1}><StatRow label={`${agents() - (targets()[0]?.kind === 'agent' ? 1 : 0)} more agents`} value={<span class="text-muted-foreground">verified list</span>} /></Show>
+            <Show when={labels() > 0}><StatRow label={`${labels()} ${labels() === 1 ? 'label' : 'labels'}`} value={<span class="text-muted-foreground">verified list</span>} /></Show>
+            <Show when={!hasListing()}>
+              <Note>Approaches wait for a listing — an agent reads the listing, not a letter.</Note>
+            </Show>
+          </Show>
+        </Card>
+      </Split>
+    </>
+  )
 }

@@ -1,14 +1,12 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useNavigate, useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { Link, useNavigate, useParams } from '@tanstack/solid-router'
+import { Bell, History, Layers, RefreshCw, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { CONTENT_TABS } from '../lib/nav'
 import { errorMessage, relativeTime, timestampMillis } from '../lib/format'
 import { cn } from '../lib/cn'
-import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
@@ -21,10 +19,9 @@ import { capabilityAction } from '../lib/capabilities'
 import { TrackedLinksPanel } from '../components/TrackedLinksPanel'
 import { HookScorecardPanel } from '../components/HookScorecardPanel'
 import { Alert } from '../components/app/alert'
-import { Card } from '../components/app/card'
-import { PageShell, PageHeader, Section, KpiStrip, KpiCard, TabBar } from '../components/layout'
+import { PageShell } from '../components/layout'
+import { Act, Card, DashHeader, IconAct, Note, Pill, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { SectionIcon } from '../components/SectionIcon'
 import { DraftEditor, changedFields, emptiedField } from '../components/DraftEditor'
 import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
 
@@ -47,6 +44,10 @@ const artifactLabel = (raw: unknown): string => {
 
 /// Where a delivery landed: the platform/subreddit/channel name the
 /// upstream row already carries.
+const MATERIAL_LABEL: Record<string, string> = {
+  social_post: 'Your social posts', release: 'Songs', video: 'Videos', event: 'Show dates', show_completed: 'Shows played', story: 'Stories',
+}
+
 const KIND_LABEL: Record<string, string> = {
   social_post: 'Social',
   community_post: 'Community',
@@ -188,7 +189,18 @@ export function TenantContentPage() {
     if (failed().length > 0) return { tone: 'bad', text: `${failed().length} didn't land` }
     return { tone: 'good', text: 'Nothing waits on you' }
   }
-  const [showLinks, setShowLinks] = createSignal(window.location.hash.includes('link'))
+  const areas = useWorkAreas(['links', 'material', 'hooks'])
+  // "Material" is its own page; the button goes there.
+  createEffect(() => {
+    if (areas.active() === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
+  })
+  // "Material it works from": the material page's own one-statement read.
+  const material = useQuery(() => ({
+    queryKey: ['content-material-view', params().slug],
+    queryFn: () => api.contentMaterialView(params().slug),
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  }))
   const sourceTitle = (id: unknown) =>
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 
@@ -245,28 +257,15 @@ export function TenantContentPage() {
   }
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Content"
-      description="What is ready to post, and what went out."
+      subtitle="What is ready to post, and what went out"
+      pill={status()}
       actions={
-        <>
-          <Show when={status()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={refresh} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
-    />
-
-    {/* The material stage keeps its own page; the tab bar is how you reach it. */}
-    <TabBar
-      tabs={CONTENT_TABS}
-      active="pipeline"
-      onChange={(id) => {
-        if (id === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
-      }}
     />
 
     <Show when={pipeline.error}>
@@ -276,94 +275,51 @@ export function TenantContentPage() {
       <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
     </Show>
 
-    {/* The pipeline as three figures on the shared rail. These were three
-        boxed cards joined by arrows, over a three-line explainer; the
-        header now carries the one sentence that explainer needed. */}
     <Show when={model.data} fallback={<SkeletonKpiStrip count={4} />}>
-      <KpiStrip>
-        <KpiCard
-          label="Ready to post"
-          value={results.data ? ready().length : '—'}
-          sub={results.data ? `${readyForums()} forums · ${ready().length - readyForums()} social` : undefined}
-          tone={ready().length > 0 ? 'warn' : undefined}
-        />
-        <KpiCard label="Waiting for your yes" value={pipeline.data ? pending().length : '—'} tone={pending().length > 0 ? 'warn' : undefined} sub={pipeline.data == null ? 'not reported' : pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
-        <KpiCard
+      <Tiles>
+        <Tile label="Ready to post" value={results.data ? ready().length : null} sub={results.data ? `${readyForums()} forums · ${ready().length - readyForums()} social` : undefined} />
+        <Tile
           label="Went out, 7 days"
-          value={results.data ? wentOutWeek().length - pushFans() + pushGroups() : '—'}
-          sub={results.data ? `${pushGroups()} fan pushes · ${wentOutWeek().filter(r => r.kind !== 'signal_push').length} posts` : undefined}
-          tone="good"
+          value={results.data ? wentOutWeek().length - pushFans() + pushGroups() : null}
+          sub={results.data ? `${pushGroups()} fan pushes · ${wentOutWeek().filter(r => r.kind !== 'signal_push').length} channels` : undefined}
         />
-        <KpiCard label="Didn't land" value={results.data ? failed().length : '—'} tone={failed().length > 0 ? 'bad' : undefined} sub={results.data == null ? 'not reported' : failed().length > 0 ? 'failed to publish' : 'nothing failed'} />
-      </KpiStrip>
+        <Tile label="Didn't land" value={results.data ? failed().length : null} valueTone={failed().length > 0 ? 'bad' : undefined} sub={failed().length > 0 ? 'failed to publish' : 'nothing failed'} />
+        <Tile label="Material watched" value={pipeline.data?.live_sources} sub="posts, videos, releases, shows" />
+      </Tiles>
     </Show>
 
     <Show when={ready().length > 0}>
-      <Section
-        flush
-        lead
-        title="Ready to post"
-        icon={<SectionIcon name="megaphone" />}
-        count={ready().length}
-        description="Written and waiting for you to publish by hand. Copy it, post it, then mark it posted — measurement picks it up from there."
-      >
-        <div class="grid gap-3 md:grid-cols-2">
-          <For each={ready()}>{(r: DeliveryResult) => (
-            <div class="flex flex-col gap-2 rounded-lg border border-border p-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' ')}</Badge>
-                <span class="text-sm font-medium text-foreground">{channelName(r.channel)}</span>
-              </div>
+      <Card title="Ready to post" icon={<Send />} aside="copy, open, mark posted" class="mb-3">
+        <div class="mt-1 grid gap-2.5 md:grid-cols-3">
+          <For each={ready().slice(0, 3)}>{(r: DeliveryResult) => (
+            <div class="min-w-0 rounded-lg border border-border px-3 py-2.5">
+              <p class="m-0 text-xs text-muted-foreground">{channelName(r.channel) || (KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' '))}</p>
               <Show when={contentExcerpt(r.content)}>
-                {text => <p class="whitespace-pre-line text-sm text-foreground">{text()}</p>}
+                {text => <p class="m-0 mt-1.5 line-clamp-3 whitespace-pre-line text-sm text-foreground">{text()}</p>}
               </Show>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="mt-2.5 flex flex-wrap gap-1.5">
                 <Show when={contentExcerpt(r.content)}>
-                  {text => <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(text()); toast.success('Copied') }}>Copy</Button>}
+                  {text => <Act onClick={() => { void navigator.clipboard.writeText(text()); toast.success('Copied'); if (r.url) window.open(r.url, '_blank', 'noopener') }}>{r.url ? 'Copy and open' : 'Copy'}</Act>}
                 </Show>
-                <Show when={r.url}><a class="text-xs text-primary hover:underline" href={r.url!} target="_blank" rel="noreferrer">Open</a></Show>
+                <Show when={r.kind === 'social_post'}>
+                  <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
+                </Show>
+                <Show when={r.kind === 'telegram_post' || r.kind === 'discord_post'}>
+                  <ManualMessageRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
+                </Show>
               </div>
-              <Show when={r.kind === 'social_post'}>
-                <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
-              </Show>
-              <Show when={r.kind === 'telegram_post' || r.kind === 'discord_post'}>
-                <ManualMessageRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
-              </Show>
             </div>
           )}</For>
         </div>
-      </Section>
-    </Show>
-
-    {/* Voice signal — how much fixing the drafts still need. Distance should
-        fall as the machine learns; a flat or rising line means the same
-        corrections keep coming. */}
-    <Show when={pipeline.data?.revision_trend}>
-      {(trend) => (
-        <Card flat class="mb-6">
-          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Voice match</span>
-            <span class="text-sm text-foreground">
-              {trend().revised_fields_30d} fields fixed in 30 days · ~{trend().avg_distance_chars_30d} chars per fix
-            </span>
-            <Show when={trend().weekly.length > 1}>
-              <span class="text-xs text-muted-foreground">
-                weekly: {trend().weekly.map(w => w.avg_distance_chars).join(' → ')} chars
-              </span>
-            </Show>
-            <span class="text-xs text-muted-foreground">falls as drafts get closer to your words</span>
-          </div>
-        </Card>
-      )}
+        <Show when={ready().length > 3}>
+          <Note>+{ready().length - 3} more waiting to be posted by hand.</Note>
+        </Show>
+      </Card>
     </Show>
 
     {/* ── Waiting for your yes ── */}
-    <Section
-      title="Waiting for your yes"
-      icon={<SectionIcon name="bell" />}
-      count={pending().length}
-      description="Drafts the brain proposes from your material. Approving writes the piece; it then goes out on its own where auto-posting is on, or waits as a draft."
-    >
+    <Show when={pending().length > 0}>
+    <Card title="Waiting for your yes" icon={<Bell />} aside={`${pending().length} ${pending().length === 1 ? 'draft' : 'drafts'} from your material`} class="mb-3">
       <Show when={!pipeline.error && !pipeline.data}>
         <SkeletonRows count={2} />
       </Show>
@@ -436,61 +392,60 @@ export function TenantContentPage() {
           </ul>
         </Show>
       </Show>
-    </Section>
+    </Card>
+    </Show>
+    <Show when={pipeline.data?.revision_trend}>
+      {trend => (
+        <p class="m-0 mb-3 text-xs text-muted-foreground/70">
+          Voice match: {trend().revised_fields_30d} fields fixed in 30 days · about {trend().avg_distance_chars_30d} characters per fix — falls as drafts get closer to your words.
+        </p>
+      )}
+    </Show>
 
-    {/* ── Went out — the proof stage ── */}
-    <Section
-      title="Went out"
-      icon={<SectionIcon name="megaphone" />}
-      count={wentOutGroups().length}
-      description="What the approved pieces became: where they landed and whether they published. A push to many fans is one row."
-    >
-      <Show when={!results.error && !results.data}>
-        <SkeletonRows count={3} />
-      </Show>
-      <Show when={results.data}>
-        <Show when={wentOutGroups().length > 0} fallback={
-          <EmptyState label="Nothing has gone out yet" hint="Approve a draft above and the published post lands here." />
-        }>
-          <ul class="divide-y divide-border rounded-lg border border-border">
-            <For each={wentOutGroups()}>{({ row: r, count }) => {
+    <Split mid>
+      <Card title="Went out" icon={<History />}>
+        <Show when={!results.error && !results.data}><SkeletonRows count={3} /></Show>
+        <Show when={results.data}>
+          <Show when={wentOutGroups().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing has gone out yet.</p>}>
+            <For each={wentOutGroups().slice(0, 6)}>{({ row: r, count }) => {
               const badge = statusBadge(r.status)
-              const excerpt = contentExcerpt(r.content)
+              const tone: Tone = badge.variant === 'success' ? 'good' : badge.variant === 'destructive' ? 'bad' : badge.variant === 'warning' ? 'warn' : 'muted'
               return (
-                <li class="p-3">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' ')}</Badge>
-                    <Show when={r.channel}><span class="text-xs font-medium text-foreground">{channelName(r.channel)}</span></Show>
-                    <Badge variant={badge.variant}>{badge.label}{r.kind === 'signal_push' ? ` · ${count} ${count === 1 ? 'fan' : 'fans'}` : ''}</Badge>
-                  </div>
-                  <Show when={excerpt}>
-                    <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{excerpt}</p>
-                  </Show>
-                  <Show when={r.error_message}>
-                    <p class="mt-1 text-xs text-destructive">{r.error_message}</p>
-                  </Show>
-                  <div class="mt-1 text-xs text-muted-foreground">
-                    {r.posted_at ? `published ${fmtDate(r.posted_at)}` : `created ${fmtDate(r.created_at)}`}
-                    <Show when={r.url}> · <a class="text-primary hover:underline" href={r.url!} target="_blank" rel="noreferrer">open post</a></Show>
-                    <Show when={r.score != null}> · score {r.score}</Show>
-                    <Show when={r.num_comments != null}> · {r.num_comments} comments</Show>
-                  </div>
-                </li>
+                <StatRow
+                  label={[contentExcerpt(r.content)?.slice(0, 60) ?? (KIND_LABEL[r.kind] ?? r.kind), r.kind === 'signal_push' ? 'to Signal fans' : channelName(r.channel)].filter(Boolean).join(' · ')}
+                  value={<Pill tone={tone}>{badge.label.toLowerCase()}{r.kind === 'signal_push' ? ` · ${count}` : ''}</Pill>}
+                />
               )
             }}</For>
-          </ul>
+            <Note>Likes and comments appear here once a platform reports them.</Note>
+          </Show>
         </Show>
-      </Show>
-    </Section>
-    <HookScorecardPanel slug={params().slug} />
+      </Card>
+      <Card title="Material it works from" icon={<Layers />} aside={<Link to="/tenants/$slug/content/material" params={{ slug: params().slug }} class="hover:text-foreground">Material →</Link>}>
+        <Show when={material.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{material.error ? 'The material could not be read.' : ''}</p>}>
+          <For each={(material.data?.by_kind ?? []).slice().sort((a, b) => b.total - a.total)}>{kind => (
+            <StatRow label={MATERIAL_LABEL[kind.kind] ?? kind.kind} value={<span class="tabular-nums text-foreground">{kind.kind === 'release' ? `~${kind.distinct_titles}` : kind.total}</span>} />
+          )}</For>
+          <Note>New posts on Facebook and Instagram sync by themselves.</Note>
+        </Show>
+      </Card>
+    </Split>
 
-    <Section title="Tracked links" icon={<SectionIcon name="link" />} description="Links that count who clicked through to tickets and releases.">
-      <Show when={showLinks()} fallback={
-        <Button variant="outline" size="sm" onClick={() => setShowLinks(true)}>Open tracked links</Button>
-      }>
-        <TrackedLinksPanel slug={params().slug} />
-      </Show>
-    </Section>
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'material', label: 'Material' },
+        { id: 'hooks', label: 'What held attention' },
+        { id: 'links', label: 'Tracked links' },
+      ]}
+    />
+    <WorkAreaPanel id="hooks" active={areas.active()}>
+      <HookScorecardPanel slug={params().slug} />
+    </WorkAreaPanel>
+    <WorkAreaPanel id="links" active={areas.active()}>
+      <TrackedLinksPanel slug={params().slug} />
+    </WorkAreaPanel>
   </PageShell>
 }
 

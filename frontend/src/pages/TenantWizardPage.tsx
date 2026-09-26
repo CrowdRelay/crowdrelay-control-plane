@@ -9,7 +9,8 @@ import type { RegionalProfile } from '../lib/types'
 import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
-import { ErrorCard, PageHeader, PageShell, PanelTitle } from '../components/layout'
+import { ErrorCard, PageShell, PanelTitle } from '../components/layout'
+import { DashHeader, Pill } from '../components/ui/dash'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
 import { NativeSelect } from '../components/ui/native-select'
@@ -350,24 +351,23 @@ export function TenantWizardPage() {
   }
   const prevStep = () => { if (step() > 1) setStep(step() - 1) }
 
+  const WIZARD_STEPS = ['Who', 'What it uses', 'The goal', 'Where fans are', 'Crew', 'Launch']
+
   return <PageShell>
-    <PageHeader
-      eyebrow="ONBOARDING WIZARD"
+    <DashHeader
       title="New tenant"
-      description="Configure identity, products, growth goal, and fanbase sources. The brain adapts its strategy to the selected goal."
+      subtitle="Who the act is, what it may use, where its fans are — then launch"
+      back={{ label: 'Tenants', to: '/tenants' }}
     />
 
-    <div class="flex items-center gap-2 flex-wrap">
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 1 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 1 && 'ring-1 ring-primary/30')}>1. Identity + Region</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 2 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 2 && 'ring-1 ring-primary/30')}>2. Products</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 3 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 3 && 'ring-1 ring-primary/30')}>3. Goal</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 4 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 4 && 'ring-1 ring-primary/30')}>4. Fanbase Sources</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 5 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 5 && 'ring-1 ring-primary/30')}>5. Crew</div>
-      <div class={cn('flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', step() >= 6 ? 'bg-primary/10 text-primary' : 'text-muted-foreground', step() === 6 && 'ring-1 ring-primary/30')}>6. Deploy</div>
+    <div class="mb-3 flex flex-wrap items-center gap-1.5">
+      <For each={WIZARD_STEPS}>{(label, index) => (
+        <Pill tone={step() === index() + 1 ? 'accent' : step() > index() + 1 ? 'good' : 'muted'}>{index() + 1} · {label}</Pill>
+      )}</For>
     </div>
 
     <Show when={step() === 1}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2 flex-wrap"><div><PanelTitle>Identity + region</PanelTitle></div><Show when={overview.error}><StatusBadge status="Provisioner status unavailable" tone="bad" /></Show><Show when={!overview.error}><StatusBadge status={overview.data?.provisionerConfigured ? 'Provisioner connected' : 'Provisioner token not configured'} tone={overview.data?.provisionerConfigured ? 'good' : 'warn'} /></Show></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Identity is permanent once the tenant exists; the regional block is what the runtime reads instead of guessing from a browser or an IP address.</p>
         <FieldGrid min="220px">
@@ -407,7 +407,7 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 2}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Products</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Choose which products to enable for this tenant. Each product can be toggled independently.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -465,7 +465,7 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 3}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>What this tenant is</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">The machine runs the same loop for all of these. The archetype decides what it reads as a peer, a production event and a fan.</p>
         <RadioGroup value={archetype()} onChange={setArchetype} class="grid grid-cols-1 md:grid-cols-2 gap-3" aria-label="Tenant archetype">
@@ -508,7 +508,7 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 4}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Fanbase sources</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">Select which platforms the discovery worker should search for fan communities. These are upserted into the audience graph.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" role="group" aria-label="Fanbase sources">
@@ -533,7 +533,7 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 5}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Crew</PanelTitle></div></div>
         <p class="text-sm text-muted-foreground leading-relaxed">
           The people the brain can hand work to — approvals, booking calls, copy review. Add as many as the
@@ -589,7 +589,7 @@ export function TenantWizardPage() {
     </Show>
 
     <Show when={step() === 6}>
-      <div class="rounded-lg border border-border bg-card p-5 space-y-4">
+      <div class="rounded-xl border border-border bg-card px-4 py-3.5 space-y-4">
         <div class="flex items-center justify-between gap-2"><div><PanelTitle>Review + deploy</PanelTitle></div></div>
         <div class="rounded-lg border border-border bg-background p-4 space-y-2">
           <div class="flex items-center justify-between gap-3 py-2 border-b border-border"><span class="text-sm text-muted-foreground">Slug</span><strong class="text-sm text-foreground">{slug()}</strong></div>

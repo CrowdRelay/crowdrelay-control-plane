@@ -18,7 +18,9 @@ import { NotifiersPanel } from '../components/NotifiersPanel'
 import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
-import { ErrorCard, PageHeader, PageShell, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { ErrorCard, PageShell, Section } from '../components/layout'
+import { Act, DashHeader, IconAct, Pill, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { SettingsFirstScreen, settingsStatus } from '../components/SettingsFirstScreen'
 import { Alert } from '../components/app/alert'
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/app/button'
@@ -92,10 +94,19 @@ export function TenantPage() {
   // band operator drives themselves, so the bar now shows for both roles.
   // The valid list is scoped by role too, so a pasted `?tab=deployment`
   // link cannot mount a platform-only panel in a band session.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels(
-    'profile',
-    () => (platformView() ? ['profile', 'workspace', 'deployment', 'access', 'destinations'] : ['profile', 'workspace']),
-  )
+  // `?tab=profile` is what the sidebar links to: it lands on the first
+  // screen, which is the profile now. The full profile editor is `about`.
+  const areas = useWorkAreas(['about', 'workspace', 'deployment', 'access', 'destinations'])
+  const isVisited = (id: string) => areas.active() === id
+
+  // The settings the letters use — shared key with the first screen and the
+  // Workspace panel, so the pill and the card read one entry.
+  const settingsQuery = useQuery(() => ({
+    queryKey: ['tenant-settings', params().slug],
+    queryFn: () => api.tenantSettings(params().slug),
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
   // This is all the Profile and Access tabs need. The Deployment tab has
@@ -470,23 +481,22 @@ export function TenantPage() {
     </>
 
     return <>
-      <PageHeader
-        title={t.displayName}
-        description={platformView()
-          ? `${t.slug} · ${t.defaultCountryCode} · ${t.workspaceId ? 'workspace ready' : 'workspace pending'}`
-          : t.defaultCountryCode}
+      <DashHeader
+        title="Settings"
+        subtitle={platformView()
+          ? `Who you are, and what the machine may do · ${t.slug} · ${t.defaultCountryCode}`
+          : 'Who you are, and what the machine may do'}
+        pill={settingsStatus(settingsQuery.data?.settings)}
         actions={<>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <StatusBadge status={t.status} tone={statusTone(t.status)} />
+          <Show when={t.status !== 'active'}><Pill tone={statusTone(t.status) as Tone}>{t.status}</Pill></Show>
           {/* The capability map — where each feature lives. Operator-only
               and not a sidebar destination, on purpose. */}
           <Show when={authState.isPlatformLevel()}>
-            <Link to="/tenants/$slug/capabilities" params={{ slug: t.slug }} class="text-sm font-medium text-foreground underline underline-offset-4">Where features live</Link>
+            <Act to="/tenants/$slug/capabilities" params={{ slug: t.slug }}>Where features live</Act>
           </Show>
-          <Button variant="outline" size="sm" onClick={refreshPage} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
+          <IconAct onClick={refreshPage} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+            <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+          </IconAct>
         </>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
@@ -512,15 +522,16 @@ export function TenantPage() {
         </Alert>
       </Show>
 
-      <TabBar
-        active={activeTab()}
-        onChange={switchTab}
-        onPrefetch={prefetch}
+      <SettingsFirstScreen slug={t.slug} tenant={t} onOpen={areas.open} />
+
+      <WorkAreas
+        label="Details"
+        active={areas.active()}
+        onToggle={areas.toggle}
         // One declaration per label — the collision gate counts literal
-        // `label:` occurrences, and a band-vs-platform split that repeats
-        // 'Profile' reads as two different concepts sharing a word.
-        tabs={[
-          { id: 'profile', label: 'Profile' },
+        // `label:` occurrences.
+        areas={[
+          { id: 'about', label: 'Profile' },
           { id: 'workspace', label: 'Workspace' },
           ...(platformView()
             ? [
@@ -535,11 +546,11 @@ export function TenantPage() {
       {/* Each tab body is one vertical rhythm. Sections draw a hairline and
           24px above their heading, but nothing below their content, so
           without the gap each section's last line sat on the next one's rule. */}
-      <TabPanel active={activeTab()} id="profile" visited={isVisited('profile')}>
+      <WorkAreaPanel id="about" active={areas.active()}>
         <div class="space-y-8"><Settings /></div>
-      </TabPanel>
+      </WorkAreaPanel>
 
-      <TabPanel active={activeTab()} id="workspace" visited={isVisited('workspace')}>
+      <WorkAreaPanel id="workspace" active={areas.active()}>
         <div class="space-y-8">
           <WorkspaceSettingsPanel slug={t.slug} />
           {/* The band keeps its API keys here because Access is a
@@ -550,9 +561,9 @@ export function TenantPage() {
             <TenantSecretsPanel slug={t.slug} />
           </Show>
         </div>
-      </TabPanel>
+      </WorkAreaPanel>
 
-      <TabPanel active={activeTab()} id="deployment" visited={isVisited('deployment')}>
+      <WorkAreaPanel id="deployment" active={areas.active()}>
         <div class="space-y-8">
           {/* The tenant as one process instance — how far this deploy got
               and where it is stuck. Reads the overview model only, so it
@@ -679,9 +690,9 @@ export function TenantPage() {
 
           <ReleaseConvergencePanel releaseLedger={operations.data?.autopilot?.release_ledger ?? null} />
         </div>
-      </TabPanel>
+      </WorkAreaPanel>
 
-      <TabPanel active={activeTab()} id="access" visited={isVisited('access')}>
+      <WorkAreaPanel id="access" active={areas.active()}>
         <div class="space-y-8">
           <TenantOperatorsPanel slug={t.slug} />
           {/* Tenant-held credentials moved here from Audience: the keys are
@@ -748,14 +759,14 @@ export function TenantPage() {
             </Section>
           </Show>
         </div>
-      </TabPanel>
+      </WorkAreaPanel>
 
       {/* Where the tenant's alerts go — the notifier channels, platform
           config and automation routing that used to be a top-level nav
           item. Its own queries; nothing here loads until the tab does. */}
-      <TabPanel active={activeTab()} id="destinations" visited={isVisited('destinations')}>
+      <WorkAreaPanel id="destinations" active={areas.active()}>
         <NotifiersPanel slug={t.slug} />
-      </TabPanel>
+      </WorkAreaPanel>
     </>
   }}</Show></PageShell>
 }

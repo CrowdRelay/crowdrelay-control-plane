@@ -1,14 +1,13 @@
 import { createMemo, Show } from 'solid-js'
-import { Link, useParams } from '@tanstack/solid-router'
+import { useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { generateQr } from '../lib/qrCode'
-import { PageShell, PageHeader, KpiStrip, KpiCard } from '../components/layout'
-import { StatusPill, type ViewTone } from '../components/ViewBlocks'
+import { PageShell } from '../components/layout'
+import { DashHeader, Tile, Tiles, type Tone as ViewTone } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { formatTimestamp } from '../lib/format'
-import { ArrowLeft } from 'lucide-solid'
 
 /** `/tenants/$slug/shows/$eventSlug/scan` — the door. One job: put the
  * night's check-in QR on a phone screen, big enough to scan at arm's length
@@ -61,19 +60,11 @@ export function TenantShowScanPage() {
   }
   return (
     <PageShell>
-      <div class="mb-2">
-        <Link
-          to="/tenants/$slug/shows/$eventSlug"
-          params={{ slug: params().slug, eventSlug: params().eventSlug }}
-          class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft class="size-3.5" aria-hidden="true" /> {backLabel()}
-        </Link>
-      </div>
+<div class="mx-auto w-full max-w-sm">
       <Show when={model.data} fallback={
         <>
           <Show when={model.error}>
-            <PageHeader eyebrow="THE SCAN" title="The scan" />
+            <DashHeader title="Door" back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }} />
             <SectionFailureCard
               error={model.error}
               fallback="Door view unavailable"
@@ -88,11 +79,11 @@ export function TenantShowScanPage() {
       }>
         {data => (
           <>
-            <PageHeader
-              eyebrow="THE SCAN"
-              title={data().campaign_label ?? 'The scan'}
-              description={data().valid_until ? `Good until ${formatTimestamp(data().valid_until!)}` : undefined}
-              actions={<StatusPill tone={doorState().tone}>{doorState().text}</StatusPill>}
+            <DashHeader
+              title={data().campaign_label ?? 'Door'}
+              subtitle={data().valid_until ? `Good until ${formatTimestamp(data().valid_until!)}` : undefined}
+              pill={doorState()}
+              back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }}
             />
             <Show
               when={data().checkin_url && qr() && !full()}
@@ -139,21 +130,22 @@ export function TenantShowScanPage() {
                 night with no ticket sale — unticketed, not sold out of zero. */}
             <Show when={data().event}>
               {event => (
-                <div class="mx-auto mt-4 w-full max-w-sm">
-                  <KpiStrip class="mb-0">
-                    <KpiCard
+                <div class="mt-4">
+                  <Tiles cols={2}>
+                    <Tile
                       label="Tickets"
-                      value={event().tickets_sold == null ? '—' : event().tickets_sold!.toLocaleString()}
+                      value={event().tickets_sold}
                       sub={event().tickets_sold == null ? 'no ticket sale' : event().capacity != null ? `of ${event().capacity}` : undefined}
                     />
-                    <KpiCard label="Interested" value={event().interested.toLocaleString()} />
-                  </KpiStrip>
+                    <Tile label="Interested" value={event().interested} />
+                  </Tiles>
                 </div>
               )}
             </Show>
           </>
         )}
       </Show>
+    </div>
     </PageShell>
   )
 }

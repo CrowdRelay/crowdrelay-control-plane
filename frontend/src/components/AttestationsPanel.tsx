@@ -48,6 +48,8 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
   const settings = useQuery(() => ({
     queryKey: ['tenant-settings', props.slug],
     queryFn: () => api.tenantSettings(props.slug),
+    // Only a card has a link to build; with none, the page stays one read.
+    enabled: ((fed() ? props.data : attestations.data) ?? []).length > 0,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))

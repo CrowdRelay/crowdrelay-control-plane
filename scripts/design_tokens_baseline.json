@@ -1,7 +1,7 @@
 {
   "radius_variants": 12,
   "shadows_outside_overlays": 8,
-  "arbitrary_px_outside_skeleton": 39,
+  "arbitrary_px_outside_skeleton": 37,
   "hex_outside_exempt": 19,
   "raw_form_elements": 0
 }

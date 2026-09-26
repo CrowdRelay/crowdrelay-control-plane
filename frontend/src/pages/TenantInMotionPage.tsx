@@ -1,19 +1,16 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { Link, useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { useParams } from '@tanstack/solid-router'
+import { AlertTriangle, CircleCheck, RefreshCw, Share2 } from 'lucide-solid'
 import { api } from '../lib/api'
 import { cn } from '../lib/cn'
 import { timestampMillis } from '../lib/format'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { KpiCard, KpiStrip, PageShell, PageHeader, Section, SkeletonBlock } from '../components/layout'
-import { SectionIcon } from '../components/SectionIcon'
+import { PageShell, SkeletonBlock } from '../components/layout'
+import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Note, Row, Split, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import type { RelayProcessRun } from '../lib/types'
 import { RelayRunCard } from '../components/RelayRunCard'
-import { EmptyState } from '../components/ui/empty-state'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { StatusBadge } from '../components/StatusBadge'
-import { OutcomeRow } from '../components/work'
-import { Button } from '../components/app/button'
 
 // In motion — "what is the machine doing right now on its own?" (mockup
 // `console-mockups/in-motion.html`). One read, `in-motion/model`: the relay
@@ -74,112 +71,143 @@ export function TenantInMotionPage() {
     return { tone: 'good', text: 'Quiet · nothing waiting to run' }
   }
 
+  const areas = useWorkAreas(['relays'])
+
   return (
     <PageShell>
-      <PageHeader
+      <DashHeader
         title="In motion"
-        description="What the machine is doing right now on its own."
+        subtitle="What the machine is doing on its own"
+        pill={status()}
         actions={
-          <>
-            <Show when={status()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
-            <Button variant="outline" size="sm" onClick={() => void model.refetch()} disabled={model.isFetching} aria-label="Refresh">
-              <RefreshCw class={cn(model.isFetching && 'animate-spin')} aria-hidden="true" />
-              Refresh
-            </Button>
-          </>
+          <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh">
+            <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
+          </IconAct>
         }
       />
 
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="What the machine is doing did not load" onRetry={() => void model.refetch()} />
       </Show>
-
       <Show when={!model.error && !model.data}>
-        <SkeletonBlock style={{ 'min-height': '80px' }} />
-        <SkeletonBlock style={{ 'min-height': '140px' }} />
+        <SkeletonBlock style={{ 'min-height': '84px' }} />
+        <SkeletonBlock style={{ 'min-height': '200px' }} />
       </Show>
 
       <Show when={model.data}>
-        <KpiStrip>
-          <KpiCard label="Running now" value={autopilot() ? autopilot()!.processing_actions : '—'} sub="being carried out" />
-          <KpiCard
+        <Tiles>
+          <Tile label="Running now" value={autopilot()?.processing_actions} sub="being carried out" />
+          <Tile
             label="Waiting to run"
-            value={autopilot() ? autopilot()!.queued_actions + stuck() : '—'}
-            sub={stuck() > 0 ? `${stuck()} stuck` : 'the next cycle picks them up'}
-            tone={stuck() > 0 ? 'warn' : undefined}
+            value={autopilot() ? autopilot()!.queued_actions + stuck() : null}
+            sub={stuck() > 0 ? (autopilot()!.queued_actions === 0 ? `all ${stuck()} stuck` : `${stuck()} stuck`) : 'the next cycle picks them up'}
           />
-          <KpiCard
-            label="Done, last 24 h"
-            value={autopilot() ? autopilot()!.succeeded_24h : '—'}
-            sub={autopilot() ? `${autopilot()!.failed_24h} failed` : undefined}
-            tone={(autopilot()?.failed_24h ?? 0) > 0 ? 'bad' : undefined}
-          />
-          <KpiCard
-            label="Confirmed landed"
-            value={autopilot() ? autopilot()!.executor_confirmed_24h : '—'}
-            sub="a receipt from the other side"
-          />
-        </KpiStrip>
+          <Tile label="Done today" value={autopilot()?.succeeded_24h} sub={autopilot() ? `${autopilot()!.failed_24h} failed` : undefined} />
+          <Tile label="Confirmed landed" value={autopilot()?.executor_confirmed_24h} sub="receipts from the other side" />
+        </Tiles>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <Section
-            lead
-            title="Your posts, carried further"
-            icon={<SectionIcon name="workflow" />}
-            description="A post worth spreading, fanned out to fans and to the communities that will have it."
-            count={runs().length}
-          >
-            <Show when={model.data?.relays} fallback={<p class="text-sm text-muted-foreground">The relay runs could not be read — they come back on the next refresh.</p>}>
-              <Show
-                when={runs().length > 0}
-                fallback={
-                  <EmptyState
-                    label="No relays yet"
-                    hint="When a synced post is worth spreading, the run lands here — the post, the decision, the forums, and what they gave back."
-                  />
-                }
-              >
-                <div class="flex flex-col gap-3">
-                  <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>
+        <Split>
+          <Card title="Your posts, carried further" icon={<Share2 />} aside={`${runs().length} this week`}>
+            <Show when={model.data?.relays} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">The relay runs could not be read — they come back on the next refresh.</p>}>
+              <Show when={runs().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No relays yet — a post worth spreading lands here.</p>}>
+                <div class="flex items-center gap-2.5 pb-1 text-xs text-muted-foreground/70">
+                  <span class="flex-1" />
+                  <span class="flex w-44 justify-between">
+                    <span>seen</span><span>fans</span><span>forums</span><span>you</span><span>out</span>
+                  </span>
+                  <span class="w-16" />
+                </div>
+                <For each={runs().slice(0, 4)}>{run => <RelayRow run={run} slug={params().slug} />}</For>
+                <Show when={runs().length > 4}>
+                  <MoreRow text={`${runs().length - 4} older runs${runs().every(r => r.posted === 0) ? ' · nothing posted to forums yet' : ''}`} link={<Act onClick={() => areas.open('relays')}>All runs</Act>} />
+                </Show>
+              </Show>
+            </Show>
+          </Card>
+
+          <Card title="Stuck" icon={<AlertTriangle />}>
+            <Show when={stuck() > 0 || (chief()?.stopped ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing is stuck.</p>}>
+              <Show when={stuck() > 0}>
+                <ItemRow pill={{ tone: 'bad', text: String(stuck()) }} title="Waiting for a tool nobody runs" sub="no tool can do them" />
+              </Show>
+              <For each={chief()?.stopped ?? []}>{stop => (
+                <ItemRow pill={{ tone: 'muted', text: String(stop.count) }} title={stop.detail.replace(/^\w/, c => c.toUpperCase())} />
+              )}</For>
+              <Show when={stuck() > 0}>
+                <Note>They cancel themselves after 24 h. Connect the tool, or turn the step off.</Note>
+                <div class="mt-3 flex gap-2">
+                  <Act to="/tenants/$slug/intelligence" params={{ slug: params().slug }} search={{ tab: 'standing' }}>Connect</Act>
+                  <Act to="/tenants/$slug" params={{ slug: params().slug }} search={{ tab: 'profile' }}>Turn off</Act>
                 </div>
               </Show>
             </Show>
-          </Section>
+          </Card>
+        </Split>
 
-          <div class="flex flex-col gap-6">
-            <Section title="Stuck" icon={<SectionIcon name="alert-triangle" />}>
-              <Show when={stuck() > 0 || (chief()?.stopped ?? []).length > 0} fallback={<p class="text-sm text-muted-foreground">Nothing is stuck.</p>}>
-                <div class="flex flex-col gap-2">
-                  <Show when={stuck() > 0}>
-                    <OutcomeRow label="Waiting for a tool nobody runs" result={String(stuck())} resultTone="warn" />
-                  </Show>
-                  <For each={chief()?.stopped ?? []}>{stop => (
-                    <OutcomeRow label={stop.detail.replace(/^\w/, c => c.toUpperCase())} result={String(stop.count)} />
-                  )}</For>
+        <Card title="Finished today" icon={<CircleCheck />} aside={`${finished().reduce((sum, [, n]) => sum + n, 0)} things`} class="mb-3">
+          <Show when={finished().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing finished in the last day.</p>}>
+            <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
+              <For each={finished()}>{([kind, count]) => (
+                <div>
+                  <p class="m-0 text-lg font-medium tabular-nums text-foreground">{count}</p>
+                  <p class="m-0 text-xs text-muted-foreground/70">{ACTION_LABEL[kind] ?? labelOr(DECISION_KIND_LABELS, kind)}</p>
                 </div>
-                <Show when={stuck() > 0}>
-                  <p class="mt-3 text-xs text-muted-foreground">
-                    They cancel themselves after 24 h. Connect the tool, or turn the step off.
-                  </p>
-                  <Link to="/tenants/$slug/intelligence" params={{ slug: params().slug }} search={{ tab: 'standing' }} class="mt-2 inline-block text-xs text-primary hover:underline">
-                    See which tools are missing →
-                  </Link>
-                </Show>
-              </Show>
-            </Section>
-
-            <Section title="Finished, last 24 h" icon={<SectionIcon name="list-checks" />} count={finished().reduce((sum, [, n]) => sum + n, 0)}>
-              <Show when={finished().length > 0} fallback={<p class="text-sm text-muted-foreground">Nothing finished in the last day.</p>}>
-                <div class="flex flex-col gap-2">
-                  <For each={finished()}>{([kind, count]) => (
-                    <OutcomeRow label={ACTION_LABEL[kind] ?? labelOr(DECISION_KIND_LABELS, kind)} result={String(count)} resultTone="good" />
-                  )}</For>
-                </div>
-              </Show>
-            </Section>
-          </div>
-        </div>
+              )}</For>
+            </div>
+          </Show>
+        </Card>
       </Show>
+
+      <WorkAreas
+        label="Processes"
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[{ id: 'relays', label: 'Post relays', count: runs().length || null }]}
+      />
+      <WorkAreaPanel id="relays" active={areas.active()}>
+        <div class="flex flex-col gap-3">
+          <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>
+        </div>
+      </WorkAreaPanel>
     </PageShell>
+  )
+}
+
+/** One relay run as the mockup draws it: the post, then five steps as dots
+ *  — seen, pushed to fans, forums drafted, waiting for you, posted — and a
+ *  Review that opens the full run card with its forum checklist. */
+function RelayRow(props: { run: RelayProcessRun; slug: string }) {
+  const [open, setOpen] = createSignal(false)
+  const run = () => props.run
+  const platform = () => ({ instagram: 'IG', facebook: 'FB' } as Record<string, string>)[run().platform ?? ''] ?? (run().platform ?? 'post')
+  const day = () => (run().occurred_at ? new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(run().occurred_at!)) : '')
+  const dot = (state: 'done' | 'wait' | 'none' | 'bad', text?: string | number) => (
+    <span class={cn('inline-flex size-5 items-center justify-center rounded-full text-xs',
+      state === 'done' ? 'bg-success-foreground/20 text-success-foreground'
+      : state === 'wait' ? 'bg-warning-foreground/20 text-warning-foreground'
+      : state === 'bad' ? 'bg-error-foreground/20 text-error-foreground'
+      : 'border border-border text-muted-foreground')}>{text ?? ''}</span>
+  )
+  const pushed = () => run().push_status === 'succeeded'
+  return (
+    <>
+      <Row>
+        <div class="min-w-0 flex-1">
+          <p class="m-0 truncate text-sm text-foreground">{platform()} · {day()}</p>
+          <p class="m-0 truncate text-xs text-muted-foreground/70">{run().title ?? run().source_url ?? 'a post'}</p>
+        </div>
+        <span class="flex w-44 shrink-0 justify-between">
+          {dot('done', '✓')}
+          {dot(pushed() ? 'done' : run().push_decided ? 'wait' : 'none', pushed() ? '✓' : '')}
+          {dot(run().communities_decided > 0 ? 'done' : 'none', run().communities_decided || '')}
+          {dot(run().awaiting > 0 ? 'wait' : 'none', run().awaiting || '')}
+          {dot(run().failed > 0 ? 'bad' : run().posted > 0 ? 'done' : 'none', run().posted || (run().manual > 0 ? 'hand' : ''))}
+        </span>
+        <span class="w-16 shrink-0 text-right"><Act onClick={() => setOpen(!open())}>{open() ? 'Close' : 'Review'}</Act></span>
+      </Row>
+      <Show when={open()}>
+        <div class="py-2"><RelayRunCard slug={props.slug} run={run()} /></div>
+      </Show>
+    </>
   )
 }

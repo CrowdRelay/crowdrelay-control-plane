@@ -17,9 +17,10 @@ import { StandingApprovalsPanel } from '../components/StandingApprovalsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader, KpiStrip, KpiCard } from '../components/layout'
-import { Button } from '../components/app/button'
-import { operationalTone, operationalLabel } from '../lib/health-tone'
+import { PageShell } from '../components/layout'
+import { Act, Card, DashHeader, IconAct, ItemRow, Note, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { ListChecks } from 'lucide-solid'
+import { operationalLabel } from '../lib/health-tone'
 import type { TenantDeliveryReadModel, TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
@@ -41,7 +42,8 @@ const DELIVERY_SECTION_LABEL: Record<string, string> = {
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
   // The id list makes `?tab=` deep links land on the right tab.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('overview', [...TABS])
+  const areas = useWorkAreas([...TABS])
+  const isVisited = (id: string) => areas.active() === id
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),
@@ -99,60 +101,97 @@ export function TenantHealthPage() {
     return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
   })
 
+  const alerts = () => d()?.attention?.alerts ?? []
+  const delivered = () => {
+    const x = summary()
+    return x ? x.outbox.delivered_24h + x.deliveries.delivered_24h + x.push.delivered_24h : null
+  }
+  const pill = (): { tone: Tone; text: string } | null => {
+    const x = summary()
+    if (!x) return null
+    const crit = x.watchdog.critical_alerts
+    const warn = x.watchdog.active_alerts - crit
+    if (x.worker && !x.worker.alive) return { tone: 'bad', text: 'The worker is down' }
+    if (crit > 0) return { tone: 'bad', text: `${crit} critical · ${warn} ${warn === 1 ? 'warning' : 'warnings'}` }
+    if (warn > 0) return { tone: 'warn', text: `${warn} ${warn === 1 ? 'warning' : 'warnings'} · nothing down` }
+    return { tone: 'good', text: 'All well' }
+  }
+  // Where each alert is cleared — the one page or setting that fixes it.
+  const fixFor = (key: string): { to: string; search?: Record<string, string> } => {
+    if (key.startsWith('approval.')) return { to: '/tenants/$slug/attention' }
+    if (key.startsWith('executor.')) return { to: '/tenants/$slug/intelligence', search: { tab: 'standing' } }
+    if (key.startsWith('publishing.')) return { to: '/tenants/$slug/content' }
+    if (key.startsWith('learning.')) return { to: '/tenants/$slug/intelligence', search: { tab: 'learning' } }
+    return { to: '/tenants/$slug/health', search: { tab: 'overview' } }
+  }
+  const ago = (seconds: number) => (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`)
+
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Health"
-      description="Whether this tenant's machine is well, and how far the autopilot may go on its own."
+      subtitle="Is anything broken, and what to do"
+      pill={pill()}
       actions={
-        <>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refreshAll} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={refreshAll} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
     </Show>
-
     <Show when={!model.error && !model.data}>
       <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
-      <SkeletonSection titleWidth="160px" lines={3} minHeight="160px" />
     </Show>
 
     <Show when={model.data && !model.error}>
-      {/* The answer before the tabs: is it well, is anything stuck, is the
-          autopilot on. The header used to carry one badge for the first. */}
-      <KpiStrip>
-        <KpiCard label="Service health" value={operationalLabel(summary())} tone={operationalTone(summary()) === 'good' ? 'good' : operationalTone(summary()) === 'warn' ? 'warn' : operationalTone(summary()) === 'bad' ? 'bad' : 'default'} sub={summary() ? `p95 ${summary()!.http.p95_ms} ms` : 'no summary yet'} />
-        {/* A section that did not answer is `—`, never a fabricated zero —
-            "0 dead" and "queue didn't say" are different answers. */}
-        <KpiCard label="Dead deliveries" value={summary() ? deadJobs() : '—'} tone={summary() ? (deadJobs() > 0 ? 'bad' : 'good') : 'default'} sub={summary() ? (deadJobs() > 0 ? 'will not retry on their own' : 'every queue is draining') : 'not reported'} />
-        <KpiCard label="Watchdog alerts" value={summary() ? summary()!.watchdog.active_alerts : '—'} tone={summary() ? ((summary()!.watchdog.critical_alerts) > 0 ? 'bad' : (summary()!.watchdog.active_alerts) > 0 ? 'warn' : 'good') : 'default'} sub={summary() ? `${summary()!.watchdog.critical_alerts} critical` : 'not reported'} />
-        <KpiCard label="Autopilot" value={d()?.autopilot ? (d()!.autopilot!.runtime_enabled ? 'on' : 'off') : '—'} tone={d()?.autopilot?.runtime_enabled ? 'good' : 'default'} sub={d()?.autopilot ? `${d()!.autopilot!.queued_actions} queued` : 'not reported'} />
-      </KpiStrip>
+      <Tiles>
+        <Tile label="Services" value={operationalLabel(summary())} sub={summary() ? `API p95 ${summary()!.http.p95_ms} ms · ${summary()!.http.errors_5xx} errors` : 'no summary yet'} />
+        <Tile label="Sent, 24 h" value={delivered()} sub={summary() ? `${deadJobs()} dead` : undefined} valueTone={deadJobs() > 0 ? 'warn' : undefined} />
+        <Tile
+          label="Worker"
+          value={summary()?.worker ? (summary()!.worker!.alive ? 'Alive' : 'Down') : null}
+          valueTone={summary()?.worker && !summary()!.worker!.alive ? 'bad' : undefined}
+          sub={summary()?.worker?.cycle_age_seconds != null ? `last cycle ${ago(summary()!.worker!.cycle_age_seconds!)} ago` : undefined}
+        />
+        <Tile
+          label="Database"
+          value={summary() ? 'Fine' : null}
+          sub={summary() ? `pool ${summary()!.database.pool_idle} of ${summary()!.database.pool_size} idle` : undefined}
+        />
+      </Tiles>
+
+      <Card title="What needs a look" icon={<ListChecks />} class="mb-3">
+        <Show when={alerts().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing needs a look.</p>}>
+          <For each={alerts()}>{alert => (
+            <ItemRow
+              pill={{ tone: alert.severity === 'critical' ? 'bad' : 'warn', text: alert.severity }}
+              title={alert.summary}
+              action={<Act to={fixFor(alert.alert_key).to} params={{ slug: params().slug }} search={fixFor(alert.alert_key).search}>Fix</Act>}
+            />
+          )}</For>
+          <Note>Each Fix opens the one page or setting that clears it. Delivery, policies and switches stay below.</Note>
+        </Show>
+      </Card>
     </Show>
 
     {/* The tabs render regardless of the today model — every tab's content
         answers from its own channel except the two panels that take today's
         summary as a prop, and those gate on it alone. A dead today read
         must not hide a working delivery view. */}
-    <TabBar
-        active={activeTab()}
-        onChange={switchTab}
-        onPrefetch={prefetch}
-        tabs={[
-          { id: 'overview', label: 'Status' },
-          { id: 'delivery', label: 'Delivery' },
-          { id: 'policies', label: 'Policies' },
-          { id: 'runtime', label: 'Switches' },
-        ]}
-      />
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'overview', label: 'Status' },
+        { id: 'delivery', label: 'Delivery' },
+        { id: 'policies', label: 'Policies' },
+        { id: 'runtime', label: 'Switches' },
+      ]}
+    />
 
-      <TabPanel active={activeTab()} id="overview" visited={isVisited('overview')}>
+      <WorkAreaPanel id="overview" active={areas.active()}>
         {/* The tenant-pushed heartbeat first, then what needs a hand, then the
             autopilot's own report. */}
         <TenantRuntimePanel slug={params().slug} />
@@ -165,12 +204,12 @@ export function TenantHealthPage() {
         )}</Show>
         <ChiefOfStaffPanel slug={params().slug} />
         <PlatformAgreementPanel slug={params().slug} />
-      </TabPanel>
+      </WorkAreaPanel>
 
       {/* ── Delivery — the pipe as a journey: drafted → queued → wire →
             landed, with the dead queues leading because they are the ask.
             One read model feeds every row; retries invalidate it. ── */}
-      <TabPanel active={activeTab()} id="delivery" visited={isVisited('delivery')}>
+      <WorkAreaPanel id="delivery" active={areas.active()}>
         <Show when={delivery.error}>
           <SectionFailureCard error={delivery.error} fallback="Delivery channel unavailable" onRetry={() => void delivery.refetch()} />
         </Show>
@@ -187,17 +226,17 @@ export function TenantHealthPage() {
             onRefresh={() => { void delivery.refetch(); void model.refetch() }}
           />
         </>}</Show>
-      </TabPanel>
+      </WorkAreaPanel>
 
-      <TabPanel active={activeTab()} id="policies" visited={isVisited('policies')}>
+      <WorkAreaPanel id="policies" active={areas.active()}>
         <AuthorityPoliciesPanel slug={params().slug} />
         {/* The policies say how much it may do; the standing grants say where
             it never has to ask — same question, so same tab. */}
         <StandingApprovalsPanel slug={params().slug} />
         <BoundsPanel slug={params().slug} />
-      </TabPanel>
+      </WorkAreaPanel>
 
-      <TabPanel active={activeTab()} id="runtime" visited={isVisited('runtime')}>
+      <WorkAreaPanel id="runtime" active={areas.active()}>
         <Show when={model.data}>{data => (
           <RuntimeSwitchesPanel
             slug={params().slug}
@@ -206,6 +245,6 @@ export function TenantHealthPage() {
             canRedeploy={overview.data?.platform?.capabilities?.canRedeploy}
           />
         )}</Show>
-      </TabPanel>
+      </WorkAreaPanel>
   </PageShell>
 }

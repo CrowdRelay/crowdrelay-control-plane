@@ -16,7 +16,8 @@ import { ContactsPanel } from '../components/ContactsPanel'
 import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel'
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { TabBar, TabPanel, useTabPanels, PageShell, PageHeader } from '../components/layout'
+import { PageShell } from '../components/layout'
+import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { Alert } from '../components/app/alert'
 import { Button } from '../components/app/button'
 import { RefreshCw } from 'lucide-solid'
@@ -25,7 +26,6 @@ import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { AudienceFirstScreen } from '../components/AudienceFirstScreen'
-import { StatusBadge } from '../components/StatusBadge'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 // Each read model names its own sections — 'overview' means audience KPIs in
@@ -86,7 +86,9 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('fans', ['fans', 'sources', 'contacts', 'communities', 'portfolio'])
+  const areas = useWorkAreas(['fans', 'sources', 'contacts', 'communities', 'portfolio'])
+  const switchTab = (id: string) => areas.open(id)
+  const isVisited = (id: string) => areas.active() === id
   const model = useQuery(() => ({
     queryKey: ['tenant-audience', params().slug],
     queryFn: () => api.audienceModel(params().slug),
@@ -129,36 +131,28 @@ export function AudiencePage() {
   })
 
   return <PageShell>
-    <PageHeader
+    <DashHeader
       title="Audience"
-      description="Who follows you, and who you can reach."
+      subtitle="Who follows you, and who you can reach"
+      pill={model.data?.signal?.activity
+        ? (model.data.signal.activity.new_fans_7d > 0
+          ? { tone: 'good', text: `+${model.data.signal.activity.new_fans_7d} fans this week` }
+          : { tone: 'warn', text: 'No new fans this week' })
+        : null}
       actions={
-        <>
-          <Show when={model.data?.signal?.activity}>
-            {activity => <StatusBadge
-              status={activity().new_fans_7d > 0 ? `+${activity().new_fans_7d} fans this week` : 'No new fans this week'}
-              tone={activity().new_fans_7d > 0 ? 'good' : 'warn'}
-            />}
-          </Show>
-          <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
-          <Button variant="outline" size="sm" onClick={refreshAll} disabled={refreshing()} aria-label="Refresh">
-            <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
-            Refresh
-          </Button>
-        </>
+        <IconAct onClick={refreshAll} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
+          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
+        </IconAct>
       }
     />
 
-    <Show when={model.data}>{data => <AudienceFirstScreen model={data()} />}</Show>
-    <div class="mt-6" />
+    <Show when={model.data}>{data => <AudienceFirstScreen slug={params().slug} model={data()} />}</Show>
 
-    {/* Tab bar */}
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        { id: 'fans', label: 'Fans' },
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'fans', label: 'Fans', count: model.data?.overview?.active_fans ?? null },
         { id: 'sources', label: 'Sources' },
         { id: 'contacts', label: 'Contacts' },
         { id: 'communities', label: 'Communities' },
@@ -168,7 +162,7 @@ export function AudiencePage() {
 
     {/* ── Fans tab — the funnel (sources → captured → activated →
           retained → converted), then the people and their segments ── */}
-    <TabPanel active={activeTab()} id="fans" visited={isVisited('fans')}>
+    <WorkAreaPanel id="fans" active={areas.active()}>
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="Audience channel unavailable" onRetry={() => void refresh()} />
       </Show>
@@ -203,10 +197,10 @@ export function AudiencePage() {
           <FanMessagesPanel slug={params().slug} />
         </Show>
       </>}</Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
-    <TabPanel active={activeTab()} id="sources" visited={isVisited('sources')}>
+    <WorkAreaPanel id="sources" active={areas.active()}>
       <Show when={portfolio.error}>
         <SectionFailureCard error={portfolio.error} fallback="Fan sources unavailable" onRetry={refreshPortfolio} />
       </Show>
@@ -234,25 +228,25 @@ export function AudiencePage() {
       <Show when={authState.isPlatformLevel()}>
         <RedditCookieUploader slug={params().slug} />
       </Show>
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ── Contacts tab — one directory by kind: booking contacts,
           amplifiers (the beacon roster + funnel), fan channels, and the
           staged imports awaiting review. The old Beacons destination
           redirects here. ── */}
-    <TabPanel active={activeTab()} id="contacts" visited={isVisited('contacts')}>
+    <WorkAreaPanel id="contacts" active={areas.active()}>
       <ContactsPanel slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ── Communities tab — observation layer ── */}
-    <TabPanel active={activeTab()} id="communities" visited={isVisited('communities')}>
+    <WorkAreaPanel id="communities" active={areas.active()}>
       <CommunityIntelligenceContent slug={params().slug} />
-    </TabPanel>
+    </WorkAreaPanel>
 
     {/* ── Label portfolio tab — roster KPIs and consent edges. Settings and
           keys moved to the tenant page: Workspace holds the editors, Access
           holds the secrets. ── */}
-    <TabPanel active={activeTab()} id="portfolio" visited={isVisited('portfolio')}>
+    <WorkAreaPanel id="portfolio" active={areas.active()}>
       <Show when={portfolio.error}>
         <SectionFailureCard error={portfolio.error} fallback="Portfolio channel unavailable" onRetry={refreshPortfolio} />
       </Show>
@@ -271,6 +265,6 @@ export function AudiencePage() {
           />
         </Show>
       </>}</Show>
-    </TabPanel>
+    </WorkAreaPanel>
   </PageShell>
 }

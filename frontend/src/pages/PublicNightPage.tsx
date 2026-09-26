@@ -58,7 +58,7 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
     }))
 
   return (
-    <div class="mx-auto max-w-xl px-5 py-10">
+    <div class="mx-auto max-w-xl px-5 py-10"><div class="rounded-xl border border-border bg-card px-4 py-3.5">
       <Show when={night()} fallback={
         <Show when={failed()} fallback={<p class="text-sm text-muted-foreground">Loading…</p>}>
           <p class="text-sm text-muted-foreground">
@@ -69,7 +69,7 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
         {data => (
           <>
             <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">A shared night</p>
-            <h1 class="mt-1 text-xl font-semibold text-foreground">
+            <h1 class="m-0 mt-1 text-xl font-medium text-foreground">
               {data().venue.display_name} · {data().venue.city_name}
             </h1>
             <p class="mt-0.5 text-sm text-muted-foreground">{nightDate(data().event_date)}</p>
@@ -77,14 +77,14 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
             <Show when={statusBadges(data().status ?? {}).length > 0 || countdown(data().event_date)}>
               <div class="mt-3 flex flex-wrap gap-1.5">
                 <Show when={countdown(data().event_date)}>
-                  {label => <span class="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">{label()}</span>}
+                  {label => <span class="rounded-full bg-info-foreground/15 px-2 py-0.5 text-xs font-medium text-info-foreground">{label()}</span>}
                 </Show>
                 <For each={statusBadges(data().status ?? {})}>
                   {badge => (
                     <span
                       class={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         badge.cancelled
-                          ? 'bg-destructive/15 text-destructive'
+                          ? 'bg-error-foreground/15 text-error-foreground'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
@@ -113,7 +113,7 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
             {/* Sums only — a per-act part cannot appear on this lens because
                 the payload never selects one. Every cell reads as a number
                 or '—'; zero is a number, absent is a fact about consent. */}
-            <div class="mt-5 grid grid-cols-2 gap-3">
+            <div class="mt-5 grid grid-cols-2 gap-2.5">
               <Fact label="People the bill can reach" value={data().combined_reachable?.toLocaleString() ?? '—'} />
               <Fact
                 label="Tickets sold"
@@ -143,7 +143,7 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
           </>
         )}
       </Show>
-    </div>
+    </div></div>
   )
 }
 
@@ -161,9 +161,9 @@ function countdown(isoDate: string): string | null {
 
 function Fact(props: { label: string; value: string }) {
   return (
-    <div class="rounded-lg border border-border bg-background px-3 py-2">
-      <p class="text-xs uppercase tracking-wide text-muted-foreground">{props.label}</p>
-      <p class="mt-0.5 break-words text-lg font-semibold tabular-nums text-foreground">{props.value}</p>
+    <div class="min-w-0 rounded-lg bg-muted/55 px-3.5 py-3">
+      <p class="m-0 text-xs text-muted-foreground">{props.label}</p>
+      <p class="m-0 mt-0.5 break-words text-2xl font-medium tabular-nums text-foreground">{props.value}</p>
     </div>
   )
 }

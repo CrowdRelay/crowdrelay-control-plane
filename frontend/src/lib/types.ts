@@ -92,6 +92,8 @@ export type BillingView = {
 }
 
 export type TenantSummary = Tenant & {
+  /** Enabled notifier channels, as the overview reports them. */
+  enabledNotifierChannels?: number
   runtime: RuntimeStatus | null
   runtimeHealth: RuntimeHealth
   billing: BillingView | null
@@ -213,7 +215,7 @@ export type OperationsSummary = {
   watchdog: { active_alerts: number; critical_alerts: number; last_observed_at: string | null }
   /// Liveness of the process running the brain, the outbox and metric sync.
   /// Optional because a tenant on an older CrowdRelay will not report it.
-  worker?: { lease_age_seconds: number; alive: boolean }
+  worker?: { lease_age_seconds: number; alive: boolean; cycle_age_seconds?: number; crash_looping?: boolean }
   http: { requests: number; errors_4xx: number; errors_5xx: number; average_ms: number; p50_ms: number; p95_ms: number }
   database: DatabaseRuntimeSummary
   area: AreaRuntimeSummary
@@ -788,6 +790,8 @@ export type AutopilotOverview = {
   executor_confirmed_24h: number
   executor_failed_24h: number
   awaiting_executor: number
+  /** Crew members the machine can hand a show task to. */
+  available_assignees?: { member_id: string; display_name: string }[]
   /** Newest-first recent actions — the In motion page tallies what
    *  finished in the last day from these. */
   recent_actions?: { id: string; action_kind: string; status: string; finished_at: string | null; context: string }[]
@@ -1332,7 +1336,7 @@ export type TenantBookingReadModel = {
 // never pays for the funnel. AREA keeps its own endpoints (the workspace
 // owns them), so no places model carries AREA data.
 
-export type TenantPlacesCitiesSection = 'city_funnel' | 'gig_plan'
+export type TenantPlacesCitiesSection = 'city_funnel' | 'gig_plan' | 'rooms_summary' | 'online_summary'
 export type TenantPlacesRoomsSection = 'city_venues'
 export type TenantPlacesOnlineSection = 'audience_places'
 
@@ -1345,6 +1349,18 @@ export type TenantPlacesCitiesModel = {
   city_funnel: CityFunnelRow[] | null
   // The planner's current city picks — proposals, passed-over, track record.
   gig_plan: GigPlanResponse | null
+  /** The page's first screen: counts over the room registry and the online
+   *  places, computed server-side. Absent on an older control plane. */
+  rooms_summary?: {
+    total: number
+    worth_contact: number
+    insufficient_evidence: number
+    not_assessed: number
+    played: number
+    by_city: { city_name: string; city_slug: string; rooms: number }[]
+    last_played: { display_name: string; city_name: string; last_played_at: string; shows_played: number } | null
+  } | null
+  online_summary?: { total: number; by_platform: Record<string, number> } | null
   degraded: TenantPlacesCitiesSection[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap
