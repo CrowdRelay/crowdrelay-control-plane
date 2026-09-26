@@ -1243,6 +1243,8 @@ async fn today(
         attention.as_ref(),
         next_show_timeline.as_ref().map(Result::as_ref),
     )?;
+    let mut projected = projected;
+    inject_today_derived(&mut projected);
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
 }
@@ -2572,6 +2574,212 @@ fn project_today(
         sections.push(section("next_show_timeline", timeline, Shape::Object));
     }
     project_sections(slug, runtime_stale_after_seconds, "today", &sections)
+}
+
+fn nested_i64(value: Option<&Value>, path: &[&str]) -> Option<i64> {
+    let mut cur = value?;
+    for key in path {
+        cur = cur.get(*key)?;
+    }
+    cur.as_i64()
+}
+
+fn nested_bool(value: Option<&Value>, path: &[&str]) -> Option<bool> {
+    let mut cur = value?;
+    for key in path {
+        cur = cur.get(*key)?;
+    }
+    cur.as_bool()
+}
+
+/// Group one wave of same-kind approvals into a single batch row. The Today
+/// page reviews "16 press letters" as one item, not sixteen cards; the row
+/// keeps every action id so the attention surface can still act on them
+/// individually. `key` is `context|action_kind|subject_kind` — the three
+/// fields upstream always fills (`title` is optional and stays out of the
+/// grouping so two waves sharing a kind still merge cleanly).
+fn group_approval_batches(rows: &[Value]) -> Vec<Value> {
+    struct Group<'a> {
+        context: &'a str,
+        action_kind: &'a str,
+        subject_kind: &'a str,
+        title: Option<&'a str>,
+        earliest_expires_at: Option<&'a str>,
+        rows: Vec<&'a Value>,
+    }
+    let mut groups: Vec<Group<'_>> = Vec::new();
+    for row in rows {
+        let context = row.get("context").and_then(Value::as_str).unwrap_or("");
+        let action_kind = row.get("action_kind").and_then(Value::as_str).unwrap_or("");
+        let subject_kind = row
+            .get("subject_kind")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let expires = row.get("approval_expires_at").and_then(Value::as_str);
+        let group = groups.iter_mut().find(|g| {
+            g.context == context && g.action_kind == action_kind && g.subject_kind == subject_kind
+        });
+        match group {
+            Some(g) => {
+                if g.title.is_none() {
+                    g.title = row.get("title").and_then(Value::as_str);
+                }
+                if expires.is_some_and(|e| g.earliest_expires_at.is_none_or(|c| e < c)) {
+                    g.earliest_expires_at = expires;
+                }
+                g.rows.push(row);
+            }
+            None => groups.push(Group {
+                context,
+                action_kind,
+                subject_kind,
+                title: row.get("title").and_then(Value::as_str),
+                earliest_expires_at: expires,
+                rows: vec![row],
+            }),
+        }
+    }
+    // Soonest expiry first; a batch without a deadline sorts last.
+    groups.sort_by(
+        |a, b| match (a.earliest_expires_at, b.earliest_expires_at) {
+            (Some(x), Some(y)) => x.cmp(y),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        },
+    );
+    groups
+        .into_iter()
+        .map(|g| {
+            json!({
+                "key": format!("{}|{}|{}", g.context, g.action_kind, g.subject_kind),
+                "context": g.context,
+                "action_kind": g.action_kind,
+                "subject_kind": g.subject_kind,
+                "title": g.title,
+                "count": g.rows.len(),
+                "action_ids": g.rows.iter().filter_map(|r| r.get("id")).collect::<Vec<_>>(),
+                "earliest_expires_at": g.earliest_expires_at,
+            })
+        })
+        .collect()
+}
+
+/// The "derived" block on the Today read model: facts assembled from the
+/// already-projected sections, so it costs no extra upstream call and no
+/// request latency. Every field reads a projected section, so a degraded
+/// section propagates `null` — a missing number is never a zero.
+/// `sections`/`degraded` stay untouched (the block is assembled, not
+/// fetched); `freshness.derived` records the assemble time.
+fn inject_today_derived(projected: &mut Value) {
+    let Some(map) = projected.as_object_mut() else {
+        return;
+    };
+    let section = |name: &str| map.get(name).filter(|v| !v.is_null());
+    let autopilot = section("autopilot");
+    let summary = section("summary");
+    let attention = section("attention");
+    let reply_triage = section("reply_triage");
+
+    // `not_reported` absent means nothing is withheld — an empty list, not a
+    // missing number, so the unwrap is honest here.
+    let not_reported: Vec<&str> = match attention
+        .and_then(|a| a.get("not_reported"))
+        .and_then(Value::as_array)
+    {
+        Some(arr) => arr.iter().filter_map(Value::as_str).collect(),
+        None => Vec::new(),
+    };
+    let withheld = |field: &str| not_reported.contains(&field);
+
+    // Dead lanes are the "broken" the status pill reports. All three queue
+    // counts must be present or the total is unknown — a partial sum would
+    // look like a real answer.
+    let dead_jobs = match (
+        nested_i64(summary, &["outbox", "dead"]),
+        nested_i64(summary, &["deliveries", "dead"]),
+        nested_i64(summary, &["push", "dead"]),
+    ) {
+        (Some(outbox), Some(deliveries), Some(push)) => Some(outbox + deliveries + push),
+        _ => None,
+    };
+
+    let replies = reply_triage.and_then(|rt| {
+        nested_i64(Some(rt), &["summary", "waiting_on_you_count"]).or_else(|| {
+            rt.get("waiting_on_you")
+                .and_then(Value::as_array)
+                .map(|a| a.len() as i64)
+        })
+    });
+    let approvals = if withheld("awaiting_approval") {
+        None
+    } else {
+        attention.and_then(|a| {
+            a.get("awaiting_approval")
+                .and_then(Value::as_i64)
+                .or_else(|| {
+                    a.get("needs_you")
+                        .and_then(Value::as_array)
+                        .map(|r| r.len() as i64)
+                })
+        })
+    };
+    let drafts = if withheld("unpublished_drafts") {
+        None
+    } else {
+        attention
+            .and_then(|a| a.get("unpublished_drafts"))
+            .and_then(Value::as_array)
+            .and_then(|arr| {
+                let mut total = 0i64;
+                for entry in arr {
+                    match entry.get("drafts").and_then(Value::as_i64) {
+                        Some(count) => total += count,
+                        // A platform that reports no draft count voids the
+                        // total — summing the rest would look like an answer.
+                        None => return None,
+                    }
+                }
+                Some(total)
+            })
+    };
+
+    let approval_batches: Value = if withheld("awaiting_approval") {
+        Value::Null
+    } else {
+        attention
+            .and_then(|a| a.get("needs_you"))
+            .and_then(Value::as_array)
+            .map(|rows| json!(group_approval_batches(rows)))
+            .unwrap_or(Value::Null)
+    };
+
+    map.insert(
+        "derived".to_owned(),
+        json!({
+            "status": {
+                "running": nested_bool(autopilot, &["runtime_enabled"]),
+                "done_24h": nested_i64(autopilot, &["succeeded_24h"]),
+                "failed_24h": nested_i64(autopilot, &["failed_24h"]),
+                "queued": nested_i64(autopilot, &["queued_actions"]),
+                "dead_jobs": dead_jobs,
+                "waiting_on_you": replies,
+            },
+            "approval_batches": approval_batches,
+            "work_area_counts": {
+                "replies": replies,
+                "approvals": approvals,
+                "drafts": drafts,
+            },
+        }),
+    );
+    let observed_at = map.get("fetchedAt").cloned().unwrap_or(Value::Null);
+    if let Some(freshness) = map.get_mut("freshness").and_then(Value::as_object_mut) {
+        freshness.insert(
+            "derived".to_owned(),
+            json!({"observedAt": observed_at, "classification": "assembled"}),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -4893,6 +5101,115 @@ mod tests {
         assert_eq!(
             projected["sections"]["outbox"]["state"],
             json!("contract_mismatch")
+        );
+    }
+
+    #[test]
+    fn today_derived_batches_approvals_and_reports_counts() {
+        let rt = json!({
+            "summary": {"waiting_on_you_count": 23},
+            "waiting_on_you": [],
+        });
+        let sh = json!({"events": []});
+        let att = json!({
+            "needs_you": [
+                {"id": "a1", "context": "outreach", "action_kind": "outreach.request",
+                 "subject_kind": "outreach_opportunity", "title": null,
+                 "approval_expires_at": "2026-09-29T00:00:00Z"},
+                {"id": "a2", "context": "outreach", "action_kind": "outreach.request",
+                 "subject_kind": "outreach_opportunity", "title": null,
+                 "approval_expires_at": "2026-09-28T00:00:00Z"},
+                {"id": "b1", "context": "content", "action_kind": "community.post",
+                 "subject_kind": "community", "title": null,
+                 "approval_expires_at": null}
+            ],
+            "awaiting_approval": 3,
+            "unpublished_drafts": [{"platform": "discord", "drafts": 1}],
+            "not_reported": []
+        });
+        let mut projected = project_today(
+            "virya", 300,
+            ok(&json!({"outbox": {"dead": 0}, "deliveries": {"dead": 2}, "push": {"dead": 0}})),
+            ok(&flags()),
+            ok(&json!({"runtime_enabled": true, "succeeded_24h": 42, "failed_24h": 0, "queued_actions": 8})),
+            ok(&growth()),
+            ok(&opportunities()),
+            ok(&signal()),
+            ok(&audience()),
+            ok(&growth_metrics()),
+            ok(&acquisition_sources()),
+            ok(&rt),
+            ok(&sh),
+            ok(&att),
+            None,
+        )
+        .expect("all sections ok");
+        inject_today_derived(&mut projected);
+
+        let derived = &projected["derived"];
+        let batches = derived["approval_batches"].as_array().expect("batches");
+        assert_eq!(batches.len(), 2, "two distinct waves, not three cards");
+        // Soonest expiry first: the outreach wave's earliest is 09-28.
+        assert_eq!(
+            batches[0]["key"],
+            json!("outreach|outreach.request|outreach_opportunity")
+        );
+        assert_eq!(batches[0]["count"], json!(2));
+        assert_eq!(
+            batches[0]["earliest_expires_at"],
+            json!("2026-09-28T00:00:00Z")
+        );
+        assert_eq!(batches[0]["action_ids"], json!(["a1", "a2"]));
+        assert_eq!(batches[1]["count"], json!(1));
+
+        assert_eq!(derived["status"]["running"], json!(true));
+        assert_eq!(derived["status"]["done_24h"], json!(42));
+        assert_eq!(derived["status"]["queued"], json!(8));
+        assert_eq!(derived["status"]["dead_jobs"], json!(2));
+        assert_eq!(derived["status"]["waiting_on_you"], json!(23));
+        assert_eq!(derived["work_area_counts"]["replies"], json!(23));
+        assert_eq!(derived["work_area_counts"]["approvals"], json!(3));
+        assert_eq!(derived["work_area_counts"]["drafts"], json!(1));
+        assert_eq!(
+            projected["freshness"]["derived"]["classification"],
+            json!("assembled")
+        );
+    }
+
+    #[test]
+    fn today_derived_propagates_nulls_when_sections_degrade() {
+        let error = timeout();
+        let rt = json!({"summary": {}, "needs_human": [], "recent_auto": []});
+        let sh = json!({"events": []});
+        // attention dead → batches and approval counts are null, never [].
+        let mut projected = project_today(
+            "virya",
+            300,
+            Err(&error),
+            ok(&flags()),
+            ok(&autopilot()),
+            ok(&growth()),
+            ok(&opportunities()),
+            ok(&signal()),
+            ok(&audience()),
+            ok(&growth_metrics()),
+            ok(&acquisition_sources()),
+            ok(&rt),
+            ok(&sh),
+            Err(&error),
+            None,
+        )
+        .expect("some sections ok");
+        inject_today_derived(&mut projected);
+
+        let derived = &projected["derived"];
+        assert_eq!(derived["approval_batches"], Value::Null);
+        assert_eq!(derived["work_area_counts"]["approvals"], Value::Null);
+        assert_eq!(derived["work_area_counts"]["drafts"], Value::Null);
+        assert_eq!(
+            derived["status"]["dead_jobs"],
+            Value::Null,
+            "summary is down — the dead total is unknown, not zero"
         );
     }
 }
