@@ -16,6 +16,7 @@ import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
+import { NeedsYouOverview, needsYouStatus } from '../components/NeedsYouOverview'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
@@ -146,6 +147,9 @@ export function TenantAttentionPage() {
   const attention = useQuery(() => ({
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
+    // The first screen reads `today` alone; this snapshot feeds the Inbox and
+    // the platform tabs, so it waits until one of them is opened.
+    enabled: isVisited('inbox') || isVisited('queues') || isVisited('runtime'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 20_000,
@@ -258,7 +262,6 @@ export function TenantAttentionPage() {
 
   const deadCount = () => summary.data ? totalDead(summary.data) : 0
   const findingsCount = () => attention.data?.findings?.length ?? 0
-  const draftCount = () => (attention.data?.unpublished_drafts ?? []).reduce((sum, c) => sum + c.drafts, 0)
   // Editable draft text by action id. The attention snapshot's needs_you
   // summaries carry no `revisable`; the full PendingAutopilotAction rows do,
   // under the same `tenant-today` query the decisions tab already runs.
@@ -269,23 +272,15 @@ export function TenantAttentionPage() {
     }
     return out
   })
-  const activeAlerts = () => summary.data?.watchdog.active_alerts ?? 0
-  const criticalAlerts = () => summary.data?.watchdog.critical_alerts ?? 0
-  const openFindings = () => attention.data?.ecosystem?.open_findings ?? 0
 
   return <PageShell>
     <PageHeader
       title="Needs you"
-      description={authState.isPlatformLevel()
-        ? 'What needs a decision, what is wrong right now, and the checks you can run yourself.'
-        : 'What needs a decision and what is wrong right now.'}
+      description="What waits for your yes, and what happens if you say nothing."
       actions={
         <>
-          <Show when={!summary.error && summary.data} fallback={<StatusBadge status={summary.error ? 'unavailable' : 'loading'} tone={summary.error ? 'bad' : 'muted'} />}>
-            {data => <StatusBadge
-              status={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? (authState.isPlatformLevel() ? 'attention required' : 'needs you') : data().watchdog.active_alerts > 0 ? 'watch' : 'healthy'}
-              tone={totalDead(data()) > 0 || data().watchdog.critical_alerts > 0 || staleAreaReservations(data()) > 0 ? 'bad' : data().watchdog.active_alerts > 0 ? 'warn' : 'good'}
-            />}
+          <Show when={needsYouStatus(operations.data)}>
+            {pill => <StatusBadge status={pill().text} tone={pill().tone} />}
           </Show>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <Button variant="outline" size="sm" onClick={() => void refreshMaintenance()} disabled={refreshing()} aria-label="Refresh">
@@ -300,22 +295,25 @@ export function TenantAttentionPage() {
         is a queue on one of the tabs below. The header used to carry one
         badge summarising all of them as healthy, watch or attention required,
         and the counts were only visible after opening the right tab. */}
-    <Show when={!attention.error && !attention.data}>
-      <SkeletonKpiStrip count={4} />
+    <Show when={operations.error}>
+      <SectionFailureCard error={operations.error} fallback="What needs you" onRetry={() => void operations.refetch()} />
     </Show>
-    <Show when={attention.data}>
-      <KpiStrip>
-        <KpiCard label="Decisions" value={decideCount()} tone={decideCount() > 0 ? 'warn' : 'good'} sub={decideCount() > 0 ? 'waiting for you' : 'nothing to decide'} />
-        <KpiCard label="Open alerts" value={activeAlerts()} tone={criticalAlerts() > 0 ? 'bad' : activeAlerts() > 0 ? 'warn' : 'good'}
-          sub={criticalAlerts() > 0 ? `${criticalAlerts()} critical` : 'checked every 5 minutes'} />
-        <KpiCard label="Drafts to publish" value={draftCount()} tone={draftCount() > 0 ? 'warn' : 'default'} sub={draftCount() > 0 ? 'written, not posted' : 'everything is posted'} />
-        <Show when={authState.isPlatformLevel()}>
-          <KpiCard label="Dead deliveries" value={deadCount()} tone={deadCount() > 0 ? 'bad' : 'good'} sub={deadCount() > 0 ? 'will not retry on their own' : 'everything is moving'} />
-          <KpiCard label="Open findings" value={openFindings()} tone={openFindings() > 0 ? 'warn' : 'default'} sub="console and tenant disagree" />
-        </Show>
-      </KpiStrip>
+    <Show when={!operations.error && !operations.data}>
+      <SkeletonKpiStrip count={4} />
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
+    </Show>
+    <Show when={operations.data}>
+      {data => (
+        <NeedsYouOverview
+          slug={params().slug}
+          model={data()}
+          onOpenDecisions={() => switchTab('decisions')}
+          refresh={() => void operations.refetch()}
+        />
+      )}
     </Show>
 
+    <div class="mt-6" />
     <TabBar
       active={activeTab()}
       onChange={switchTab}
