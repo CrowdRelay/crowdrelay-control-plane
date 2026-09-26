@@ -33,6 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
   media_patronage: 'Media patronage',
   endorsement: 'Endorsement',
   creator: 'Creator',
+  organiser: 'Organiser',
   promoter: 'Promoter',
   venue: 'Venue',
   festival: 'Festival',

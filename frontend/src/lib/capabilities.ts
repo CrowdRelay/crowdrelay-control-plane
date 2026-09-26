@@ -248,7 +248,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       {
         label: 'Add or update a target', method: 'POST', path: 'autopilot/outreach-targets',
         fields: [
-          { name: 'target_kind', label: 'Kind', kind: 'select', required: true, options: ['playlist', 'radio', 'press', 'creator', 'support_slot', 'endorsement', 'media_patronage', 'agent', 'label'] },
+          { name: 'target_kind', label: 'Kind', kind: 'select', required: true, options: ['playlist', 'radio', 'press', 'creator', 'support_slot', 'endorsement', 'media_patronage', 'organiser', 'agent', 'label'] },
           { name: 'display_name', label: 'Name', kind: 'text', required: true },
           { name: 'contact_email', label: 'Email', kind: 'text', required: true },
           { name: 'priority', label: 'Priority', kind: 'number', required: true, initial: 50 },
