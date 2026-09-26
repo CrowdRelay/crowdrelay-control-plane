@@ -6,7 +6,7 @@ import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { CONTENT_TABS } from '../lib/nav'
-import { errorMessage, relativeTime } from '../lib/format'
+import { errorMessage, relativeTime, timestampMillis } from '../lib/format'
 import { cn } from '../lib/cn'
 import { StatusBadge } from '../components/StatusBadge'
 import { Spinner } from '../components/Spinner'
@@ -79,6 +79,10 @@ const contentExcerpt = (content: Record<string, unknown>): string | undefined =>
   return undefined
 }
 
+/** Channels as stored carry their own "r/" and the list added another one:
+ *  "r/r/melodicdeathmetal". Show the subreddit once. */
+const channelName = (channel: string) => channel.replace(/^r\/r\//, 'r/')
+
 const fmtDate = (iso: string) => {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -130,27 +134,65 @@ export function TenantContentPage() {
   const revisionFor = (action: PendingAutopilotAction) =>
     action.revisable ? changedFields(action.revisable, edits()[action.id] ?? {}) : undefined
 
-  const pipeline = useQuery(() => ({
-    queryKey: ['content-pipeline', params().slug],
-    queryFn: () => api.contentPipeline(params().slug),
+  // One read for the page: the drafting pipeline and what went out.
+  const model = useQuery(() => ({
+    queryKey: ['content-model', params().slug],
+    queryFn: () => api.contentModel(params().slug),
     refetchOnWindowFocus: false,
     staleTime: 10_000,
   }))
-
-  const results = useQuery(() => ({
-    queryKey: ['delivery-results', params().slug],
-    queryFn: () => api.deliveryResults(params().slug, 25),
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
-  }))
+  // The two sections under the names the page was written against.
+  const pipeline = {
+    get data() { return model.data?.pipeline ?? undefined },
+    get error() { return model.error ?? (model.data && !model.data.pipeline ? new Error('The approval list could not be read') : null) },
+    get isFetching() { return model.isFetching },
+    get dataUpdatedAt() { return model.dataUpdatedAt },
+    refetch: () => model.refetch(),
+  }
+  const results = {
+    get data() { return model.data?.delivery_results?.results ?? undefined },
+    get error() { return model.error ?? (model.data && !model.data.delivery_results ? new Error('What went out could not be read') : null) },
+    get isFetching() { return model.isFetching },
+    get dataUpdatedAt() { return model.dataUpdatedAt },
+    refetch: () => model.refetch(),
+  }
 
   const pending = () => pipeline.data?.pending ?? []
-  const published = () => (results.data ?? []).filter(r => r.status === 'posted' || r.status === 'published' || r.status === 'delivered').length
+  // What waits for a person to publish by hand — the band's to-do, first.
+  const ready = () => (results.data ?? []).filter(r => r.status === 'awaiting_manual_post' || r.status === 'draft')
+  const weekAgo = Date.now() - 7 * 86_400_000
+  const wentOutWeek = () => (results.data ?? []).filter(r =>
+    ['posted', 'published', 'delivered'].includes(r.status) && timestampMillis(r.posted_at ?? r.created_at) >= weekAgo)
+  const failed = () => (results.data ?? []).filter(r => r.status === 'failed')
+  const readyForums = () => ready().filter(r => r.kind === 'community_post').length
+  // A push lands once per fan, so the ledger lists one row per fan. The
+  // page counts pushes: same kind, same text, same day is one push.
+  const wentOutGroups = createMemo(() => {
+    const groups = new Map<string, { row: DeliveryResult; count: number }>()
+    for (const row of (results.data ?? []).filter(r => !['awaiting_manual_post', 'draft'].includes(r.status))) {
+      const day = (row.posted_at ?? row.created_at).slice(0, 10)
+      const key = row.kind === 'signal_push' ? `${row.kind}|${contentExcerpt(row.content) ?? ''}|${day}|${row.status}` : row.id
+      const group = groups.get(key)
+      if (group) group.count += 1
+      else groups.set(key, { row, count: 1 })
+    }
+    return [...groups.values()]
+  })
+  const pushFans = () => wentOutWeek().filter(r => r.kind === 'signal_push').length
+  const pushGroups = () => wentOutGroups().filter(g => g.row.kind === 'signal_push' && ['posted', 'published', 'delivered'].includes(g.row.status) && timestampMillis(g.row.posted_at ?? g.row.created_at) >= weekAgo).length
+  const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
+    if (!model.data) return null
+    if (ready().length > 0) return { tone: 'warn', text: `${ready().length} ${ready().length === 1 ? 'post' : 'posts'} ready for you to publish` }
+    if (pending().length > 0) return { tone: 'warn', text: `${pending().length} ${pending().length === 1 ? 'draft waits' : 'drafts wait'} for your yes` }
+    if (failed().length > 0) return { tone: 'bad', text: `${failed().length} didn't land` }
+    return { tone: 'good', text: 'Nothing waits on you' }
+  }
+  const [showLinks, setShowLinks] = createSignal(window.location.hash.includes('link'))
   const sourceTitle = (id: unknown) =>
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 
   const refreshing = () => pipeline.isFetching || results.isFetching
-  const refresh = () => refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug], ['tenant-delivery', params().slug])
+  const refresh = () => refreshQueries(['content-model', params().slug], ['tenant-delivery', params().slug])
 
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
@@ -177,7 +219,7 @@ export function TenantContentPage() {
       await api.approveOpportunityAction(params().slug, action.id, revision ? { revision } : undefined)
       setConfirming(null)
       if (revision) toast.success('Approved with your edits')
-      refreshQueries(['content-pipeline', params().slug], ['delivery-results', params().slug], ['tenant-delivery', params().slug])
+      refreshQueries(['content-model', params().slug], ['tenant-delivery', params().slug])
     } catch (err) {
       // A 409's problem body is a sentence for a person — on the item,
       // where the refusal belongs.
@@ -193,7 +235,7 @@ export function TenantContentPage() {
     try {
       await api.cancelOpportunityAction(params().slug, action.id)
       setConfirming(null)
-      refreshQueries(['content-pipeline', params().slug])
+      refreshQueries(['content-model', params().slug])
     } catch (err) {
       setItemError(action.id, errorMessage(err, 'Could not reject it. Try again.'))
     } finally {
@@ -204,14 +246,10 @@ export function TenantContentPage() {
   return <PageShell>
     <PageHeader
       title="Content"
-      description="Real material goes in, the brain drafts, a person says yes, and it goes out. The material itself lives under Real material."
+      description="What is ready to post, and what went out."
       actions={
         <>
-          <Show when={pipeline.data}>
-            <Show when={pipeline.data!.runtime_enabled}>
-              <StatusBadge status={authState.isPlatformLevel() ? 'autopilot on' : 'drafting on its own'} tone="good" />
-            </Show>
-          </Show>
+          <Show when={status()}>{pill => <StatusBadge status={pill().text} tone={pill().tone} />}</Show>
           <Show when={updated()}><span class="text-sm text-muted-foreground">Updated {updated()}</span></Show>
           <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing()} aria-label="Refresh">
             <RefreshCw class={cn(refreshing() && 'animate-spin')} aria-hidden="true" />
@@ -240,15 +278,60 @@ export function TenantContentPage() {
     {/* The pipeline as three figures on the shared rail. These were three
         boxed cards joined by arrows, over a three-line explainer; the
         header now carries the one sentence that explainer needed. */}
-    <Show when={pipeline.data || results.data} fallback={<SkeletonKpiStrip count={3} />}>
+    <Show when={model.data} fallback={<SkeletonKpiStrip count={4} />}>
       <KpiStrip>
-        <KpiCard label="Material in" value={pipeline.data?.live_sources ?? '—'} sub={pipeline.data == null ? 'not reported' : pipeline.data.live_sources === 1 ? 'live piece' : 'live pieces'} />
-        <KpiCard label="Waiting for your yes" value={pipeline.data ? pending().length : '—'} tone={pending().length > 0 ? 'warn' : 'default'} sub={pipeline.data == null ? 'not reported' : pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
-        <KpiCard label="Went out" value={results.data ? published() : '—'} tone={published() > 0 ? 'good' : 'default'} sub={results.data == null ? 'not reported' : published() === 1 ? 'post published' : 'posts published'} />
-        <Show when={pipeline.data}>
-          <KpiCard label="Drafting" value={pipeline.data!.runtime_enabled ? 'on' : 'off'} tone={pipeline.data!.runtime_enabled ? 'good' : 'default'} sub={pipeline.data!.runtime_enabled ? (authState.isPlatformLevel() ? 'autopilot proposes drafts' : 'drafts on its own') : 'nothing is drafted'} />
-        </Show>
+        <KpiCard
+          label="Ready to post"
+          value={results.data ? ready().length : '—'}
+          sub={results.data ? `${readyForums()} forums · ${ready().length - readyForums()} social` : undefined}
+          tone={ready().length > 0 ? 'warn' : undefined}
+        />
+        <KpiCard label="Waiting for your yes" value={pipeline.data ? pending().length : '—'} tone={pending().length > 0 ? 'warn' : undefined} sub={pipeline.data == null ? 'not reported' : pending().length === 1 ? 'draft to approve' : 'drafts to approve'} />
+        <KpiCard
+          label="Went out, 7 days"
+          value={results.data ? wentOutWeek().length - pushFans() + pushGroups() : '—'}
+          sub={results.data ? `${pushGroups()} fan pushes · ${wentOutWeek().filter(r => r.kind !== 'signal_push').length} posts` : undefined}
+          tone="good"
+        />
+        <KpiCard label="Didn't land" value={results.data ? failed().length : '—'} tone={failed().length > 0 ? 'bad' : undefined} sub={results.data == null ? 'not reported' : failed().length > 0 ? 'failed to publish' : 'nothing failed'} />
       </KpiStrip>
+    </Show>
+
+    <Show when={ready().length > 0}>
+      <Section
+        flush
+        lead
+        title="Ready to post"
+        icon={<SectionIcon name="megaphone" />}
+        count={ready().length}
+        description="Written and waiting for you to publish by hand. Copy it, post it, then mark it posted — measurement picks it up from there."
+      >
+        <div class="grid gap-3 md:grid-cols-2">
+          <For each={ready()}>{(r: DeliveryResult) => (
+            <div class="flex flex-col gap-2 rounded-lg border border-border p-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' ')}</Badge>
+                <span class="text-sm font-medium text-foreground">{channelName(r.channel)}</span>
+              </div>
+              <Show when={contentExcerpt(r.content)}>
+                {text => <p class="whitespace-pre-line text-sm text-foreground">{text()}</p>}
+              </Show>
+              <div class="flex flex-wrap items-center gap-2">
+                <Show when={contentExcerpt(r.content)}>
+                  {text => <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(text()); toast.success('Copied') }}>Copy</Button>}
+                </Show>
+                <Show when={r.url}><a class="text-xs text-primary hover:underline" href={r.url!} target="_blank" rel="noreferrer">Open</a></Show>
+              </div>
+              <Show when={r.kind === 'social_post'}>
+                <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
+              </Show>
+              <Show when={r.kind === 'telegram_post' || r.kind === 'discord_post'}>
+                <ManualMessageRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
+              </Show>
+            </div>
+          )}</For>
+        </div>
+      </Section>
     </Show>
 
     {/* Voice signal — how much fixing the drafts still need. Distance should
@@ -275,8 +358,6 @@ export function TenantContentPage() {
 
     {/* ── Waiting for your yes ── */}
     <Section
-      flush
-      lead
       title="Waiting for your yes"
       icon={<SectionIcon name="bell" />}
       count={pending().length}
@@ -360,26 +441,26 @@ export function TenantContentPage() {
     <Section
       title="Went out"
       icon={<SectionIcon name="megaphone" />}
-      count={results.data?.length}
-      description="What the approved pieces became: where they landed and whether they published."
+      count={wentOutGroups().length}
+      description="What the approved pieces became: where they landed and whether they published. A push to many fans is one row."
     >
       <Show when={!results.error && !results.data}>
         <SkeletonRows count={3} />
       </Show>
       <Show when={results.data}>
-        <Show when={results.data!.length > 0} fallback={
+        <Show when={wentOutGroups().length > 0} fallback={
           <EmptyState label="Nothing has gone out yet" hint="Approve a draft above and the published post lands here." />
         }>
           <ul class="divide-y divide-border rounded-lg border border-border">
-            <For each={results.data!}>{(r: DeliveryResult) => {
+            <For each={wentOutGroups()}>{({ row: r, count }) => {
               const badge = statusBadge(r.status)
               const excerpt = contentExcerpt(r.content)
               return (
                 <li class="p-3">
                   <div class="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{KIND_LABEL[r.kind] ?? r.kind.replace(/_/g, ' ')}</Badge>
-                    <Show when={r.channel}><span class="text-xs font-medium text-foreground">{r.channel}</span></Show>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    <Show when={r.channel}><span class="text-xs font-medium text-foreground">{channelName(r.channel)}</span></Show>
+                    <Badge variant={badge.variant}>{badge.label}{r.kind === 'signal_push' ? ` · ${count} ${count === 1 ? 'fan' : 'fans'}` : ''}</Badge>
                   </div>
                   <Show when={excerpt}>
                     <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{excerpt}</p>
@@ -393,12 +474,6 @@ export function TenantContentPage() {
                     <Show when={r.score != null}> · score {r.score}</Show>
                     <Show when={r.num_comments != null}> · {r.num_comments} comments</Show>
                   </div>
-                  <Show when={r.kind === 'social_post' && r.status === 'awaiting_manual_post'}>
-                    <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void results.refetch()} />
-                  </Show>
-                  <Show when={(r.kind === 'telegram_post' || r.kind === 'discord_post') && r.status === 'awaiting_manual_post'}>
-                    <ManualMessageRegister slug={params().slug} post={r} onDone={() => void results.refetch()} />
-                  </Show>
                 </li>
               )
             }}</For>
@@ -406,7 +481,13 @@ export function TenantContentPage() {
         </Show>
       </Show>
     </Section>
-    <TrackedLinksPanel slug={params().slug} />
+    <Section title="Tracked links" icon={<SectionIcon name="link" />} description="Links that count who clicked through to tickets and releases.">
+      <Show when={showLinks()} fallback={
+        <Button variant="outline" size="sm" onClick={() => setShowLinks(true)}>Open tracked links</Button>
+      }>
+        <TrackedLinksPanel slug={params().slug} />
+      </Show>
+    </Section>
   </PageShell>
 }
 

@@ -152,6 +152,7 @@ pub fn router() -> Router<AppState> {
         .route("/tenants/{slug}/delivery", get(delivery))
         .route("/tenants/{slug}/proof", get(proof))
         .route("/tenants/{slug}/in-motion/model", get(in_motion))
+        .route("/tenants/{slug}/content/model", get(content))
         .route("/tenants/{slug}/portfolio/model", get(portfolio))
         .route("/tenants/{slug}/audience/model", get(audience))
         .route(
@@ -2431,6 +2432,70 @@ fn in_motion_sections<'a>(
         section("relays", relays, Shape::Object),
         section("autopilot", autopilot, Shape::Object),
         section("intelligence", intelligence, Shape::Object),
+    ]
+}
+
+/// Content — "what is ready to post, and what went out?" in one read: the
+/// drafting pipeline (drafts waiting for a yes, live material, the voice
+/// trend) and the recent delivery results (what landed, what waits for a
+/// manual post, what failed). Two sections concurrently.
+async fn content(
+    State(state): State<AppState>,
+    Path(raw_slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let slug = validation::slug(&raw_slug)?;
+    let cache_key = format!("{slug}:content");
+    if let Some(cached) = cache_get(&state.read_model_cache, &cache_key).await {
+        return Ok(no_store(cached));
+    }
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let fetch = |path: &'static str| {
+        let state = &state;
+        let target = &target;
+        let tenant_id = tenant.tenant.id;
+        let correlation_id = correlation(&headers);
+        async move {
+            state
+                .area_client
+                .request_management(
+                    tenant_id,
+                    target,
+                    ManagementRequest {
+                        method: "GET",
+                        path,
+                        body: None,
+                        correlation_id,
+                        idempotency_key: None,
+                    },
+                )
+                .await
+        }
+    };
+    let (pipeline, results) = tokio::join!(
+        fetch("/v1/control-plane/content/pipeline"),
+        // Fifty covers a busy week: pushes land once per fan, so twenty-five
+        // rows were a handful of posts.
+        fetch("/v1/control-plane/ops/delivery-results?limit=50"),
+    );
+    let projected = project_sections(
+        &slug,
+        state.runtime_stale_after_seconds,
+        "content",
+        &content_sections(pipeline.as_ref(), results.as_ref()),
+    )?;
+    cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
+    Ok(no_store(projected))
+}
+
+/// The section table the content handler projects.
+fn content_sections<'a>(
+    pipeline: SectionResult<'a>,
+    results: SectionResult<'a>,
+) -> [Section<'a>; 2] {
+    [
+        section("pipeline", pipeline, Shape::Object),
+        section("delivery_results", results, Shape::Object),
     ]
 }
 
@@ -5171,6 +5236,22 @@ mod tests {
         assert_eq!(projected["autopilot"], autopilot);
         assert_eq!(projected["intelligence"], Value::Null);
         assert_eq!(projected["degraded"], json!(["intelligence"]));
+    }
+
+    #[test]
+    fn content_keeps_the_drafts_when_the_results_are_down() {
+        let pipeline = json!({"pending": [], "live_sources": 65});
+        let error = unreachable();
+        let projected = project_sections(
+            "virya",
+            300,
+            "content",
+            &content_sections(ok(&pipeline), Err(&error)),
+        )
+        .expect("one dead section still projects the rest");
+        assert_eq!(projected["pipeline"], pipeline);
+        assert_eq!(projected["delivery_results"], Value::Null);
+        assert_eq!(projected["degraded"], json!(["delivery_results"]));
     }
 
     #[test]
