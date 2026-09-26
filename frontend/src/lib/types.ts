@@ -2819,6 +2819,18 @@ export type TenantShow = {
   /** `draft` is a show on the books but not announced — the list keeps it
    *  visible so it never reads as live by accident. */
   status: 'draft' | 'published' | 'cancelled' | 'completed'
+  /** Added with the Shows remaster; absent on an older CrowdRelay. */
+  city?: string | null
+  /** The registry room a mark ties the night to — preferred over `venue`,
+   *  which has carried tour names and titles. */
+  room?: string | null
+  capacity?: number | null
+  /** Null when the night has no active ticket sale — unmeasured, not zero. */
+  tickets_sold?: number | null
+  tickets_7d?: number | null
+  interested?: number
+  /** Door QR campaigns on record; 0 means the room was never measured. */
+  door_campaigns?: number
 }
 
 export type TenantShowsResponse = {
@@ -2894,6 +2906,10 @@ export type TenantShowTimelineResponse = {
     /** The shared night this event resolved to, when the venue registry
      *  linked it — the key the "Shared night" block calls back with (4V.6b). */
     place_event_id?: string | null
+    /** The catalogue city's name; absent on an older CrowdRelay. */
+    city?: string | null
+    /** Fans who asked to be told about this night. */
+    interested?: number
     /** What the night knows about the room — beacon-campaign records keyed
      *  to this event. Empty when there is no relationship on file. */
     venue_knowledge?: Array<{

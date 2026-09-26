@@ -1,10 +1,14 @@
-import { For, Show, createSignal, type JSX } from 'solid-js'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse } from '../lib/types'
+import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse, TenantShowPageModel } from '../lib/types'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
-import { PageShell, PageHeader } from '../components/layout'
+import { PageShell, PageHeader, KpiCard, KpiStrip, Section, TabBar, TabPanel, useTabPanels } from '../components/layout'
+import { SectionIcon } from '../components/SectionIcon'
+import { StatusBadge } from '../components/StatusBadge'
+import { StepChecklist, WorkList, WorkRow } from '../components/work'
+import { cn } from '../lib/cn'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { Badge } from '../components/app/badge'
@@ -81,19 +85,255 @@ export function TenantShowPage() {
           </Show>
         </>
       }>
-        {data => (
-          <>
-            <PageHeader
-              eyebrow="SHOW"
-              title={data().timeline.event.title}
-              description={`${formatTimestamp(data().timeline.event.starts_at)}${data().timeline.event.venue ? ` · ${data().timeline.event.venue}` : ''}${data().timeline.event.venue_address ? ` · ${data().timeline.event.venue_address}` : ''}`}
-            />
+        {data => {
+          const event = () => data().timeline.event
+          const steps = () => data().timeline.steps
+          const step = (key: string) => steps().find(s => s.key === key)
+          const pace = () => (step('sales_pace')?.detail ?? {}) as { paid_tickets?: number | null; paid_tickets_last_7d?: number | null; capacity?: number | null }
+          const notified = () => (step('nearby_fans')?.detail as { notified?: number } | undefined)?.notified
+          const room = () => event().venue && event().venue !== event().title ? event().venue : null
+          const status = createMemo((): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } => {
+            if (event().status === 'draft') return { tone: 'warn', text: 'Booked, not announced' }
+            const due = steps().find(s => s.state === 'due')
+            if (due) return { tone: 'warn', text: `${plainStep(due)} is due` }
+            if (Date.parse(event().starts_at) < Date.now()) return { tone: 'muted', text: 'Played' }
+            return { tone: 'good', text: 'On track' }
+          })
+          return (
+            <>
+              <PageHeader
+                eyebrow="SHOW"
+                title={[event().city, shortDate(event().starts_at)].filter(Boolean).join(' · ') || event().title}
+                description={[event().title, room(), event().venue_address].filter(Boolean).join(' · ')}
+                actions={
+                  <>
+                    <StatusBadge status={status().text} tone={status().tone} />
+                    <Link to="/tenants/$slug/shows/$eventSlug/scan" params={{ slug: params().slug, eventSlug: params().eventSlug }} class="rounded-md border border-border px-2.5 py-1 text-xs text-foreground hover:bg-card">Door QR</Link>
+                    <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: params().slug, eventSlug: params().eventSlug }} class="rounded-md border border-border px-2.5 py-1 text-xs text-foreground hover:bg-card">Report</Link>
+                  </>
+                }
+              />
+
+              <StageStepper steps={steps()} />
+
+              <KpiStrip>
+                <KpiCard
+                  label="Tickets"
+                  value={pace().paid_tickets == null ? '—' : pace().paid_tickets!.toLocaleString()}
+                  sub={pace().capacity != null ? `of ${pace().capacity} · ${pace().paid_tickets_last_7d ?? 0} this week` : `${pace().paid_tickets_last_7d ?? 0} this week`}
+                />
+                <KpiCard label="Interested" value={event().interested == null ? '—' : event().interested!.toLocaleString()} sub="asked to be told" />
+                <KpiCard label="Fans nearby told" value={notified() == null ? '—' : notified()!.toLocaleString()} sub={event().city ? `near ${event().city}` : 'within their radius'} />
+                <KpiCard label="Days left" value={daysLeft(event().starts_at)} sub={longDate(event().starts_at)} />
+              </KpiStrip>
+
+              <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+                <Section title="What is left" icon={<SectionIcon name="list-checks" />} description="Due first, then what the bill still owes the night.">
+                  <Show when={leftToDo(steps()).length > 0} fallback={<p class="text-sm text-muted-foreground">Nothing is waiting on you for this night.</p>}>
+                    <WorkList>
+                      <For each={leftToDo(steps())}>{item => (
+                        <WorkRow
+                          badge={<Badge variant={item.due ? 'warning' : 'muted'}>{item.due ? 'due' : item.when ?? 'next'}</Badge>}
+                          title={item.title}
+                          why={item.why}
+                          action={item.action ? <StepAction action={item.action} slug={params().slug} eventSlug={params().eventSlug} /> : undefined}
+                        />
+                      )}</For>
+                    </WorkList>
+                  </Show>
+                </Section>
+                <Section title="Promotion" icon={<SectionIcon name="megaphone" />}>
+                  <StepChecklist steps={steps().map(s => ({ key: s.key, label: plainStep(s), state: s.state, note: stepDate(s.anchor, event().starts_at) ?? undefined }))} />
+                </Section>
+              </div>
+
+              <ShowWorkAreas data={data()} slug={params().slug} eventSlug={params().eventSlug} />
+            </>
+          )
+        }}
+      </Show>
+    </PageShell>
+  )
+}
+
+/** The five stages a band thinks in, over the timeline's ten steps. */
+const STAGES: { label: string; keys: string[] }[] = [
+  { label: 'Booked', keys: ['booked'] },
+  { label: 'Announced', keys: ['announced'] },
+  { label: 'Promote', keys: ['sales_pace', 'bands_posting', 'nearby_fans'] },
+  { label: 'Show day', keys: ['capture_plan', 'the_scan'] },
+  { label: 'After', keys: ['recall', 'harvest', 'the_numbers'] },
+]
+
+/** The step names as a band member says them. Unknown keys keep the API's label. */
+const STEP_LABEL: Record<string, string> = {
+  booked: 'Booked',
+  announced: 'Announce it',
+  sales_pace: 'Sales pace',
+  bands_posting: 'The bill posts about it',
+  nearby_fans: 'Tell nearby fans',
+  capture_plan: 'Plan the door',
+  the_scan: 'Door scan',
+  recall: 'Thank-you to the room',
+  harvest: 'Collect photos and clips',
+  the_numbers: 'The report',
+}
+const plainStep = (s: ShowTimelineStep) => STEP_LABEL[s.key] ?? s.label
+
+/** One line on why a step matters, for the rows in "What is left". */
+const STEP_WHY: Record<string, string> = {
+  announced: 'Until it is announced, no fan can be told about the night',
+  sales_pace: 'The brain queued a move to sell more tickets — it waits for your yes',
+  nearby_fans: 'Fans within their radius hear about the night',
+  capture_plan: 'Who holds the door QR, and where it hangs',
+  the_numbers: 'The report the promoter and the band receive',
+}
+
+const ASK_LABEL: Record<string, string> = {
+  listing_sweep: 'Post the listing sweep',
+  announce_ask: 'Ask the bill to post',
+  post_show_ask: 'Ask the bill to post after the night',
+}
+
+const shortDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(iso))
+const longDate = (iso: string) =>
+  new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(iso))
+const daysLeft = (iso: string) => {
+  const days = Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000)
+  return days < 0 ? 'played' : days === 0 ? 'today' : String(days)
+}
+
+/** "T-21" / "T+7" / "before T-21" as a calendar date relative to the night. */
+function stepDate(anchor: string, startsAt: string): string | null {
+  const match = anchor.match(/T([+-])(\d+)/)
+  if (!match) return null
+  const days = Number(match[2]) * (match[1] === '-' ? -1 : 1)
+  const date = new Date(Date.parse(startsAt) + days * 86_400_000)
+  return `${anchor.startsWith('before') ? 'by ' : ''}${shortDate(date.toISOString())}`
+}
+
+type LeftItem = { title: string; why?: string; due: boolean; when?: string; action?: { kind: string; label: string } }
+
+/** Due and active steps first, then the bill's open asks as their own rows —
+ *  the steps say "Bands posting · 3 open", the band needs "Post the listing
+ *  sweep · due today". */
+function leftToDo(steps: ShowTimelineStep[]): LeftItem[] {
+  const out: LeftItem[] = []
+  // Only actions with a console door get a button; the rest are chores the
+  // row's title already names.
+  const linkable = (action: { kind: string } | null) =>
+    action && ['qr', 'report', 'approve', 'review'].includes(action.kind) ? action : undefined
+  for (const s of steps.filter(s => s.state === 'due')) {
+    out.push({ title: s.action?.label ?? plainStep(s), why: STEP_WHY[s.key], due: true, action: linkable(s.action) as LeftItem['action'] })
+  }
+  const posting = steps.find(s => s.key === 'bands_posting')
+  const asks = ((posting?.detail?.open_asks ?? []) as { kind: string; due_at: string | null }[])
+  for (const ask of asks) {
+    const due = ask.due_at != null && Date.parse(ask.due_at) <= Date.now() + 86_400_000
+    out.push({ title: ASK_LABEL[ask.kind] ?? ask.kind.replaceAll('_', ' '), why: 'The bill posts about the night', due, when: ask.due_at ? shortDate(ask.due_at) : undefined })
+  }
+  for (const s of steps.filter(s => s.state === 'active' && s.key !== 'bands_posting')) {
+    out.push({ title: s.action?.label ?? plainStep(s), why: STEP_WHY[s.key] ?? plainStep(s), due: false, when: 'now', action: linkable(s.action) as LeftItem['action'] })
+  }
+  return out.sort((a, b) => Number(b.due) - Number(a.due))
+}
+
+function StageStepper(props: { steps: ShowTimelineStep[] }) {
+  const stageState = (keys: string[]) => {
+    const states = props.steps.filter(s => keys.includes(s.key)).map(s => s.state)
+    if (states.length === 0) return 'waiting'
+    if (states.includes('due')) return 'due'
+    if (states.every(s => s === 'done' || s === 'skipped')) return 'done'
+    if (states.some(s => s === 'active' || s === 'done')) return 'active'
+    return 'waiting'
+  }
+  return (
+    <ol class="mb-5 grid grid-cols-5 gap-1">
+      <For each={STAGES}>{stage => {
+        const state = () => stageState(stage.keys)
+        return (
+          <li class={cn('border-t-4 pt-1.5 text-center text-xs',
+            state() === 'done' ? 'border-success-foreground text-foreground'
+            : state() === 'due' ? 'border-warning-foreground font-medium text-foreground'
+            : state() === 'active' ? 'border-primary font-medium text-foreground'
+            : 'border-border text-muted-foreground')}>
+            {stage.label}{state() === 'due' ? ' · behind' : ''}
+          </li>
+        )
+      }}</For>
+    </ol>
+  )
+}
+
+/** Everything below the first screen, as work areas. Each tab mounts — and
+ *  fetches, for tickets and the door — only when opened. */
+function ShowWorkAreas(props: { data: TenantShowPageModel; slug: string; eventSlug: string }) {
+  const tabs = useTabPanels('timeline', ['timeline', 'setup', 'sales', 'door', 'ladder', 'helpers', 'money'])
+  const data = () => props.data
+  return (
+    <div class="mt-6">
+      <TabBar
+        tabs={[
+          { id: 'timeline', label: 'Every step' },
+          { id: 'setup', label: 'Set up the night' },
+          { id: 'sales', label: 'Tickets and merch' },
+          { id: 'door', label: 'At the door' },
+          { id: 'ladder', label: 'Promotion ladder' },
+          { id: 'helpers', label: 'Who can help' },
+          { id: 'money', label: 'Money' },
+        ]}
+        active={tabs.activeTab()}
+        onChange={tabs.switchTab}
+        onPrefetch={tabs.prefetch}
+      />
+      <TabPanel active={tabs.activeTab()} id="timeline" visited={tabs.isVisited('timeline')}>
+        <div class="flex flex-col gap-2">
+          <For each={data().timeline.steps}>{s => <StepRow step={s} slug={props.slug} eventSlug={props.eventSlug} />}</For>
+        </div>
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="setup" visited={tabs.isVisited('setup')}>
+        <NightFacts data={data()} slug={props.slug} />
+        <ShowSetupPanel slug={props.slug} eventSlug={props.eventSlug} timeline={data().timeline} />
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="sales" visited={tabs.isVisited('sales')}>
+        <ShowSalesPanel slug={props.slug} eventSlug={props.eventSlug} eventId={data().timeline.event.id} />
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="door" visited={tabs.isVisited('door')}>
+        <ShowDoorPanel slug={props.slug} eventSlug={props.eventSlug} />
+        <ShowChecklistPanel slug={props.slug} eventSlug={props.eventSlug} />
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="ladder" visited={tabs.isVisited('ladder')}>
+        <ShowGrowthLadderPanel slug={props.slug} eventId={data().timeline.event.id} ladder={data().growth_ladder} />
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="helpers" visited={tabs.isVisited('helpers')}>
+        <ShowHelpersPanel slug={props.slug} eventSlug={props.eventSlug} helpers={data().helpers} />
+      </TabPanel>
+      <TabPanel active={tabs.activeTab()} id="money" visited={tabs.isVisited('money')}>
+        <ShowEconomicsPanel
+          slug={props.slug}
+          eventSlug={props.eventSlug}
+          eventId={data().timeline.event.id}
+          played={Date.parse(data().timeline.event.starts_at) <= Date.now()}
+          economics={data().economics}
+          tour={data().tour_economics}
+        />
+      </TabPanel>
+    </div>
+  )
+}
+
+/** What the night is: the room as we know it, who plays, and the shared
+ *  night at this room on this date. */
+function NightFacts(props: { data: TenantShowPageModel; slug: string }) {
+  return (
+    <>
             {/* Venue knowledge lives on the show: what the room is to us —
                 the relationship record, not a lookup. */}
-            <Show when={(data().timeline.event.venue_knowledge ?? []).length > 0}>
+            <Show when={(props.data.timeline.event.venue_knowledge ?? []).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The room</p>
-                <For each={data().timeline.event.venue_knowledge ?? []}>
+                <For each={props.data.timeline.event.venue_knowledge ?? []}>
                   {v => (
                     <div class="mt-1 text-xs text-muted-foreground">
                       <span class="text-foreground">{v.name}</span>
@@ -111,10 +351,10 @@ export function TenantShowPage() {
             {/* The lineup — who else plays, in running order, with each
                 act's own ticket link. Read-side view of the bill the setup
                 panel edits (4V.5b). */}
-            <Show when={lineupActs(data().timeline).length > 0}>
+            <Show when={lineupActs(props.data.timeline).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
                 <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who's playing</p>
-                <For each={lineupActs(data().timeline)}>
+                <For each={lineupActs(props.data.timeline)}>
                   {(act, index) => (
                     <div class="mt-1 flex items-baseline gap-2 text-xs text-muted-foreground">
                       <span class="w-4 shrink-0 text-right tabular-nums">{index() + 1}.</span>
@@ -140,43 +380,12 @@ export function TenantShowPage() {
                 date. Renders only when the venue registry resolved a link;
                 the block's own lens is the tenant workspace's, derived
                 upstream (4V.6b). */}
-            <Show when={data().timeline.event.place_event_id}>
+            <Show when={props.data.timeline.event.place_event_id}>
               {placeEventId => (
-                <SharedNightPanel slug={params().slug} placeEventId={placeEventId()} night={data().shared_night ?? null} />
+                <SharedNightPanel slug={props.slug} placeEventId={placeEventId()} night={props.data.shared_night ?? null} />
               )}
             </Show>
-            <ShowSetupPanel slug={params().slug} eventSlug={params().eventSlug} timeline={data().timeline} />
-            {/* The money — predicted vs settled cost and where the estimate
-                was wrong. Renders nothing until a fee opens the ledger. */}
-            <ShowEconomicsPanel
-              slug={params().slug}
-              eventSlug={params().eventSlug}
-              eventId={data().timeline.event.id}
-              played={Date.parse(data().timeline.event.starts_at) <= Date.now()}
-              economics={data().economics}
-              tour={data().tour_economics}
-            />
-            {/* Tickets and merch — the sale and the merch table, read from
-                the sale itself. */}
-            <ShowSalesPanel slug={params().slug} eventSlug={params().eventSlug} eventId={data().timeline.event.id} />
-            {/* At the door — the QR code and the prize draw that turn the
-                room into reachable fans. */}
-            <ShowDoorPanel slug={params().slug} eventSlug={params().eventSlug} />
-            <ShowChecklistPanel slug={params().slug} eventSlug={params().eventSlug} />
-            {/* P.4 — the approve-once growth ladder: one yes covers the whole
-                T-21→T+7 sequence, each rung still gated on its own evidence. */}
-            <ShowGrowthLadderPanel slug={params().slug} eventId={data().timeline.event.id} ladder={data().growth_ladder} />
-            {/* §4h-11 — who could help with this show: the staging queue
-                read against a date rather than as an inventory. Candidates,
-                never instructions — no row carries a contact address. */}
-            <ShowHelpersPanel slug={params().slug} eventSlug={params().eventSlug} helpers={data().helpers} />
-            <div class="flex flex-col gap-2">
-              <For each={data().timeline.steps}>{s => <StepRow step={s} slug={params().slug} eventSlug={params().eventSlug} />}</For>
-            </div>
-          </>
-        )}
-      </Show>
-    </PageShell>
+    </>
   )
 }
 
