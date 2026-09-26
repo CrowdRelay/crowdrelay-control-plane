@@ -425,6 +425,11 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ disposition, occurred_at: occurredAt }),
   }),
+  requestBookingAgentReplyDraft: (slug: string, agentId: string) => request<{ action_id: string; status: string }>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/${encodeURIComponent(agentId)}/reply-draft`, {
+    method: 'POST',
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    body: '{}',
+  }),
   cancelOpportunityAction: (slug: string, actionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/cancel`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },

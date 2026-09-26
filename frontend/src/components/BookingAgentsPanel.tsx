@@ -22,8 +22,9 @@ import { toast } from './app/toast'
 // door stands. The contact address never reaches the control plane: "Ask to
 // approach" only queues a season letter, which still lands on the board as an
 // awaiting-approval action — no letter leaves unattended. "File a reply"
-// records what the agent answered; `declined` closes the season's door and
-// `do_not_contact` is the wall every contact path honours.
+// records what the agent answered; "Answer…" queues the drafted reply for
+// the same board — `declined` closes the season's door and `do_not_contact`
+// is the wall every contact path honours.
 
 const DISPOSITIONS: Array<{ value: string; label: string }> = [
   { value: 'received', label: 'They replied' },
@@ -107,13 +108,15 @@ export function BookingAgentsPanel(props: { slug: string }) {
   }
   const pickedAgents = () => orderedAgents().filter(agent => wavePicks().has(agent.agent_id))
 
-  // An open door outranks a closed one — the agent you could write to today
-  // sits above the one who declined this season — and a screenful renders,
-  // not every agency the registry knows.
+  // A reply waiting on you outranks every door state — it is the only row
+  // asking for an answer today — then an open door outranks a closed one,
+  // and a screenful renders, not every agency the registry knows.
   const orderedAgents = () =>
     [...(agents.data?.agents ?? [])].sort((a, b) => {
       const rank = { good: 0, warn: 1, muted: 2, bad: 3 } as const
-      return rank[doorTone(a)] - rank[doorTone(b)] || a.name.localeCompare(b.name)
+      const priority = (agent: BookingAgent) =>
+        agent.awaiting_reply && !agent.reply_pending ? -1 : rank[doorTone(agent)]
+      return priority(a) - priority(b) || a.name.localeCompare(b.name)
     })
   const showMore = useShowMore(orderedAgents, 15)
 
@@ -228,6 +231,24 @@ export function BookingAgentsPanel(props: { slug: string }) {
       await invalidate()
     } catch (error) {
       setWaveError(errorMessage(error, 'Could not queue the wave'))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  // The reply lane's draft ask — upstream finds the unanswered reply,
+  // composes the scaffold and parks it on the board; approving there sends
+  // the words, same as the season letter.
+  const requestAnswer = async (agent: BookingAgent) => {
+    if (pending() !== null) return
+    setPending(agent.agent_id)
+    try {
+      await api.requestBookingAgentReplyDraft(props.slug, agent.agent_id)
+      toast.success('Answer drafted — it is on the board for approval.')
+      invalidateParked()
+      await invalidate()
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not draft the answer'))
     } finally {
       setPending(null)
     }
@@ -355,6 +376,12 @@ export function BookingAgentsPanel(props: { slug: string }) {
                       <Show when={agent.route_verified}>
                         <br /><span class="text-xs text-muted-foreground">route verified</span>
                       </Show>
+                      <Show when={agent.reply_pending}>
+                        <br /><Badge variant="warning">answer on the board</Badge>
+                      </Show>
+                      <Show when={agent.awaiting_reply && !agent.reply_pending}>
+                        <br /><Badge variant="warning">they answered — waiting on you</Badge>
+                      </Show>
                     </TableCell>
                     <TableCell>
                       <div class="flex flex-wrap gap-1.5 justify-end">
@@ -367,6 +394,17 @@ export function BookingAgentsPanel(props: { slug: string }) {
                             onClick={() => openGuide(agent)}
                           >
                             Approach…
+                          </Button>
+                        </Show>
+                        <Show when={agent.awaiting_reply && !agent.reply_pending}>
+                          <Button
+                            writes
+                            variant="ghost"
+                            size="sm"
+                            disabled={pending() !== null}
+                            onClick={() => void requestAnswer(agent)}
+                          >
+                            {pending() === agent.agent_id ? 'Drafting…' : 'Answer…'}
                           </Button>
                         </Show>
                         <Show when={agent.approached_at || agent.approach_pending}>

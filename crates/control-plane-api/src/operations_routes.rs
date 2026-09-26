@@ -360,6 +360,13 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/booking-agents/{agent_id}/reply",
             post(record_booking_agent_reply),
         )
+        // The other half of the reply lane: the band asks to answer the
+        // agent's filed reply — upstream composes the draft and queues the
+        // approval card.
+        .route(
+            "/tenants/{slug}/operations/booking-agents/{agent_id}/reply-draft",
+            post(request_booking_agent_reply_draft),
+        )
         // Audience attestations — the proof cards. Issue measures the
         // tenant's own ledgers upstream; these routes are transport only.
         .route(
@@ -2410,6 +2417,47 @@ async fn record_booking_agent_reply(
     let result = result?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     object_no_store(result, "booking agent reply")
+}
+
+/// No body — the band's ask to answer the agent's filed reply. Upstream
+/// finds the unanswered inbound interaction, composes the scaffold and
+/// queues the awaiting-approval card; a retried click is the same ask.
+async fn request_booking_agent_reply_draft(
+    State(state): State<AppState>,
+    Path((slug, agent_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let agent_id = uuid_segment(&agent_id)?.to_owned();
+    let idempotency = idempotency_key(&headers)?.to_owned();
+    let (tenant, target) = crate::area_routes::target(&state, &slug).await?;
+    let result = state
+        .area_client
+        .request_management(
+            tenant.tenant.id,
+            &target,
+            ManagementRequest {
+                method: "POST",
+                path: &format!("/v1/control-plane/booking-agents/{agent_id}/reply-draft"),
+                body: None,
+                correlation_id: correlation(&headers),
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await;
+    audit_result(
+        &state,
+        tenant.tenant.id,
+        "tenant.booking_agent.reply_draft_requested",
+        "booking_agent",
+        &agent_id,
+        &headers,
+        &result,
+        None,
+    )
+    .await;
+    let result = result?;
+    crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
+    object_no_store(result, "booking agent reply draft")
 }
 
 /// The tenant's issued audience attestations, newest first — the list an
