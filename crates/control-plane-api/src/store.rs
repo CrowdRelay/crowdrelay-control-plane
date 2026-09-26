@@ -1773,6 +1773,7 @@ impl Store {
         // a 60-second heartbeat re-firing on a flat backlog would train the
         // channel to be ignored. Draining to any lower value re-arms the
         // edge, so the next ask that lands still reaches somebody.
+        Self::raise_outreach_alerts(&mut tx, tenant.tenant.id, &input).await?;
         let current_awaiting = runtime.awaiting_approval.unwrap_or(0);
         if current_awaiting > previous_awaiting {
             Self::enqueue_event_tx(
@@ -2559,6 +2560,91 @@ impl Store {
         .await?;
         if result.rows_affected() == 0 {
             return Err(ApiError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// The heartbeat's outreach gauges, notified on a rise against the last
+    /// reported value: the Reddit breaker going from open (or unknown) to
+    /// halted, and a rise in replies waiting or in lanes that made no fan.
+    /// A gauge the report leaves null keeps its last value and raises
+    /// nothing — an unobserved condition is not a change.
+    async fn raise_outreach_alerts(
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: Uuid,
+        input: &RuntimeReportRequest,
+    ) -> Result<(), ApiError> {
+        if input.reddit_halted.is_none()
+            && input.replies_waiting.is_none()
+            && input.cut_candidate_lanes.is_none()
+        {
+            return Ok(());
+        }
+        let previous = sqlx::query_as::<_, (Option<bool>, Option<i64>, Option<i64>)>(
+            r#"SELECT reddit_halted, replies_waiting, cut_candidate_lanes
+               FROM control_plane_outreach_alert_state
+               WHERE tenant_id = $1
+               FOR UPDATE"#,
+        )
+        .bind(tenant_id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .unwrap_or((None, None, None));
+        sqlx::query(
+            r#"INSERT INTO control_plane_outreach_alert_state
+               (tenant_id, reddit_halted, replies_waiting, cut_candidate_lanes, updated_at)
+               VALUES ($1, $2, $3, $4, now())
+               ON CONFLICT (tenant_id) DO UPDATE SET
+                 reddit_halted = COALESCE(EXCLUDED.reddit_halted, control_plane_outreach_alert_state.reddit_halted),
+                 replies_waiting = COALESCE(EXCLUDED.replies_waiting, control_plane_outreach_alert_state.replies_waiting),
+                 cut_candidate_lanes = COALESCE(EXCLUDED.cut_candidate_lanes, control_plane_outreach_alert_state.cut_candidate_lanes),
+                 updated_at = now()"#,
+        )
+        .bind(tenant_id)
+        .bind(input.reddit_halted)
+        .bind(input.replies_waiting)
+        .bind(input.cut_candidate_lanes)
+        .execute(&mut **tx)
+        .await?;
+
+        if input.reddit_halted == Some(true) && previous.0 != Some(true) {
+            Self::enqueue_event_tx(
+                tx,
+                tenant_id,
+                "outreach.reddit_halted",
+                &json!({"event": "outreach.reddit_halted", "redditHalted": true}),
+            )
+            .await?;
+        }
+        if let Some(waiting) = input.replies_waiting
+            && waiting > previous.1.unwrap_or(0)
+        {
+            Self::enqueue_event_tx(
+                tx,
+                tenant_id,
+                "outreach.replies_waiting",
+                &json!({
+                    "event": "outreach.replies_waiting",
+                    "repliesWaiting": waiting,
+                    "previousRepliesWaiting": previous.1.unwrap_or(0),
+                }),
+            )
+            .await?;
+        }
+        if let Some(lanes) = input.cut_candidate_lanes
+            && lanes > previous.2.unwrap_or(0)
+        {
+            Self::enqueue_event_tx(
+                tx,
+                tenant_id,
+                "outreach.lanes_cut",
+                &json!({
+                    "event": "outreach.lanes_cut",
+                    "cutCandidateLanes": lanes,
+                    "previousCutCandidateLanes": previous.2.unwrap_or(0),
+                }),
+            )
+            .await?;
         }
         Ok(())
     }

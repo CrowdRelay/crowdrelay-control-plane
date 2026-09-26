@@ -401,6 +401,16 @@ pub struct RuntimeReportRequest {
     /// CrowdRelay that predates the gauge; absent is not zero — an unmeasured
     /// report must not freeze a guarantee baseline.
     pub north_star_fans: Option<i64>,
+    /// Unattended Reddit posting halted by the account's standing. Absent on
+    /// a CrowdRelay that predates the gauge.
+    #[serde(default)]
+    pub reddit_halted: Option<bool>,
+    /// Drafted replies to commenters waiting on a person for over 12 hours.
+    #[serde(default)]
+    pub replies_waiting: Option<i64>,
+    /// Lanes with enough resolved outcomes and no fan in 60 days.
+    #[serde(default)]
+    pub cut_candidate_lanes: Option<i64>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
 }
 

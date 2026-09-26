@@ -1618,6 +1618,9 @@ export const NOTIFIER_EVENTS = [
   'runtime.stale',
   'runtime.recovered',
   'approvals.pending',
+  'outreach.reddit_halted',
+  'outreach.replies_waiting',
+  'outreach.lanes_cut',
 ] as const
 export type NotifierEvent = (typeof NOTIFIER_EVENTS)[number]
 // Human-readable labels for each event — the dotted internals read as
@@ -1629,6 +1632,9 @@ export const NOTIFIER_EVENT_LABELS: Record<NotifierEvent, string> = {
   'runtime.stale': 'Runtime stale',
   'runtime.recovered': 'Runtime recovered',
   'approvals.pending': 'Approvals waiting',
+  'outreach.reddit_halted': 'Reddit posting halted',
+  'outreach.replies_waiting': 'Replies waiting over 12h',
+  'outreach.lanes_cut': 'Lanes with no fans',
 }
 
 export type DiscoveredEndpoint = {

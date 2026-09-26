@@ -99,6 +99,8 @@ pub(crate) const SURFACE: &[Surface] = &[
     // The goal scoreboard: planned vs actual, learning, approvals, the
     // lanes that produced no fans, and the Reddit account's standing.
     read("ops/goal"),
+    // Which of the band's own posts held attention, against its medians.
+    read("content/hooks"),
     read("ops/connections"),
     read("ops/action-states"),
     read("ecosystem/overview"),

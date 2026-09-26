@@ -71,6 +71,12 @@ pub const NOTIFIER_EVENTS: &[&str] = &[
     // `awaitingApproval` depth grows — the channel that replaces the n8n
     // approval poller that failed silently for days.
     "approvals.pending",
+    // Outreach conditions carried by the heartbeat, raised on a rise: the
+    // Reddit breaker halting unattended posting, replies to commenters
+    // waiting over 12 hours, and lanes that produced no fan in 60 days.
+    "outreach.reddit_halted",
+    "outreach.replies_waiting",
+    "outreach.lanes_cut",
 ];
 
 /// Brain growth goals. Mirrors
@@ -765,6 +771,8 @@ pub fn runtime_report(input: &RuntimeReportRequest) -> Result<(), ApiError> {
         || input.queue_lag.is_some_and(|value| value < 0)
         || input.awaiting_approval.is_some_and(|value| value < 0)
         || input.north_star_fans.is_some_and(|value| value < 0)
+        || input.replies_waiting.is_some_and(|value| value < 0)
+        || input.cut_candidate_lanes.is_some_and(|value| value < 0)
     {
         return Err(ApiError::InvalidInput(
             "runtime counters cannot be negative".to_owned(),
@@ -1008,6 +1016,9 @@ mod tests {
             queue_lag: Some(0),
             awaiting_approval: Some(0),
             north_star_fans: Some(0),
+            reddit_halted: None,
+            replies_waiting: Some(0),
+            cut_candidate_lanes: Some(0),
             last_heartbeat_at: Some(Utc::now()),
         };
         assert!(runtime_report(&bad).is_err());
