@@ -2510,6 +2510,10 @@ export type AudienceReadModel = {
   overview: AudienceOverview | null
   fans: FanCard[] | null
   segments: AudienceSegment[] | null
+  /** The first screen's reads — absent on an older control plane. */
+  growth_metrics?: GrowthMetricTrendsResponse | null
+  acquisition_sources?: AcquisitionSources | null
+  signal?: SignalOverview | null
   degraded: string[]
   sections: SectionVerdicts
   freshness: SectionFreshnessMap

@@ -1695,7 +1695,7 @@ async fn audience(
         }
     };
 
-    let (overview, fans, segments) = tokio::join!(
+    let (overview, fans, segments, growth_metrics, acquisition_sources, signal) = tokio::join!(
         section("/v1/control-plane/audience/overview"),
         // Upstream caps list responses at MAX_LIST_LIMIT (100). A tenant with
         // more fans than that gets the first hundred only — the panel labels
@@ -1703,6 +1703,12 @@ async fn audience(
         // complete when it is not.
         section("/v1/control-plane/audience/fans?limit=100"),
         section("/v1/control-plane/audience/segments"),
+        // The page's first screen: followers per platform (the latest point
+        // of each growth series), where fans arrived from, and the
+        // new-fan and interest activity — the same three reads Today uses.
+        section("/v1/control-plane/autopilot/growth-metrics/trends"),
+        section("/v1/control-plane/audience/acquisition-sources"),
+        section("/v1/control-plane/ops/signal-overview"),
     );
 
     let projected = project_audience(
@@ -1711,6 +1717,9 @@ async fn audience(
         overview.as_ref(),
         fans.as_ref(),
         segments.as_ref(),
+        growth_metrics.as_ref(),
+        acquisition_sources.as_ref(),
+        signal.as_ref(),
     )?;
     cache_set(&state.read_model_cache, cache_key, projected.clone()).await;
     Ok(no_store(projected))
@@ -2574,12 +2583,17 @@ fn project_show(
     project_sections(slug, runtime_stale_after_seconds, "show", &sections)
 }
 
+/// One argument per upstream read, like `project_show`.
+#[allow(clippy::too_many_arguments)]
 fn project_audience(
     slug: &str,
     runtime_stale_after_seconds: i64,
     overview: SectionResult<'_>,
     fans: SectionResult<'_>,
     segments: SectionResult<'_>,
+    growth_metrics: SectionResult<'_>,
+    acquisition_sources: SectionResult<'_>,
+    signal: SectionResult<'_>,
 ) -> Result<Value, ApiError> {
     project_sections(
         slug,
@@ -2589,6 +2603,9 @@ fn project_audience(
             section("overview", overview, Shape::Object),
             section("fans", fans, Shape::Array),
             section("segments", segments, Shape::Array),
+            section("growth_metrics", growth_metrics, Shape::Object),
+            section("acquisition_sources", acquisition_sources, Shape::Object),
+            section("signal", signal, Shape::Object),
         ],
     )
 }
@@ -3600,13 +3617,30 @@ mod tests {
     #[test]
     fn audience_projects_a_complete_snapshot() {
         let (o, f, s) = (audience_overview(), audience_fans(), audience_segments());
-        let projected = project_audience("virya", 300, ok(&o), ok(&f), ok(&s))
-            .expect("complete snapshot projects");
+        let (g, a, sig) = (
+            json!({"series": []}),
+            json!({"sources": []}),
+            json!({"activity": {}}),
+        );
+        let projected = project_audience(
+            "virya",
+            300,
+            ok(&o),
+            ok(&f),
+            ok(&s),
+            ok(&g),
+            ok(&a),
+            ok(&sig),
+        )
+        .expect("complete snapshot projects");
 
         assert_eq!(projected["id"], json!("virya"));
         assert_eq!(projected["overview"], audience_overview());
         assert_eq!(projected["fans"], audience_fans());
         assert_eq!(projected["segments"], audience_segments());
+        assert_eq!(projected["growth_metrics"], g);
+        assert_eq!(projected["acquisition_sources"], a);
+        assert_eq!(projected["signal"], sig);
         assert_eq!(projected["degraded"], json!([]));
     }
 
@@ -3614,20 +3648,47 @@ mod tests {
     fn audience_degrades_one_section_without_blanking_the_rest() {
         let o = audience_overview();
         let e = unreachable();
-        let projected = project_audience("virya", 300, ok(&o), Err(&e), Err(&e))
-            .expect("a partial snapshot is still usable");
+        let projected = project_audience(
+            "virya",
+            300,
+            ok(&o),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+        )
+        .expect("a partial snapshot is still usable");
 
         assert_eq!(projected["overview"], audience_overview());
         assert_eq!(projected["fans"], Value::Null);
         assert_eq!(projected["segments"], Value::Null);
-        assert_eq!(projected["degraded"], json!(["fans", "segments"]));
+        assert_eq!(
+            projected["degraded"],
+            json!([
+                "fans",
+                "segments",
+                "growth_metrics",
+                "acquisition_sources",
+                "signal"
+            ])
+        );
     }
 
     #[test]
     fn audience_with_no_usable_section_is_an_error() {
         let e = unreachable();
-        let error = project_audience("virya", 300, Err(&e), Err(&e), Err(&e))
-            .expect_err("a fully failed snapshot must not render as an empty page");
+        let error = project_audience(
+            "virya",
+            300,
+            Err(&e),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+            Err(&e),
+        )
+        .expect_err("a fully failed snapshot must not render as an empty page");
         assert!(matches!(error, ApiError::AllSectionsFailed { .. }));
     }
 
