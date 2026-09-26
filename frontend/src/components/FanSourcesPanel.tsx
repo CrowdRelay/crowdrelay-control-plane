@@ -143,6 +143,10 @@ const PLATFORMS: PlatformSpec[] = [
     value: 'gmail', label: 'Gmail', icon: 'gmail', provides: 'Contacts from your mailbox headers — same deduplicated Contacts review queue as Drive',
     authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gmail/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
   },
+  {
+    value: 'youtube_account', label: 'YouTube (replies)', icon: 'youtube', provides: 'Lets approved answers to comments on your videos be posted from your channel — reading comments needs no grant',
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/youtube_account/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
+  },
 ]
 
 const EMPTY_INGEST = ''
