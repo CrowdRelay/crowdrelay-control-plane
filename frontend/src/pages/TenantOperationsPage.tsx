@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
-import { Activity, Bot, ChartLine, Inbox, MapPin, RefreshCw, Send, Target, Ticket, Users } from 'lucide-solid'
+import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp, formatIsoAge, formatIsoUntil, relativeTime } from '../lib/format'
@@ -18,7 +18,7 @@ import { OutreachWavesPanel } from '../components/OutreachWavesPanel'
 import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { SkeletonSection } from '../components/Skeleton'
-import { BarList, DeltaBadge, Donut, Legend, Ring, StackBar, Widget, type Segment } from '../components/charts'
+import { BarList, DeltaBadge, Donut, Legend, Ring, Widget, type Segment } from '../components/charts'
 import { PageShell, PageHeader, Section, SkeletonBlock, TabBar, TabPanel, useTabPanels } from '../components/layout'
 import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
@@ -95,7 +95,6 @@ export function TenantOperationsPage() {
   const refresh = () => void model.refetch()
 
   const d = (): TenantTodayReadModel | undefined => model.error ? undefined : model.data
-  const growth = () => d()?.growth
   const autopilot = () => d()?.autopilot
   const summary = () => d()?.summary
   const deadJobs = () => {
@@ -117,13 +116,6 @@ export function TenantOperationsPage() {
   // Whether the autopilot is *working*, not merely switched on. Failures
   // outnumbering successes is bad; some failures is a warning; dispatched
   // and never confirmed is bad however few failures were reported.
-  const autopilotTone = (): 'good' | 'warn' | 'bad' | undefined => {
-    const a = autopilot()
-    if (!a) return undefined
-    if (a.awaiting_executor > 0 && a.executor_confirmed_24h === 0) return 'bad'
-    if (a.failed_24h === 0) return a.awaiting_executor > 0 ? 'warn' : a.succeeded_24h > 0 ? 'good' : undefined
-    return a.failed_24h >= a.succeeded_24h ? 'bad' : 'warn'
-  }
 
   // Worth doing this week — the upstream next-best-action queue, already
   // ranked. Only what still needs a person: approvals awaiting a yes and
@@ -137,8 +129,6 @@ export function TenantOperationsPage() {
   )
   // needs_you can be absent on older tenants — optional-chain the field
   // itself, not just the section (same guard as brain-cycle.ts / Shell).
-  const needsYouCount = () => autopilot()?.needs_you?.length ?? 0
-  const awaitingApproval = () => d()?.opportunities?.filter(o => o.authority === 'awaiting_approval').length ?? 0
 
   // "The change this month" has two honest readings already in the
   // composite: arrivals (`new_fans_30d`, rolling) and the net population
@@ -188,43 +178,8 @@ export function TenantOperationsPage() {
       .slice(0, 3)
   })
 
-  // ── Widget data ──────────────────────────────────────────────────────
   // A section named in `degraded` never answered — its count is absent, not
-  // zero. The waiting widget reads `autopilot` and `opportunities`, so when
-  // either is degraded the total is unknown and "nothing to decide" is a lie.
-  const waitingDegraded = () => {
-    const deg = d()?.degraded ?? []
-    return deg.includes('autopilot') || deg.includes('opportunities')
-  }
-  const waitingTotal = () => needsYouCount() + awaitingApproval()
-  const waitingSegments = (): Segment[] => [
-    { key: 'needs-you', label: authState.isPlatformLevel() ? 'Autopilot approvals' : 'Approvals', value: needsYouCount(), class: 'bg-chart-1' },
-    { key: 'opportunities', label: 'Opportunities to approve', value: awaitingApproval(), class: 'bg-chart-4' },
-  ]
-  const queues = () => {
-    const s = summary()
-    return s
-      ? [
-          { label: 'Outbox', summary: s.outbox },
-          { label: 'Deliveries', summary: s.deliveries },
-          { label: 'Push', summary: s.push },
-        ]
-      : []
-  }
-  const deliveredShare = () => {
-    const t = growth()?.totals
-    if (!t) return null
-    const all = t.delivered + t.pending + t.failed
-    return all === 0 ? null : t.delivered / all
-  }
-  const autopilotSegments = (): Segment[] => {
-    const a = autopilot()
-    return [
-      { key: 'succeeded', label: 'Succeeded · 24h', value: a?.succeeded_24h ?? 0, class: 'bg-success-foreground' },
-      { key: 'awaiting', label: authState.isPlatformLevel() ? 'Waiting on a worker' : 'Waiting to run', value: a?.awaiting_executor ?? 0, class: 'bg-chart-4' },
-      { key: 'failed', label: 'Failed · 24h', value: a?.failed_24h ?? 0, class: 'bg-error-foreground' },
-    ]
-  }
+  // zero; the sections below degrade on their own rather than lying.
   const reachShare = () => {
     const a = d()?.audience
     return a && a.active_fans > 0 ? a.marketing_consented_fans / a.active_fans : null
@@ -330,115 +285,79 @@ export function TenantOperationsPage() {
           <strong>{sectionLabel(section)}</strong> couldn't be checked right now — the rest of the page keeps working and it recovers on the next poll.
         </Alert>
       )}</For>
-      {/* Four widgets: is anything mine, is anything broken, is work going
-          out, is the autopilot working. Each draws its answer before it
-          spells it out. */}
-      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Widget
-          label="Waiting for you"
-          icon={<Inbox class="size-4" aria-hidden="true" />}
-          action={<Show when={waitingTotal() > 0}>
-            <Link to="/tenants/$slug/attention" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Decide</Link>
-          </Show>}
-        >
-          <div class="flex items-baseline gap-2">
-            <span class={cn('text-3xl font-bold tabular-nums', waitingTotal() > 0 ? 'text-warning-foreground' : 'text-foreground')}>{waitingDegraded() ? '—' : waitingTotal()}</span>
-            <span class="text-sm text-muted-foreground">{waitingDegraded() ? 'couldn\'t be checked' : waitingTotal() > 0 ? 'on Needs you' : 'nothing to decide'}</span>
-          </div>
-          <StackBar label="What is waiting" segments={waitingSegments()} class="mt-auto" />
-          <Legend segments={waitingSegments()} />
-        </Widget>
-
-        <Widget
-          label="Health"
-          icon={<Activity class="size-4" aria-hidden="true" />}
-          action={<Show when={authState.isPlatformLevel()}>
-            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} class="font-medium text-primary underline-offset-4 hover:underline">Details</Link>
-          </Show>}
-        >
-          <div class="flex items-center gap-2">
-            <span class={cn('size-2.5 rounded-full', TONE_DOT[deadJobs() > 0 ? 'bad' : healthTone()])} aria-hidden="true" />
-            <span class="text-2xl font-bold capitalize text-foreground">{healthBadgeLabel()}</span>
-          </div>
-          {/* One bar per queue: sent in the last day, still waiting, stuck. */}
-          <ul class="mt-auto flex flex-col gap-2.5">
-            <For each={queues()}>{q => (
-              <li class="flex flex-col gap-1">
-                <div class="flex justify-between text-xs">
-                  <span class="text-muted-foreground">{q.label}</span>
-                  <span class={cn('tabular-nums', q.summary.dead > 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                    {q.summary.dead > 0 ? `${q.summary.dead} stuck` : `${q.summary.delivered_24h.toLocaleString()} sent · 24h`}
-                  </span>
-                </div>
-                <StackBar
-                  label={`${q.label} queue`}
-                  class="h-1.5"
-                  segments={[
-                    { key: 'sent', label: 'Sent · 24h', value: q.summary.delivered_24h, class: 'bg-success-foreground' },
-                    { key: 'waiting', label: 'In flight', value: q.summary.pending + q.summary.processing, class: 'bg-chart-4' },
-                    { key: 'stuck', label: 'Stuck', value: q.summary.dead, class: 'bg-error-foreground' },
-                  ]}
-                />
-              </li>
-            )}</For>
-          </ul>
-        </Widget>
-
-        <Widget label="Growth delivered" icon={<Send class="size-4" aria-hidden="true" />}>
-          <div class="flex items-center gap-4">
-            <Ring value={deliveredShare()} label="Share of growth sends delivered" class="size-20" arcClass="stroke-success-foreground">
-              <span class="text-sm font-semibold tabular-nums text-foreground">
-                {deliveredShare() == null ? '—' : `${Math.round(deliveredShare()! * 100)}%`}
-              </span>
-            </Ring>
-            <div class="flex min-w-0 flex-col gap-1">
-              <span class="text-3xl font-bold tabular-nums text-foreground">{metric(growth()?.totals.delivered)}</span>
-              <span class="text-sm text-muted-foreground">delivered</span>
-            </div>
-          </div>
-          <Legend
-            class="mt-auto"
-            segments={[
-              { key: 'pending', label: 'Still to send', value: growth()?.totals.pending ?? 0, class: 'bg-chart-4' },
-              { key: 'failed', label: 'Failed sends', value: growth()?.totals.failed ?? 0, class: 'bg-error-foreground' },
-            ]}
-          />
-        </Widget>
-
-        <Widget
-          label={authState.isPlatformLevel() ? 'Autopilot' : 'The brain'}
-          icon={<Bot class="size-4" aria-hidden="true" />}
-          action={<Show when={authState.isPlatformLevel()}>
-            {/* The switches live on Health → Policies, which the band's
-                map does not carry — for the band the widget ends at the
-                counts. The link lands on the policies tab, not the status
-                page the operator then has to leave again. */}
-            <Link to="/tenants/$slug/health" params={{ slug: params().slug }} search={{ tab: 'policies' }} class="font-medium text-primary underline-offset-4 hover:underline">Settings</Link>
-          </Show>}
-        >
-          <div class="flex items-center gap-2">
-            <span class={cn('size-2.5 rounded-full', autopilot()?.runtime_enabled ? TONE_DOT[autopilotTone() ?? 'good'] : 'bg-muted-foreground/40')} aria-hidden="true" />
-            <span class="text-2xl font-bold text-foreground">{autopilot()?.runtime_enabled ? 'On' : 'Off'}</span>
-            <span class="text-sm text-muted-foreground">
-              · {autopilot()?.queued_actions ?? 0} {authState.isPlatformLevel() ? 'queued' : 'waiting'}
-            </span>
-          </div>
-          {/* The last day's runs. `queued_actions` counts what has not been
-              handed out yet; dispatched and never confirmed is the number
-              that says the loop has stopped. */}
-          <StackBar label="Autopilot runs in the last 24 hours" segments={autopilotSegments()} class="mt-auto" />
-          <Legend segments={autopilotSegments()} />
-        </Widget>
-      </div>
+      {/* Three answers, in the order a person asks them: what to do, what
+          it produced, whether the machine is fine on its own. The detail
+          lives below the tabs — everything that was here still renders. */}
+      <DoThisNext
+        model={d}
+        slug={params().slug}
+        nextShow={nextShow()}
+        nextShowSteps={nextShowSteps()}
+        weekMoves={weekMoves()}
+      />
+      <IsItWorking model={d} slug={params().slug} />
+      <RunningWithoutYou
+        model={d}
+        slug={params().slug}
+        healthLabel={healthBadgeLabel()}
+        healthTone={deadJobs() > 0 ? 'bad' : healthTone()}
+        deadJobs={deadJobs()}
+      />
     </Show>
 
-    {/* The human gate, named — the widget above counts what is waiting,
-        this names the three-or-so asks that are actually parked on a
-        person. The full queue (dead queues, alerts, findings) stays on
-        Needs you; every row lands on the tab that owns it. */}
+    {/* The queue's losses and the answers still owed to people — the strip
+        that names them rides just under the three answers so the page still
+        opens on them when they exist. */}
     <Show when={model.data && !model.error}>
       <NeedsYouStrip model={d} slug={params().slug} />
     </Show>
+
+    {/* Tab bar — static, renders immediately. Count callbacks return 0
+        while data is pending, which is the correct placeholder. */}
+    <TabBar
+      active={activeTab()}
+      onChange={switchTab}
+      onPrefetch={prefetch}
+      tabs={[
+        { id: 'replies', label: 'Replies' },
+        { id: 'negotiations', label: 'Negotiations' },
+        { id: 'outreach', label: 'Outreach' },
+        { id: 'press', label: 'Press' },
+        { id: 'releases', label: 'Releases' },
+        { id: 'plays', label: 'Play ledger' },
+      ]}
+    />
+
+    <Show when={!model.error && !model.data && isVisited(activeTab())}>
+      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
+    </Show>
+
+    {/* Each panel runs its own queries, so it loads independently of the
+        read model. TabPanel's Suspense boundary shows the first skeleton. */}
+    <TabPanel active={activeTab()} id="replies" visited={isVisited('replies')}>
+      <ReplyTriagePanel />
+    </TabPanel>
+    {/* P.7: the negotiation table — live terms conversations with the
+        ladder and the parked move, plus the record of settled ones. */}
+    <TabPanel active={activeTab()} id="negotiations" visited={isVisited('negotiations')}>
+      <NegotiationsPanel />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
+      <OutreachConversationsPanel slug={params().slug} />
+      <OutreachWavesPanel slug={params().slug} />
+      <OutreachPipelinePanel slug={params().slug} />
+      <OpportunityShortlistPanel />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="press" visited={isVisited('press')}>
+      <PressRoomPanel slug={params().slug} />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
+      <ReleasePlanPanel slug={params().slug} />
+      <ReleaseCampaignsPanel slug={params().slug} />
+    </TabPanel>
+    <TabPanel active={activeTab()} id="plays" visited={isVisited('plays')}>
+      <PlayLedgerPanel slug={params().slug} />
+    </TabPanel>
 
     {/* Fan growth — the north star, moved off the tenant landing so this
         daily page opens on recent progress. Degrades silently per field:
@@ -677,52 +596,6 @@ export function TenantOperationsPage() {
         end, so it sits with the week's moves. Silent when nothing is owed. */}
     <PrizesToSendPanel slug={params().slug} />
 
-    {/* Tab bar — static, renders immediately. Count callbacks return 0
-        while data is pending, which is the correct placeholder. */}
-    <TabBar
-      active={activeTab()}
-      onChange={switchTab}
-      onPrefetch={prefetch}
-      tabs={[
-        { id: 'replies', label: 'Replies' },
-        { id: 'negotiations', label: 'Negotiations' },
-        { id: 'outreach', label: 'Outreach' },
-        { id: 'press', label: 'Press' },
-        { id: 'releases', label: 'Releases' },
-        { id: 'plays', label: 'Play ledger' },
-      ]}
-    />
-
-    <Show when={!model.error && !model.data && isVisited(activeTab())}>
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
-    </Show>
-
-    {/* Each panel runs its own queries, so it loads independently of the
-        read model. TabPanel's Suspense boundary shows the first skeleton. */}
-    <TabPanel active={activeTab()} id="replies" visited={isVisited('replies')}>
-      <ReplyTriagePanel />
-    </TabPanel>
-    {/* P.7: the negotiation table — live terms conversations with the
-        ladder and the parked move, plus the record of settled ones. */}
-    <TabPanel active={activeTab()} id="negotiations" visited={isVisited('negotiations')}>
-      <NegotiationsPanel />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="outreach" visited={isVisited('outreach')}>
-      <OutreachConversationsPanel slug={params().slug} />
-      <OutreachWavesPanel slug={params().slug} />
-      <OutreachPipelinePanel slug={params().slug} />
-      <OpportunityShortlistPanel />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="press" visited={isVisited('press')}>
-      <PressRoomPanel slug={params().slug} />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="releases" visited={isVisited('releases')}>
-      <ReleasePlanPanel slug={params().slug} />
-      <ReleaseCampaignsPanel slug={params().slug} />
-    </TabPanel>
-    <TabPanel active={activeTab()} id="plays" visited={isVisited('plays')}>
-      <PlayLedgerPanel slug={params().slug} />
-    </TabPanel>
   </PageShell>
 }
 
@@ -896,5 +769,236 @@ function NeedsYouStrip(props: { model: () => TenantTodayReadModel | undefined; s
         </Section>
       </div>
     </Show>
+  )
+}
+
+// ── The three answers ────────────────────────────────────────────────
+// "Do this next" / "Is it working" / "Running without you" — the page
+// opens on the work, the proof, and the machine's own word, in that
+// order. Everything the old widgets showed still renders below the tabs;
+// these three rows decide what a person does with the rest.
+
+/// One move in "Do this next": a title, the one line on why it is worth
+/// a minute, and where the real control for it lives.
+type NextMove = {
+  title: string
+  why: string
+  to: string
+  params: Record<string, string>
+  search?: Record<string, string>
+  hash?: string
+}
+
+function DoThisNext(props: {
+  model: () => TenantTodayReadModel | undefined
+  slug: string
+  nextShow: { slug: string; title: string } | undefined
+  nextShowSteps: { state: string; label: string; owner: string | null }[]
+  weekMoves: { recommended_action: string; reason: string }[]
+}) {
+  // Ranked by how likely the move is to leave a real fan behind it, which
+  // in practice is the order things rot: a person who wrote back cools
+  // off, an approval expires, a show step has a date on it.
+  const moves = createMemo((): NextMove[] => {
+    const out: NextMove[] = []
+    const waiting = props.model()?.reply_triage?.waiting_on_you ?? []
+    for (const reply of waiting.slice(0, 2)) {
+      out.push({
+        title: `Answer ${reply.display_name}`,
+        why: reply.disposition === 'positive'
+          ? `They said yes ${formatIsoAge(reply.replied_at)} — a warm answer cools fast.`
+          : `They wrote back ${formatIsoAge(reply.replied_at)} — the thread is still open.`,
+        to: '/tenants/$slug/operations',
+        params: { slug: props.slug },
+        search: { tab: 'replies' },
+        hash: 'answered',
+      })
+    }
+    const approvals = (props.model()?.attention?.needs_you ?? [])
+      .slice()
+      .sort((a, b) => (a.approval_expires_at ?? '9999').localeCompare(b.approval_expires_at ?? '9999'))
+    for (const action of approvals.slice(0, 2)) {
+      out.push({
+        title: `Approve ${labelOr(DECISION_KIND_LABELS, action.action_kind)}`,
+        why: `${action.title ?? labelOr(CONTEXT_LABELS, action.context)}${action.approval_expires_at ? ` — expires ${formatIsoUntil(action.approval_expires_at)}` : ''}`,
+        to: '/tenants/$slug/attention',
+        params: { slug: props.slug },
+        search: { tab: 'inbox' },
+        hash: `action=${action.id}`,
+      })
+    }
+    for (const step of props.nextShowSteps.filter(s => s.state === 'due').slice(0, 1)) {
+      out.push({
+        title: step.label,
+        why: `Due for ${props.nextShow?.title ?? 'the next night'}${step.owner ? ` — ${step.owner}` : ''}`,
+        to: '/tenants/$slug/shows/$eventSlug',
+        params: { slug: props.slug, eventSlug: props.nextShow?.slug ?? '' },
+      })
+    }
+    for (const move of props.weekMoves.slice(0, 1)) {
+      out.push({
+        title: move.recommended_action,
+        why: move.reason,
+        to: '/tenants/$slug/attention',
+        params: { slug: props.slug },
+      })
+    }
+    return out.slice(0, 3)
+  })
+  const overflow = () => (props.model()?.attention?.awaiting_approval ?? 0)
+
+  return (
+    <Section
+      title="Do this next"
+      icon={<SectionIcon name="target" />}
+      description="The moves most likely to leave a fan behind them, ranked. Each row opens the control that does it."
+    >
+      <div class="flex flex-col gap-3">
+        <For each={moves()}>{move => (
+          <Link
+            to={move.to}
+            params={move.params}
+            search={move.search}
+            hash={move.hash}
+            class="group flex items-start justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:border-foreground/30"
+          >
+            <div class="min-w-0">
+              <span class="text-sm font-medium text-foreground group-hover:underline">{move.title}</span>
+              <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">{move.why}</p>
+            </div>
+            <span class="shrink-0 text-xs font-medium text-primary">Open</span>
+          </Link>
+        )}</For>
+        <Show when={moves().length === 0}>
+          <p class="text-sm text-muted-foreground">
+            Nothing is waiting on you — the machine is working, and the first thing that needs a say lands here.
+          </p>
+        </Show>
+        <Show when={overflow() > 0}>
+          <Link
+            to="/tenants/$slug/attention"
+            params={{ slug: props.slug }}
+            class="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            {overflow()} waiting on a decision in all — the full queue is on Needs you
+          </Link>
+        </Show>
+      </div>
+    </Section>
+  )
+}
+
+function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slug: string }) {
+  const outcomes = useQuery(() => ({
+    queryKey: ['ops-outcomes', props.slug],
+    queryFn: () => api.opsOutcomes(props.slug),
+    reconcile: 'id',
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  }))
+  const audience = () => props.model()?.audience
+  const activity = () => props.model()?.signal?.activity
+
+  const outcomeWord = (line: { outcome_state: string; status: string; outcomes: { verdict: string | null }[] }) => {
+    if (line.status === 'failed') return { word: 'failed', tone: 'bad' as const }
+    const verdict = line.outcomes.find(o => o.verdict)?.verdict
+    if (verdict === 'improved') return { word: 'it worked', tone: 'good' as const }
+    if (verdict === 'worsened') return { word: 'it went down', tone: 'bad' as const }
+    if (verdict === 'neutral') return { word: 'no change yet', tone: 'muted' as const }
+    if (line.outcome_state === 'pending') return { word: 'still measuring', tone: 'muted' as const }
+    return { word: 'not measured yet', tone: 'muted' as const }
+  }
+
+  return (
+    <Section
+      title="Is it working"
+      icon={<SectionIcon name="trending-up" />}
+      description="The fan headline, then what each approved ask produced in the last two weeks."
+      action={<Link to="/tenants/$slug/audience" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Audience</Link>}
+    >
+      <div class="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-md border border-border p-4">
+        <span class="text-4xl font-bold tracking-tight tabular-nums text-foreground">
+          <Show when={audience()?.marketing_consented_fans != null} fallback={<span class="text-muted-foreground">—</span>}>
+            {audience()!.marketing_consented_fans!.toLocaleString()}
+          </Show>
+        </span>
+        <span class="pb-1.5 text-sm text-muted-foreground">fans you can reach</span>
+        <div class="flex flex-wrap gap-1.5 pb-1.5">
+          <Show when={activity()?.new_fans_7d != null}>
+            <DeltaBadge value={activity()!.new_fans_7d} label="new · 7d" />
+          </Show>
+          <Show when={activity()?.new_fans_30d != null}>
+            <DeltaBadge value={activity()!.new_fans_30d} label="new · 30d" />
+          </Show>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-col gap-2">
+        <Show when={outcomes.data} fallback={
+          <Show when={!outcomes.isPending}>
+            <p class="text-sm text-muted-foreground">The outcome ledger could not be read — try refreshing.</p>
+          </Show>
+        }>
+          <For each={outcomes.data!.actions}>{line => (
+            <div class="flex items-baseline justify-between gap-3 text-sm">
+              <span class="min-w-0 truncate text-foreground">
+                {line.label ?? labelOr(DECISION_KIND_LABELS, line.kind)}
+              </span>
+              <span class={cn('shrink-0 text-xs',
+                outcomeWord(line).tone === 'good' ? 'text-success-foreground'
+                : outcomeWord(line).tone === 'bad' ? 'text-destructive'
+                : 'text-muted-foreground')}>
+                {outcomeWord(line).word}{line.finished_at ? ` · ${formatIsoAge(line.finished_at)}` : ''}
+              </span>
+            </div>
+          )}</For>
+          <Show when={outcomes.data!.actions.length === 0}>
+            <p class="text-sm text-muted-foreground">
+              Nothing approved in the last {outcomes.data!.window_days} days — approve an ask above and what it produced lands here.
+            </p>
+          </Show>
+        </Show>
+      </div>
+    </Section>
+  )
+}
+
+function RunningWithoutYou(props: {
+  model: () => TenantTodayReadModel | undefined
+  slug: string
+  healthLabel: string
+  healthTone: 'good' | 'warn' | 'bad' | 'muted'
+  deadJobs: number
+}) {
+  const autopilot = () => props.model()?.autopilot
+  const line = () => {
+    const a = autopilot()
+    if (!a) return 'The machine has not reported in — refresh to ask again.'
+    if (!a.runtime_enabled) return 'The brain is off — nothing runs without you.'
+    const parts = [
+      'The brain is on',
+      `${a.queued_actions ?? 0} waiting to run`,
+    ]
+    if ((a.failed_24h ?? 0) > 0) parts.push(`${a.failed_24h} failed in the last day`)
+    else if ((a.succeeded_24h ?? 0) > 0) parts.push(`${a.succeeded_24h} done in the last day`)
+    if (props.deadJobs > 0) parts.push(`${props.deadJobs} send${props.deadJobs === 1 ? '' : 's'} stuck`)
+    return parts.join(' · ')
+  }
+  return (
+    <Section
+      title="Running without you"
+      icon={<SectionIcon name="activity" />}
+      description="One line on what the machine is doing, and whether anything is broken."
+      action={<Show when={authState.isPlatformLevel()}>
+        <Link to="/tenants/$slug/health" params={{ slug: props.slug }} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>Health</Link>
+      </Show>}
+    >
+      <div class="flex items-center gap-3 rounded-md border border-border p-4">
+        <span class={cn('size-2.5 shrink-0 rounded-full', TONE_DOT[props.healthTone])} aria-hidden="true" />
+        <p class="text-sm text-foreground">{line()}</p>
+        <Show when={props.deadJobs > 0 || props.healthTone === 'bad'}>
+          <StatusBadge status={props.healthLabel} tone="bad" />
+        </Show>
+      </div>
+    </Section>
   )
 }

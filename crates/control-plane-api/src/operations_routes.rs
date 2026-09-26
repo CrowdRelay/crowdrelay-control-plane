@@ -145,6 +145,9 @@ pub fn router() -> Router<AppState> {
             "/tenants/{slug}/operations/autopilot/measurement",
             get(autopilot_measurement),
         )
+        // What the approved asks produced — terminal actions with their
+        // measurement verdicts. Today's "is it working" reads this.
+        .route("/tenants/{slug}/operations/outcomes", get(ops_outcomes))
         .route(
             "/tenants/{slug}/operations/autopilot/reply-triage",
             get(autopilot_reply_triage),
@@ -1701,6 +1704,27 @@ async fn autopilot_measurement(
     )
     .await?;
     object_no_store(value, "autopilot measurement")
+}
+
+/// Approved actions and what they produced — the per-action outcome lines
+/// Today's "is it working" section renders. Read-only proxy to CrowdRelay's
+/// outcomes read model.
+async fn ops_outcomes(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let (_, value) = call(
+        &state,
+        &slug,
+        "GET",
+        "/v1/control-plane/ops/outcomes",
+        None,
+        &headers,
+        None,
+    )
+    .await?;
+    object_no_store(value, "ops outcomes")
 }
 
 /// Reply triage: which inbound replies need human review, and how recent
