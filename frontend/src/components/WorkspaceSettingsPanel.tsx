@@ -24,6 +24,7 @@ const LABELS: Record<string, string> = {
   north_star_metric: 'What the brain chases',
   tenant_intent: 'What the band is doing',
   act_style: 'What the act sounds like',
+  act_home_city: 'Where the act is from',
   social_auto_post: 'Social auto-posting',
   ticketing_enabled: 'Ticket sales',
   growth_cadence_moments_per_month: 'Serious moments per month',
@@ -58,7 +59,7 @@ const GROUPS: { title: string; description: string; bandDescription?: string; ke
     title: 'Growth brain',
     description: 'What the planner optimises for and how much it schedules.',
     bandDescription: 'What the planner optimises for and how much it schedules.',
-    keys: ['north_star_metric', 'tenant_intent', 'act_style', 'growth_cadence_moments_per_month', 'growth_cadence_fillers_enabled'],
+    keys: ['north_star_metric', 'tenant_intent', 'act_style', 'act_home_city', 'growth_cadence_moments_per_month', 'growth_cadence_fillers_enabled'],
   },
   {
     title: 'Social & join-ask',
@@ -129,6 +130,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
     hint: 'A few words for what the act sounds like — the pairings and asks that need a voice read this. Free text, because a fixed list would be a guess about scenes nobody here belongs to. 120 characters at most.',
     band: 'A few words for what you sound like — the pairings and asks that need a voice read this. 120 characters at most.',
     example: 'metalcore',
+  },
+  act_home_city: {
+    hint: "The city letters say the act is from — 'a modern metal act from Wrocław'. Declared, never measured: the shows calendar is a schedule, not a hometown. Empty means the letter names no city.",
+    band: "The city your letters say you are from — 'a metalcore act from Wrocław'. It is what you declare, not what the calendar suggests — a show in another city stays a gig, not a hometown. Empty means no city in the letter.",
+    example: 'Wrocław',
   },
   brand_wordmark: {
     hint: 'The name push titles, crew mail and invitations sign with ("{name} — new show"). Leave blank to use the workspace name; set it only when the act styles its name differently. One line, 40 characters at most.',

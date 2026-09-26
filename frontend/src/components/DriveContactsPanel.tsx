@@ -30,6 +30,7 @@ const KIND_LABELS: Record<string, string> = {
   media_patronage: 'Media patronage',
   endorsement: 'Endorsement',
   creator: 'Creator',
+  organiser: 'Organiser',
   promoter: 'Promoter',
   booking_agent: 'Booking agent',
   talent_buyer: 'Talent buyer',
@@ -39,7 +40,7 @@ const KIND_LABELS: Record<string, string> = {
   festival: 'Festival',
 }
 
-const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'promoter', 'venue', 'festival', 'booking_agent', 'talent_buyer', 'agent', 'label'] as const
+const BEACON_KINDS = ['press', 'radio', 'playlist', 'media_patronage', 'endorsement', 'creator', 'organiser', 'promoter', 'venue', 'festival', 'booking_agent', 'talent_buyer', 'agent', 'label'] as const
 const BEACON_KIND_SET: ReadonlySet<string> = new Set(BEACON_KINDS)
 const BOOKING_KINDS: ReadonlySet<string> = new Set(['promoter', 'venue', 'festival'])
 
@@ -365,7 +366,7 @@ export function DriveContactsPanel(props: { slug: string }) {
             Connected sources — Google Drive spreadsheets, Gmail — stage every address they find here, deduplicated
             by email. Nothing is classified automatically. Promote an address to a <strong>fan</strong> (they get the
             double opt-in email and confirm themselves) and/or to a {authState.isPlatformLevel() ? 'work queue' : 'work list'}: <strong>press, radio, playlist</strong>
-            and friends go to outreach, <strong>venues, promoters, festivals</strong> go to {authState.isPlatformLevel() ? 'booking supply' : 'booking'}. One person
+            and friends go to outreach — organisers included, they get asked for a gig, not a review — <strong>venues, promoters, festivals</strong> go to {authState.isPlatformLevel() ? 'booking supply' : 'booking'}. One person
             can be both.
           </p>
         </div>
