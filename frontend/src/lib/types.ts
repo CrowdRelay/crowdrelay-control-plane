@@ -3378,9 +3378,13 @@ export type AutopilotChiefOfStaff = {
   estimated_minutes_basis: string
   median_assignment_turnaround_minutes_7d: number | null
   assignments_completed_7d: number
+  /** Actions measured in the last 7 days, one verdict each (latest outcome measurement). Excludes process checks. */
   measured_improved_7d: number
   measured_neutral_7d: number
   measured_worsened_7d: number
+  /** Measurements that graded the worker's own output, not anything a fan did. */
+  process_checks_7d: number
+  process_checks_improved_7d: number
   emitted_24h: number
   executor_confirmed_24h: number
   executor_failed_24h: number
