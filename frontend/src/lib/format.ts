@@ -42,13 +42,18 @@ export const errorMessage = (value: unknown, fallback: string) => {
  *  "membership state", `crowdrelay.fan_lifecycle` → "crowdrelay fan
  *  lifecycle". A label map beats this when one exists — this is the floor
  *  that keeps an unmapped token from rendering as code. */
-export const humanizeToken = (token: string): string =>
-  token
+export const humanizeToken = (token: string): string => {
+  // A string that already contains spaces is prose, not a token — pass it
+  // through untouched so intentional casing ("async I/O active",
+  // "Provisioner connected") survives.
+  if (token.includes(' ')) return token
+  return token
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_.\-/]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
+}
 
 /// Whether the operator has asked the OS to reduce motion.
 ///

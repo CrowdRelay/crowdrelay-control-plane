@@ -153,6 +153,8 @@ export function TenantAttentionPage() {
   // Decisions is the default tab: a queue of decisions is what a person has.
   const areas = useWorkAreas(['decisions', 'inbox', 'queues', 'runtime', 'trace'])
   // Open a work area, then scroll to something inside it once it mounts.
+  // A lazy panel can take several hundred ms to render — retry for ~1s like
+  // the layout system's revealAnchor does, then give up rather than spin.
   const revealAnchor = (id: string, anchor?: string) => {
     areas.open(id)
     if (!anchor) return
@@ -160,7 +162,7 @@ export function TenantAttentionPage() {
     const scroll = () => {
       const element = document.getElementById(anchor)
       if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      else if (attempts++ < 10) requestAnimationFrame(scroll)
+      else if (attempts++ < 60) requestAnimationFrame(scroll)
     }
     requestAnimationFrame(scroll)
   }
