@@ -99,7 +99,13 @@ function clearTimer() {
 function applyInterval(ms: number) {
   clearTimer()
   if (ms > 0) {
-    timerId = setInterval(() => triggerRefresh(), ms)
+    // `refetchIntervalInBackground: false` already keeps per-query pollers
+    // quiet in a hidden tab — the global tick must honor the same rule.
+    // Browsers clamp (not stop) timers in the background, so without the
+    // check a hidden tab still invalidates everything about once a minute.
+    timerId = setInterval(() => {
+      if (!document.hidden) triggerRefresh()
+    }, ms)
   }
 }
 

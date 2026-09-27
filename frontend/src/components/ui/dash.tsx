@@ -281,7 +281,10 @@ export function useWorkAreas(ids: string[], param = 'tab') {
   // default — otherwise the page renders nothing until the toggle is found.
   // Toggling still closes it for the session (explicit choice wins).
   const fallback = ids.length === 1 ? ids[0] ?? null : null
-  const [explicit, setExplicit] = createSignal(initial != null)
+  // Only a *valid* `?tab=` counts as an explicit choice — a stale or mistyped
+  // value must fall through to the default, not pin every area shut (a
+  // `?tab=junk` link used to render the single-area pages completely empty).
+  const [explicit, setExplicit] = createSignal(initial != null && ids.includes(initial))
   const [active, setActive] = createSignal<string | null>(initial && ids.includes(initial) ? initial : fallback)
   createEffect(() => {
     const t = search()?.[param]

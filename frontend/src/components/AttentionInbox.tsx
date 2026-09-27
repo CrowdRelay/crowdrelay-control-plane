@@ -363,7 +363,9 @@ export function AttentionInbox(props: {
       if (el) {
         el.classList.add('attention-item-highlighted')
         highlightTimer = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
-      } else if (attempts++ < 15) {
+      } else if (attempts++ < 60) {
+        // Keep pace with revealAnchor's ~1s window — an element that mounts
+        // late must still get its highlight, not just the scroll.
         requestAnimationFrame(highlight)
       }
     }
