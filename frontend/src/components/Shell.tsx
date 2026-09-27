@@ -86,9 +86,13 @@ export const Shell: Component = () => {
   // Desktop expanded/collapsed (icon rail), remembered across reloads. The
   // stock provider stores a cookie; this console already kept the choice in
   // localStorage, so the provider is controlled from here instead.
-  const [sidebarOpen, setSidebarOpen] = createSignal(
-    typeof localStorage === 'undefined' || localStorage.getItem('sidebar-collapsed') !== '1'
-  )
+  const [sidebarOpen, setSidebarOpen] = createSignal((() => {
+    try {
+      return localStorage.getItem('sidebar-collapsed') !== '1'
+    } catch {
+      return true
+    }
+  })())
   const onSidebarOpenChange = (open: boolean) => {
     setSidebarOpen(open)
     try { localStorage.setItem('sidebar-collapsed', open ? '0' : '1') } catch {}

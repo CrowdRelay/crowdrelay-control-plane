@@ -71,7 +71,18 @@ const draftToBody = (draft: ListingDraft): Omit<BandListing, 'visibility'> => ({
   cities: splitList(draft.cities),
   claims: draft.claims
     .filter(c => c.label.trim() && c.basis.trim())
-    .map(c => ({ label: c.label.trim(), value: c.value.trim() ? Number(c.value) : null, tier: c.tier, basis: c.basis.trim() })),
+    .map(c => {
+      const raw = c.value.trim()
+      if (!raw) return { label: c.label.trim(), value: null, tier: c.tier, basis: c.basis.trim() }
+      // "," and spaces are how people write thousands — accept them; anything
+      // still non-numeric must fail loudly here, because JSON.stringify(NaN)
+      // writes null and the number the operator typed silently disappears.
+      const value = Number(raw.replace(/[\s,]/g, ''))
+      if (!Number.isFinite(value)) {
+        throw new Error(`"${c.label.trim()}" needs a plain number — "${raw}" is not one.`)
+      }
+      return { label: c.label.trim(), value, tier: c.tier, basis: c.basis.trim() }
+    }),
   published_dates: splitList(draft.published_dates),
   seeking: splitList(draft.seeking),
 })
