@@ -231,9 +231,14 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
             <span class="bg-destructive" style={{ width: `${(data().measured_worsened_7d / measured()) * 100}%` }} />
           </div>
           <span class="block mt-1.5 text-xs text-muted-foreground">
-            {data().measured_improved_7d} improved · {data().measured_neutral_7d} neutral · {data().measured_worsened_7d} worsened
+            {measured()} {measured() === 1 ? 'action' : 'actions'} measured on results: {data().measured_improved_7d} improved · {data().measured_neutral_7d} neutral · {data().measured_worsened_7d} worsened
           </span>
         </div>
+      </Show>
+      <Show when={data().process_checks_7d > 0}>
+        <span class="block mt-1 text-xs text-muted-foreground">
+          Own-output checks, not results: {data().process_checks_improved_7d} of {data().process_checks_7d} produced something usable.
+        </span>
       </Show>
 
       <Show when={data().moved.length > 0}>
