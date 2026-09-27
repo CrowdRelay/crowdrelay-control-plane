@@ -102,6 +102,7 @@ export function BoundsPanel(props: { slug: string }) {
     queryKey: ['autopilot-overview', props.slug],
     queryFn: () => api.autopilotOverview(props.slug),
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   }))
   const policy = useQuery(() => ({
     queryKey: ['surface', props.slug, 'booking-policy'],

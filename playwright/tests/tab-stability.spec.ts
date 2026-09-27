@@ -23,10 +23,16 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     await login(page)
     await page.goto('/tenants/virya/intelligence')
+    // Work areas render as buttons only until one is pressed — no panel and
+    // no tab query on load. Open the first area to mount its panel.
+    await page.waitForSelector('#tab-brief', { timeout: 30000 })
+    await page.waitForTimeout(1000)
+    await page.click('#tab-brief')
     await page.waitForSelector('[data-slot="tab-panel"]', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // Only the Brief tab panel should be in the DOM (lazy mounting)
+    // Exactly one panel mounts — the open area's (work areas unmount
+    // rather than hide the previous area).
     const tabPanels = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanels).toBe(1)
 
@@ -44,9 +50,10 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
       if (header) header.dataset.testMarker = 'original'
     })
 
-    // Capture API requests fired so far (should only be Overview tab queries)
+    // Capture API requests fired so far (the Brief area's queries, fired when
+    // it mounted — the other areas still have not fetched)
     const requestsBeforeSwitch = requests.length
-    console.log(`API requests on page load: ${requestsBeforeSwitch}`)
+    console.log(`API requests on first area open: ${requestsBeforeSwitch}`)
 
     // Switch to the second tab (first visit — should lazy mount). Tabs are
     // clicked by their stable `id`, not by their label: the labels on this
@@ -69,13 +76,11 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     expect(markers.section).toBe('original')
     expect(markers.header).toBe('original')
 
-    // Now 2 tab panels should be in the DOM (Brief + Where it stands)
+    // Work areas unmount the previous panel instead of hiding it, so exactly
+    // one panel is ever in the DOM — a stronger invariant than the old
+    // mounted-hidden contract, and the guarantee no hidden poller survives.
     const tabPanelsAfter = await page.locator('[data-slot="tab-panel"]').count()
-    expect(tabPanelsAfter).toBe(2)
-
-    // Only the active tab should be visible
-    const visiblePanels = await page.locator('[data-slot="tab-panel"]:not([class~="hidden"])').count()
-    expect(visiblePanels).toBe(1)
+    expect(tabPanelsAfter).toBe(1)
 
     // API requests should have been fired for the Where it stands tab
     const requestsAfterSwitch = requests.length
@@ -93,9 +98,9 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     })
     expect(markerAfterDecisions).toBe('original')
 
-    // 3 tab panels now
+    // Still exactly one panel — Decisions replaced Where it stands.
     const tabPanelsAfterDecisions = await page.locator('[data-slot="tab-panel"]').count()
-    expect(tabPanelsAfterDecisions).toBe(3)
+    expect(tabPanelsAfterDecisions).toBe(1)
 
     // Switch back to Brief (already visited — should be instant, no new requests)
     const requestsBeforeBack = requests.length
@@ -120,11 +125,14 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
   test('operations page: lazy fetch, local skeleton, persistent header @e2e', async ({ page }) => {
     await login(page)
     await page.goto('/tenants/virya/operations')
+    // Nothing is open until an area is pressed — click Replies to mount it.
+    await page.waitForSelector('#tab-replies', { timeout: 30000 })
+    await page.waitForTimeout(1000)
+    await page.click('#tab-replies')
     await page.waitForSelector('[data-slot="tab-panel"]', { timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // Only the default Replies tab panel should be in the DOM — the other
-    // four surfaces mount on first visit.
+    // Exactly one panel mounts — the open area's.
     const tabPanels = await page.locator('[data-slot="tab-panel"]').count()
     expect(tabPanels).toBe(1)
 
@@ -145,12 +153,13 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
     })
     expect(marker).toBe('original')
 
-    // 2 tab panels now
+    // Exactly one panel — Releases replaced Replies (work areas unmount the
+    // previous area rather than hiding it).
     const tabPanelsAfter = await page.locator('[data-slot="tab-panel"]').count()
-    expect(tabPanelsAfter).toBe(2)
+    expect(tabPanelsAfter).toBe(1)
 
-    // Switch back to Outreach (already visited)
-    await page.click('#tab-outreach')
+    // Switch back to Replies (already visited — the default area)
+    await page.click('#tab-replies')
     await page.waitForTimeout(1000)
 
     const marker3 = await page.evaluate(() => {

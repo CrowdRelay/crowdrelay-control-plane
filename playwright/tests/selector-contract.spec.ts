@@ -38,7 +38,7 @@ test.describe('Selector contract @e2e', () => {
 
   test('tenant intelligence page emits tab-panel hooks @e2e', async ({ page }) => {
     await login(page)
-    await page.goto('/tenants/virya/intelligence')
+    await page.goto('/tenants/virya/intelligence?tab=brief')
     await expect(page.locator('[data-slot="tab-panel"]').first()).toBeVisible({ timeout: 30000 })
   })
 

@@ -291,7 +291,10 @@ export function useWorkAreas(ids: string[], param = 'tab') {
   const open = (id: string | null) => {
     setExplicit(true)
     setActive(id)
-    void navigate({ to: '.', search: (prev: Record<string, unknown>) => {
+    // `hash: true` keeps `#needs-you&action=<id>`-style deep links in the URL
+    // across work-area toggles — the address stays copyable and back/forward
+    // navigation still carries the anchor.
+    void navigate({ to: '.', hash: true, search: (prev: Record<string, unknown>) => {
       const out = { ...prev }
       if (id) out[param] = id
       else delete out[param]
@@ -309,6 +312,8 @@ export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onT
         <button
           type="button"
           role="tab"
+          id={`tab-${area.id}`}
+          aria-controls={`tabpanel-${area.id}`}
           aria-selected={props.active === area.id}
           class={cn('rounded-md border px-2.5 py-1 text-xs transition-colors',
             props.active === area.id ? 'border-foreground bg-foreground text-background' : 'border-border text-foreground hover:bg-muted')}
@@ -325,7 +330,7 @@ export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onT
 export function WorkAreaPanel(props: { id: string; active: string | null; children: JSX.Element }) {
   return (
     <Show when={props.active === props.id}>
-      <div class="mt-4 border-t border-border pt-4" role="tabpanel">{props.children}</div>
+      <div class="mt-4 border-t border-border pt-4" role="tabpanel" id={`tabpanel-${props.id}`} aria-labelledby={`tab-${props.id}`} data-slot="tab-panel">{props.children}</div>
     </Show>
   )
 }
