@@ -563,7 +563,7 @@ export function AgentPanel(props: { slug: string }) {
         title="Result"
         class="max-w-2xl"
         footer={<>
-          <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(viewingResult()?.content ?? '')}>Copy</Button>
+          <Button variant="ghost" size="sm" onClick={() => { void navigator.clipboard.writeText(viewingResult()?.content ?? '').catch(() => {}) }}>Copy</Button>
           <Button variant="ghost" size="sm" onClick={() => setViewingResult(null)}>Close</Button>
         </>}
       >

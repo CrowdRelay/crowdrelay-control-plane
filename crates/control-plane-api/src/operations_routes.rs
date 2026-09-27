@@ -1757,12 +1757,16 @@ async fn ops_outcomes(
 /// missing one.
 pub(crate) fn time_tuple_to_iso(arr: &[Value]) -> Option<String> {
     let int = |i: usize| -> Option<i64> { arr.get(i).and_then(Value::as_i64) };
-    let date = chrono::NaiveDate::from_yo_opt(int(0)? as i32, int(1)? as u32)?;
+    // try_from, not `as`: an out-of-range tuple element must produce `null`,
+    // not wrap into a plausible-but-wrong calendar value (e.g. ordinal
+    // 4294967327 → day 31).
+    let date =
+        chrono::NaiveDate::from_yo_opt(i32::try_from(int(0)?).ok()?, u32::try_from(int(1)?).ok()?)?;
     let time = chrono::NaiveTime::from_hms_nano_opt(
-        int(2)? as u32,
-        int(3)? as u32,
-        int(4)? as u32,
-        int(5)? as u32,
+        u32::try_from(int(2)?).ok()?,
+        u32::try_from(int(3)?).ok()?,
+        u32::try_from(int(4)?).ok()?,
+        u32::try_from(int(5)?).ok()?,
     )?;
     let local = date.and_time(time);
     let offset_seconds = if arr.len() >= 9 {
@@ -3748,7 +3752,7 @@ struct ListQuery {
 fn build_list_path(base: &str, params: &ListQuery) -> Result<String, ApiError> {
     let mut query = Vec::new();
     if let Some(limit) = params.limit {
-        query.push(format!("limit={limit}"));
+        query.push(format!("limit={}", limit.clamp(1, 200)));
     }
     if let Some(status) = &params.status {
         // A non-empty but invalid filter must not silently drop — the
@@ -3779,7 +3783,7 @@ struct ActionLedgerQuery {
 fn build_action_ledger_path(params: &ActionLedgerQuery) -> Result<String, ApiError> {
     let mut query = Vec::new();
     if let Some(limit) = params.limit {
-        query.push(format!("limit={limit}"));
+        query.push(format!("limit={}", limit.clamp(1, 200)));
     }
     if let Some(state) = &params.state {
         if !state.is_empty() {

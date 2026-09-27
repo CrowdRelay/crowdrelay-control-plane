@@ -78,9 +78,13 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
 
   const linkUrl = (token: string) => `${window.location.origin}/nights/${props.slug}/${token}`
   const copyLink = async (token: string) => {
-    await navigator.clipboard.writeText(linkUrl(token))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    // The URL renders beside the button, so a denied clipboard stays
+    // recoverable by hand — match ListingPanel's `.catch(() => {})` floor.
+    try {
+      await navigator.clipboard.writeText(linkUrl(token))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
   }
 
   // The band-side lenses carry the edit surface; a co-billed read gets the

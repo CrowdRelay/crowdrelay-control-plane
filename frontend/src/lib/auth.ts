@@ -50,7 +50,7 @@ export const authState = {
     // tenants list) must not bleed into the new session. Clear everything
     // before setting the new profile so the first query fires fresh.
     queryClient.clear()
-    sessionStorage.removeItem('cp-default-tenant')
+    try { sessionStorage.removeItem('cp-default-tenant') } catch {}
     setProfile(await api.login(username, password))
   },
   async logout() {
@@ -58,7 +58,7 @@ export const authState = {
       await api.logout()
     } finally {
       queryClient.clear()
-      sessionStorage.removeItem('cp-default-tenant')
+      try { sessionStorage.removeItem('cp-default-tenant') } catch {}
       setProfile(null)
     }
   },

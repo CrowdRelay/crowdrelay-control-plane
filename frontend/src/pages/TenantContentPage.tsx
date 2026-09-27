@@ -305,7 +305,7 @@ export function TenantContentPage() {
               </Show>
               <div class="mt-2.5 flex flex-wrap gap-1.5">
                 <Show when={contentExcerpt(r.content)}>
-                  {text => <Act onClick={() => { void navigator.clipboard.writeText(text()); toast.success('Copied'); if (r.url) window.open(r.url, '_blank', 'noopener') }}>{r.url ? 'Copy and open' : 'Copy'}</Act>}
+                  {text => <Act onClick={() => { void navigator.clipboard.writeText(text()).then(() => toast.success('Copied')).catch(() => toast.error('Copy failed — select the text by hand.')); if (r.url) window.open(r.url, '_blank', 'noopener') }}>{r.url ? 'Copy and open' : 'Copy'}</Act>}
                 </Show>
                 <Show when={r.kind === 'social_post'}>
                   <ManualSocialPostRegister slug={params().slug} post={r} onDone={() => void model.refetch()} />
