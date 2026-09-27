@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { ArrowRight } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { compareTimestamps, confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, money } from '../lib/format'
+import { compareTimestamps, confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, humanizeToken, money } from '../lib/format'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { toast } from './app/toast'
 import { Alert } from './app/alert'
@@ -899,7 +899,7 @@ function DegradedNotice(props: { degraded: readonly string[] }) {
 function DegradedLine(props: { name: string }) {
   return (
     <p class="text-sm text-muted-foreground">
-      {sectionLabel[props.name] ?? props.name} could not be read — unknown, not empty.
+      {sectionLabel[props.name] ?? humanizeToken(props.name)} could not be read — unknown, not empty.
     </p>
   )
 }

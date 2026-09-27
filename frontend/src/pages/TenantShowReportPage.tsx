@@ -6,6 +6,7 @@ import { PageShell } from '../components/layout'
 import { Act, Card, DashHeader, ItemRow, Pill, StatRow, Tile, Tiles, type Tone as ViewTone } from '../components/ui/dash'
 import { AlertTriangle, DoorOpen, Radio } from 'lucide-solid'
 import { count } from '../lib/organise'
+import { humanizeToken } from '../lib/format'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 
@@ -136,7 +137,7 @@ export function TenantShowReportPage() {
                     <For each={report().campaigns ?? []}>
                       {campaign => (
                         <StatRow
-                          label={CAMPAIGN_LABEL[campaign.template_key] ?? campaign.template_key}
+                          label={CAMPAIGN_LABEL[campaign.template_key] ?? humanizeToken(campaign.template_key)}
                           value={<Pill tone={campaignResult(campaign).tone}>{campaignResult(campaign).text}</Pill>}
                         />
                       )}

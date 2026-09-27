@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js'
 import { ApiError, errorHeading } from '../lib/api'
+import { humanizeToken } from '../lib/format'
 import { authState } from '../lib/auth'
 import type { SectionVerdict } from '../lib/types'
 import { cn } from '../lib/cn'
@@ -98,7 +99,7 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
                   stateTone(verdict.state) === 'bad' && 'bg-destructive/15 text-destructive',
                   stateTone(verdict.state) === 'warn' && 'bg-warning-foreground/10 text-warning-foreground',
                   stateTone(verdict.state) === 'muted' && 'bg-accent text-muted-foreground',
-                )}>{stateLabel[verdict.state] ?? verdict.state}</span>
+                )}>{stateLabel[verdict.state] ?? humanizeToken(verdict.state)}</span>
                 <Show when={verdict.remediation}>
                   <small class="basis-full text-sm text-secondary-foreground leading-relaxed mt-0.5 break-words">{verdict.remediation}</small>
                 </Show>

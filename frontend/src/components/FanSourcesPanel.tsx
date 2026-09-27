@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
+import { errorMessage, humanizeToken } from '../lib/format'
 import type { FanbaseBlock, FanbaseConnection, ScanScope } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
@@ -237,13 +237,13 @@ export function FanSourcesPanel(props: {
         fetchUrl: fetchUrl() || undefined,
         consentAttestedBy: attestedBy() || undefined,
       }),
-    onSuccess: async (result) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['tenant-portfolio', props.slug] })
       refresh()
       setCreating(false)
       resetForm()
       setErrorText(null)
-      setNotice(`Fanbase created: ${result.fanbaseId.slice(0, 8)}…`)
+      setNotice('Fanbase created — it is in the list below.')
     },
     onError: (error) => setErrorText(error instanceof Error ? error.message : 'Create failed'),
   }))
@@ -769,7 +769,7 @@ export function FanSourcesPanel(props: {
             <For each={blocks()}>{fb => (
               <TableRow classList={{ 'row-pending': isDeleting(fb.id) }}>
                 <TableCell>{fb.name}{fb.enabled ? '' : ' (off)'}</TableCell>
-                <TableCell><span class="inline-flex items-center gap-1.5"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="flex-shrink-0 opacity-85" /> {SOURCE_LABEL[fb.source_kind] ?? fb.source_kind}</span></TableCell>
+                <TableCell><span class="inline-flex items-center gap-1.5"><FanbaseIcon sourceKind={fb.source_kind} size={16} class="flex-shrink-0 opacity-85" /> {SOURCE_LABEL[fb.source_kind] ?? humanizeToken(fb.source_kind)}</span></TableCell>
                 <TableCell numeric>{metric(fb.members)}</TableCell>
                 <TableCell numeric>{metric(fb.active_members)}</TableCell>
                 <TableCell>

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams, Link } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { compareTimestamps, relativeTime, formatTimestamp } from '../lib/format'
+import { compareTimestamps, formatTimestamp, humanizeToken, relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { ListingPanel } from '../components/ListingPanel'
@@ -179,7 +179,7 @@ function ProofFirstScreen(props: { data: TenantProofReadModel; reports: number; 
         <Card title="Who to approach" icon={<Users />}>
           <Show when={targets().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No agent or label on the list yet.</p>}>
             <For each={targets().slice(0, 1)}>{target => (
-              <ItemRow title={target.display_name} sub={target.kind} action={<Pill tone={target.verified ? 'good' : 'muted'}>{target.verified ? 'verified' : 'unverified'}</Pill>} />
+              <ItemRow title={target.display_name} sub={humanizeToken(target.kind)} action={<Pill tone={target.verified ? 'good' : 'muted'}>{target.verified ? 'verified' : 'unverified'}</Pill>} />
             )}</For>
             <Show when={agents() > 1}><StatRow label={`${agents() - (targets()[0]?.kind === 'agent' ? 1 : 0)} more agents`} value={<span class="text-muted-foreground">verified list</span>} /></Show>
             <Show when={labels() > 0}><StatRow label={`${labels()} ${labels() === 1 ? 'label' : 'labels'}`} value={<span class="text-muted-foreground">verified list</span>} /></Show>

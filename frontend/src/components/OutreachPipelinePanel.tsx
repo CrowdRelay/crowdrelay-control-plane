@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage } from '../lib/format'
+import { errorMessage, humanizeToken } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -119,7 +119,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
             <TableBody>
               <For each={showAllBooking() ? booking.data : booking.data!.slice(0, MAX_VISIBLE)}>{(c: BookingCandidateView) => (
                 <TableRow>
-                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></TableCell>
+                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{humanizeToken(c.target_kind)}</span></TableCell>
                   <TableCell>
                     <Show when={c.city_slug} fallback="—">
                       {city => (
@@ -133,9 +133,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
                       )}
                     </Show>
                   </TableCell>
-                  <TableCell><span class="text-muted-foreground">{c.route_kind}</span><br />{c.route_value}</TableCell>
+                  <TableCell><span class="text-muted-foreground">{humanizeToken(c.route_kind)}</span><br />{c.route_value}</TableCell>
                   <TableCell>{fitLabel(c.fit_basis_points)}</TableCell>
-                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{humanizeToken(c.status)}</Badge></TableCell>
                   <TableCell>
                     <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
                       <Button writes
@@ -179,12 +179,12 @@ export function OutreachPipelinePanel(props: { slug: string }) {
             <TableBody>
               <For each={showAllOutreach() ? outreach.data : outreach.data!.slice(0, MAX_VISIBLE)}>{(c: OutreachCandidateView) => (
                 <TableRow>
-                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{c.target_kind}</span></TableCell>
-                  <TableCell><span class="text-muted-foreground">{c.source}</span></TableCell>
-                  <TableCell><span class="text-muted-foreground">{c.route_kind}</span></TableCell>
+                  <TableCell><strong>{c.display_name}</strong><br /><span class="text-muted-foreground">{humanizeToken(c.target_kind)}</span></TableCell>
+                  <TableCell><span class="text-muted-foreground">{humanizeToken(c.source)}</span></TableCell>
+                  <TableCell><span class="text-muted-foreground">{humanizeToken(c.route_kind)}</span></TableCell>
                   <TableCell>{fitLabel(c.fit_basis_points)}</TableCell>
                   <TableCell>{c.follower_count != null ? c.follower_count.toLocaleString() : '—'}</TableCell>
-                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{c.status}</Badge></TableCell>
+                  <TableCell><Badge variant={toneToVariant(statusTone(c.status))}>{humanizeToken(c.status)}</Badge></TableCell>
                   <TableCell>
                     <Show when={c.status !== 'refused' && c.status !== 'promoted'}>
                       <Button writes

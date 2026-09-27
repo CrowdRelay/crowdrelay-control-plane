@@ -1,7 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
 import { authState } from '../lib/auth'
 import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
-import { confidencePercent, wireJsonReplacer } from '../lib/format'
+import { confidencePercent, humanizeToken, wireJsonReplacer } from '../lib/format'
+import { TechId } from './ui/TechnicalDetails'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { SectionIcon } from './SectionIcon'
@@ -89,8 +90,9 @@ function DecisionEvidenceView(props: { slug: string; decisionId: string }) {
         <div class="space-y-2">
           <div class="flex justify-between gap-2 text-xs">
             <span class="text-muted-foreground">Subject</span>
-            <span class="text-foreground break-all text-right">{e().subject_kind.replaceAll('_', ' ')} · {e().subject_id}</span>
+            <span class="text-foreground text-right">{humanizeToken(e().subject_kind)}</span>
           </div>
+          <TechId label="subject id" value={e().subject_id} />
           <Show when={e().recommendation && Object.keys(e().recommendation).length > 0}>
             <div>
               <span class="text-xs text-muted-foreground">Recommended</span>

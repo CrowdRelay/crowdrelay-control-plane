@@ -18,7 +18,7 @@ import { ShowSalesPanel } from '../components/show/ShowSalesPanel'
 import { ShowDoorPanel } from '../components/show/ShowDoorPanel'
 import { ShowChecklistPanel } from '../components/show/ShowChecklistPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
-import { formatTimestamp, timestampMillis } from '../lib/format'
+import { formatTimestamp, humanizeToken, timestampMillis } from '../lib/format'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
   done: { variant: 'success', label: 'Done' },
@@ -513,7 +513,7 @@ function DetailLine(props: { step: ShowTimelineStep }) {
       case 'recall': {
         const st = d().action_status as string | null | undefined
         const c = d().campaign as { subject?: string | null; delivered?: number | null; status?: string } | null | undefined
-        const receipt = c?.delivered != null ? ` · ${c.delivered} delivered` : c?.status ? ` · campaign ${c.status}` : ''
+        const receipt = c?.delivered != null ? ` · ${c.delivered} delivered` : c?.status ? ` · campaign ${humanizeToken(c.status)}` : ''
         if (st === 'succeeded') return `${`Sent ${d().finished_at ? formatTimestamp(String(d().finished_at)) : ''}`.trim()}${receipt}`
         if (st) return `Recap ${st.replaceAll('_', ' ')}${c?.subject ? ` · "${c.subject}"` : ''}`
         return 'No recap queued yet'

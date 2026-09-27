@@ -277,13 +277,19 @@ export function useWorkAreas(ids: string[], param = 'tab') {
   const navigate = useNavigate()
   const search = useRouterState({ select: s => s.location.search as Record<string, unknown> })
   const initial = new URLSearchParams(window.location.search).get(param)
-  const [active, setActive] = createSignal<string | null>(initial && ids.includes(initial) ? initial : null)
+  // A page whose only content sits inside a single work area opens it by
+  // default — otherwise the page renders nothing until the toggle is found.
+  // Toggling still closes it for the session (explicit choice wins).
+  const fallback = ids.length === 1 ? ids[0] ?? null : null
+  const [explicit, setExplicit] = createSignal(initial != null)
+  const [active, setActive] = createSignal<string | null>(initial && ids.includes(initial) ? initial : fallback)
   createEffect(() => {
     const t = search()?.[param]
-    const next = typeof t === 'string' && ids.includes(t) ? t : null
+    const next = typeof t === 'string' && ids.includes(t) ? t : explicit() ? null : fallback
     untrack(() => { if (next !== active()) setActive(next) })
   })
   const open = (id: string | null) => {
+    setExplicit(true)
     setActive(id)
     void navigate({ to: '.', search: (prev: Record<string, unknown>) => {
       const out = { ...prev }

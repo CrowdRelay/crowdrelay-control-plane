@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { currencyFractionDigits, errorMessage, money } from '../lib/format'
+import { currencyFractionDigits, errorMessage, humanizeToken, money } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { NegotiationEntry } from '../lib/types'
@@ -43,7 +43,7 @@ const settledLabel = (entry: NegotiationEntry) => {
     window_closed: 'window closed',
   }
   const why = entry.settled_reason ? (reasons[entry.settled_reason] ?? entry.settled_reason) : entry.state
-  return `${entry.state} — ${why}`
+  return `${humanizeToken(entry.state)} — ${why}`
 }
 
 const settledTone = (state: string): 'good' | 'bad' | 'muted' =>

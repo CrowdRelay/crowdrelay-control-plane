@@ -564,7 +564,7 @@ export function DriveContactsPanel(props: { slug: string }) {
         <ul class="m-0 max-h-56 list-none overflow-y-auto p-0">
           <For each={promoteReviewRows().slice(0, 12)}>{contact => (
             <li class="truncate border-b border-border/50 py-1.5 text-sm text-secondary-foreground last:border-0">
-              {contact.email ?? contact.display_name ?? contact.id}
+              {contact.email ?? contact.display_name ?? 'an unnamed contact'}
             </li>
           )}</For>
           <Show when={promoteReviewRows().length > 12}>

@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { labelOr, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS } from '../lib/opportunity-labels'
 import type { BandNotice, FailedSend, FailedSends, LapsedApprovals, RejectedAgentOutcome, SentRecord, UnansweredReply } from '../lib/types'
 import { KpiCard, KpiStrip, PanelTitle } from './layout'
@@ -148,7 +148,7 @@ function FailedSendRow(props: { slug: string; send: FailedSend }) {
       <strong class="text-foreground">{labelOr(DECISION_KIND_LABELS, props.send.action_kind)}</strong>
       <Badge variant="outline">{labelOr(CONTEXT_LABELS, props.send.context)}</Badge>
       <Show when={props.send.error_kind}>
-        <Badge variant="destructive">{props.send.error_kind}</Badge>
+        <Badge variant="destructive">{humanizeToken(props.send.error_kind!)}</Badge>
       </Show>
       <Show when={props.send.attempt_count > 1}>
         <span class="text-xs text-muted-foreground">{props.send.attempt_count} attempts</span>
@@ -191,7 +191,7 @@ function FailedSendRow(props: { slug: string; send: FailedSend }) {
               </Show>
               <div class="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
                 <Show when={r.event_type}><span class="font-mono">{r.event_type}</span></Show>
-                <Show when={r.executor_status}><span>executor: {r.executor_status}</span></Show>
+                <Show when={r.executor_status}><span>executor: {humanizeToken(r.executor_status!)}</span></Show>
                 <Show when={r.provider_reference}>
                   <span>ref: <span class="font-mono">{r.provider_reference}</span></span>
                 </Show>
@@ -393,7 +393,7 @@ export function BandNoticesPanel(props: {
           <For each={items()}>{notice =>
             <div class="rounded-md border border-border bg-background px-3 py-2 text-sm">
               <div class="flex items-center gap-2 flex-wrap">
-                <strong class="text-foreground">{NOTICE_KIND_LABELS[notice.kind] ?? notice.kind}</strong>
+                <strong class="text-foreground">{NOTICE_KIND_LABELS[notice.kind] ?? humanizeToken(notice.kind)}</strong>
                 <Show when={!notice.delivered}>
                   <span class="text-xs text-warning-foreground">not delivered</span>
                 </Show>

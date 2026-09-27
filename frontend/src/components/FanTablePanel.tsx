@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { humanizeToken } from '../lib/format'
 import { authState } from '../lib/auth'
 import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
@@ -229,7 +230,7 @@ export function FanTablePanel(props: {
               <TableRow class="cursor-pointer" onClick={() => openFan(fan)}>
                 <TableCell>{fan.display_name ?? '—'}</TableCell>
                 <TableCell class="text-muted-foreground">{fan.email}</TableCell>
-                <TableCell><Badge variant={fanStatusTone(fan.status)}>{fan.status}</Badge></TableCell>
+                <TableCell><Badge variant={fanStatusTone(fan.status)}>{humanizeToken(fan.status)}</Badge></TableCell>
                 <TableCell><span class="text-muted-foreground">{fan.activation_state}</span></TableCell>
                 <TableCell numeric>{fan.qualified_referrals}</TableCell>
                 <TableCell class="text-muted-foreground">{formatDate(fan.created_at)}</TableCell>

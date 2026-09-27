@@ -4,7 +4,7 @@ import { Link } from '@tanstack/solid-router'
 import { api, errorHeading } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard, Section } from './layout'
@@ -550,7 +550,7 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
                           <br /><Badge variant="destructive">do not contact</Badge>
                         </Show>
                       </TableCell>
-                      <TableCell><Badge variant="muted">{target.kind}</Badge></TableCell>
+                      <TableCell><Badge variant="muted">{humanizeToken(target.kind)}</Badge></TableCell>
                       <TableCell>
                         <Show
                           when={target.accepts_outreach}

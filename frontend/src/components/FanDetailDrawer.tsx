@@ -2,7 +2,7 @@ import { fillPath, surface } from '../lib/surface'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createEffect, createSignal, on } from 'solid-js'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
+import { errorMessage, humanizeToken } from '../lib/format'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -164,7 +164,7 @@ export function FanDetailDrawer(props: {
                 <div class="flex flex-wrap items-center gap-2.5 px-3 py-2 rounded-md">
                   <span class="text-sm text-muted-foreground whitespace-nowrap">{formatDateTime(purchase.paid_at)}</span>
                   <Badge>{purchase.event_title}</Badge>
-                  <span class="text-muted-foreground">{purchase.status} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
+                  <span class="text-muted-foreground">{humanizeToken(purchase.status)} · {purchase.currency} {purchase.amount_gross_minor / 100}</span>
                 </div>
               )}</For>
             </div>

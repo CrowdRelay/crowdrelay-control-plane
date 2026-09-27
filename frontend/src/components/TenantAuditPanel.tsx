@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -34,10 +34,10 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
     <ul class="mt-4 divide-y divide-border rounded-lg border border-border">
       <For each={visible()}>{item => <li class="flex items-center justify-between gap-3 px-4 py-2.5">
         <div class="min-w-0">
-          <strong class="block text-sm text-foreground">{item.action}</strong>
+          <strong class="block text-sm text-foreground">{humanizeToken(item.action)}</strong>
           <small class="block text-xs text-muted-foreground mt-0.5">{item.actor} · {formatTimestamp(item.createdAt)}</small>
         </div>
-        <code class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-sm flex-shrink-0">{item.targetKind}</code>
+        <span class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-sm flex-shrink-0">{humanizeToken(item.targetKind)}</span>
       </li>}</For>
     </ul>
     </Show>

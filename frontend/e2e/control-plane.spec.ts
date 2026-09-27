@@ -16,6 +16,14 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   // The journey carries a fixed 17s live-poll wait, so the 30s default
   // times out on a loaded runner even when every step is green.
   test.setTimeout(90_000)
+  // Boot-cost guard: Today is one composite read model. If a regression
+  // re-mounts the command centre on the way in, or re-adds per-section
+  // follow-ups (shows, timeline, outcomes), these checks name it.
+  const apiCalls: string[] = []
+  page.on('request', (req) => {
+    const url = req.url()
+    if (url.includes('/api/v1/')) apiCalls.push(url)
+  })
   const { username, password } = credentials()
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible()
@@ -31,6 +39,17 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   // The heading waits on the lazy AuthenticatedApp chunk plus session hydrate —
   // on the shared 2-core box under CI load that can exceed the 5s default.
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible({ timeout: 30_000 })
+
+  const bootCalls = apiCalls.slice()
+  // `command-center` is expected here even though the landing is Today —
+  // the shell's nav badge shares that query key and fires it on every page
+  // for platform sessions. The guard is the absent per-section calls and a
+  // bounded set of distinct endpoints (the multi-view boot storm shape).
+  expect(bootCalls.some((u) => /\/tenants\/[^/]+\/today\b/.test(u))).toBe(true)
+  expect(bootCalls.some((u) => /\/tenants\/[^/]+\/shows\b/.test(u))).toBe(false)
+  expect(bootCalls.some((u) => u.includes('/operations/outcomes'))).toBe(false)
+  const distinct = new Set(bootCalls.map((u) => u.split('?')[0]))
+  expect(distinct.size).toBeLessThanOrEqual(10)
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
   await expect(page.getByRole('heading', { name: 'Tenants' })).toBeVisible()

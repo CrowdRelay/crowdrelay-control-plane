@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Check, X } from 'lucide-solid'
 import { api } from '../lib/api'
 import type { IntelligenceBrief, PendingActionSummary } from '../lib/types'
-import { confidencePercent, errorMessage, formatIsoUntil, relativeTime } from '../lib/format'
+import { confidencePercent, errorMessage, formatIsoUntil, humanizeToken, relativeTime } from '../lib/format'
 import { toast } from './app/toast'
 import { Section, SkeletonBlock } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -559,7 +559,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
                   <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-foreground">{obj.metric_key} on {obj.platform}</p>
                     <p class="mt-0.5 text-xs text-muted-foreground">
-                      {obj.state} — {(obj.progress_basis_points / 100).toFixed(1)}% of target, {obj.shortfall} short
+                      {humanizeToken(obj.state)} — {(obj.progress_basis_points / 100).toFixed(1)}% of target, {obj.shortfall} short
                     </p>
                   </div>
                   <StatusBadge status={obj.state} tone={obj.state === 'missed' ? 'bad' : 'warn'} />

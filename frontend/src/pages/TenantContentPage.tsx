@@ -5,6 +5,7 @@ import { Bell, History, Layers, RefreshCw, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
+import { humanizeToken } from '../lib/format'
 import { errorMessage, relativeTime, timestampMillis } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Spinner } from '../components/Spinner'
@@ -429,7 +430,7 @@ export function TenantContentPage() {
       <Card title="Material it works from" icon={<Layers />} aside={<Link to="/tenants/$slug/content/material" params={{ slug: params().slug }} class="hover:text-foreground">Material →</Link>}>
         <Show when={material.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{material.error ? 'The material could not be read.' : ''}</p>}>
           <For each={(material.data?.by_kind ?? []).slice().sort((a, b) => b.total - a.total)}>{kind => (
-            <StatRow label={MATERIAL_LABEL[kind.kind] ?? kind.kind} value={<span class="tabular-nums text-foreground">{kind.kind === 'release' ? `~${kind.distinct_titles}` : kind.total}</span>} />
+            <StatRow label={MATERIAL_LABEL[kind.kind] ?? humanizeToken(kind.kind)} value={<span class="tabular-nums text-foreground">{kind.kind === 'release' ? `~${kind.distinct_titles}` : kind.total}</span>} />
           )}</For>
           <Note>New posts on Facebook and Instagram sync by themselves.</Note>
         </Show>

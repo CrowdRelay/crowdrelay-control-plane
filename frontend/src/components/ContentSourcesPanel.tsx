@@ -4,6 +4,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
+import { humanizeToken } from '../lib/format'
 import { errorMessage } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -252,7 +253,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
           <div class="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <Badge variant={isLive(s) ? 'success' : 'muted'}>{KIND_LABEL[s.source_kind] ?? s.source_kind}</Badge>
+                <Badge variant={isLive(s) ? 'success' : 'muted'}>{KIND_LABEL[s.source_kind] ?? humanizeToken(s.source_kind)}</Badge>
                 <strong class="truncate text-sm font-semibold text-foreground">{s.title}</strong>
               </div>
               <div class="mt-1 text-xs text-muted-foreground">

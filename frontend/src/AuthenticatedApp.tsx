@@ -48,10 +48,25 @@ const TenantInMotionPage = lazyRouteComponent(() => import('./pages/TenantInMoti
 const rootRoute = createRootRoute({ component: Shell })
 // The overview is a platform command centre — a tenant operator's console
 // is their own tenant, so `/` sends them straight to its Today view before
-// the command-centre loader can fire a guaranteed 403.
-const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage, beforeLoad: () => {
-  const slug = authState.isPlatformLevel() ? undefined : authState.profile()?.tenantSlug
-  if (slug) throw redirect({ href: `/tenants/${slug}` })
+// the command-centre loader can fire a guaranteed 403. Admins land on the
+// first tenant's Today once per session — the redirect lives here, before
+// the route loads, so boot never mounts the Overview or pays its fan-out
+// only to leave. With the session flag set (cleared on login by auth.ts),
+// `/` renders the Overview as its own page.
+const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: OverviewPage, beforeLoad: async ({ preload }) => {
+  // Hovering a link runs the loaders but must never move the user.
+  if (preload) return
+  const operatorSlug = authState.isPlatformLevel() ? undefined : authState.profile()?.tenantSlug
+  if (operatorSlug) throw redirect({ href: `/tenants/${operatorSlug}/operations` })
+  if (sessionStorage.getItem('cp-default-tenant')) return
+  const first = await queryClient
+    .ensureQueryData({ queryKey: ['tenants'], queryFn: api.tenants, staleTime: 15_000 })
+    .then(list => list.items?.[0]?.slug)
+    .catch(() => undefined)
+  const target = first ?? authState.profile()?.tenantSlug
+  if (!target) return
+  sessionStorage.setItem('cp-default-tenant', '1')
+  throw redirect({ href: `/tenants/${target}/operations` })
 }, loader: warm(['command-center'], api.commandCenter) })
 const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', component: FlowPage })
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage, loader: warm(['tenants'], api.tenants, 15_000) })
@@ -135,6 +150,10 @@ const router = createRouter({
   routeTree,
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 10_000,
+  // A pointer crossing the sidebar fires every loader it touches — thirteen
+  // nav items, each a server-side fan-out. Two hundred milliseconds of dwell
+  // is the line between a sweep and an intent.
+  defaultPreloadDelay: 200,
   scrollRestoration: true,
   defaultPendingComponent: () => <SkeletonPage />,
   defaultPendingMs: 0,

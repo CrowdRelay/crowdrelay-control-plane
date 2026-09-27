@@ -160,25 +160,6 @@ export const Shell: Component = () => {
     }
   }
 
-  // After login, redirect the operator to their default tenant so the
-  // tenant-scoped nav is immediately available. Admins land on the first
-  // tenant in the registry (Virya in practice, but resolved from the list
-  // not hardcoded); tenant operators land on their own tenant. Only
-  // redirects once per session (the flag is cleared on login/logout by
-  // auth.ts) and only from the bare `/` path. The landing page is Today —
-  // the daily read — not the queue of things already waiting.
-  createEffect(() => {
-    if (!authState.profile()) return
-    if (pathname() !== '/') return
-    if (sessionStorage.getItem('cp-default-tenant')) return
-    const tenantSlug = isPlatformLevel()
-      ? (tenants.data?.items?.[0]?.slug ?? profile()?.tenantSlug)
-      : profile()?.tenantSlug
-    if (!tenantSlug) return
-    sessionStorage.setItem('cp-default-tenant', '1')
-    navigate({ to: `/tenants/${tenantSlug}/operations` as any })
-  })
-
   onMount(() => {
     // ⌘B / Ctrl+B toggles the sidebar — the stock provider owns that shortcut.
     const onKey = (event: KeyboardEvent) => {
