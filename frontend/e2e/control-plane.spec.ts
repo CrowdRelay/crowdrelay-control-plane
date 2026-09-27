@@ -52,7 +52,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   expect(distinct.size).toBeLessThanOrEqual(10)
 
   await page.getByRole('link', { name: 'Tenants' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Tenants' })).toBeVisible()
+  // `exact` — the FleetList card's <h2> "Tenants, most urgent first"
+  // substring-matches "Tenants" and strict mode sees two headings.
+  await expect(page.getByRole('heading', { name: 'Tenants', exact: true })).toBeVisible()
   const virya = page.locator('[data-slot="tenant-row"]').filter({ hasText: /virya/i }).first()
   await expect(virya).toBeVisible()
   await virya.click()
