@@ -2,7 +2,8 @@ import { AmplifyEdgeAction } from './AmplifyEdgeAction'
 import { SurfaceAction } from './capabilities/SurfaceAction'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
-import { useMutation, useQueryClient } from '@tanstack/solid-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { TechIdList } from './ui/TechnicalDetails'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { PortfolioConsent, PortfolioConsentStatus, PortfolioOverview } from '../lib/types'
@@ -81,7 +82,24 @@ export function PortfolioPanel(props: {
     },
   }))
 
-  const shortWs = (id: string) => id.slice(0, 8)
+  // Workspace ids are only meaningful against the tenant registry — admins
+  // share the ['tenants'] cache Shell/Overview already fill; an operator
+  // without it sees the id behind the details affordance, not a hex stub.
+  const tenants = useQuery(() => ({
+    queryKey: ['tenants'],
+    queryFn: () => api.tenants(),
+    enabled: authState.isPlatformLevel(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    reconcile: 'id',
+  }))
+  const workspaceLabel = (workspaceId: string) =>
+    tenants.data?.items.find(t => t.workspaceId === workspaceId)?.displayName
+  const WorkspaceCell = (props: { workspaceId: string }) => (
+    <Show when={workspaceLabel(props.workspaceId)} fallback={
+      <TechIdList ids={[{ label: 'workspace', value: props.workspaceId }]} />
+    }>{name => <span>{name()}</span>}</Show>
+  )
 
   const edges = () => props.consents ?? []
   const proposedCount = () => edges().filter(edge => edge.status === 'proposed').length
@@ -141,8 +159,8 @@ export function PortfolioPanel(props: {
             <>
             <TableRow>
               <TableCell>{PURPOSE_LABEL[edge.purpose]}</TableCell>
-              <TableCell>{shortWs(edge.from_workspace_id)}</TableCell>
-              <TableCell>{shortWs(edge.to_workspace_id)}</TableCell>
+              <TableCell><WorkspaceCell workspaceId={edge.from_workspace_id} /></TableCell>
+              <TableCell><WorkspaceCell workspaceId={edge.to_workspace_id} /></TableCell>
               <TableCell>
                 <span class="flex flex-wrap items-center gap-2">
                   <StatusBadge status={STATUS_LABEL[edge.status]} tone={STATUS_TONE[edge.status]} />

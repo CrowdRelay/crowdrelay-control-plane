@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatTimestamp, errorMessage, relativeTime } from '../lib/format'
+import { formatTimestamp, errorMessage, relativeTime, humanizeToken } from '../lib/format'
 import type { PlayKindStanding } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -161,7 +161,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
             <div class={`p-4 rounded-lg border border-border ${toneBorder(stateTone(p.state))} bg-card`}>
               <div class="flex justify-between items-center mb-2">
                 <strong class="text-foreground">{kindLabel(p.kind)}</strong>
-                <Badge variant={toneVariant(stateTone(p.state))}>{p.state}</Badge>
+                <Badge variant={toneVariant(stateTone(p.state))}>{humanizeToken(p.state)}</Badge>
               </div>
               <div class="flex gap-4 text-sm text-muted-foreground mb-2 flex-wrap">
                 <span>Started: {formatTimestamp(p.started_at)}</span>
@@ -176,7 +176,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
                 <div class="flex flex-col gap-1.5 mt-2">
                   <For each={expandedClaims().has(p.play_id) ? p.claims : p.claims.slice(0, MAX_VISIBLE_CLAIMS)}>{(c) => (
                     <div class="flex gap-2.5 items-center text-sm py-1 px-1.5 rounded-md bg-background border border-border">
-                      <Badge variant={toneVariant(effectTone(c.effect))}>{c.effect ?? c.status}</Badge>
+                      <Badge variant={toneVariant(effectTone(c.effect))}>{humanizeToken(c.effect ?? c.status)}</Badge>
                       <span class="text-muted-foreground">{claimLabel(c.claim_means)}</span>
                       <span>{metricLabel(c.success_metric_platform, c.success_metric_key)}</span>
                       <Show when={c.delta_basis_points != null}>

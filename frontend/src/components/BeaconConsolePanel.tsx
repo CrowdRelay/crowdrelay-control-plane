@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { BeaconProfileView } from '../lib/types'
-import { beaconKindLabel, errorMessage, formatTimestamp } from '../lib/format'
+import { beaconKindLabel, errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonPanel } from './Skeleton'
@@ -464,7 +464,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={STATE_LABEL[profile.status] ?? profile.status} tone={STATE_TONE[profile.status] ?? 'muted'} />
+                      <StatusBadge status={STATE_LABEL[profile.status] ?? humanizeToken(profile.status)} tone={STATE_TONE[profile.status] ?? 'muted'} />
                     </TableCell>
                     <TableCell class="text-center tabular-nums">{profile.inviteCount}</TableCell>
                     <TableCell>

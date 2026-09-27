@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
@@ -286,7 +286,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
                           </Show>
                           <div class="text-muted-foreground text-sm pl-1.5">↓</div>
                           <div class="flex items-center gap-2.5 py-1.5">
-                            <Badge variant={toneToBadgeVariant(decisionStatusTone(decision.status))}>{decision.status}</Badge>
+                            <Badge variant={toneToBadgeVariant(decisionStatusTone(decision.status))}>{humanizeToken(decision.status)}</Badge>
                             <span class="text-muted-foreground">
                               <Show when={decision.completed_at} fallback="in progress">
                                 {formatIsoAge(decision.completed_at!)}

@@ -8,7 +8,7 @@ import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, Audi
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/app/toast'
-import { errorMessage } from '../lib/format'
+import { errorMessage, humanizeToken } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
@@ -445,7 +445,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                                 </div>
                               </div>
                               <span class={cn('text-xs font-medium px-2 py-0.5 rounded-full', item.membershipState === 'not_joined' ? 'bg-warning-foreground/10 text-warning-foreground' : item.membershipState === 'joining' ? 'bg-primary/10 text-primary' : item.membershipState === 'joined' ? 'bg-success-foreground/10 text-success-foreground' : item.membershipState === 'rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground')} data-state={item.membershipState}>
-                                {MEMBERSHIP_LABEL[item.membershipState] ?? item.membershipState}
+                                {MEMBERSHIP_LABEL[item.membershipState] ?? humanizeToken(item.membershipState)}
                               </span>
                             </header>
 

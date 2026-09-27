@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { KpiStrip, KpiCard, ErrorCard } from './layout'
@@ -251,7 +251,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
                           <TableCell><strong class="text-foreground">{r.displayName}</strong>{r.recipientName ? <><br /><span class="text-muted-foreground">{r.recipientName}</span></> : null}</TableCell>
                           <TableCell>{r.beaconKind}</TableCell>
                           <TableCell>{r.city ?? '—'}</TableCell>
-                          <TableCell><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{r.status}</Badge></TableCell>
+                          <TableCell><Badge variant={toneToVariant(recipientStatusTone(r.status))}>{humanizeToken(r.status)}</Badge></TableCell>
                           <TableCell>{formatTimestamp(r.confirmedAt)}</TableCell>
                           <TableCell>{formatTimestamp(r.deliveredAt)}</TableCell>
                           <TableCell>

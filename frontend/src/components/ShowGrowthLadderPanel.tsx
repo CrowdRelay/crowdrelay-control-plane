@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ShowGrowthLadderView, ShowLadderRung } from '../lib/types'
 import { readOnly } from '../lib/read-only'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
 import { Button } from './ui/button'
 import { Badge } from './app/badge'
 
@@ -78,7 +78,7 @@ export function ShowGrowthLadderPanel(props: { slug: string; eventId: string; la
                     : 'outline'
               }
             >
-              {view().ladder_state === 'none' ? 'not approved' : view().ladder_state}
+              {view().ladder_state === 'none' ? 'not approved' : humanizeToken(view().ladder_state)}
             </Badge>
           )}
         </Show>

@@ -2,7 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { capability } from '../lib/capabilities'
 import { surface } from '../lib/surface'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
@@ -48,7 +48,7 @@ export function ConnectionHealthPanel(props: { slug: string }) {
                   <span class="text-xs text-muted-foreground">synced {formatTimestamp(row.last_sync_at)}</span>
                 </Show>
                 <Show when={row.status !== 'connected' && row.health !== 'failing'}>
-                  <span class="text-xs text-muted-foreground">· credential {row.status}</span>
+                  <span class="text-xs text-muted-foreground">· credential {humanizeToken(row.status)}</span>
                 </Show>
               </li>
             )}</For>

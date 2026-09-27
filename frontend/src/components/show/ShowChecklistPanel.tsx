@@ -2,6 +2,7 @@ import { For, Show, createMemo } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { capability, capabilityAction } from '../../lib/capabilities'
 import { fillPath, surface } from '../../lib/surface'
+import { humanizeToken } from '../../lib/format'
 import { Badge } from '../app/badge'
 import { SurfaceAction } from '../capabilities/SurfaceAction'
 
@@ -59,7 +60,7 @@ export function ShowChecklistPanel(props: { slug: string; eventSlug: string }) {
               <ul class="mt-1 space-y-1">
                 <For each={items}>{item => (
                   <li class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant={TONE[item.status]}>{item.status}</Badge>
+                    <Badge variant={TONE[item.status]}>{humanizeToken(item.status)}</Badge>
                     <span class="capitalize text-foreground">{words(item.item_key)}</span>
                     <Show when={item.note}><span>— {item.note}</span></Show>
                     <SurfaceAction

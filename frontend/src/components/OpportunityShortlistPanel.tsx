@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { confidencePercent } from '../lib/format'
+import { confidencePercent, humanizeToken } from '../lib/format'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { EmptyState } from './ui/empty-state'
 import type { OpportunityShortlistEntry } from '../lib/types'
@@ -56,10 +56,10 @@ const statusTone = (entry: OpportunityShortlistEntry): 'good' | 'warn' | 'bad' |
 
 const statusLabel = (entry: OpportunityShortlistEntry) => {
   if (entry.stale_reason === 'closed') {
-    return entry.status_reason ? `${entry.status} — ${entry.status_reason}` : entry.status
+    return entry.status_reason ? `${humanizeToken(entry.status)} — ${entry.status_reason}` : humanizeToken(entry.status)
   }
-  if (entry.stale_reason) return STALE_LABELS[entry.stale_reason] ?? entry.stale_reason
-  return entry.status.replace(/_/g, ' ')
+  if (entry.stale_reason) return STALE_LABELS[entry.stale_reason] ?? humanizeToken(entry.stale_reason)
+  return humanizeToken(entry.status)
 }
 
 const moneyLine = (entry: OpportunityShortlistEntry) => {

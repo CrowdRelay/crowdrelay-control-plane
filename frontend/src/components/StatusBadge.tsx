@@ -1,5 +1,6 @@
 import type { Component } from 'solid-js'
 import { Badge } from './app/badge'
+import { humanizeToken } from '../lib/format'
 
 const toneToVariant = (tone?: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' => {
   switch (tone) {
@@ -10,6 +11,8 @@ const toneToVariant = (tone?: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'w
   }
 }
 
+/** Status tokens arrive as enum vocabulary (`SUCCEEDED`, `awaiting_approval`,
+ *  `membershipState`) — the badge says the words, never the token. */
 export const StatusBadge: Component<{ status: string; tone?: 'good' | 'warn' | 'bad' | 'muted' }> = (props) => (
-  <Badge variant={toneToVariant(props.tone)}>{props.status}</Badge>
+  <Badge variant={toneToVariant(props.tone)}>{humanizeToken(props.status)}</Badge>
 )

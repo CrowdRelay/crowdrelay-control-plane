@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
-import { errorMessage, formatIsoAge, formatTimestamp, relativeTime } from '../lib/format'
+import { errorMessage, formatIsoAge, formatTimestamp, relativeTime, humanizeToken} from '../lib/format'
 import { toast } from './app/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './ui/empty-state'
@@ -119,7 +119,7 @@ export function DeliveryJourneyPanel(props: {
       const result = isDelivery(item)
         ? await api.retryDelivery(props.slug, item.id)
         : await api.retryOutbox(props.slug, item.id)
-      toast.success(result.status === 'queued' ? 'Queued for another attempt.' : `Retry: ${result.status}`)
+      toast.success(result.status === 'queued' ? 'Queued for another attempt.' : `Retry: ${humanizeToken(result.status)}`)
       props.onRefresh()
     } catch (error) {
       toast.error(errorMessage(error, 'Retry failed'))

@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
 import { Check, MapPin, Plus } from 'lucide-solid'
 import { api } from '../../lib/api'
-import { errorMessage } from '../../lib/format'
+import { errorMessage, humanizeToken } from '../../lib/format'
+
+/** Lifecycle verbs → the past-tense word the flash line needs. */
+const ACTION_PAST_TENSE: Record<string, string> = {
+  pause: 'paused', resume: 'resumed', archive: 'archived', delete: 'deleted',
+}
 import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '../../lib/types'
 import { StatusBadge } from '../StatusBadge'
 import { LocationCanvas } from './LocationCanvas'
@@ -158,7 +163,7 @@ export function AreaWorkspace(props: { slug: string }) {
     if(action==='resume') return api.areaResume(slug(),id)
     if(action==='archive') return api.areaArchive(slug(),id)
     await api.areaDelete(slug(),id); return null
-  }, onSuccess: async (item, action) => { const id=selectedId(); await refresh(id ?? undefined); if(action==='archive'||action==='delete') closeEditor(); else if(item) setDraft(cloneDraft(item.draft ?? item.published)); setFlash(`AREA drop ${action} completed.`) } }))
+  }, onSuccess: async (item, action) => { const id=selectedId(); await refresh(id ?? undefined); if(action==='archive'||action==='delete') closeEditor(); else if(item) setDraft(cloneDraft(item.draft ?? item.published)); setFlash(`AREA drop ${ACTION_PAST_TENSE[action] ?? humanizeToken(action)}.`) } }))
   const discard = useMutation(() => ({ mutationFn: async () => { if(!selectedId()) throw new Error('No drop selected.'); await api.areaDiscardDraft(slug(),selectedId()!) }, onSuccess: async () => { const id=selectedId()!; await refresh(id); setFlash('Draft discarded.'); } }))
   const duplicate = useMutation(() => ({ mutationFn: async () => {
     const sourceId = selectedId(); if (!sourceId) throw new Error('No source drop selected.')

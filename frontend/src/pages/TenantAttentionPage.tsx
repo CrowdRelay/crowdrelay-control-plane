@@ -10,9 +10,10 @@ import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, relativeTime, formatTimestamp as observed } from '../lib/format'
+import { errorMessage, relativeTime, formatTimestamp as observed, humanizeToken } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
+import { TechId, TechIdList } from '../components/ui/TechnicalDetails'
 import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
@@ -80,7 +81,7 @@ function FindingBody(props: { finding: ReconciliationFinding }) {
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <strong class="text-foreground">{props.finding.summary}</strong>
-        <small class="block text-sm text-muted-foreground">{props.finding.kind} · {props.finding.entity_label ?? props.finding.entity_type}</small>
+        <small class="block text-sm text-muted-foreground">{humanizeToken(props.finding.kind)} · {props.finding.entity_label ?? props.finding.entity_type}</small>
         <Show when={props.finding.suggested_action}>
           <p class="text-sm text-muted-foreground mt-1 leading-relaxed">{props.finding.suggested_action}</p>
         </Show>
@@ -251,7 +252,7 @@ export function TenantAttentionPage() {
     try {
       const result = await api.runReconciliation(params().slug)
       setConfirmingReconcile(false)
-      toast.success(`Reconciliation finished: ${result.findings.length} finding(s), status ${result.run.status}.`)
+      toast.success(`Reconciliation finished: ${result.findings.length} finding(s), status ${humanizeToken(result.run.status)}.`)
       await refreshMaintenance()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Reconciliation failed')
@@ -553,10 +554,10 @@ export function TenantAttentionPage() {
           <ol class="mt-3 divide-y divide-border border-t border-border">
             <For each={result().events}>{event => <li class="py-3 text-sm">
               <div class="flex flex-wrap items-center gap-1.5">
-                <Badge variant="muted">{event.source}</Badge>
-                <Badge variant="outline">{event.kind}</Badge>
+                <Badge variant="muted">{humanizeToken(event.source)}</Badge>
+                <Badge variant="outline">{humanizeToken(event.kind)}</Badge>
               </div>
-              <p class="mt-1.5 text-muted-foreground">{observed(event.occurred_at)} · {event.status ?? '—'} · {event.target_type ?? '—'}</p>
+              <p class="mt-1.5 text-muted-foreground">{observed(event.occurred_at)} · {event.status != null ? humanizeToken(event.status) : '—'} · {event.target_type != null ? humanizeToken(event.target_type) : '—'}</p>
             </li>}</For>
           </ol>
         </Card>}</Show>
@@ -564,23 +565,27 @@ export function TenantAttentionPage() {
           <div class="flex items-start justify-between gap-4">
             <div>
               <PanelTitle as="h3" icon={<SectionIcon name="history" />}>{result().events.length} trace event{result().events.length === 1 ? '' : 's'}</PanelTitle>
-              <code class="mt-1 block break-all text-xs text-muted-foreground">{result().trace_id}</code>
+              <div class="mt-1"><TechId label="trace" value={result().trace_id} /></div>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setTraceResult(null)}>Close</Button>
           </div>
           <ol class="mt-3 divide-y divide-border border-t border-border">
             <For each={result().events}>{event => <li class="py-3 text-sm">
               <div class="flex flex-wrap items-center gap-1.5">
-                <Badge variant="muted">{event.source}</Badge>
-                <Badge variant="outline">{event.kind}</Badge>
-                <Show when={event.state}><Badge variant="outline">{event.state}</Badge></Show>
-                <Badge variant="outline">{event.certainty}</Badge>
+                <Badge variant="muted">{humanizeToken(event.source)}</Badge>
+                <Badge variant="outline">{humanizeToken(event.kind)}</Badge>
+                <Show when={event.state}><Badge variant="outline">{humanizeToken(event.state!)}</Badge></Show>
+                <Badge variant="outline">{humanizeToken(event.certainty)}</Badge>
               </div>
               <p class="mt-1.5 text-muted-foreground">
                 {observed(event.occurred_at)}
-                <Show when={event.action_id}> · action <code class="text-xs">{event.action_id!.slice(0, 8)}</code></Show>
-                <Show when={event.decision_id}> · decision <code class="text-xs">{event.decision_id!.slice(0, 8)}</code></Show>
               </p>
+              <TechIdList class="mt-0.5" ids={[
+                { label: 'action', value: event.action_id },
+                { label: 'decision', value: event.decision_id },
+                { label: 'causation', value: event.causation_id },
+                { label: 'event', value: event.event_id },
+              ]} />
             </li>}</For>
           </ol>
         </Card>}</Show>

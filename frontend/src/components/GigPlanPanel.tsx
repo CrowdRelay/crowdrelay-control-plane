@@ -10,6 +10,7 @@ import { SkeletonSection } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
 import { Card } from './app/card'
 import type { GigPlanReasonScore, GigPlanResponse } from '../lib/types'
+import { humanizeToken } from '../lib/format'
 import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from './GigPlanProposalCard'
 
 // What to book next, and why — the output of 4G.
@@ -189,7 +190,7 @@ export function GigPlanPanel(props: { slug: string; initialPlan?: GigPlanRespons
                     <For each={data().track_record.by_reason}>
                       {score => (
                         <li class="text-xs text-muted-foreground">
-                          <span class="text-foreground">{REASON_LABEL[score.kind] ?? score.kind}</span>
+                          <span class="text-foreground">{REASON_LABEL[score.kind] ?? humanizeToken(score.kind)}</span>
                           {' — '}
                           {scoreText(score)}
                         </li>

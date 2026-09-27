@@ -1,4 +1,5 @@
 import type { OpsOutcomes, AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentSchedule, AgentWorkflow, AgentWorkflowTask, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, CommunityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DriveBatchPromoteResult, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, SentRecord, SignalOverview, TenantOverviewReadModel, PortfolioSettingsReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowPageModel, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, CityViewModel, ContentMaterialView, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret, UploadedMedia, StandingApproval, BookingAgent, BookingAgentDrawEvidence, BookingAgentDrawFloors, GuaranteeView, TenantTodayReadModel, TenantBookingReadModel, TenantPlacesCitiesModel, TenantPlacesRoomsModel, TenantPlacesOnlineModel, TenantBrainReadModel, TenantProofReadModel, TenantDeliveryReadModel, TenantInMotionModel, TenantContentModel, AgentIntegrationsOverview } from './types'
+import { errorCodeMessage } from './format'
 
 
 export class ApiError extends Error {
@@ -15,25 +16,13 @@ export class ApiError extends Error {
 }
 
 /** Map a backend error code to an operator-friendly heading. Falls back to
- *  the raw `detail` when no code-specific mapping applies. */
+ *  the raw `detail` when no code-specific mapping applies. The code→message
+ *  map itself lives in `format.ts` (`errorCodeMessage`) — `errorMessage`
+ *  there serves callers that only hold an untyped Error. */
 export function errorHeading(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
-    switch (error.code) {
-      case 'unauthorized': return 'Session expired — please log in again.'
-      case 'forbidden': return "You don't have permission to do that."
-      case 'not_found': return 'That item no longer exists.'
-      case 'conflict': return 'That name or value is already taken.'
-      case 'invalid_input': return 'Check the entered values and try again.'
-      case 'unavailable': return 'That service is temporarily unavailable.'
-      case 'internal_error': return 'Internal error — check server logs for details.'
-      // Typed upstream error variants — the backend distinguishes these so
-      // the operator sees the actual failure mode, not a generic "unavailable".
-      case 'all_sections_failed': return 'Every section of this channel failed — see the per-section diagnosis below.'
-      case 'upstream_timeout': return 'The tenant did not respond in time — retry may clear it.'
-      case 'upstream_unreachable': return 'The tenant could not be reached — check the runtime and its tunnel.'
-      case 'upstream_error': return 'The tenant returned an error — check its logs.'
-      case 'contract_mismatch': return 'The tenant answered in an unrecognised shape — treat these numbers as unknown.'
-    }
+    const mapped = error.code ? errorCodeMessage(error.code) : undefined
+    if (mapped) return mapped
     return error.message || fallback
   }
   return error instanceof Error ? error.message : fallback

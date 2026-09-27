@@ -1,7 +1,7 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
@@ -229,8 +229,8 @@ export function AgentProvidersPanel(props: {
         if (!result.valid) {
           verified = false
           const detail = result.error ?? 'the provider rejected it'
-          setError(`${provider?.name ?? providerId} rejected that key: ${detail}`)
-          toast.error(`${provider?.name ?? providerId} rejected that key`)
+          setError(`${provider?.name ?? humanizeToken(providerId)} rejected that key: ${detail}`)
+          toast.error(`${provider?.name ?? humanizeToken(providerId)} rejected that key`)
         }
       } catch (validationError) {
         verified = false
@@ -238,14 +238,14 @@ export function AgentProvidersPanel(props: {
         // A validator that is itself unavailable is not a bad key.
         if (/unavailable|unreachable|503/i.test(detail)) {
           verified = true
-          toast.info(`Saved the ${provider?.name ?? providerId} key. It could not be checked right now — the agent service is unavailable.`)
+          toast.info(`Saved the ${provider?.name ?? humanizeToken(providerId)} key. It could not be checked right now — the agent service is unavailable.`)
         } else {
-          setError(`${provider?.name ?? providerId} rejected that key: ${detail}`)
-          toast.error(`${provider?.name ?? providerId} rejected that key`)
+          setError(`${provider?.name ?? humanizeToken(providerId)} rejected that key: ${detail}`)
+          toast.error(`${provider?.name ?? humanizeToken(providerId)} rejected that key`)
         }
       }
       if (verified) {
-        toast.success(`Connected to ${provider?.name ?? providerId} — ${provider?.modelCount ?? 0} models unlocked`)
+        toast.success(`Connected to ${provider?.name ?? humanizeToken(providerId)} — ${provider?.modelCount ?? 0} models unlocked`)
         setApiKeyInput('')
         setShowKeyInputFor(null)
       }
@@ -267,7 +267,7 @@ export function AgentProvidersPanel(props: {
   const handleTestCredential = async (providerId: string) => {
     setTestingProvider(providerId)
     const provider = apiKeyProviders().find(p => p.id === providerId)
-    const name = provider?.name ?? providerId
+    const name = provider?.name ?? humanizeToken(providerId)
     try {
       const result = await api.agentValidateCredential(props.slug, providerId)
       if (result.valid) {
@@ -296,7 +296,7 @@ export function AgentProvidersPanel(props: {
     try {
       await api.agentDeleteCredential(props.slug, providerId)
       const provider = apiKeyProviders().find(p => p.id === providerId)
-      toast.info(`Disconnected from ${provider?.name ?? providerId}`)
+      toast.info(`Disconnected from ${provider?.name ?? humanizeToken(providerId)}`)
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {

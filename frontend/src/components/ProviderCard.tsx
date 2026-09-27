@@ -6,6 +6,7 @@ import { Button } from './app/button'
 import { Input } from './ui/input'
 import { Spinner } from './Spinner'
 import { LlmProviderIconWithTier } from './ProviderIcon'
+import { TechIdList } from './ui/TechnicalDetails'
 import { CheckIcon, KeyIcon } from './provider-icons'
 import type { AgentCredential, AgentProvider, PremiumTask } from '../lib/types'
 
@@ -146,10 +147,8 @@ export function ProviderCard(props: { provider: AgentProvider; ctx: ProviderCard
 
           <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning-foreground/10 text-warning-foreground border border-warning-foreground/20">
             <span class="font-bold uppercase tracking-wide text-xs" title="Connected via API key">API Key</span>
-            <Show when={cred()?.provider_account}>
-              <span class="opacity-80 font-normal">{cred()!.provider_account?.slice(0, 8)}…</span>
-            </Show>
           </div>
+          <TechIdList class="mt-0.5" ids={[{ label: 'account', value: cred()?.provider_account }]} />
         </div>
       </Show>
 

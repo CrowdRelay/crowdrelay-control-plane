@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'sol
 import { useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate } from '@tanstack/solid-router'
 import { AlertTriangle, ChevronRight, CircleCheck, Inbox } from 'lucide-solid'
-import { formatIsoAge, formatTimestamp } from '../lib/format'
+import { formatIsoAge, formatTimestamp, humanizeToken} from '../lib/format'
 import { healthLabel, healthTone, platformStatusMessage } from '../lib/health-tone'
 import { stillAsking } from '../lib/incomplete'
 import { cn } from '../lib/cn'
@@ -76,7 +76,7 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
     if ((a.openFindings ?? 0) > 0) items.push(attention('findings', 2, plural(a.openFindings!, 'open finding')))
   }
   if (t.brain?.needs_attention) {
-    items.push({ ...attention('brain', 1, 'The brain needs attention', t.brain.state ? `State: ${t.brain.state}` : undefined), to: '/tenants/$slug/intelligence' })
+    items.push({ ...attention('brain', 1, 'The brain needs attention', t.brain.state ? `State: ${humanizeToken(t.brain.state)}` : undefined), to: '/tenants/$slug/intelligence' })
   }
   if (t.objectives?.available) {
     for (const o of t.objectives.atRisk ?? []) {

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { NightContributionKind, SharedNight } from '../lib/types'
 import { readOnly } from '../lib/read-only'
-import { errorMessage, formatIsoUntil } from '../lib/format'
+import { errorMessage, formatIsoUntil, humanizeToken } from '../lib/format'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -102,7 +102,7 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
               <For each={Object.entries(data().status)}>
                 {([status, count]) => (
                   <Badge variant={status === 'cancelled' ? 'muted' : 'default'}>
-                    {status} · {count}
+                    {humanizeToken(status)} · {count}
                   </Badge>
                 )}
               </For>
@@ -231,7 +231,7 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
               <For each={data().public_announce ?? []}>
                 {row => (
                   <p class="mt-0.5 text-xs text-muted-foreground">
-                    {row.act ?? 'An unnamed act'} — {row.state}
+                    {row.act ?? 'An unnamed act'} — {humanizeToken(row.state)}
                   </p>
                 )}
               </For>

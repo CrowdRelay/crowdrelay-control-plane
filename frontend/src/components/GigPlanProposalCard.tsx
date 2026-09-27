@@ -2,6 +2,7 @@ import { For, Show, createSignal, type JSX } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
+import { humanizeToken } from '../lib/format'
 import { authState } from '../lib/auth'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
@@ -251,7 +252,7 @@ export function GigPlanProposalCard(props: {
                 return <span class="text-xs text-amber-400/90">{entry.refused}</span>
               }
               if ('status' in entry) {
-                return <span class="text-xs text-muted-foreground">Already approved — {entry.status}</span>
+                return <span class="text-xs text-muted-foreground">Already approved — {humanizeToken(entry.status)}</span>
               }
               return (
                 <span class="text-xs text-emerald-400/90">

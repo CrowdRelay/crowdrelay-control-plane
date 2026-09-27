@@ -3,7 +3,7 @@ import { KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { relativeTime, timestampMillis } from '../lib/format'
+import { humanizeToken, relativeTime, timestampMillis } from '../lib/format'
 import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
@@ -140,7 +140,7 @@ export function FanAttributionPanel(props: { slug: string }) {
             <For each={attribution()!.by_template}>{t => (
               <TableRow>
                 <TableCell class="whitespace-normal">
-                  <strong class="text-foreground">{t.template_id}</strong>
+                  <strong class="text-foreground">{humanizeToken(t.template_id)}</strong>
                 </TableCell>
                 <TableCell numeric>{t.observations.toLocaleString()}</TableCell>
                 <TableCell numeric>{fmt(t.observed_fans)}</TableCell>

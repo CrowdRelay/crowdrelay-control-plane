@@ -10,7 +10,7 @@ import { ChartBar, Database, Layers } from 'lucide-solid'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
 import type { Tone as ViewTone } from '../components/ui/dash'
-import { formatIsoAge } from '../lib/format'
+import { formatIsoAge, humanizeToken } from '../lib/format'
 
 /// Everything the system may say publicly comes from this material — videos
 /// the watcher picked up, releases, events, and the stories the band writes
@@ -131,7 +131,7 @@ export function TenantContentMaterialPage() {
             <Card title="What there is" icon={<Database />}>
               <For each={m().by_kind.slice().sort((a, b) => b.total - a.total)}>{row => (
                 <Bar
-                  label={KIND_LABEL[row.kind] ?? row.kind}
+                  label={KIND_LABEL[row.kind] ?? humanizeToken(row.kind)}
                   value={row.kind === 'release' ? row.distinct_titles : row.total}
                   display={row.kind === 'release' ? `~${row.distinct_titles}` : undefined}
                   max={largest()}
@@ -148,7 +148,7 @@ export function TenantContentMaterialPage() {
               const unused = row.total - row.used
               return (
                 <StatRow
-                  label={`${KIND_LABEL[row.kind] ?? row.kind} · ${row.used} of ${row.total} used${row.uses > 0 ? `, ${row.uses} times` : ''}`}
+                  label={`${KIND_LABEL[row.kind] ?? humanizeToken(row.kind)} · ${row.used} of ${row.total} used${row.uses > 0 ? `, ${row.uses} times` : ''}`}
                   value={<Pill tone={unused === 0 ? 'good' : unused * 2 > row.total ? 'warn' : 'muted'}>{unused === 0 ? 'all used' : `${unused} never used`}</Pill>}
                 />
               )

@@ -1,7 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api, ApiError } from '../lib/api'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
+import { TechIdList } from './ui/TechnicalDetails'
 import { Card } from './app/card'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
@@ -24,8 +25,6 @@ const stateTone = (state: string): 'good' | 'warn' | 'bad' | 'muted' => {
     default: return 'muted'
   }
 }
-
-const shortId = (id: string) => id.slice(0, 8)
 
 /** The ViryaOS action ledger — every autopilot action and the state it is
  *  stuck in or finished in. Each row's trace_id opens the causal chain the
@@ -105,10 +104,17 @@ function ActionRow(props: { slug: string; entry: ActionLedgerEntry }) {
       <TableCell>
         <StatusBadge status={props.entry.state} tone={stateTone(props.entry.state)} />
         <Show when={props.entry.previous_state}>
-          <span class="ml-1.5 text-xs text-muted-foreground">was {props.entry.previous_state}</span>
+          <span class="ml-1.5 text-xs text-muted-foreground">was {humanizeToken(props.entry.previous_state!)}</span>
         </Show>
       </TableCell>
-      <TableCell><code class="text-xs">{shortId(props.entry.action_id)}</code></TableCell>
+      <TableCell>
+        <TechIdList class="text-left" ids={[
+          { label: 'action', value: props.entry.action_id },
+          { label: 'decision', value: props.entry.decision_id },
+          { label: 'causation', value: props.entry.causation_id },
+          { label: 'trace', value: props.entry.trace_id },
+        ]} />
+      </TableCell>
       <TableCell><span class="text-xs text-muted-foreground">{formatIsoAge(props.entry.state_entered_at)}</span></TableCell>
       <TableCell>{props.entry.transition_count}</TableCell>
       <TableCell>
@@ -144,16 +150,20 @@ function ActionRow(props: { slug: string; entry: ActionLedgerEntry }) {
               <ol class="divide-y divide-border">
                 <For each={t.events}>{event => <li class="py-2 text-sm">
                   <div class="flex flex-wrap items-center gap-1.5">
-                    <Badge variant="muted">{event.source}</Badge>
-                    <Badge variant="outline">{event.kind}</Badge>
+                    <Badge variant="muted">{humanizeToken(event.source)}</Badge>
+                    <Badge variant="outline">{humanizeToken(event.kind)}</Badge>
                     <Show when={event.state}><StatusBadge status={event.state!} tone={stateTone(event.state!)} /></Show>
-                    <Badge variant="outline">{event.certainty}</Badge>
+                    <Badge variant="outline">{humanizeToken(event.certainty)}</Badge>
                   </div>
                   <p class="mt-1 text-muted-foreground">
                     {formatIsoAge(event.occurred_at)}
-                    <Show when={event.action_id}> · action <code class="text-xs">{shortId(event.action_id!)}</code></Show>
-                    <Show when={event.decision_id}> · decision <code class="text-xs">{shortId(event.decision_id!)}</code></Show>
                   </p>
+                  <TechIdList class="mt-0.5" ids={[
+                    { label: 'action', value: event.action_id },
+                    { label: 'decision', value: event.decision_id },
+                    { label: 'causation', value: event.causation_id },
+                    { label: 'event', value: event.event_id },
+                  ]} />
                 </li>}</For>
               </ol>
             ) })()}
