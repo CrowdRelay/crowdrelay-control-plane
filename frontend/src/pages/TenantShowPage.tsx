@@ -18,7 +18,7 @@ import { ShowSalesPanel } from '../components/show/ShowSalesPanel'
 import { ShowDoorPanel } from '../components/show/ShowDoorPanel'
 import { ShowChecklistPanel } from '../components/show/ShowChecklistPanel'
 import { SharedNightPanel } from '../components/SharedNightPanel'
-import { formatTimestamp, humanizeToken, timestampMillis } from '../lib/format'
+import { formatTimestamp, humanizeToken, httpUrl, timestampMillis } from '../lib/format'
 
 const STATE_VARIANT: Record<ShowTimelineState, { variant: 'success' | 'default' | 'warning' | 'muted' | 'outline'; label: string }> = {
   done: { variant: 'success', label: 'Done' },
@@ -368,7 +368,7 @@ function NightFacts(props: { data: TenantShowPageModel; slug: string }) {
                     <div class="mt-1 flex items-baseline gap-2 text-xs text-muted-foreground">
                       <span class="w-4 shrink-0 text-right tabular-nums">{index() + 1}.</span>
                       <span class="text-foreground">{act.name}</span>
-                      <Show when={act.ticket_url}>
+                      <Show when={httpUrl(act.ticket_url)}>
                         {url => (
                           <a
                             href={url()}

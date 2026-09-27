@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { api } from '../lib/api'
-import { errorMessage, formatIsoAge, formatTimestamp, relativeTime, humanizeToken} from '../lib/format'
+import { errorMessage, formatIsoAge, formatTimestamp, httpUrl, relativeTime, humanizeToken} from '../lib/format'
 import { toast } from './app/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './ui/empty-state'
@@ -258,7 +258,7 @@ export function DeliveryJourneyPanel(props: {
                   badge={{ label: item.status, tone: statusTone(item.status) }}
                   meta={landedMeta(item)}
                   action={
-                    <Show when={item.url}>
+                    <Show when={httpUrl(item.url)}>
                       {url => (
                         <a href={url()} target="_blank" rel="noreferrer" class="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
                           Open

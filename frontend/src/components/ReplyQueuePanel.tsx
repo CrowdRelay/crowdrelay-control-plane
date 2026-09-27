@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { errorMessage, formatTimestamp, httpUrl } from '../lib/format'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
@@ -58,7 +58,7 @@ function ReplyRow(props: { slug: string; reply: Reply; onDone: () => void }) {
     <li class="rounded-lg border border-border bg-background px-4 py-3">
       <p class="text-xs text-muted-foreground">
         <strong class="text-foreground">{props.reply.author}</strong> on {place(props.reply)} ·{' '}
-        <Show when={props.reply.post_url} fallback={props.reply.post_title}>
+        <Show when={httpUrl(props.reply.post_url)} fallback={props.reply.post_title}>
           {url => <a class="underline" href={url()} target="_blank" rel="noreferrer">{props.reply.post_title}</a>}
         </Show>
         {' '}· {formatTimestamp(props.reply.created_at)}
@@ -120,7 +120,7 @@ export function ReplyQueuePanel(props: { slug: string }) {
                 <li>
                   <Badge variant={reply.status === 'replied' ? 'success' : reply.status === 'failed' ? 'destructive' : 'muted'}>{reply.status.replaceAll('_', ' ')}</Badge>{' '}
                   {reply.author} on {place(reply)}
-                  <Show when={reply.reply_permalink}>{link => <> · <a class="underline" href={link()} target="_blank" rel="noreferrer">our answer</a></>}</Show>
+                  <Show when={httpUrl(reply.reply_permalink)}>{link => <> · <a class="underline" href={link()} target="_blank" rel="noreferrer">our answer</a></>}</Show>
                 </li>
               )}</For>
             </ul>

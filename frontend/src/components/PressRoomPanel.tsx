@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp, relativeTime } from '../lib/format'
+import { errorMessage, formatTimestamp, httpUrl, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar, ErrorCard } from './layout'
@@ -283,7 +283,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <TableCell>{a.eventTitle ?? '—'}</TableCell>
                   <TableCell>{a.active ? <Check class="size-4" aria-label="Active" /> : '—'}</TableCell>
                   <TableCell>{formatTimestamp(a.updatedAt)}</TableCell>
-                  <TableCell><a href={a.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></TableCell>
+                  <TableCell><Show when={httpUrl(a.url)} fallback="—">{url => <a href={url()} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a>}</Show></TableCell>
                 </TableRow>
               )}</For>
             </TableBody>
@@ -383,7 +383,7 @@ export function PressRoomPanel(props: { slug: string }) {
                   <TableCell>{c.coverageKind}</TableCell>
                   <TableCell>{c.title ?? '—'}</TableCell>
                   <TableCell>{formatTimestamp(c.createdAt)}</TableCell>
-                  <TableCell><a href={c.url} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a></TableCell>
+                  <TableCell><Show when={httpUrl(c.url)} fallback="—">{url => <a href={url()} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a>}</Show></TableCell>
                 </TableRow>
               )}</For>
             </TableBody>

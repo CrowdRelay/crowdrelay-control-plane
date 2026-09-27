@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
+import { errorMessage, httpUrl } from '../lib/format'
 import type { BookingAgent } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { Dialog } from './Dialog'
@@ -366,7 +366,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
                     <TableCell>
                       <strong>{agent.name}</strong>
                       <Show when={agent.agency}><br /><span class="text-muted-foreground">{agent.agency}</span></Show>
-                      <Show when={agent.roster_url}>
+                      <Show when={httpUrl(agent.roster_url)}>
                         {url => (<><br /><a href={url()} target="_blank" rel="noreferrer" class="text-xs underline decoration-border underline-offset-4 hover:text-primary">roster</a></>)}
                       </Show>
                     </TableCell>
