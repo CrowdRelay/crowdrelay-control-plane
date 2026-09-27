@@ -111,6 +111,37 @@ const splitRow = (line: string): string[] => {
   return out
 }
 
+/**
+ * Split the document into raw row strings. A newline inside quotes is field
+ * data, not a row boundary — fansToCsv writes exactly those for multi-line
+ * names and lists, so splitting the text on /\r\n|\n|\r/ first breaks the
+ * round-trip: the fragment after the newline parses as its own row.
+ * Blank rows are dropped here (the old filter did the same).
+ */
+const splitRows = (text: string): string[] => {
+  const rows: string[] = []
+  let current = ''
+  let quoted = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (quoted) {
+      current += char
+      if (char === '"') {
+        if (text[i + 1] === '"') { current += '"'; i++ } else { quoted = false }
+      }
+    } else if (char === '"') {
+      quoted = true
+      current += char
+    } else if (char === '\r' || char === '\n') {
+      if (char === '\r' && text[i + 1] === '\n') i++
+      if (current.trim().length > 0) rows.push(current)
+      current = ''
+    } else current += char
+  }
+  if (current.trim().length > 0) rows.push(current)
+  return rows
+}
+
 /** Column aliases, so a file exported from somewhere else still lands. */
 const HEADER_ALIASES: Record<string, keyof FanImportEntry> = {
   external_id: 'external_id',
@@ -135,7 +166,7 @@ const HEADER_ALIASES: Record<string, keyof FanImportEntry> = {
  * that refuses, because nobody goes looking for the missing ten.
  */
 export function parseFanCsv(text: string): FanCsvParse {
-  const lines = text.replace(/^﻿/, '').split(/\r\n|\n|\r/).filter(line => line.trim().length > 0)
+  const lines = splitRows(text.replace(/^﻿/, ''))
   if (lines.length === 0) return { entries: [], skipped: [], ignoredColumns: [] }
 
   const rawHeaders = splitRow(lines[0] ?? '').map(h => h.trim().toLowerCase())
