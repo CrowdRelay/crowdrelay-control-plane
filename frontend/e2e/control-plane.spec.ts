@@ -65,6 +65,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await page.getByRole('button', { name: 'Operator' }).click()
   await page.getByRole('link', { name: 'Health' }).first().click()
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/health/)
+  // The Heartbeat panel is the Switches work area — mount it the way an
+  // operator does (work areas render no panel until one is opened).
+  await page.getByRole('tab', { name: 'Switches' }).click()
   await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
   const tenantHeading = page.locator('h1').first()
