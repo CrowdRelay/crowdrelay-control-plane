@@ -58,14 +58,14 @@ const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', 
   if (preload) return
   const operatorSlug = authState.isPlatformLevel() ? undefined : authState.profile()?.tenantSlug
   if (operatorSlug) throw redirect({ href: `/tenants/${operatorSlug}/operations` })
-  if (sessionStorage.getItem('cp-default-tenant')) return
+  try { if (sessionStorage.getItem('cp-default-tenant')) return } catch { /* storage blocked — land once anyway */ }
   const first = await queryClient
     .ensureQueryData({ queryKey: ['tenants'], queryFn: api.tenants, staleTime: 15_000 })
     .then(list => list.items?.[0]?.slug)
     .catch(() => undefined)
   const target = first ?? authState.profile()?.tenantSlug
   if (!target) return
-  sessionStorage.setItem('cp-default-tenant', '1')
+  try { sessionStorage.setItem('cp-default-tenant', '1') } catch {}
   throw redirect({ href: `/tenants/${target}/operations` })
 }, loader: warm(['command-center'], api.commandCenter) })
 const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', component: FlowPage })

@@ -1,6 +1,6 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { useParams } from '@tanstack/solid-router'
+import { useParams, useRouterState } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { humanize } from '../lib/opportunity-labels'
@@ -206,9 +206,12 @@ export function TenantAttentionPage() {
 
   // `#…&action=<id>` links point at inbox rows, but the inbox panel does not
   // mount until its tab is visited, so the parse lives here where it always
-  // runs. The reveal mounts the panel; the inbox's own handler then scrolls.
-  onMount(() => {
-    const match = window.location.hash.match(/action=([0-9a-f-]+)/i)
+  // runs. Tracked against the router's hash (not read once at mount) so a
+  // second deep link clicked while the page is already open still reveals —
+  // an onMount-only parse silently ignored it.
+  const currentHash = useRouterState({ select: s => s.location.hash })
+  createEffect(() => {
+    const match = currentHash().match(/action=([0-9a-f-]+)/i)
     if (match) revealAnchor('inbox', `attention-item-approval-${match[1]}`)
   })
 

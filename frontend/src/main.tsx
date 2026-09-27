@@ -6,9 +6,17 @@ import './styles/tailwind.css'
 
 const staleChunkReloadKey = 'control-plane-stale-chunk-reload'
 window.addEventListener('vite:preloadError', (event) => {
-  if (sessionStorage.getItem(staleChunkReloadKey)) return
+  // The marker is the loop guard: without it every reload re-fails the same
+  // chunk and reloads again forever. Storage blocked => no guard => do not
+  // auto-reload; leave the stale page for a manual refresh.
+  let marked = false
+  try {
+    if (sessionStorage.getItem(staleChunkReloadKey)) return
+    sessionStorage.setItem(staleChunkReloadKey, '1')
+    marked = true
+  } catch { /* storage unavailable */ }
+  if (!marked) return
   event.preventDefault()
-  sessionStorage.setItem(staleChunkReloadKey, '1')
   window.location.reload()
 })
 
@@ -20,7 +28,7 @@ window.addEventListener('vite:preloadError', (event) => {
 // The actual QueryClient/router remain inside AuthenticatedApp so the login
 // bootstrap does not eagerly pull the authenticated application bundle back in.
 const AuthenticatedApp = lazy(() => import('./AuthenticatedApp').then((module) => {
-  sessionStorage.removeItem(staleChunkReloadKey)
+  try { sessionStorage.removeItem(staleChunkReloadKey) } catch {}
   return module
 }))
 

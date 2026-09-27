@@ -724,22 +724,28 @@ async fn park_tenant(
         .get("version")
         .and_then(Value::as_i64)
         .unwrap_or(0);
+    // `try_into` + clamp: `as i32` on an operator-supplied u64 wraps around
+    // (2^32+1 → 1), silently applying the opposite of the configured limit.
     let weekly_owned = envelope_value
         .get("weeklyOwnedAudienceTouches")
         .and_then(Value::as_u64)
-        .unwrap_or(200) as i32;
+        .map(|v| i32::try_from(v).unwrap_or(i32::MAX))
+        .unwrap_or(200);
     let weekly_third_party = envelope_value
         .get("weeklyThirdPartyTouches")
         .and_then(Value::as_u64)
-        .unwrap_or(10) as i32;
+        .map(|v| i32::try_from(v).unwrap_or(i32::MAX))
+        .unwrap_or(10);
     let cooldown_hours = envelope_value
         .get("subjectCooldownHours")
         .and_then(Value::as_u64)
-        .unwrap_or(168) as i32;
+        .map(|v| i32::try_from(v).unwrap_or(i32::MAX))
+        .unwrap_or(168);
     let max_recipients = envelope_value
         .get("maxRecipientsPerStep")
         .and_then(Value::as_u64)
-        .unwrap_or(250) as i32;
+        .map(|v| i32::try_from(v).unwrap_or(i32::MAX))
+        .unwrap_or(250);
     let posture = posture_value
         .get("posture")
         .and_then(Value::as_str)

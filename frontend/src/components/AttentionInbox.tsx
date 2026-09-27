@@ -1,5 +1,5 @@
-import { For, Show, createSignal, onMount, onCleanup } from 'solid-js'
-import { Link } from '@tanstack/solid-router'
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
+import { Link, useRouterState } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -344,15 +344,15 @@ export function AttentionInbox(props: {
   const informational = () => items().filter(i => i.tier === 'informational')
 
   // Deep-link from team emails: the URL hash may contain
-  // `#needs-you&action={id}`. On mount, parse the action ID and scroll to
-  // the matching inbox item, highlighting it briefly so the operator can
-  // see which action the email was about.
-  onMount(() => {
-    const hash = window.location.hash
-    const match = hash.match(/action=([0-9a-f-]+)/i)
+  // `#needs-you&action={id}`. Track the router's hash reactively — a second
+  // deep link clicked while the page (and this panel) is already open must
+  // still highlight its target; an onMount read silently ignored it.
+  const currentHash = useRouterState({ select: s => s.location.hash })
+  createEffect(() => {
+    const match = currentHash().match(/action=([0-9a-f-]+)/i)
     if (!match) return
     const elId = `attention-item-approval-${match[1]}`
-    // The target lives on the inbox tab — with decisions now the default the
+    // The target lives on this tab — with decisions now the default the
     // element may not even be mounted, so switch tabs via onReveal first and
     // let its retry loop land the scroll before adding the highlight.
     props.onReveal('inbox', elId)
@@ -361,6 +361,9 @@ export function AttentionInbox(props: {
     const highlight = () => {
       const el = document.getElementById(elId)
       if (el) {
+        // A previous action's highlight never wins over the newest link.
+        document.querySelectorAll('.attention-item-highlighted')
+          .forEach(old => { if (old !== el) old.classList.remove('attention-item-highlighted') })
         el.classList.add('attention-item-highlighted')
         highlightTimer = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
       } else if (attempts++ < 60) {

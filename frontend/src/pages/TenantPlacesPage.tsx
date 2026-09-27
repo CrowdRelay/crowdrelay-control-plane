@@ -118,20 +118,19 @@ export function TenantPlacesPage() {
   const queryClient = useQueryClient()
 
 
-  // The valid list follows the entitlement: a band deep link `?tab=area`
-  // on a tenant without AREA has nowhere valid to land, and the URL-follow
-  // effect puts it back on cities once the probe answers.
-  const areas = useWorkAreas(['cities', 'rooms', 'online', 'area'])
-  const activeTab = () => areas.active()
-  const switchTab = (id: string) => areas.open(id)
-  const isVisited = (id: string) => areas.active() === id
-
   // AREA routes sit behind require_platform_level upstream, so a band
   // session's probe is a guaranteed 403 — `entitled`/`enabled` can never
   // be observed by the sessions the || branch was written for. The area is
   // platform-only, and its read waits until the area is opened: the first
   // screen is one call (`places/cities`), not two.
   const areaVisible = () => authState.isPlatformLevel()
+  // The valid list follows the visibility: 'area' is not a tab for band
+  // sessions, so `?tab=area` (the legacy /area redirect) cannot activate a
+  // work area this session can never see.
+  const areas = useWorkAreas(areaVisible() ? ['cities', 'rooms', 'online', 'area'] : ['cities', 'rooms', 'online'])
+  const activeTab = () => areas.active()
+  const switchTab = (id: string) => areas.open(id)
+  const isVisited = (id: string) => areas.active() === id
   const areaOverview = useQuery(() => ({
     queryKey: ['area-overview', params().slug],
     queryFn: () => api.areaOverview(params().slug),
