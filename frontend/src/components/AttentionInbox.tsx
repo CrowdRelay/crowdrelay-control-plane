@@ -14,6 +14,8 @@ import { Spinner } from './Spinner'
 import { cn } from '../lib/cn'
 import { buttonVariants } from './app/button'
 import { refreshQueries } from '../lib/refresh'
+import { capabilityAction } from '../lib/capabilities'
+import { fillPath, surface } from '../lib/surface'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -119,6 +121,40 @@ export function AttentionInbox(props: {
     })
   const editedRevision = (item: AttentionItem) =>
     item.draft ? changedFields(item.draft.fields, edits()[item.draft.actionId] ?? {}) : undefined
+
+  /// Saves the edited words without approving. A pitch inside an outreach
+  /// wave can only be approved with its batch, so approve-with-edit refuses
+  /// it one at a time — this is how its words get fixed before the wave goes.
+  const saveEdits = async (item: AttentionItem) => {
+    const draft = item.draft
+    const revision = editedRevision(item)
+    if (!draft || !revision || busy() !== null) return
+    const empty = emptiedField(edits()[draft.actionId] ?? {})
+    if (empty) {
+      setItemError(item.id, `${empty} can't be empty — refuse the draft instead.`)
+      return
+    }
+    const path = fillPath(capabilityAction('action-draft', 'Save edits').path, { action_id: draft.actionId })
+    if (!path) return
+    setItemError(item.id, null)
+    setBusy(item.id)
+    try {
+      await surface.write(props.slug, 'POST', path, { revision })
+      setEdits(prev => {
+        const next = { ...prev }
+        delete next[draft.actionId]
+        return next
+      })
+      toggleEdit(draft.actionId)
+      await props.onRefresh()
+      toast.success('Saved — the draft now reads as you wrote it')
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) setItemError(item.id, error.message)
+      else toast.error(errorMessage(error, 'Your edit was not saved'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const carryOut = async (item: AttentionItem) => {
     const job = item.run
@@ -297,6 +333,7 @@ export function AttentionInbox(props: {
     edited={item.draft ? (edits()[item.draft.actionId] ?? item.draft.fields) : {}}
     onEdit={(field, value) => editField(item, field, value)}
     onToggleEdit={() => { if (item.draft) toggleEdit(item.draft.actionId) }}
+    onSave={() => void saveEdits(item)}
     onRun={() => void carryOut(item)}
     onReveal={props.onReveal}
   />
@@ -404,6 +441,7 @@ function AttentionItemRow(props: {
   edited: Record<string, string>
   onEdit: (field: string, value: string) => void
   onToggleEdit: () => void
+  onSave: () => void
   onRun: () => void
   onReveal: (tab: string, anchor?: string) => void
 }) {
@@ -432,6 +470,11 @@ function AttentionItemRow(props: {
       <Show when={props.item.draft && !props.editing}>
         <Button size="sm" variant="ghost" writes disabled={props.disabled || props.busy} onClick={props.onToggleEdit}>
           Edit
+        </Button>
+      </Show>
+      <Show when={props.item.draft && props.editing && props.hasEdits}>
+        <Button size="sm" variant="outline" writes disabled={props.disabled || props.busy} onClick={props.onSave}>
+          Save edits
         </Button>
       </Show>
       <Show when={props.item.run}>{run =>
