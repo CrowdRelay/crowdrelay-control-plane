@@ -95,12 +95,20 @@ export function AreaWorkspace(props: { slug: string }) {
   const [duplicateCityId, setDuplicateCityId] = createSignal('')
   const [duplicateNumber, setDuplicateNumber] = createSignal('')
 
+  // Seed the local draft when a different drop's detail arrives. Re-seeding
+  // on every refetch would silently discard unsaved edits whenever upstream
+  // changed the row mid-edit — the buffer belongs to the operator until they
+  // pick another drop or close.
+  let seededFor: string | null = null
   createEffect(() => {
     const data = detail.data
-    if (data) {
+    const id = selectedId()
+    if (data && id && id !== seededFor) {
+      seededFor = id
       setDraft(cloneDraft(data.draft ?? data.published))
       setValidation(null); setConfirmations([])
     }
+    if (!id) seededFor = null
   })
   createEffect(() => { if (tenant.data) setNewCity(v => ({ ...v, countryCode: v.countryCode || tenant.data!.defaultCountryCode })) })
 
