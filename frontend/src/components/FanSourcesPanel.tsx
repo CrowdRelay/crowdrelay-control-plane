@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { errorMessage, humanizeToken } from '../lib/format'
 import type { FanbaseBlock, FanbaseConnection, ScanScope } from '../lib/types'
+import type { FanImportEntry } from '../lib/fan-csv'
 import { StatusBadge } from './StatusBadge'
 import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
@@ -293,19 +294,20 @@ export function FanSourcesPanel(props: {
     setName(''); setSourceKind('http_json_pull'); setFetchUrl(''); setAttestedBy('')
   }
 
-  const parseEntries = (): { entries: Record<string, string>[] } | null => {
+  const parseEntries = (): { entries: (FanImportEntry & Record<string, string>)[] } | null => {
     try {
       const parsed = JSON.parse(ingestJson()) as { entries?: unknown }
       if (!parsed.entries || !Array.isArray(parsed.entries) || parsed.entries.length === 0) return null
       // Validate every entry is an object with a string external_id, then
-      // build a typed array with only string-valued fields.
+      // build a typed array with only string-valued fields. Entries may carry
+      // fields beyond the declared ingest shape — upstream owns the contract.
       const rawEntries = parsed.entries as unknown[]
-      const typed: Record<string, string>[] = []
+      const typed: (FanImportEntry & Record<string, string>)[] = []
       for (const raw of rawEntries) {
         if (typeof raw !== 'object' || raw === null) return null
         const e = raw as Record<string, unknown>
         if (typeof e.external_id !== 'string') return null
-        const entry: Record<string, string> = { external_id: e.external_id }
+        const entry: FanImportEntry & Record<string, string> = { external_id: e.external_id }
         for (const [k, v] of Object.entries(e)) {
           if (k === 'external_id') continue
           if (v == null) continue
@@ -1003,7 +1005,7 @@ export function FanSourcesPanel(props: {
           onClick={() => {
             const parsed = parseEntries()
             const id = ingestingId()
-            if (parsed && id) ingest.mutate({ id, entries: parsed.entries as never })
+            if (parsed && id) ingest.mutate({ id, entries: parsed.entries })
           }}>
           {ingest.isPending && <Spinner />} {ingest.isPending ? (authState.isPlatformLevel() ? 'Ingesting…' : 'Importing…') : (authState.isPlatformLevel() ? 'Run ingestion' : 'Run import')}
         </Button>
