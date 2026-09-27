@@ -86,7 +86,9 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       { label: 'Scanner Runs', value: scannerRuns, hint: platform ? 'Intelligence-dispatched reddit-scanner workers' : 'Reddit-scan jobs the brain sent out' },
       { label: 'Engager Runs', value: engagerRuns, hint: platform ? 'Intelligence-dispatched community-engager workers' : 'Community-engagement jobs the brain sent out' },
       { label: 'Inviter Runs', value: inviterRuns, hint: platform ? 'Intelligence-dispatched signal-inviter workers' : 'Signal-invite jobs the brain sent out' },
-      { label: 'Brain Workflows', value: data.brain_workflows.total, hint: platform ? 'Total brain-dispatched growth plans' : 'Growth plans the brain sent out' },
+      // No "Brain Workflows" stage: `agent_service_workflows` is written by
+      // nothing, so the stage was always 0 and, as the funnel's last step,
+      // the bottleneck finder named it the operator's bottleneck.
     ]
   }
 
@@ -159,11 +161,10 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     <div data-refreshing={funnel.isFetching && !funnel.isPending} aria-busy={funnel.isFetching}>
 
     {/* KPI strip — skeleton only for the data values, not the whole panel */}
-    <Show when={funnel.data} fallback={<Show when={!error()}><KpiStrip><KpiCard label="Communities" value="—" sub="discovered" /><KpiCard label={authState.isPlatformLevel() ? 'Worker runs' : 'AI jobs'} value="—" sub="loading…" /><KpiCard label={authState.isPlatformLevel() ? 'Intelligence workflows' : 'Growth plans'} value="—" sub="loading…" /></KpiStrip></Show>}>
+    <Show when={funnel.data} fallback={<Show when={!error()}><KpiStrip><KpiCard label="Communities" value="—" sub="discovered" /><KpiCard label={authState.isPlatformLevel() ? 'Worker runs' : 'AI jobs'} value="—" sub="loading…" /></KpiStrip></Show>}>
       <KpiStrip>
         <KpiCard label="Communities" value={fmt(funnel.data!.communities_discovered)} sub="discovered" />
         <KpiCard label={authState.isPlatformLevel() ? 'Worker runs' : 'AI jobs'} value={fmt(totalWorkerRuns())} sub={`${completedWorkerRuns()} completed · ${failedWorkerRuns()} failed`} />
-        <KpiCard label={authState.isPlatformLevel() ? 'Intelligence workflows' : 'Growth plans'} value={fmt(funnel.data!.brain_workflows.total)} sub={`${funnel.data!.brain_workflows.by_status.completed ?? 0} completed`} />
       </KpiStrip>
     </Show>
 
