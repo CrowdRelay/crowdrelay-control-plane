@@ -85,6 +85,38 @@ export function refreshQueries(...queryKeys: readonly unknown[][]) {
   }
 }
 
+/** `refreshQueries`, coalesced: calls within `REFRESH_SOON_MS` of each other
+ * share one refetch, fired after the last call (and at most
+ * `REFRESH_SOON_MAX_MS` after the first).
+ *
+ * For writes an operator makes in rapid succession — approving a queue of
+ * brain suggestions one click after another. Each approval used to invalidate
+ * five heavy read models at once; twenty quick approvals put about a hundred
+ * aggregate reads on the API in a few seconds. The client cancels a
+ * superseded fetch, the server does not: the API's read budget timed out
+ * (503) and the burst's memory peak is what OOM-killed it. The approved rows
+ * are already hidden locally, so nothing is lost by refetching once, after
+ * the operator stops. */
+const REFRESH_SOON_MS = 1_200
+const REFRESH_SOON_MAX_MS = 5_000
+const soonKeys = new Map<string, readonly unknown[]>()
+let soonTimer: ReturnType<typeof setTimeout> | null = null
+let soonFirstAt = 0
+
+export function refreshQueriesSoon(...queryKeys: readonly unknown[][]) {
+  for (const queryKey of queryKeys) soonKeys.set(JSON.stringify(queryKey), queryKey)
+  const now = Date.now()
+  if (soonTimer === null) soonFirstAt = now
+  else clearTimeout(soonTimer)
+  const wait = Math.max(0, Math.min(REFRESH_SOON_MS, soonFirstAt + REFRESH_SOON_MAX_MS - now))
+  soonTimer = setTimeout(() => {
+    soonTimer = null
+    const keys = [...soonKeys.values()]
+    soonKeys.clear()
+    refreshQueries(...keys.map(key => [...key]))
+  }, wait)
+}
+
 // Single global timer. Started once, lives for app lifetime. When interval is
 // 0 (Off) the timer is cleared and no ticking happens.
 let timerId: ReturnType<typeof setInterval> | null = null

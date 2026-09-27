@@ -13,7 +13,7 @@ import { Button } from './app/button'
 import { Spinner } from './Spinner'
 import { cn } from '../lib/cn'
 import { buttonVariants } from './app/button'
-import { refreshQueries } from '../lib/refresh'
+import { refreshQueriesSoon } from '../lib/refresh'
 import { capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
 
@@ -269,7 +269,7 @@ export function AttentionInbox(props: {
               : undefined
             await api.approveOpportunityAction(props.slug, action.id, revision ? { revision } : undefined)
             setApproved(prev => new Set(prev).add(action.id))
-            refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
+            refreshQueriesSoon(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
           },
         },
         // Secondary, for the evidence behind the decision — the full board

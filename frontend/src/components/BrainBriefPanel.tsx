@@ -1,7 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
-import { useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useQuery } from '@tanstack/solid-query'
 import { Check, X } from 'lucide-solid'
 import { api } from '../lib/api'
+import { refreshQueriesSoon } from '../lib/refresh'
 import type { IntelligenceBrief, PendingActionSummary } from '../lib/types'
 import { confidencePercent, errorMessage, formatIsoUntil, humanizeToken, relativeTime } from '../lib/format'
 import { toast } from './app/toast'
@@ -133,7 +134,6 @@ function activityLabel(kind: string, count: number): string {
 // ─── The panel ──────────────────────────────────────────────────────────
 
 function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
-  const queryClient = useQueryClient()
   const brief = () => props.brief
   const chief = () => props.brief.chief_of_staff
   const v = () => verdict(props.brief)
@@ -148,12 +148,17 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
   // same ones the Attention inbox calls. Every view that lists the same
   // parked action refreshes: this brief, the attention snapshot, and the
   // operations model that carries the queued-actions badge.
+  //
+  // Coalesced: a run of quick approvals refetches once, after the last click
+  // (see `refreshQueriesSoon`). The acted rows are hidden locally meanwhile.
   const invalidateParked = () => {
-    void queryClient.invalidateQueries({ queryKey: ['intelligence-brief', props.slug] })
-    void queryClient.invalidateQueries({ queryKey: ['tenant-operator-attention-snapshot', props.slug] })
-    void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })
-    void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
-    void queryClient.invalidateQueries({ queryKey: ['tenant-delivery', props.slug] })
+    refreshQueriesSoon(
+      ['intelligence-brief', props.slug],
+      ['tenant-operator-attention-snapshot', props.slug],
+      ['tenant-today', props.slug],
+      ['tenant-brain', props.slug],
+      ['tenant-delivery', props.slug],
+    )
   }
 
   const approve = async (action: PendingActionSummary) => {
