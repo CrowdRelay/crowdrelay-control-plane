@@ -669,6 +669,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   },
 
   // ── Operate ────────────────────────────────────────────────────────
+  {
+    id: 'action-draft', pillar: 'operate', home: { path: '/attention', section: 'Needs you now' }, title: 'Fix a draft before approving',
+    purpose: "Save the corrected words of a waiting draft without approving it — the way to fix one pitch in an outreach wave, which is approved as a batch.",
+    actions: [
+      { label: 'Save edits', method: 'POST', path: 'autopilot/actions/{action_id}/revise', paramSources: { action_id: 'text' }, fields: [{ name: 'revision', label: 'Fields to their corrected text', kind: 'json', required: true }] },
+    ],
+  },
   { id: 'content-hooks', pillar: 'operate', home: { path: '/content', section: 'What held attention' }, title: 'What held attention', purpose: "The band's own posts from the last 60 days, judged against its own median watch time and saves/shares — which openings held attention and which lost people.", read: { path: 'content/hooks' } },
   { id: 'goal', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Goal scoreboard' }, title: 'Goal scoreboard', purpose: 'Planned vs actual for the live objective, learning progress, approval latency, lanes that produced no fans, and the Reddit account standing.', read: { path: 'ops/goal' } },
   {

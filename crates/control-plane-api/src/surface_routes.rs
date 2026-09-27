@@ -195,6 +195,8 @@ pub(crate) const SURFACE: &[Surface] = &[
     ),
     write("POST", "autopilot/actions/approve"),
     write("POST", "autopilot/actions/{action_id}/assign"),
+    // Fix a waiting draft's words without approving it (a wave pitch).
+    write("POST", "autopilot/actions/{action_id}/revise"),
     write(
         "POST",
         "autopilot/content-suggestions/{suggestion_id}/outcome",
