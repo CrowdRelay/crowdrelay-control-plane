@@ -498,7 +498,7 @@ export function FanSourcesPanel(props: {
     setPendingScopeKind(SCOPE_KINDS[spec.value]?.[0]?.value ?? 'whole_account')
     setPendingScopeValue('')
     // A stale carry-over from an abandoned flow must not apply to this one.
-    sessionStorage.removeItem(PENDING_SCOPE_KEY(props.slug, spec.value))
+    try { sessionStorage.removeItem(PENDING_SCOPE_KEY(props.slug, spec.value)) } catch {}
     setConnecting(spec)
   }
 
@@ -530,9 +530,14 @@ export function FanSourcesPanel(props: {
     let applied = false
     for (const conn of list) {
       const key = PENDING_SCOPE_KEY(props.slug, conn.platform)
-      const raw = sessionStorage.getItem(key)
+      // Storage can throw outright (cookies/site-data fully blocked) — treat
+      // that as "no pending scope" rather than failing the whole read.
+      let raw: string | null = null
+      try {
+        raw = sessionStorage.getItem(key)
+        if (raw) sessionStorage.removeItem(key)
+      } catch { continue }
       if (!raw) continue
-      sessionStorage.removeItem(key)
       // A platform with no scan vocabulary can never take a scope — drop the
       // carry-over rather than feed upstream a scope it refuses.
       if (!SCOPE_KINDS[conn.platform]) continue

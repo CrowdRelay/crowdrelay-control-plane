@@ -5166,7 +5166,14 @@ async fn audience_city_funnel(
         Some(order) if safe_segment(order) => {
             format!("/v1/control-plane/audience/city-funnel?order={order}")
         }
-        _ => "/v1/control-plane/audience/city-funnel".to_owned(),
+        // A malformed `order` is not "no filter" — dropping it forwards the
+        // unfiltered read under a control that claims it applied one.
+        Some(_) => {
+            return Err(ApiError::InvalidInput(
+                "order must be a lowercase identifier".to_owned(),
+            ));
+        }
+        None => "/v1/control-plane/audience/city-funnel".to_owned(),
     };
     let (_, value) = call(&state, &slug, "GET", &path, None, &headers, None).await?;
     array_no_store(value, "city funnel")

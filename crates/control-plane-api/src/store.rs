@@ -3232,8 +3232,11 @@ impl Store {
         .bind(role)
         .bind(roster_size)
         .bind(serde_json::to_value(fan_sources)?)
-        .fetch_one(&self.pool)
-        .await?;
+        // fetch_one would turn an unknown applicant id into a 500 — the row
+        // being absent is the caller's 404, not a database failure.
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(ApiError::NotFound)?;
         Ok(row)
     }
 
