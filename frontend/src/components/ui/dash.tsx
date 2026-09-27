@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, untrack, type JSX } from 'solid-js'
 import { Link, useNavigate, useRouterState } from '@tanstack/solid-router'
 import { cn } from '../../lib/cn'
+import { httpUrl } from '../../lib/format'
 
 // The dashboard primitives the approved console mockups are drawn with
 // (`~/.devin/plans/console-mockups/*.html`). Each maps one mockup class to
@@ -205,7 +206,7 @@ export function Act(props: {
   )
   return (
     <Show when={props.to} fallback={
-      <Show when={props.href} fallback={
+      <Show when={httpUrl(props.href)} fallback={
         <button type="button" class={cls()} disabled={props.disabled} onClick={() => props.onClick?.()}>{props.children}</button>
       }>
         <a href={props.href} target="_blank" rel="noreferrer" class={cls()}>{props.children}</a>

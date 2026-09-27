@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/solid-q
 import { ChevronDown, ExternalLink } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { writeGuard } from '../lib/read-only'
-import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil } from '../lib/format'
+import { confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, httpUrl } from '../lib/format'
 import { cn } from '../lib/cn'
 import { toast } from './app/toast'
 import { Button } from './app/button'
@@ -145,7 +145,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
           <p class="mt-0.5 text-xs text-muted-foreground">
             Observed {run().occurred_at ? formatIsoAge(run().occurred_at!) : formatIsoAge(run().decided_at)}
             <Show when={run().platform}> · {run().platform}</Show>
-            <Show when={run().source_url}>
+            <Show when={httpUrl(run().source_url)}>
               {url => (
                 <>
                   {' · '}
@@ -708,7 +708,7 @@ function TargetRow(props: {
             />
           </Show>
           {/* The receipt — the live post and its numbers. */}
-          <Show when={t().reddit_post_url}>
+          <Show when={httpUrl(t().reddit_post_url)}>
             {url => (
               <a
                 href={url()}

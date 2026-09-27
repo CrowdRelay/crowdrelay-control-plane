@@ -83,6 +83,12 @@ export const timestampMillis = (value: string | number[] | null | undefined): nu
   return Date.parse(value)
 }
 
+/// Upstream-provided URLs are scraped data, not trusted chrome: only http(s)
+/// values may become an `href` — `javascript:`/`data:`/relative junk renders
+/// as plain text via the caller's `Show` fallback instead of executing.
+export const httpUrl = (value: string | null | undefined): string | null =>
+  typeof value === 'string' && /^https?:\/\//i.test(value) ? value : null
+
 /// Ascending comparator with the unparseable at the end — a row whose
 /// timestamp cannot be read sorts after real dates instead of pretending to
 /// be 1970.

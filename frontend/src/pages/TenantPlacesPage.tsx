@@ -20,7 +20,7 @@ import { Alert } from '../components/app/alert'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPanel } from '../components/GigPlanPanel'
 import { RefreshCw } from 'lucide-solid'
-import { humanizeToken, relativeTime } from '../lib/format'
+import { humanizeToken, httpUrl, relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
@@ -666,9 +666,9 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
                   {(p: AudiencePlace) => (
                     <TableRow>
                       <TableCell class="text-foreground">
-                        {p.url
-                          ? <a href={p.url} target="_blank" rel="noreferrer" class="underline decoration-border underline-offset-4 hover:text-primary">{p.name}</a>
-                          : p.name}
+                        <Show when={httpUrl(p.url)} fallback={p.name}>
+                          {url => <a href={url()} target="_blank" rel="noreferrer" class="underline decoration-border underline-offset-4 hover:text-primary">{p.name}</a>}
+                        </Show>
                         <Show when={p.countryCode}>
                           <span class="ml-1 text-xs text-muted-foreground">{p.countryCode}</span>
                         </Show>

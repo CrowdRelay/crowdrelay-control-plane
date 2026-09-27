@@ -80,7 +80,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     // The session cookie is HttpOnly, so a 401 is the only signal the SPA can
     // get that its session died; drop the cached profile everywhere.
-    if (response.status === 401 && !path.startsWith('/auth/session') && unauthorizedHandler) unauthorizedHandler()
+    // `/auth/*` 401s are answers, not session-death signals: a wrong password
+    // at /auth/session or /auth/reauth must show in that flow's own error
+    // surface — dropping the profile here would log the operator out for a
+    // mistyped step-up. A genuinely dead session is caught by the next real
+    // request.
+    if (response.status === 401 && !path.startsWith('/auth/') && unauthorizedHandler) unauthorizedHandler()
     const body = await response.json().catch(() => ({ detail: response.statusText })) as Record<string, unknown>
     const detail = typeof body.detail === 'string' ? body.detail : `HTTP ${response.status}`
     const code = typeof body.error === 'string' ? body.error : undefined

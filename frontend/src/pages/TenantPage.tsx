@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, relativeTime } from '../lib/format'
+import { errorMessage, httpUrl, relativeTime } from '../lib/format'
 import { Check, Circle, RefreshCw } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
@@ -261,8 +261,8 @@ export function TenantPage() {
                 <TableRow>
                   <TableCell><strong>Signal</strong></TableCell>
                   <TableCell>
-                    <Show when={t.signalEnabled && t.signalPlayStoreUrl} fallback={<span class="text-muted-foreground">{t.signalEnabled ? 'not published yet' : '—'}</span>}>
-                      <a href={t.signalPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>
+                    <Show when={t.signalEnabled && httpUrl(t.signalPlayStoreUrl)} fallback={<span class="text-muted-foreground">{t.signalEnabled ? 'not published yet' : '—'}</span>}>
+                      {url => <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>}
                     </Show>
                   </TableCell>
                   <TableCell class="text-right"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></TableCell>
@@ -277,8 +277,8 @@ export function TenantPage() {
                 <TableRow>
                   <TableCell><strong>Synesthesia</strong></TableCell>
                   <TableCell>
-                    <Show when={t.synesthesiaEnabled && t.synesthesiaPlayStoreUrl} fallback={<span class="text-muted-foreground">{t.synesthesiaEnabled ? 'not published yet' : '—'}</span>}>
-                      <a href={t.synesthesiaPlayStoreUrl!} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>
+                    <Show when={t.synesthesiaEnabled && httpUrl(t.synesthesiaPlayStoreUrl)} fallback={<span class="text-muted-foreground">{t.synesthesiaEnabled ? 'not published yet' : '—'}</span>}>
+                      {url => <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>}
                     </Show>
                   </TableCell>
                   <TableCell class="text-right"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></TableCell>
@@ -384,7 +384,7 @@ export function TenantPage() {
                     <div class="min-w-0">
                       <strong class="text-sm text-foreground">{step.title}</strong>
                       <small class="block break-words text-xs text-muted-foreground">
-                        <Show when={step.url} fallback={step.detail}>
+                        <Show when={httpUrl(step.url)} fallback={step.detail}>
                           <a href={step.url!} target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80">{step.url}</a>
                         </Show>
                       </small>

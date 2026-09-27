@@ -8,7 +8,7 @@ import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, Audi
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/app/toast'
-import { errorMessage, humanizeToken } from '../lib/format'
+import { errorMessage, humanizeToken, httpUrl } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
@@ -433,9 +433,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                           <article class="flex flex-col gap-2 p-4 rounded-lg border border-border bg-card" data-state={item.membershipState}>
                             <header class="flex items-start justify-between gap-2">
                               <div>
-                                <a class="text-sm font-semibold text-foreground hover:text-primary transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
-                                  {item.name}
-                                </a>
+                                <Show when={httpUrl(item.url)} fallback={<span class="text-sm font-semibold text-foreground">{item.name}</span>}>
+                                  {url => <a class="text-sm font-semibold text-foreground hover:text-primary transition-colors" href={url()} target="_blank" rel="noreferrer noopener">{item.name}</a>}
+                                </Show>
                                 <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                   <span class="text-xs text-muted-foreground uppercase tracking-wider" data-platform={item.platform}>{item.placeKind.replaceAll('_', ' ')}</span>
                                   <Show when={item.memberCount}>
@@ -460,9 +460,9 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                             </Show>
 
                             <footer class="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-border">
-                              <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={item.url} target="_blank" rel="noreferrer noopener">
-                                Open<ArrowUpRight class="size-3.5" aria-hidden="true" />
-                              </a>
+                              <Show when={httpUrl(item.url)}>
+                                {url => <a class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" href={url()} target="_blank" rel="noreferrer noopener">Open<ArrowUpRight class="size-3.5" aria-hidden="true" /></a>}
+                              </Show>
                               <Button variant="ghost" size="sm" onClick={() => loadDraft(item.placeId)}>Draft intro</Button>
                               <NativeSelect size="sm" class="w-auto"
                                 value={item.membershipState}

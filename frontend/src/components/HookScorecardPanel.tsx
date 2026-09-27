@@ -2,7 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { capability } from '../lib/capabilities'
 import { surface } from '../lib/surface'
-import { formatTimestamp } from '../lib/format'
+import { formatTimestamp, httpUrl } from '../lib/format'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
@@ -54,7 +54,7 @@ function HookRow(props: { post: HookPost }) {
       <p class="text-xs text-muted-foreground">
         <Badge variant={verdict().variant}>{verdict().label}</Badge>{' '}
         {props.post.platform ?? 'post'}{props.post.media_type ? ` · ${props.post.media_type.toLowerCase()}` : ''} · {formatTimestamp(props.post.posted_at)}
-        <Show when={props.post.url}>{url => <> · <a class="underline" href={url()} target="_blank" rel="noreferrer">open</a></>}</Show>
+        <Show when={httpUrl(props.post.url)}>{url => <> · <a class="underline" href={url()} target="_blank" rel="noreferrer">open</a></>}</Show>
       </p>
       <Show when={props.post.opening}>{opening => <p class="mt-1 text-sm text-foreground">“{opening()}”</p>}</Show>
       <p class="mt-1 text-xs text-muted-foreground">

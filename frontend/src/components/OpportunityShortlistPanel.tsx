@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
-import { confidencePercent, humanizeToken } from '../lib/format'
+import { confidencePercent, humanizeToken, httpUrl } from '../lib/format'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { EmptyState } from './ui/empty-state'
 import type { OpportunityShortlistEntry } from '../lib/types'
@@ -159,7 +159,7 @@ export function OpportunityShortlistPanel() {
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                       <div class="flex items-center gap-2 flex-wrap">
-                        <Show when={entry.destination_url} fallback={<span class="font-medium text-foreground">{entry.title}</span>}>
+                        <Show when={httpUrl(entry.destination_url)} fallback={<span class="font-medium text-foreground">{entry.title}</span>}>
                           {url => (
                             <a href={url()} target="_blank" rel="noopener noreferrer" class="font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground">
                               {entry.title}
