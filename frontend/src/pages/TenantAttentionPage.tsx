@@ -209,9 +209,9 @@ export function TenantAttentionPage() {
   // runs. Tracked against the router's hash (not read once at mount) so a
   // second deep link clicked while the page is already open still reveals —
   // an onMount-only parse silently ignored it. `on` tracks the hash alone:
-  // the reveal calls `navigate`, which reads the router's location signals,
-  // and tracking those re-ran this effect on every navigation it caused — an
-  // endless replaceState loop that froze the tab.
+  // the reveal calls `navigate`, whose synchronous `router.load()` reads the
+  // router's store signals, and tracking those re-ran this effect on every
+  // load it caused — an endless navigate/load loop that froze the tab.
   const currentHash = useRouterState({ select: s => s.location.hash })
   createEffect(on(currentHash, hash => {
     const match = hash.match(/action=([0-9a-f-]+)/i)
