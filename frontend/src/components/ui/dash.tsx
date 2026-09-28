@@ -302,12 +302,18 @@ export function useWorkAreas(ids: string[], param = 'tab') {
     // `hashScrollIntoView: false` keep the viewport put: a `?tab=` write is not
     // a page change, so the default scroll-to-top (and re-scroll to the kept
     // hash) would read as the page reloading.
-    void navigate({ to: '.', hash: true, resetScroll: false, hashScrollIntoView: false, search: (prev: Record<string, unknown>) => {
-      const out = { ...prev }
-      if (id) out[param] = id
-      else delete out[param]
-      return out
-    }, replace: true } as never)
+    // navigate reads the router's signals synchronously, so an effect that
+    // calls `open` would subscribe to every router update and re-run on each
+    // navigation it causes (the #149 attention freeze). `untrack` keeps a
+    // caller's tracking limited to what it reads itself.
+    untrack(() => {
+      void navigate({ to: '.', hash: true, resetScroll: false, hashScrollIntoView: false, search: (prev: Record<string, unknown>) => {
+        const out = { ...prev }
+        if (id) out[param] = id
+        else delete out[param]
+        return out
+      }, replace: true } as never)
+    })
   }
   return { active, open, toggle: (id: string) => open(active() === id ? null : id) }
 }
