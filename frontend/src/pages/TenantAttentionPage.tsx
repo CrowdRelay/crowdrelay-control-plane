@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, useRouterState } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
@@ -208,12 +208,15 @@ export function TenantAttentionPage() {
   // mount until its tab is visited, so the parse lives here where it always
   // runs. Tracked against the router's hash (not read once at mount) so a
   // second deep link clicked while the page is already open still reveals —
-  // an onMount-only parse silently ignored it.
+  // an onMount-only parse silently ignored it. `on` tracks the hash alone:
+  // the reveal calls `navigate`, which reads the router's location signals,
+  // and tracking those re-ran this effect on every navigation it caused — an
+  // endless replaceState loop that froze the tab.
   const currentHash = useRouterState({ select: s => s.location.hash })
-  createEffect(() => {
-    const match = currentHash().match(/action=([0-9a-f-]+)/i)
+  createEffect(on(currentHash, hash => {
+    const match = hash.match(/action=([0-9a-f-]+)/i)
     if (match) revealAnchor('inbox', `attention-item-approval-${match[1]}`)
-  })
+  }))
 
   const summary = {
     get data() { return attention.data?.summary },
