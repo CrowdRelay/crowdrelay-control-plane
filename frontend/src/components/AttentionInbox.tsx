@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createSignal, on, onCleanup } from 'solid-js'
 import { Link, useRouterState } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { api, ApiError } from '../lib/api'
@@ -346,10 +346,12 @@ export function AttentionInbox(props: {
   // Deep-link from team emails: the URL hash may contain
   // `#needs-you&action={id}`. Track the router's hash reactively — a second
   // deep link clicked while the page (and this panel) is already open must
-  // still highlight its target; an onMount read silently ignored it.
+  // still highlight its target; an onMount read silently ignored it. `on`
+  // tracks the hash alone — onReveal navigates, and tracking the router
+  // signals that navigation reads looped this effect forever.
   const currentHash = useRouterState({ select: s => s.location.hash })
-  createEffect(() => {
-    const match = currentHash().match(/action=([0-9a-f-]+)/i)
+  createEffect(on(currentHash, hash => {
+    const match = hash.match(/action=([0-9a-f-]+)/i)
     if (!match) return
     const elId = `attention-item-approval-${match[1]}`
     // The target lives on this tab — with decisions now the default the
@@ -374,7 +376,7 @@ export function AttentionInbox(props: {
     }
     requestAnimationFrame(highlight)
     onCleanup(() => clearTimeout(highlightTimer))
-  })
+  }))
 
   return <div class="rounded-lg border border-border bg-card">
     {/* A zero in a dark pill on a dark header read as a smudge, and the row
