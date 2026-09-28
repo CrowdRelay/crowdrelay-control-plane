@@ -280,7 +280,9 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
     // the parent's `tab`.
     switchTab = (id: string) => {
       rawSwitch(id)
-      void navigate({ to: '.', search: (prev: Record<string, unknown>) => ({ ...prev, [param]: id }), replace: true } as any)
+      // `resetScroll`/`hashScrollIntoView` off: a `?tab=` write is not a page
+      // change — without them the default scroll-to-top reads as a reload.
+      void navigate({ to: '.', search: (prev: Record<string, unknown>) => ({ ...prev, [param]: id }), replace: true, resetScroll: false, hashScrollIntoView: false } as any)
     }
     // Follow the URL, not the local selection. This effect used to track
     // `activeTab` as well, so a click re-ran it before the router had taken

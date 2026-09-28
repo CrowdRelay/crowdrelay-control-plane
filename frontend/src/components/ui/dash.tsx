@@ -1,7 +1,8 @@
-import { For, Show, createEffect, createSignal, untrack, type JSX } from 'solid-js'
+import { For, Show, Suspense, createEffect, createSignal, untrack, type JSX } from 'solid-js'
 import { Link, useNavigate, useRouterState } from '@tanstack/solid-router'
 import { cn } from '../../lib/cn'
 import { httpUrl } from '../../lib/format'
+import { SkeletonTabContent } from '../Skeleton'
 
 // The dashboard primitives the approved console mockups are drawn with
 // (`~/.devin/plans/console-mockups/*.html`). Each maps one mockup class to
@@ -297,8 +298,11 @@ export function useWorkAreas(ids: string[], param = 'tab') {
     setActive(id)
     // `hash: true` keeps `#needs-you&action=<id>`-style deep links in the URL
     // across work-area toggles — the address stays copyable and back/forward
-    // navigation still carries the anchor.
-    void navigate({ to: '.', hash: true, search: (prev: Record<string, unknown>) => {
+    // navigation still carries the anchor. `resetScroll: false` +
+    // `hashScrollIntoView: false` keep the viewport put: a `?tab=` write is not
+    // a page change, so the default scroll-to-top (and re-scroll to the kept
+    // hash) would read as the page reloading.
+    void navigate({ to: '.', hash: true, resetScroll: false, hashScrollIntoView: false, search: (prev: Record<string, unknown>) => {
       const out = { ...prev }
       if (id) out[param] = id
       else delete out[param]
@@ -330,11 +334,17 @@ export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onT
   )
 }
 
-/** The open work area's content, under the buttons. */
+/** The open work area's content, under the buttons. The Suspense boundary is
+ *  load-bearing: a panel's first `useQuery` mount suspends, and without a
+ *  boundary here the fallback it trips is the route-level SkeletonPage — the
+ *  whole page, header included, blinks on every tab switch. Keeping it inside
+ *  the panel means only the tab's own area shows the skeleton. */
 export function WorkAreaPanel(props: { id: string; active: string | null; children: JSX.Element }) {
   return (
     <Show when={props.active === props.id}>
-      <div class="mt-4 border-t border-border pt-4" role="tabpanel" id={`tabpanel-${props.id}`} aria-labelledby={`tab-${props.id}`} data-slot="tab-panel">{props.children}</div>
+      <div class="mt-4 border-t border-border pt-4" role="tabpanel" id={`tabpanel-${props.id}`} aria-labelledby={`tab-${props.id}`} data-slot="tab-panel">
+        <Suspense fallback={<SkeletonTabContent />}>{props.children}</Suspense>
+      </div>
     </Show>
   )
 }
