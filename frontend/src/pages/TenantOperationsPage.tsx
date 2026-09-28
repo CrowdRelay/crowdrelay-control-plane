@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
@@ -64,11 +64,13 @@ export function TenantOperationsPage() {
   // its intent instead of snapping back to Replies.
   const navigate = useNavigate()
   const locationSearch = useRouterState({ select: s => s.location.search })
-  createEffect(() => {
-    if ((locationSearch() as Record<string, unknown>)?.tab === 'listing') {
+  // `on`: track only the search value — navigate's own router reads must not
+  // subscribe this effect to router updates.
+  createEffect(on(locationSearch, search => {
+    if ((search as Record<string, unknown>)?.tab === 'listing') {
       void navigate({ to: '/tenants/$slug/proof', params: { slug: params().slug }, replace: true })
     }
-  })
+  }))
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),

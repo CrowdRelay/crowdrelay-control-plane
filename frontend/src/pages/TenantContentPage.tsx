@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { Bell, History, Layers, RefreshCw, Send } from 'lucide-solid'
@@ -191,10 +191,11 @@ export function TenantContentPage() {
     return { tone: 'good', text: 'Nothing waits on you' }
   }
   const areas = useWorkAreas(['links', 'material', 'hooks'])
-  // "Material" is its own page; the button goes there.
-  createEffect(() => {
-    if (areas.active() === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
-  })
+  // "Material" is its own page; the button goes there. `on`: track only the
+  // active value — navigate's own router reads must not subscribe this effect.
+  createEffect(on(areas.active, active => {
+    if (active === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
+  }))
   // "Material it works from": the material page's own one-statement view,
   // carried inside the content model. Seeding the material page's key with it
   // means opening that page costs no second read.

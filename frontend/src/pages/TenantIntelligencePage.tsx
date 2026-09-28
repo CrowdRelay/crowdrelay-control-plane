@@ -1,7 +1,7 @@
 import { BrainCyclesPanel } from '../components/BrainCyclesPanel'
 import { GoalScoreboardPanel } from '../components/GoalScoreboardPanel'
 import { ReachPanel } from '../components/ReachPanel'
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { RefreshCw } from 'lucide-solid'
@@ -94,10 +94,12 @@ export function TenantIntelligencePage() {
   // A retired `?tab=` id remaps onto the tab its evidence moved to — the hook
   // alone would snap it back to the brief and the intent would be lost.
   const locationSearch = useRouterState({ select: s => s.location.search })
-  createEffect(() => {
-    const t = (locationSearch() as Record<string, unknown>)?.tab
+  // `on`: track only the search value — switchTab navigates, and navigate's
+  // own router reads must not subscribe this effect to router updates.
+  createEffect(on(locationSearch, search => {
+    const t = (search as Record<string, unknown>)?.tab
     if (typeof t === 'string' && LEGACY_TABS[t]) switchTab(LEGACY_TABS[t])
-  })
+  }))
   const model = useQuery(() => ({
     queryKey: ['tenant-brain', params().slug],
     queryFn: () => api.brainModel(params().slug),
