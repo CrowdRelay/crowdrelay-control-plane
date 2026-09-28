@@ -3858,9 +3858,44 @@ export type IntelligenceDecisionSummary = {
   completed_tasks: number
 }
 
+/** The autopilot's own ledger, from `autopilot_decisions`,
+ *  `autopilot_actions` and `agent_service_tasks`. `decisions` above reads
+ *  `agent_service_workflows`, which nothing writes — this is what the brain
+ *  actually did. Absent on an agent service older than 2026-09-27. */
+export type AutopilotLedger = {
+  summary: {
+    decisions: number
+    acting_decisions: number
+    auto_executed: number
+    asked_approval: number
+    recommended: number
+    held: number
+    actions_created: number
+    actions_succeeded: number
+    actions_failed: number
+    actions_awaiting_approval: number
+    actions_cancelled: number
+    worker_tasks: number
+    worker_tasks_completed: number
+    worker_tasks_failed: number
+  }
+  recent: Array<{
+    id: string
+    evaluated_at: string
+    decision_kind: string
+    disposition: string
+    confidence_basis_points: number
+    reason: string
+    action_kind: string | null
+    action_status: string | null
+    last_error_kind: string | null
+  }>
+}
+
 export type IntelligenceDecisionsData = {
   days: number
   since: string
+  autopilot?: AutopilotLedger
   decisions: IntelligenceDecision[]
   summary: IntelligenceDecisionSummary
 }

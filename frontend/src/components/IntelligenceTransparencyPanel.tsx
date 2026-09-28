@@ -42,6 +42,16 @@ const taskStatusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'running' || status === 'queued' ? 'warn' :
   status === 'failed' ? 'bad' : 'muted'
 
+const humanize = (value: string): string => {
+  const words = value.replaceAll('_', ' ').replaceAll('.', ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+const actionTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
+  status === 'succeeded' ? 'good' :
+  status === 'awaiting_approval' || status === 'queued' || status === 'pending' || status === 'running' ? 'warn' :
+  status === 'failed' ? 'bad' : 'muted'
+
 const toneToBadgeVariant = (tone: 'good' | 'warn' | 'bad' | 'muted'): 'success' | 'warning' | 'destructive' | 'muted' =>
   tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'destructive' : 'muted'
 
@@ -91,6 +101,12 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
 
   const summary = () => data.data?.summary
   const decisions = () => data.data?.decisions ?? []
+  // The autopilot's own ledger. The workflow timeline (`decisions`) reads a
+  // table nothing writes, so on its own it read "0 decisions" while the
+  // brain was deciding a hundred times a day; the ledger is the real answer
+  // and leads whenever the agent service provides it.
+  const ledger = () => data.data?.autopilot
+  const ledgerRecent = () => ledger()?.recent ?? []
 
   const toggleExpand = (id: string) => {
     setExpanded((curr) => (curr === id ? null : id))
@@ -142,14 +158,64 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
         </KpiStrip>
       </Show>
     }>
+      <Show when={ledger()} fallback={
       <KpiStrip>
         <KpiCard label={authState.isPlatformLevel() ? 'Intelligence decisions' : 'Decisions'} value={summary()!.total_decisions} sub={`${summary()!.completed_decisions} completed · ${summary()!.failed_decisions} failed`} />
         <KpiCard label="Running" value={summary()!.running_decisions} sub="in progress now" />
         <KpiCard label={authState.isPlatformLevel() ? 'Worker tasks' : 'AI jobs'} value={summary()!.total_tasks} sub={`${summary()!.completed_tasks} completed`} />
       </KpiStrip>
+      }>{(l) => (
+        <KpiStrip>
+          <KpiCard label="Decisions that act" value={l().summary.acting_decisions} sub={`${l().summary.auto_executed} done on its own · ${l().summary.asked_approval} asked you · ${l().summary.recommended} suggestions`} />
+          <KpiCard label="Actions" value={l().summary.actions_created} sub={`${l().summary.actions_succeeded} succeeded · ${l().summary.actions_failed} failed · ${l().summary.actions_awaiting_approval} waiting on you`} />
+          <KpiCard label={authState.isPlatformLevel() ? 'Worker tasks' : 'AI jobs'} value={l().summary.worker_tasks} sub={`${l().summary.worker_tasks_completed} completed · ${l().summary.worker_tasks_failed} failed`} />
+        </KpiStrip>
+      )}</Show>
     </Show>
 
-    {/* Decision timeline */}
+    <Show when={ledgerRecent().length > 0}>
+      <Table class="mt-4">
+        <TableHeader>
+          <TableRow>
+            <TableHead>When</TableHead>
+            <TableHead>Decision</TableHead>
+            <TableHead>How</TableHead>
+            <TableHead class="text-right">Confidence</TableHead>
+            <TableHead>Result</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <For each={showAllDecisions() ? ledgerRecent() : ledgerRecent().slice(0, MAX_VISIBLE_DECISIONS)}>{(row) => (
+            <TableRow>
+              <TableCell class="whitespace-nowrap">{formatIsoAge(row.evaluated_at)}</TableCell>
+              <TableCell>
+                <div class="font-medium">{humanize(row.decision_kind)}</div>
+                <div class="text-xs text-muted-foreground">{row.reason}</div>
+              </TableCell>
+              <TableCell>{row.disposition === 'auto_execute' ? 'On its own' : row.disposition === 'require_approval' ? 'Asked you' : humanize(row.disposition)}</TableCell>
+              <TableCell numeric>{`${Math.round(row.confidence_basis_points / 100)}%`}</TableCell>
+              <TableCell>
+                <Show when={row.action_status} fallback={<span class="text-muted-foreground">No action</span>}>
+                  <Badge variant={toneToBadgeVariant(actionTone(row.action_status!))}>{humanize(row.action_status!)}</Badge>
+                  <Show when={row.last_error_kind}>
+                    <div class="text-xs text-muted-foreground">{humanize(row.last_error_kind!)}</div>
+                  </Show>
+                </Show>
+              </TableCell>
+            </TableRow>
+          )}</For>
+        </TableBody>
+      </Table>
+      <Show when={ledgerRecent().length > MAX_VISIBLE_DECISIONS}>
+        <Button variant="ghost" size="sm" class="mt-2" onClick={() => setShowAllDecisions(s => !s)}>
+          {showAllDecisions() ? 'Show fewer' : `Show all ${ledgerRecent().length}`}
+        </Button>
+      </Show>
+    </Show>
+
+    {/* Multi-step brain plans. Nothing writes them today, so an empty list
+        says nothing once the ledger above has rows — it is hidden then. */}
+    <Show when={!(ledgerRecent().length > 0 && decisions().length === 0)}>
     <div class="mt-4">
 
       <Show when={data.data && decisions().length === 0} fallback={
@@ -315,6 +381,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
         </div>
       </Show>
     </div>
+    </Show>
     </div>
   </Section>
 }

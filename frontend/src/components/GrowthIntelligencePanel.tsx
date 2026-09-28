@@ -72,6 +72,17 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
     staleTime: 10_000,
   }))
 
+  // The worker runs themselves. `workflows` above reads multi-step plans that
+  // nothing writes, so on its own this section said "No AI work yet" while
+  // the autopilot dispatched hundreds of runs; the runs are what it did.
+  const workerRuns = useQuery(() => ({
+    queryKey: ['growth-intelligence-worker-runs', props.slug],
+    queryFn: async () => (await api.agentTasks(props.slug, 20)).tasks,
+    enabled: props.active !== false,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+  }))
+
   const workflows = useQuery(() => ({
     queryKey: ['growth-intelligence-workflows', props.slug],
     queryFn: async () => {
@@ -286,7 +297,30 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <Show when={workflows.error}><ErrorCard>Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</ErrorCard></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
+            <Show when={(workerRuns.data ?? []).length > 0} fallback={
             <EmptyState label="No AI work yet" hint={authState.isPlatformLevel() ? 'When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.' : 'When it decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.'} />
+            }>
+              <Table class="mt-3">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Worker</TableHead>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Why it stopped</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <For each={workerRuns.data!}>{(run) => (
+                    <TableRow>
+                      <TableCell>{run.template_id.replaceAll('-', ' ')}</TableCell>
+                      <TableCell class="whitespace-nowrap">{formatIsoAge(run.created_at)}</TableCell>
+                      <TableCell><StatusBadge status={run.status} tone={workflowStatusTone(run.status)} /></TableCell>
+                      <TableCell class="text-xs text-muted-foreground">{run.error ? run.error.slice(0, 160) : '—'}</TableCell>
+                    </TableRow>
+                  )}</For>
+                </TableBody>
+              </Table>
+            </Show>
           </Show>
         }>
           <div class="grid gap-2.5 mt-3">
