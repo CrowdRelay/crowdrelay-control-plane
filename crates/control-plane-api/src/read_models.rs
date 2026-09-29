@@ -770,14 +770,28 @@ fn build_per_tenant_summary(
         // (in-flight) or gave up on (failed). Same placeholder discipline:
         // a tenant that does not publish the lane reads null, never 0.
         "automaticInFlight": if not_reported("automatic_queue") { Value::Null } else {
-            att.and_then(|a| a.get("automatic_queue")).and_then(|v| v.as_array()).map(|channels| {
-                json!(channels.iter().map(|c| c.get("in_flight").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>())
-            }).unwrap_or(Value::Null)
+            att.and_then(|a| a.get("automatic_queue"))
+                .and_then(Value::as_array)
+                .and_then(|channels| {
+                    channels
+                        .iter()
+                        .map(|c| c.get("in_flight").and_then(Value::as_u64))
+                        .collect::<Option<Vec<u64>>>()
+                })
+                .map(|counts| json!(counts.iter().sum::<u64>()))
+                .unwrap_or(Value::Null)
         },
         "automaticFailed": if not_reported("automatic_queue") { Value::Null } else {
-            att.and_then(|a| a.get("automatic_queue")).and_then(|v| v.as_array()).map(|channels| {
-                json!(channels.iter().map(|c| c.get("failed").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>())
-            }).unwrap_or(Value::Null)
+            att.and_then(|a| a.get("automatic_queue"))
+                .and_then(Value::as_array)
+                .and_then(|channels| {
+                    channels
+                        .iter()
+                        .map(|c| c.get("failed").and_then(Value::as_u64))
+                        .collect::<Option<Vec<u64>>>()
+                })
+                .map(|counts| json!(counts.iter().sum::<u64>()))
+                .unwrap_or(Value::Null)
         },
         "automaticQueueChannels": if not_reported("automatic_queue") { Value::Null } else {
             att.and_then(|a| a.get("automatic_queue")).cloned().unwrap_or(Value::Null)
