@@ -457,15 +457,15 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       </Section>
 
       {/* ── Drafted, not published — finished work waiting on a channel ── */}
-      <Show when={brief().unpublished_drafts.length > 0}>
+      <Show when={(brief().unpublished_drafts ?? []).length > 0}>
         <Section
           title="Drafted, not published"
           icon={<SectionIcon name="inbox" />}
-          count={brief().unpublished_drafts.reduce((n, c) => n + c.drafts, 0)}
+          count={(brief().unpublished_drafts ?? []).reduce((n, c) => n + c.drafts, 0)}
           description="Work the brain finished that no channel has shipped."
         >
           <div class="flex flex-col gap-2">
-            <For each={brief().unpublished_drafts}>
+            <For each={brief().unpublished_drafts ?? []}>
               {channel => (
                 <div class="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                   <div class="min-w-0 flex-1">

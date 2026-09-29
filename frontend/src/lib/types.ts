@@ -4291,6 +4291,13 @@ export type CommandCenterTenantAttention = {
   unpublishedDrafts: number | null
   /// Per-channel breakdown behind `unpublishedDrafts`, for the card detail.
   unpublishedDraftChannels: { channel: string; drafts: number; oldest_drafted_at: string | null }[] | null
+  /// The machine half of the post queue: sends the system is carrying
+  /// (in_flight) or gave up on (failed), summed across channels. null when
+  /// the tenant does not report the lane — not the same as zero.
+  automaticInFlight: number | null
+  automaticFailed: number | null
+  /// Per-channel breakdown behind the automatic totals.
+  automaticQueueChannels: { channel: string; in_flight: number; failed: number; oldest_queued_at: string | null }[] | null
   /// Sections the tenant does not publish — the attention snapshot's
   /// placeholders, named so the row can say "not reported" instead of a
   /// substituted zero.
@@ -4871,7 +4878,10 @@ export type IntelligenceBrief = {
   /// Communities the brain wants but cannot reach.
   blocked_communities: BlockedCommunity[]
   /// Finished work nobody published — the human half of the post queue.
-  unpublished_drafts: UnpublishedDraftChannel[]
+  /// Optional for the same reason as automatic_queue: the route passes the
+  /// tenant's object through untouched, so an API that predates the field
+  /// serves nothing — absent is not "none".
+  unpublished_drafts?: UnpublishedDraftChannel[]
   /// The post queue's machine half — in-flight and failed sends the system
   /// owns. Optional: an API that predates the field does not publish it.
   automatic_queue?: AutomaticQueueChannel[]

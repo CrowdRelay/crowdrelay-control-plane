@@ -416,13 +416,17 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                         value is the comma list the reader parses. */}
                     <div class="flex flex-wrap gap-1.5">
                       <For each={PLATFORM_PICKER_OPTIONS[key] ?? []}>{platform => {
-                        const selected = () => (value(key)).split(',').map(s => s.trim()).includes(platform)
+                        // The server stores the comma list verbatim but
+                        // validates case-insensitively — normalise here so a
+                        // stored "Instagram" still reads selected and a
+                        // toggle writes the canonical token, not a second one.
+                        const selected = () => (value(key)).split(',').map(s => s.trim().toLowerCase()).includes(platform)
                         return <Button
                           variant={selected() ? 'secondary' : 'outline'}
                           size="sm"
                           writes
                           onClick={() => {
-                            const current = value(key).split(',').map(s => s.trim()).filter(Boolean)
+                            const current = value(key).split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
                             const next = current.includes(platform)
                               ? current.filter(p => p !== platform)
                               : [...current, platform]

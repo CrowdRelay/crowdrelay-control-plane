@@ -87,7 +87,7 @@ export function DeliveryJourneyPanel(props: {
     {
       key: 'drafted',
       label: 'Drafted',
-      count: attention() === null ? null : draftTotal(),
+      count: attention() === null || (attention()?.not_reported ?? []).includes('unpublished_drafts') ? null : draftTotal(),
       detail: draftTotal() > 0 ? 'waiting to publish' : null,
       anchor: 'delivery-drafted',
     },

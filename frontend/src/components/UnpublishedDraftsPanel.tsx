@@ -71,7 +71,11 @@ export function UnpublishedDraftsPanel(props: {
   notReported: string[]
 }) {
   const reported = () => !props.notReported.includes('unpublished_drafts')
-  const automaticReported = () => props.automatic !== undefined
+  // The projection substitutes [] and names the lane in not_reported when
+  // the tenant predates it — `[]` is defined, so presence cannot mean
+  // reported. Consult not_reported like the human lane does.
+  const automaticReported = () =>
+    props.automatic !== undefined && !props.notReported.includes('automatic_queue')
   const total = () => props.drafts.reduce((sum, channel) => sum + channel.drafts, 0)
   const inFlight = () => (props.automatic ?? []).reduce((sum, channel) => sum + channel.in_flight, 0)
   const machineFailed = () => (props.automatic ?? []).reduce((sum, channel) => sum + channel.failed, 0)
@@ -92,7 +96,9 @@ export function UnpublishedDraftsPanel(props: {
 
     {/* Automatic lane — system-owned. Informational: nothing here is
         anyone's to-do, so it renders quiet rather than as an alarm. */}
-    <Show when={automaticReported()}>
+    <Show when={automaticReported()} fallback={
+      <p class="text-sm text-muted-foreground italic">{authState.isPlatformLevel() ? 'This tenant does not report the machine queue.' : 'The machine queue is not reported yet.'}</p>
+    }>
       <div class="flex flex-col gap-2">
         <div class="flex items-baseline justify-between gap-2">
           <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Automatic</h4>
