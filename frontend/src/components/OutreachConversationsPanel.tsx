@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Inbox } from 'lucide-solid'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
 import { capability, capabilityAction } from '../lib/capabilities'
@@ -127,14 +128,14 @@ export function OutreachConversationsPanel(props: { slug: string }) {
       />
 
       <Show when={list.error}>
-        <SectionFailureCard error={list.error} fallback="The outreach list did not load" onRetry={() => void list.refetch()} />
+        <SectionFailureCard error={list.error} title="Couldn't load the outreach list" onRetry={() => void list.refetch()} />
       </Show>
       <Show when={!list.error && list.isPending}><SkeletonRows count={4} /></Show>
 
       <Show when={list.data}>
         <Show
           when={rows().length > 0}
-          fallback={<EmptyState label={emptyLabel(stage())} hint={emptyHint(stage(), platform())} />}
+          fallback={<EmptyState icon={<Inbox />} label={emptyLabel(stage())} hint={emptyHint(stage(), platform())} />}
         >
           <div class="mt-3 flex flex-col">
             <For each={showAll() ? rows() : rows().slice(0, MAX_VISIBLE)}>{contact => (

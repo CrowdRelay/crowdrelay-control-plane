@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/solid-router'
+import { failureLine, lowerFirst } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js'
 import type { Component, JSX } from 'solid-js'
@@ -279,7 +280,7 @@ export const CommandPalette: Component = () => {
       if (cmd.kind === 'navigate') { setOpen(false); return }
       setMessage(`✓ ${cmd.label}`)
     } catch (error) {
-      setMessage(error instanceof Error ? `✕ ${error.message}` : `✕ ${cmd.label} failed`)
+      setMessage(`✕ ${failureLine(`Couldn't ${lowerFirst(cmd.label)}`, error)}`)
     } finally {
       setBusy(null)
     }

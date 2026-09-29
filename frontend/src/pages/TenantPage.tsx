@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, httpUrl, relativeTime } from '../lib/format'
+import { httpUrl, relativeTime } from '../lib/format'
 import { Check, Circle, RefreshCw } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
@@ -235,7 +235,7 @@ export function TenantPage() {
   const statusTone = (s: string) => s === 'active' ? 'good' : s === 'suspended' ? 'bad' : 'warn'
 
   return <PageShell>
-    <Show when={tenant.error}><ErrorCard>{errorMessage(tenant.error, authState.isPlatformLevel() ? 'Tenant could not be loaded' : 'Your act could not be loaded')}</ErrorCard></Show>
+    <Show when={tenant.error}><ErrorCard title={authState.isPlatformLevel() ? "Couldn't load this tenant" : "Couldn't load your act"} error={tenant.error} /></Show>
     <Show when={!tenant.error && tenant.data} fallback={!tenant.error ? <SkeletonTenantPage /> : null}>{data => {
     const t = data()
 
@@ -415,7 +415,7 @@ export function TenantPage() {
               <Button writes size="sm" onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</Button>
             </>}
           >
-            <Show when={mobileApps.error}><ErrorCard class="mb-4">{mobileApps.error instanceof Error ? mobileApps.error.message : 'Failed to update Play Store URLs'}</ErrorCard></Show>
+            <Show when={mobileApps.error}><ErrorCard class="mb-4" title="Couldn't update Play Store URLs" error={mobileApps.error} /></Show>
             {/* These placeholders were written as plain attribute strings
                 containing `{t.slug}`, which JSX passes through literally — the
                 field suggested a URL with a brace in it. */}
@@ -444,7 +444,7 @@ export function TenantPage() {
               <Show when={optOutDone()} fallback={
                 <>
                   <Show when={optOut.isError}>
-                    <ErrorCard class="mb-3">{errorMessage(optOut.error, 'Opt-out request failed')}</ErrorCard>
+                    <ErrorCard class="mb-3" title="Couldn't send the opt-out request" error={optOut.error} />
                   </Show>
                   <div class="max-w-md">
                     {/* This mailto was a plain attribute string containing
@@ -504,7 +504,7 @@ export function TenantPage() {
         </>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
-        <ErrorCard>{errorMessage(status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error, authState.isPlatformLevel() ? 'Control Plane operation failed' : 'That change did not go through')}</ErrorCard>
+        <ErrorCard title="Couldn't save that change" error={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error} />
       </Show>
       {/* A tenant that is not running says so above every tab, with the one
           action that changes it. The parked notice painted its text on the
@@ -585,7 +585,7 @@ export function TenantPage() {
             })}
           />
           <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
-          <Show when={operations.error}><ErrorCard>{errorMessage(operations.error, 'Operations data unavailable')}</ErrorCard></Show>
+          <Show when={operations.error}><ErrorCard title="Couldn't load operations" error={operations.error} onRetry={() => void operations.refetch()} /></Show>
           <Section
             flush
             title="CrowdRelay instance"
@@ -641,7 +641,7 @@ export function TenantPage() {
                   </Show>
                 </div>
               </div>
-              <Show when={deploy.error}><ErrorCard>{deploy.error instanceof Error ? deploy.error.message : 'Deployment request failed'}</ErrorCard></Show>
+              <Show when={deploy.error}><ErrorCard title="Couldn't request the deployment" error={deploy.error} /></Show>
               <Show when={preview()}>{job => <div class="mt-3 overflow-x-auto rounded-lg border border-border bg-background p-3"><pre class="text-xs text-foreground">{JSON.stringify(job().plan, null, 2)}</pre></div>}</Show>
               <Show when={latestJob()}>{job => <div class="mt-5 border-t border-border pt-4">
                 {/* The job is a state machine — draw it as one. `cancelled`
@@ -672,12 +672,12 @@ export function TenantPage() {
                   </FieldGrid>
                   <p class="mt-3 text-xs italic text-muted-foreground">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> to this host port to expose it publicly.</p>
                 </div></Show>
-                <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard class="mt-3" recovery={false}>
-                  <strong>{provisionFailures[code()]?.title ?? 'Deployment failed'}</strong>
-                  <Show when={provisionFailures[code()]}>{failure => <>
-                    <p class="mt-1">{failure().guidance}</p>
-                    <Show when={!failure().retryable}><p class="mt-1 text-xs italic text-muted-foreground">Retrying will not help until the underlying cause is fixed.</p></Show>
-                  </>}</Show>
+                <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard
+                  class="mt-3"
+                  title={provisionFailures[code()]?.title ?? "The deployment didn't finish"}
+                  recovery={provisionFailures[code()]?.retryable === false ? "Fix the cause first — deploying again won't help until then." : 'Deploy again when ready.'}
+                >
+                  {provisionFailures[code()]?.guidance ?? 'Something stopped the deployment before it finished.'}
                 </ErrorCard>}</Show>
                 <Show when={['planned','approved'].includes(job().status)}><Button writes variant="destructive-ghost" size="sm" class="mt-3" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</Button></Show>
               </div>}</Show>
@@ -740,7 +740,7 @@ export function TenantPage() {
               description={<>Unregisters <strong class="text-foreground">{t.displayName}</strong> from the control plane: operators, runtime status and provisioning history are deleted. The tenant's CrowdRelay workspace is not touched — it keeps running until shut down separately. The audit trail survives.</>}
             >
               <Show when={remove.isError}>
-                <ErrorCard class="mb-3">{errorMessage(remove.error, 'Tenant removal failed')}</ErrorCard>
+                <ErrorCard class="mb-3" title="Couldn't remove the tenant" error={remove.error} />
               </Show>
               <div class="max-w-md">
                 <Field label={<>Type <code>{t.slug}</code> to confirm</>} hint="This cannot be undone from this screen.">

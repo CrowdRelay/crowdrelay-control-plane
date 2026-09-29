@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { ChevronRight } from 'lucide-solid'
+import { ChevronRight, CloudOff } from 'lucide-solid'
 import { authState } from '../lib/auth'
 import type { AudienceOverview } from '../lib/types'
 import { compactNumber } from '../lib/charts'
@@ -41,7 +41,7 @@ export function AudienceOverviewPanel(props: { slug: string; overview?: Audience
 
   return <Section flush title="The funnel">
     <div>
-      <Show when={props.overview} fallback={<EmptyState label="Audience overview unavailable" hint="The audience overview could not be loaded. This may be a temporary issue — try refreshing." />}>
+      <Show when={props.overview} fallback={<EmptyState icon={<CloudOff />} label="Couldn't load the audience overview" hint="This is usually temporary. Try again in a few minutes." />}>
         {/* The three starting points replace the zeros rather than sitting above
             them. Rendering both said "here is what to do" and then answered the
             unasked question seven times underneath. They are also buttons now:

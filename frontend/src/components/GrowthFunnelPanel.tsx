@@ -1,8 +1,9 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge, relativeTime } from '../lib/format'
+import { formatIsoAge, relativeTime } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { FunnelChart } from './FunnelChart'
 import { EmptyState } from './ui/empty-state'
@@ -60,7 +61,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
         setError(null)
         return await api.growthFunnel(props.slug, days())
       } catch (err) {
-        setError(errorMessage(err, 'We couldn\'t load the growth metrics. Try refreshing.'))
+        setError(failureLine("Couldn't load growth metrics", err))
         return null
       }
     },
@@ -181,7 +182,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       </Show>
 
       <div class="flex flex-col items-center gap-2.5 mt-4">
-        <Show when={funnel.data} fallback={<Show when={!error()}><div class="max-w-[480px] w-full"><SkeletonBlock height="280px" radius="10px" /></div></Show>}>
+        <Show when={funnel.data} fallback={<Show when={!error()}><div class="max-w-[480px] w-full"><SkeletonBlock height="280px" /></div></Show>}>
           <FunnelChart stages={stages()} />
         </Show>
       </div>

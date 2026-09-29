@@ -1,33 +1,32 @@
 import { For, Show } from 'solid-js'
-import { ApiError, errorHeading } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { humanizeToken } from '../lib/format'
 import { authState } from '../lib/auth'
 import type { SectionVerdict } from '../lib/types'
 import { cn } from '../lib/cn'
 import { ErrorCard } from './layout'
-import { Button } from './app/button'
 
-// When every section of a read-model fan-out fails, the backend returns a
-// structured 503 with per-section verdicts (state + remediation). The old
-// rendering path threw that away and showed the generic `detail` string —
-// "tenant read-model channel returned no usable section" — so the operator
-// had no idea *which* section failed *how*. This component renders the
-// structured diagnosis instead.
+// A tenant read model is a fan-out: the Control Plane asks the tenant for each
+// section and assembles what it gets. When every section fails, the backend
+// returns a structured 503 with per-section verdicts (state + remediation).
 //
-// It is used by every page that loads a tenant read model: Operations,
-// Portfolio, Audience, and Health. Each passes its own fallback heading so
-// the card stays contextual when the error is not an AllSectionsFailed
-// variant.
+// The reader sees one plain line — what could not be loaded and that the rest
+// of the page still works. The per-section diagnosis is an operator's tool,
+// so it lives under Technical details and only platform-level accounts get it;
+// to a band the whole read is one thing that could not be checked.
+//
+// Used by every page that loads a tenant read model. `title` names the
+// surface from the reader's side: "Couldn't load your audience".
 
 const stateLabel: Record<string, string> = {
-  ok: 'ok',
-  timeout: 'timed out',
-  unreachable: 'unreachable',
-  upstream_error: 'upstream error',
-  unauthorized: 'credentials refused',
-  absent: 'section not found',
-  rejected: 'rejected',
-  contract_mismatch: 'contract mismatch',
+  ok: 'answered',
+  timeout: 'too slow to answer',
+  unreachable: 'not reachable',
+  upstream_error: 'answered with an error',
+  unauthorized: 'sign-in refused',
+  absent: 'not found',
+  rejected: 'refused',
+  contract_mismatch: 'answer not readable',
 }
 
 const stateTone = (state: string): 'bad' | 'warn' | 'muted' => {
@@ -36,80 +35,47 @@ const stateTone = (state: string): 'bad' | 'warn' | 'muted' => {
   return 'bad'
 }
 
-export function SectionFailureCard(props: { error: unknown; fallback: string; onRetry?: () => void }) {
-  const error = () => props.error
-  const isAllSectionsFailed = () =>
-    error() instanceof ApiError && (error() as ApiError).code === 'all_sections_failed'
-
+export function SectionFailureCard(props: { error: unknown; title: string; onRetry?: () => void }) {
   const sections = (): Record<string, SectionVerdict> | undefined => {
-    const e = error()
-    if (!(e instanceof ApiError)) return undefined
-    const body = e.body as { sections?: Record<string, SectionVerdict> } | undefined
-    return body?.sections
+    const e = props.error
+    if (!(e instanceof ApiError) || e.code !== 'all_sections_failed') return undefined
+    return (e.body as { sections?: Record<string, SectionVerdict> } | undefined)?.sections
   }
 
-  const channel = (): string | undefined => {
-    const e = error()
-    if (!(e instanceof ApiError)) return undefined
-    return (e.body as { channel?: string } | undefined)?.channel
+  const diagnosis = () => {
+    const entries = Object.entries(sections() ?? {})
+    if (!authState.isPlatformLevel() || entries.length === 0) return undefined
+    return (
+      <ul class="m-0 mb-1 flex list-none flex-col gap-1.5 p-0">
+        <For each={entries}>
+          {([name, verdict]) => (
+            <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs">
+              <span class="font-medium text-foreground">{humanizeToken(name)}</span>
+              <span class={cn(
+                'rounded-full px-2 py-0.5 font-medium whitespace-nowrap',
+                stateTone(verdict.state) === 'bad' && 'bg-destructive/10 text-destructive',
+                stateTone(verdict.state) === 'warn' && 'bg-warning text-warning-foreground',
+                stateTone(verdict.state) === 'muted' && 'bg-muted text-muted-foreground',
+              )}>{stateLabel[verdict.state] ?? humanizeToken(verdict.state)}</span>
+              <Show when={verdict.remediation}>
+                <span class="basis-full text-muted-foreground text-pretty">{verdict.remediation}</span>
+              </Show>
+            </li>
+          )}
+        </For>
+      </ul>
+    )
   }
 
-  // The band-facing line — the caller's fallback names the surface ("Audience
-  // channel unavailable"), and the band only needs to know which part of their
-  // console could not be checked, not that it is a channel.
-  const bandHeading = () => props.fallback.replace(/\s+(channel\s+)?unavailable\s*$/i, '')
-
-  // Non-AllSectionsFailed errors render as a plain error card with the
-  // mapped heading. This keeps the component a drop-in replacement for the
-  // old `<div class="error-card">{error.message}</div>` pattern.
-  return <Show when={error()}>
-    <Show when={isAllSectionsFailed()} fallback={
-      <Show when={authState.isPlatformLevel()} fallback={
-        <ErrorCard recovery={false}>
-          {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
-          <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-        </ErrorCard>
-      }>
-      <ErrorCard recovery={props.onRetry ? false : undefined}>
-        {errorHeading(error(), props.fallback)}
-        <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-      </ErrorCard>
-      </Show>
-    }>
-      {/* Band-facing copy does not name channels, sections or verdicts — to the
-          act the whole read is one thing that could not be checked. */}
-      <Show when={authState.isPlatformLevel()} fallback={
-        <ErrorCard recovery={false}>
-          {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
-          <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-        </ErrorCard>
-      }>
-      <ErrorCard recovery={props.onRetry ? false : undefined}>
-        <strong class="block mb-1">{errorHeading(error(), props.fallback)}</strong>
-        <Show when={channel()}>
-          {ch => <p class="m-0 mb-2 text-sm text-muted-foreground">Channel: <code class="text-destructive">{ch()}</code></p>}
-        </Show>
-        <ul class="list-none m-2 mt-0 p-0 flex flex-col gap-1.5">
-          <For each={Object.entries(sections() ?? {})}>
-            {([name, verdict]) => (
-              <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 p-2 rounded-md bg-background">
-                <span class="font-bold text-sm uppercase tracking-tight text-foreground">{name}</span>
-                <span class={cn(
-                  'text-xs px-2 py-0.5 rounded-md font-semibold whitespace-nowrap',
-                  stateTone(verdict.state) === 'bad' && 'bg-destructive/15 text-destructive',
-                  stateTone(verdict.state) === 'warn' && 'bg-warning-foreground/10 text-warning-foreground',
-                  stateTone(verdict.state) === 'muted' && 'bg-accent text-muted-foreground',
-                )}>{stateLabel[verdict.state] ?? humanizeToken(verdict.state)}</span>
-                <Show when={verdict.remediation}>
-                  <small class="basis-full text-sm text-secondary-foreground leading-relaxed mt-0.5 break-words">{verdict.remediation}</small>
-                </Show>
-              </li>
-            )}
-          </For>
-        </ul>
-        <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
-      </ErrorCard>
-      </Show>
-    </Show>
+  return <Show when={props.error}>
+    <ErrorCard
+      title={props.title}
+      error={props.error}
+      onRetry={props.onRetry}
+      recovery={props.onRetry
+        ? 'The rest of the page still works. Try again, or wait — it usually comes back on its own.'
+        : 'The rest of the page still works. It usually comes back on its own in a minute or two.'}
+      details={diagnosis()}
+    />
   </Show>
 }

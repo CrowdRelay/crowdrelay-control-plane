@@ -1,4 +1,6 @@
 import { For, Index, Show, createMemo, createSignal } from 'solid-js'
+import { SkeletonRows } from './Skeleton'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -280,7 +282,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
     },
     onError: (error) => {
       setPendingKey(null)
-      setErrorText(error instanceof Error ? error.message : 'Save failed')
+      setErrorText(failureLine("Couldn't save your changes", error))
     },
   }))
 
@@ -290,7 +292,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
       const uploaded = await api.uploadMedia(props.slug, file)
       setDrafts(current => ({ ...current, join_ask_image_url: uploaded.url }))
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed')
+      setUploadError(failureLine("Couldn't upload the file", error))
     } finally {
       setUploading(false)
     }
@@ -523,9 +525,9 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
     description={<>{authState.isPlatformLevel() ? "The knobs this tenant's machinery reads." : 'The knobs your machinery reads.'} Each field is live as soon as it is saved. An empty field runs the shipped default; <Badge variant="warning">override</Badge> marks a replaced one.</>}
   >
     <Show when={model.isPending}>
-      <p class="text-sm text-muted-foreground mt-4">Loading settings…</p>
+      <SkeletonRows count={4} />
     </Show>
-    <Show when={model.error}>{error => <ErrorCard>{error() instanceof Error ? error().message : 'Settings could not be loaded'}</ErrorCard>}</Show>
+    <Show when={model.error}>{error => <ErrorCard title="Couldn't load settings" error={error()} onRetry={() => void model.refetch()} />}</Show>
     <Show when={settingsModel()}>
       <div class="flex flex-col gap-8 mt-4">
         <For each={GROUPS}>{g => group(g.title, g.description, g.bandDescription, g.keys)}</For>

@@ -1,9 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Field } from './ui/field'
+import { FormDrawer } from './app/form-drawer'
+import { ChartLine, Plus } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage } from '../lib/format'
 import { compactNumber } from '../lib/charts'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -58,17 +61,6 @@ const stateProgress = (state: ObjectiveState): number => {
   }
 }
 
-// For contract_mismatch the generic errorMessage() heading hides the
-// specific reason ("invalid upstream JSON", "upstream returned an empty
-// success body", etc.). Surface the actual reason so the operator can
-// diagnose whether the upstream is returning HTML, an empty body, or
-// a shape that genuinely changed.
-const objectiveErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof ApiError && error.code === 'contract_mismatch') {
-    return `${errorMessage(error, fallback)} (${error.message})`
-  }
-  return errorMessage(error, fallback)
-}
 
 // MetricPlatform values upstream accepts — snake_case, one vocabulary across
 // coverage, trends and objectives. `metric_key` stays free text because the
@@ -142,7 +134,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       setTargetValue('')
       refreshQueries(['growth-objectives', props.slug])
     } catch (err) {
-      setError(objectiveErrorMessage(err, 'We couldn\'t declare that objective. Try again.'))
+      setError(failureLine("Couldn't add the objective", err))
     } finally {
       setSaving(false)
     }
@@ -165,7 +157,7 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
       await api.retireGrowthObjective(props.slug, objective.objective_id)
       refreshQueries(['growth-objectives', props.slug])
     } catch (err) {
-      setError(objectiveErrorMessage(err, 'We couldn\'t retire that objective. Try again.'))
+      setError(failureLine("Couldn't retire the objective", err))
     } finally {
       setRetiring(null)
     }
@@ -178,14 +170,14 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
     description="Declared growth targets. Each objective freezes a baseline and measures progress toward the target value by the deadline."
   >
 
-    <Show when={error()}>
+    <Show when={error() && !declaring()}>
       <ErrorCard class="mt-3">{error()}</ErrorCard>
     </Show>
 
-    <Show when={objectives.error}><ErrorCard class="mt-3">Growth objectives unavailable: {objectiveErrorMessage(objectives.error, 'We couldn\'t reach the growth objectives. Try refreshing.')}</ErrorCard></Show>
+    <Show when={objectives.error}><ErrorCard class="mt-3" title="Couldn't load growth objectives" error={objectives.error} onRetry={() => void objectives.refetch()} /></Show>
     <Show when={objectives.data && objectives.data!.length > 0} fallback={
       <Show when={objectives.isFetching} fallback={
-        <EmptyState label="No growth objectives declared" hint={authState.isPlatformLevel() ? 'Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives.' : 'Set a target number and deadline to start tracking progress. It measures every action against them.'} />
+        <EmptyState icon={<ChartLine />} label="No growth objectives yet" hint={authState.isPlatformLevel() ? 'Declare a target metric and deadline to start tracking progress. The intelligence measures every action against active objectives.' : 'Set a target number and deadline to start tracking progress. It measures every action against them.'} />
       }>
         <SkeletonRows count={3} />
       </Show>
@@ -237,64 +229,52 @@ export function GrowthObjectivesPanel(props: { slug: string }) {
         for the link to be honest. Declaring freezes the metric's current
         value as the baseline; the brain then measures every action against
         it. */}
-    <Show when={!declaring()}>
-      <Button variant="outline" size="sm" class="mt-3" writes onClick={() => setDeclaring(true)}>
-        Declare an objective
-      </Button>
-    </Show>
-    <Show when={declaring()}>
-      <div class="mt-3 p-4 border border-border rounded-lg bg-card flex flex-col gap-3">
-        <div class="flex flex-wrap gap-3 items-end">
-          <label class="grid gap-1 text-xs text-muted-foreground">
-            <span>Platform</span>
-            <NativeSelect value={platform()} onChange={e => setPlatform(e.currentTarget.value)}>
-              <For each={OBJECTIVE_PLATFORMS}>{p => <option value={p.value}>{p.label}</option>}</For>
-            </NativeSelect>
-          </label>
-          <label class="grid gap-1 text-xs text-muted-foreground">
-            <span>Metric</span>
-            <Input
-              type="text"
-              list="objective-metric-keys"
-              class="h-9 w-40 px-2 py-1.5"
-              value={metricKey()}
-              onInput={e => setMetricKey(e.currentTarget.value)}
-              placeholder="followers"
-            />
-            <datalist id="objective-metric-keys">
-              <For each={METRIC_KEY_SUGGESTIONS}>{k => <option value={k} />}</For>
-            </datalist>
-          </label>
-          <label class="grid gap-1 text-xs text-muted-foreground">
-            <span>Target</span>
-            <Input
-              type="number"
-              min="1"
-              step="1"
-              class="h-9 w-28 px-2 py-1.5"
-              value={targetValue()}
-              onInput={e => setTargetValue(e.currentTarget.value)}
-              placeholder="5000"
-            />
-          </label>
-          <label class="grid gap-1 text-xs text-muted-foreground">
-            <span>By</span>
-            <Input
-              type="date"
-              class="h-9 px-2 py-1.5"
-              value={deadline()}
-              min={datePlusDays(1)}
-              onChange={e => setDeadline(e.currentTarget.value)}
-            />
-          </label>
-        </div>
-        <div class="flex gap-2">
-          <Button writes size="sm" disabled={saving() || !metricKey().trim() || !targetValue()} onClick={() => void declareObjective()}>
-            {saving() ? 'Declaring…' : 'Declare it'}
-          </Button>
-          <Button variant="ghost" size="sm" disabled={saving()} onClick={() => setDeclaring(false)}>Cancel</Button>
-        </div>
-      </div>
-    </Show>
+    <Button variant="outline" size="sm" class="mt-3" writes onClick={() => { setError(null); setDeclaring(true) }}>
+      <Plus aria-hidden="true" /> Declare an objective
+    </Button>
+    <FormDrawer
+      open={declaring()}
+      onOpenChange={setDeclaring}
+      title="Declare an objective"
+      description="The metric's current value becomes the baseline. The brain then measures every action against it."
+      submitLabel="Declare objective"
+      pendingLabel="Declaring…"
+      pending={saving()}
+      error={error()}
+      onSubmit={() => void declareObjective()}
+    >
+      <Field label="Platform">
+        <NativeSelect value={platform()} onChange={e => setPlatform(e.currentTarget.value)}>
+          <For each={OBJECTIVE_PLATFORMS}>{p => <option value={p.value}>{p.label}</option>}</For>
+        </NativeSelect>
+      </Field>
+      <Field label="Metric" hint="Pick a suggestion or type the metric's name.">
+        <Input
+          required type="text" list="objective-metric-keys" autocomplete="off"
+          value={metricKey()}
+          onInput={e => setMetricKey(e.currentTarget.value)}
+          placeholder="followers"
+        />
+        <datalist id="objective-metric-keys">
+          <For each={METRIC_KEY_SUGGESTIONS}>{k => <option value={k} />}</For>
+        </datalist>
+      </Field>
+      <Field label="Target" hint="A whole number above zero.">
+        <Input
+          required type="number" min="1" step="1" inputmode="numeric"
+          value={targetValue()}
+          onInput={e => setTargetValue(e.currentTarget.value)}
+          placeholder="5000"
+        />
+      </Field>
+      <Field label="By" hint="The date the target should be reached.">
+        <Input
+          required type="date"
+          value={deadline()}
+          min={datePlusDays(1)}
+          onChange={e => setDeadline(e.currentTarget.value)}
+        />
+      </Field>
+    </FormDrawer>
   </Section>
 }

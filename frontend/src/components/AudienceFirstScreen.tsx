@@ -118,7 +118,7 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
 
       <Split even>
         <Card title="From fan to the room" icon={<TrendingUp />}>
-          <Show when={funnel().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">The fan counts could not be read.</p>}>
+          <Show when={funnel().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Couldn't load fan counts. Try again in a few minutes.</p>}>
             <For each={funnel()}>{step => <Bar label={step.label} value={step.value} max={funnelMax()} />}</For>
             <Show when={overview()!.attendees === 0}>
               <Note>No one was scanned at the door yet — use the next night's door QR.</Note>

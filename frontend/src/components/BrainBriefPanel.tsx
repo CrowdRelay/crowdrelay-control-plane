@@ -1,10 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { Check, X } from 'lucide-solid'
+import { ChartLine, Check, CircleCheck, Compass, Inbox, X } from 'lucide-solid'
 import { api } from '../lib/api'
 import { refreshQueriesSoon } from '../lib/refresh'
 import type { IntelligenceBrief, PendingActionSummary } from '../lib/types'
-import { confidencePercent, errorMessage, formatIsoUntil, humanizeToken, relativeTime } from '../lib/format'
+import { confidencePercent, formatIsoUntil, humanizeToken, relativeTime } from '../lib/format'
 import { toast } from './app/toast'
 import { Section, SkeletonBlock } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -45,7 +45,7 @@ export function BrainBriefPanel(props: { slug: string; initial?: IntelligenceBri
       <Show when={brief.error}>
         <SectionFailureCard
           error={brief.error}
-          fallback="The intelligence brief did not load"
+          title="Couldn't load the intelligence brief"
           onRetry={() => void brief.refetch()}
         />
       </Show>
@@ -169,7 +169,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       toast.success('Approved — the action is executing')
       invalidateParked()
     } catch (error) {
-      toast.error(`Could not approve: ${errorMessage(error, 'something went wrong')}`)
+      toast.error("Couldn't approve it", error)
     } finally {
       setPending(prev => { const next = new Set(prev); next.delete(action.id); return next })
     }
@@ -183,7 +183,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       toast.success('Rejected — the action will not run')
       invalidateParked()
     } catch (error) {
-      toast.error(`Could not reject: ${errorMessage(error, 'something went wrong')}`)
+      toast.error("Couldn't reject it", error)
     } finally {
       setPending(prev => { const next = new Set(prev); next.delete(action.id); return next })
     }
@@ -250,7 +250,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       >
         <Show
           when={chief().top_opportunities.length > 0 || brief().blocked_communities.length > 0 || chief().stopped.length > 0}
-          fallback={<EmptyState label="Nothing discovered yet" hint="When the brain identifies an opportunity or a community worth reaching, it lands here." />}
+          fallback={<EmptyState icon={<Compass />} label="Nothing discovered yet" hint="When the brain identifies an opportunity or a community worth reaching, it lands here." />}
         >
           <div class="flex flex-col gap-2">
             <For each={chief().top_opportunities}>
@@ -354,7 +354,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
         <Show
           when={needsYou().length > 0 || setupGaps().length > 0}
           fallback={
-            <EmptyState
+            <EmptyState icon={<CircleCheck />}
               label="Nothing waiting"
               hint={
                 reportsSetup()
@@ -435,7 +435,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       >
         <Show
           when={chief().acted_alone_24h.length > 0 || chief().executed_24h > 0}
-          fallback={<EmptyState label="Nothing yet" hint="No actions completed in the last 24 hours." />}
+          fallback={<EmptyState icon={<Inbox />} label="Nothing yet" hint="No actions completed in the last 24 hours." />}
         >
           <div class="flex flex-col gap-2">
             <For each={chief().acted_alone_24h}>
@@ -513,7 +513,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
       >
         <Show
           when={chief().moved.length > 0 || chief().measured_improved_7d > 0 || chief().measured_worsened_7d > 0}
-          fallback={<EmptyState label="Not enough data yet" hint="The brain needs a few more days of measured outcomes before it can say what moved." />}
+          fallback={<EmptyState icon={<ChartLine />} label="Not enough data yet" hint="The brain needs a few more days of measured outcomes before it can say what moved." />}
         >
           <div class="flex flex-col gap-3">
             <div class="flex flex-wrap items-center gap-2">

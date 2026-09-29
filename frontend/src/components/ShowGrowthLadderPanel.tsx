@@ -1,9 +1,10 @@
 import { For, Show } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ShowGrowthLadderView, ShowLadderRung } from '../lib/types'
 import { readOnly } from '../lib/read-only'
-import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { Button } from './ui/button'
 import { Badge } from './app/badge'
 
@@ -141,7 +142,7 @@ export function ShowGrowthLadderPanel(props: { slug: string; eventId: string; la
       </Show>
 
       <Show when={mutationError()}>
-        {error => <p class="mt-2 text-xs text-destructive-foreground">{errorMessage(error(), 'The write failed.')}</p>}
+        {error => <p class="mt-2 text-xs text-destructive-foreground">{failureLine("Couldn't save that", error())}</p>}
       </Show>
     </div>
   )

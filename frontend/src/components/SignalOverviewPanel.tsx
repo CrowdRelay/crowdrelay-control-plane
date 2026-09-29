@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonSignalOverview } from './Skeleton'
 import { Alert } from './app/alert'
-import { KpiCard, KpiStrip, SectionTitle } from './layout'
+import { KpiCard, KpiStrip, SectionTitle, ErrorCard } from './layout'
 import { whileIncomplete } from '../lib/incomplete'
 import type { SignalOverview } from '../lib/types'
 
@@ -28,7 +28,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
     </Show>
     <Show when={signal.error}>
       <SectionTitle title="App audience health" icon={<SectionIcon name="activity" />} />
-      <Alert tone="warning"><p>{authState.isPlatformLevel() ? 'Signal overview unavailable' : 'The app audience check could not run'}: {signal.error instanceof Error ? signal.error.message : 'channel error'}</p></Alert>
+      <ErrorCard title="Couldn't check app audience health" error={signal.error} onRetry={() => void signal.refetch()} />
     </Show>
     <Show when={signal.data}>{data => <>
     <SectionTitle

@@ -1,8 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
+import { SkeletonRows } from './Skeleton'
+import { Users } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api, ApiError } from '../lib/api'
 import { writeGuard } from '../lib/read-only'
-import { errorMessage } from '../lib/format'
 import type { DualRoleContact, LatarnikInviteResult } from '../lib/types'
 import { KpiCard, KpiStrip, PanelTitle, ErrorCard, ShowMore, useShowMore } from './layout'
 import { EmptyState } from './ui/empty-state'
@@ -72,7 +74,7 @@ function DualRoleRow(props: { slug: string; contact: DualRoleContact }) {
       // the same way to the operator.
       setFailed(error instanceof ApiError && error.status === 404
         ? 'This person is no longer on the list — refresh to see the current list.'
-        : errorMessage(error, 'The invitation could not be sent'))
+        : failureLine("Couldn't send the invitation", error))
     } finally {
       setPending(false)
     }
@@ -154,17 +156,17 @@ export function DualRoleContactsPanel(props: { slug: string }) {
     </div>
 
     <Show when={review.isError}>
-      <ErrorCard>{errorMessage(review.error, 'The contact list is unavailable')}</ErrorCard>
+      <ErrorCard title="Couldn't load the contact list" error={review.error} onRetry={() => void review.refetch()} />
     </Show>
 
     <Show when={review.isPending}>
-      <span class="text-sm text-muted-foreground"><Spinner /> Loading…</span>
+      <SkeletonRows count={3} />
     </Show>
 
     <Show when={review.data}>
       {(data) => <>
         <Show when={data().total > 0} fallback={
-          <EmptyState
+          <EmptyState icon={<Users />}
             label="Nobody yet"
             hint="The industry list is empty — promoters, press and photographers land here as the band starts working with them."
           />

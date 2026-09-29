@@ -1,8 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy, BulkAutopilotResult } from '../lib/types'
-import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonAutopilotKpis } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
@@ -40,7 +40,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
       // that only refetches the local query leaves Intelligence stale.
       void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
     } catch (error) {
-      setMutationError(errorMessage(error, 'Tenant operation failed'))
+      setMutationError(failureLine("Couldn't complete the change", error))
     } finally {
       setPendingMutation(null)
     }
@@ -81,7 +81,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
       void autopilot.refetch()
       void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
     } catch (error) {
-      setMutationError(errorMessage(error, 'Tenant operation failed'))
+      setMutationError(failureLine("Couldn't complete the change", error))
     } finally {
       setPendingMutation(null)
     }
@@ -126,7 +126,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
 
     <Show when={autopilot.data} fallback={
       <Show when={autopilot.error} fallback={<SkeletonAutopilotKpis />}>
-        <SectionFailureCard error={autopilot.error} fallback="Autopilot overview unavailable" onRetry={() => void autopilot.refetch()} />
+        <SectionFailureCard error={autopilot.error} title="Couldn't load the autopilot overview" onRetry={() => void autopilot.refetch()} />
       </Show>
     }>{data => <>
       {/* These were rounded tiles on a page where every other surface is

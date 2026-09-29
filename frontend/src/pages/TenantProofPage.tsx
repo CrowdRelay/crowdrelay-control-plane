@@ -2,7 +2,7 @@ import { RosterStoryPanel } from '../components/RosterStoryPanel'
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, Link } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { ChartLine, RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { compareTimestamps, formatTimestamp, humanizeToken, relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
@@ -81,7 +81,7 @@ export function TenantProofPage() {
     />
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Proof channel unavailable" onRetry={() => void model.refetch()} />
+      <SectionFailureCard error={model.error} title="Couldn't load proof" onRetry={() => void model.refetch()} />
     </Show>
     <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => (
       <For each={data().degraded}>{section => (
@@ -127,7 +127,7 @@ export function TenantProofPage() {
         </Show>
       </WorkAreaPanel>
       <WorkAreaPanel id="reports" active={areas.active()}>
-        <Show when={reports().length > 0} fallback={<EmptyState label="No reports yet" hint="A night that has happened files its report here." />}>
+        <Show when={reports().length > 0} fallback={<EmptyState icon={<ChartLine />} label="No reports yet" hint="A night that has happened files its report here." />}>
           <For each={reports()}>{show => (
             <Row>
               <span class="w-24 shrink-0 text-xs text-muted-foreground">{formatTimestamp(show.starts_at)}</span>

@@ -162,7 +162,7 @@ export function RegionalProfilePanel(props: Props) {
         </>}
       >
         <Show when={update.error}>
-          <ErrorCard class="mb-4">{update.error instanceof Error ? update.error.message : 'Regional profile update failed'}</ErrorCard>
+          <ErrorCard class="mb-4" title="Couldn't save the regional profile" error={update.error} />
         </Show>
         <FieldGrid>
           <Field

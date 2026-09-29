@@ -1,18 +1,20 @@
 import { SurfaceAction } from './capabilities/SurfaceAction'
+import { FormDrawer } from './app/form-drawer'
+import { Image, Plus } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { refreshQueries } from '../lib/refresh'
 import { humanizeToken } from '../lib/format'
-import { errorMessage } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard, Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
-import { Field, FieldGrid } from './ui/field'
+import { Field } from './ui/field'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { NativeSelect } from './ui/native-select'
@@ -119,7 +121,8 @@ export function ContentSourcesPanel(props: { slug: string }) {
     setEditing(null)
     setKind('story'); setTitle(''); setLink(''); setBody('')
     setWhen(new Date().toISOString().slice(0, 10)); setShareable(true)
-    setAdding(a => !a)
+    setError(null)
+    setAdding(true)
   }
 
   const openEdit = (s: ContentSourceView) => {
@@ -171,7 +174,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
       setAdding(false)
       refreshQueries(['content-sources', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Could not save it. Try again.'))
+      setError(failureLine("Couldn't save it", err))
     } finally {
       setSaving(false)
     }
@@ -184,66 +187,55 @@ export function ContentSourcesPanel(props: { slug: string }) {
     description="Everything the system may say publicly comes from this list. A video link, a release, a story you actually lived. If it is not here, it does not get posted."
     action={
       <Button variant="outline" size="sm" writes onClick={openAdd}>
-        {adding() && !editing() ? 'Cancel' : 'Add material'}
+        <Plus aria-hidden="true" /> Add material
       </Button>
     }
   >
 
-    <Show when={error()}><ErrorCard class="mt-3">{error()}</ErrorCard></Show>
-    <Show when={sources.error}><ErrorCard class="mt-3">Material list unavailable: {errorMessage(sources.error, 'We could not reach the material list.')}</ErrorCard></Show>
+    <Show when={sources.error}><ErrorCard class="mt-3" title="Couldn't load the material list" error={sources.error} onRetry={() => void sources.refetch()} /></Show>
 
-    <Show when={adding()}>
-      <div class="mt-4 rounded-lg border border-border bg-background p-4">
-        <Show when={editing()}>{(s) =>
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <span class="text-xs font-medium text-muted-foreground">Editing: {s().title}</span>
-            <Checkbox
-              class="text-xs text-muted-foreground"
-              checked={shareable()}
-              onChange={setShareable}
-              label="May be shared"
-            />
-          </div>
-        }</Show>
-        <FieldGrid min="160px">
-          <Field label="Kind">
-            <NativeSelect value={kind()} onChange={e => setKind(e.currentTarget.value as ContentSourceKind)}>
-              <For each={Object.entries(KIND_LABEL) as [ContentSourceKind, string][]}>{([k, label]) =>
-                <option value={k}>{label}</option>
-              }</For>
-            </NativeSelect>
-          </Field>
-          <Field label="Title">
-            <Input value={title()} onInput={e => setTitle(e.currentTarget.value)} placeholder="What is it called" maxLength={240} />
-          </Field>
-          <Field label="When" hint={isEvergreen(kind()) ? 'When it happened — the fact date, however old' : 'When it happened or went live'}>
-            <Input type="date" value={when()} onInput={e => setWhen(e.currentTarget.value)} />
-          </Field>
-        </FieldGrid>
-        <Show when={needsLink()}>
-          <Field class="mt-4" label="Link" hint={KIND_HINT[kind()]}>
-            <Input value={link()} onInput={e => setLink(e.currentTarget.value)} placeholder="https://youtu.be/…" />
-          </Field>
-        </Show>
-        <Show when={needsBody()}>
-          <Field class="mt-4" label="The story" hint={KIND_HINT[kind()]}>
-            <Textarea rows={4} value={body()} onInput={e => setBody(e.currentTarget.value)} placeholder="Tell it plainly — the real version, not the marketing version." />
-          </Field>
-        </Show>
-        <div class="mt-4 flex justify-end gap-2">
-          <Show when={editing()}>
-            <Button variant="ghost" size="sm" onClick={() => { setEditing(null); setAdding(false) }}>Cancel</Button>
-          </Show>
-          <Button size="sm" writes disabled={saving()} onClick={() => void submit()}>
-            {saving() ? 'Saving…' : editing() ? 'Save changes' : 'Save material'}
-          </Button>
-        </div>
-      </div>
-    </Show>
+    <FormDrawer
+      open={adding()}
+      onOpenChange={open => { setAdding(open); if (!open) setEditing(null) }}
+      title={editing() ? 'Edit material' : 'Add material'}
+      description="Everything the writer may say publicly comes from here. Keep it true — a real link, a story you actually lived."
+      submitLabel={editing() ? 'Save changes' : 'Add material'}
+      pendingLabel="Saving…"
+      pending={saving()}
+      error={error()}
+      onSubmit={() => void submit()}
+    >
+      <Field label="Kind">
+        <NativeSelect value={kind()} onChange={e => setKind(e.currentTarget.value as ContentSourceKind)}>
+          <For each={Object.entries(KIND_LABEL) as [ContentSourceKind, string][]}>{([k, label]) =>
+            <option value={k}>{label}</option>
+          }</For>
+        </NativeSelect>
+      </Field>
+      <Field label="Title" hint="What the writer sees.">
+        <Input required value={title()} onInput={e => setTitle(e.currentTarget.value)} placeholder="Live at Progresja, 2024" maxLength={240} autocomplete="off" />
+      </Field>
+      <Field label="When" hint={isEvergreen(kind()) ? 'When it happened — the fact date, however old.' : 'When it happened or went live.'}>
+        <Input required type="date" value={when()} onInput={e => setWhen(e.currentTarget.value)} />
+      </Field>
+      <Show when={needsLink()}>
+        <Field label="Link" hint={KIND_HINT[kind()]}>
+          <Input required type="url" value={link()} onInput={e => setLink(e.currentTarget.value)} placeholder="https://youtu.be/…" autocomplete="off" />
+        </Field>
+      </Show>
+      <Show when={needsBody()}>
+        <Field label="The story" hint={KIND_HINT[kind()]}>
+          <Textarea required rows={6} value={body()} onInput={e => setBody(e.currentTarget.value)} placeholder="Tell it plainly — the real version, not the marketing version." />
+        </Field>
+      </Show>
+      <Show when={editing()}>
+        <Checkbox checked={shareable()} onChange={setShareable} label="May be shared" />
+      </Show>
+    </FormDrawer>
 
     <Show when={sources.data && sources.data!.length > 0} fallback={
       <Show when={sources.isFetching} fallback={
-        <EmptyState label="No material yet" hint="Add the first piece — a video link or a real story — and the writer has something true to say." />
+        <EmptyState icon={<Image />} label="No material yet" hint="Add the first piece — a video link or a real story — and the writer has something true to say." />
       }>
         <SkeletonRows count={3} />
       </Show>

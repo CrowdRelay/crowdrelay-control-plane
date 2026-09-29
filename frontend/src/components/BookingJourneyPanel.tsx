@@ -1,10 +1,11 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { Link } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { ArrowRight } from 'lucide-solid'
+import { ArrowRight, CalendarDays } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { compareTimestamps, confidencePercent, errorMessage, formatIsoAge, formatIsoUntil, humanizeToken, money } from '../lib/format'
+import { compareTimestamps, confidencePercent, formatIsoAge, formatIsoUntil, humanizeToken, money } from '../lib/format'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { toast } from './app/toast'
 import { Alert } from './app/alert'
@@ -242,10 +243,10 @@ export function BookingJourneyPanel(props: { slug: string }) {
     onError: (error, input) => {
       const status = error instanceof ApiError ? error.status : undefined
       const message = status === 409
-        ? "Couldn't confirm: upstream refused it (it needs an email route and a city, and must still be waiting)."
+        ? "Couldn't confirm this one. It needs an email address and a city, and it must still be waiting for you."
         : status === 404
-          ? 'Already handled elsewhere.'
-          : errorMessage(error, 'The confirm did not go through')
+          ? 'Someone already handled this.'
+          : failureLine("Couldn't confirm it", error)
       setCardErrors(prev => ({ ...prev, [input.id]: message }))
       if (status === 404) {
         void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })
@@ -265,7 +266,7 @@ export function BookingJourneyPanel(props: { slug: string }) {
       <Show when={model.error}>
         <SectionFailureCard
           error={model.error}
-          fallback="The booking pipeline could not be read"
+          title="Couldn't load the booking pipeline"
           onRetry={() => void model.refetch()}
         />
       </Show>
@@ -445,7 +446,7 @@ export function BookingJourneyPanel(props: { slug: string }) {
                 <Show
                   when={bookedCount() > 0}
                   fallback={
-                    <EmptyState
+                    <EmptyState icon={<CalendarDays />}
                       label="Nothing booked yet"
                       hint="When an approach becomes a night it lands here — and on the Nights tab."
                     />
@@ -885,9 +886,8 @@ function DegradedNotice(props: { degraded: readonly string[] }) {
         <For each={props.degraded}>
           {name => (
             <Alert tone="warning" role="status">
-              <strong>{sectionLabel[name] ?? name}</strong> could not be read right now — counts below
-              only cover the sections that answered, so a stage may be showing a partial picture.
-              It comes back on its own.
+              <strong>{sectionLabel[name] ?? humanizeToken(name)}</strong> didn't load. The counts below
+              leave it out, so a stage may look smaller than it is. It comes back on its own.
             </Alert>
           )}
         </For>
@@ -899,7 +899,7 @@ function DegradedNotice(props: { degraded: readonly string[] }) {
 function DegradedLine(props: { name: string }) {
   return (
     <p class="text-sm text-muted-foreground">
-      {sectionLabel[props.name] ?? humanizeToken(props.name)} could not be read — unknown, not empty.
+      {sectionLabel[props.name] ?? humanizeToken(props.name)} didn't load, so this is unknown rather than empty.
     </p>
   )
 }

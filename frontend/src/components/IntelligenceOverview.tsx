@@ -76,7 +76,7 @@ export function IntelligenceOverview(props: { slug: string; model: TenantBrainRe
 
   return (
     <Show when={intel()} fallback={
-      <p class="mb-3 text-sm text-muted-foreground">The brain's own account could not be read right now — the details below still work.</p>
+      <p class="mb-3 text-sm text-muted-foreground">Couldn't load the brain's summary right now. The details below still work.</p>
     }>
       <Tiles>
         <Tile

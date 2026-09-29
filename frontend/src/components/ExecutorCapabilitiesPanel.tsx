@@ -94,7 +94,7 @@ export function ExecutorCapabilitiesPanel(props: { slug: string }) {
       </div>
 
       <Show when={lanes.error}>
-        <p class="mt-2 text-sm text-muted-foreground">The lane list could not be loaded.</p>
+        <p class="mt-2 text-sm text-muted-foreground">Couldn't load the lane list. Try again in a few minutes.</p>
       </Show>
       <Show when={!lanes.data && !lanes.error}>
         <p class="mt-2 text-sm text-muted-foreground">Checking what can run…</p>

@@ -1,9 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Compass } from 'lucide-solid'
+import { ErrorCard } from './layout'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { currencyFractionDigits, errorMessage, humanizeToken, money } from '../lib/format'
+import { currencyFractionDigits, humanizeToken, money } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
 import type { NegotiationEntry } from '../lib/types'
@@ -72,9 +75,7 @@ export function NegotiationsPanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
-        {model.error instanceof Error ? model.error.message : 'The negotiations list is temporarily unavailable.'}
-      </div>
+      <ErrorCard title="Couldn't load negotiations" error={model.error} onRetry={() => void model.refetch()} />
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonPanel lines={4} /></Show>
@@ -82,7 +83,7 @@ export function NegotiationsPanel() {
     <Show when={model.data}>{d => <>
       <Show
         when={d().live.length > 0}
-        fallback={<EmptyState label="Nothing on the table" hint={authState.isPlatformLevel() ? 'A negotiation opens when the operator records a promoter offer on an opportunity. Settled conversations keep their record below.' : 'A negotiation opens when an offer is recorded on an opportunity.'} />}
+        fallback={<EmptyState icon={<Compass />} label="Nothing on the table" hint={authState.isPlatformLevel() ? 'A negotiation opens when the operator records a promoter offer on an opportunity. Settled conversations keep their record below.' : 'A negotiation opens when an offer is recorded on an opportunity.'} />}
       >
         <div class="flex flex-col">
           <For each={d().live}>{entry => <LiveRow entry={entry} slug={params().slug} />}</For>
@@ -144,7 +145,7 @@ function LiveRow(props: { entry: NegotiationEntry; slug: string }) {
       setRespondsBy('')
       refreshQueries(['negotiations', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to record the position'))
+      setError(failureLine("Couldn't save the position", err))
     } finally {
       setBusy(false)
     }

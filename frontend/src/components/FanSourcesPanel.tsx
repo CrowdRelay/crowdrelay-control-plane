@@ -1,4 +1,5 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -11,9 +12,10 @@ import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
-import { Dialog, confirmAction } from './Dialog'
+import { confirmAction } from './Dialog'
 import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
+import { FormDrawer } from './app/form-drawer'
 import { Input } from './ui/input'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { Textarea } from './ui/textarea'
@@ -246,7 +248,6 @@ export function FanSourcesPanel(props: {
       setErrorText(null)
       setNotice('Fanbase created — it is in the list below.')
     },
-    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Create failed'),
   }))
 
   const ingest = useMutation(() => ({
@@ -265,10 +266,8 @@ export function FanSourcesPanel(props: {
         `${authState.isPlatformLevel() ? 'Ingestion' : 'Import'} done — pending: ${counters.importedPending ?? 0}, active skipped: ${counters.alreadyActive ?? 0}, opt-outs: ${counters.skippedSuppressed ?? 0}, invalid: ${counters.invalid ?? 0}`,
       )
     },
-    onError: (error) => {
-      setPendingFor(null)
-      setErrorText(error instanceof Error ? error.message : 'Ingestion failed')
-    },
+    // The drawer shows the failure beside the button that caused it.
+    onError: () => setPendingFor(null),
   }))
 
   const remove = useMutation(() => ({
@@ -282,7 +281,7 @@ export function FanSourcesPanel(props: {
     },
     onError: (error) => {
       setConfirmingDelete(null)
-      setErrorText(error instanceof Error ? error.message : 'Delete failed')
+      setErrorText(failureLine("Couldn't delete the connection", error))
     },
   }))
 
@@ -355,7 +354,7 @@ export function FanSourcesPanel(props: {
       await api.deleteFanbaseConnection(props.slug, id)
       connections.refetch()
     } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'Disconnect failed')
+      setErrorText(failureLine("Couldn't disconnect", err))
     }
   }
 
@@ -458,7 +457,7 @@ export function FanSourcesPanel(props: {
       setScopeEditing(null)
       connections.refetch()
     } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'Could not save the scope')
+      setErrorText(failureLine("Couldn't save the scope", err))
     } finally {
       setScopeSaving(false)
     }
@@ -474,7 +473,7 @@ export function FanSourcesPanel(props: {
       setScopeEditing(null)
       connections.refetch()
     } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'Could not update the scope')
+      setErrorText(failureLine("Couldn't update the scope", err))
     } finally {
       setScopeSaving(false)
     }
@@ -496,7 +495,6 @@ export function FanSourcesPanel(props: {
       setVerificationNotice(formatVerification(result))
       setNotice(`${label} connection created.`)
     },
-    onError: (error) => setErrorText(error instanceof Error ? error.message : 'Connection failed'),
   }))
 
   const openConnect = (spec: PlatformSpec) => {
@@ -531,7 +529,7 @@ export function FanSourcesPanel(props: {
       }
       window.location.href = spec.authorizeUrl!(props.slug, base)
     } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'Check the scope')
+      setErrorText(errorMessage(err, 'Check the scope'))
     }
   }
 
@@ -557,18 +555,10 @@ export function FanSourcesPanel(props: {
         applied = true
         setNotice(`${conn.label} connected — reads ${describeScope(scope)}.`)
       } catch (err) {
-        setErrorText(err instanceof Error ? err.message : `Connected, but the chosen scope could not be saved — set it on the ${conn.label} tile.`)
+        setErrorText(`Connected, but the scope wasn't saved. Set it on the ${conn.label} tile. ${errorMessage(err, '')}`)
       }
     }
     return applied
-  }
-
-  // Every declared field must carry a value before Connect is live. No spec
-  // has an optional field, so "all present" is the whole rule.
-  const connectReady = () => {
-    const spec = connecting()
-    if (!spec?.fields) return false
-    return spec.fields.every(field => (values()[field.key] ?? '').trim().length > 0)
   }
 
   // Scoped OAuth platforms (Drive, Gmail) get a scope step between the grant
@@ -607,7 +597,7 @@ export function FanSourcesPanel(props: {
       <Show when={verificationNotice()}><div class="mb-3 rounded-lg border border-border bg-background p-4 text-sm text-foreground" role="status">{verificationNotice()}</div></Show>
       <Show when={errorText()}><ErrorCard class="mb-3">{errorText()}</ErrorCard></Show>
       <Show when={connections.error}>
-        <ErrorCard class="mb-3">Fan source connections unavailable: {errorMessage(connections.error, authState.isPlatformLevel() ? 'We couldn\'t reach the fan source service. Try refreshing — if it persists, the tenant runtime may be down.' : 'We couldn\'t reach the fan source service. Try refreshing — if it persists, something on our side is down.')}</ErrorCard>
+        <ErrorCard class="mb-3" title="Couldn't load fan source connections" error={connections.error} onRetry={() => void connections.refetch()} />
       </Show>
 
       <Show when={connections.data} fallback={<Show when={connections.isPending}><SkeletonRows count={3} /></Show>}>
@@ -829,44 +819,36 @@ export function FanSourcesPanel(props: {
         A short guide rather than a field grid: what the platform wants
         (credentials or the provider's own grant), what it may read where that
         is a real choice, then a review before anything is written. */}
-    <Dialog
+    <FormDrawer
       open={connecting() !== null}
-      onClose={() => setConnecting(null)}
-      label="Connect platform"
+      onOpenChange={open => { if (!open) setConnecting(null) }}
       title={`Connect ${connecting()?.label ?? 'platform'}`}
       description={connecting()?.provides}
-      footer={<>
-        <Button variant="ghost" size="sm" onClick={() => setConnecting(null)}>Cancel</Button>
-        <Show when={connectStep() > 0}>
-          <Button variant="ghost" size="sm" onClick={() => setConnectStep(s => s - 1)}>Back</Button>
-        </Show>
-        <Show when={connectStep() < connectSteps().length - 1} fallback={
-          connecting()?.authorizeUrl
-            ? <Button writes size="sm" onClick={() => beginAuthorize(connecting()!)}>Continue to {connecting()!.label}</Button>
-            : <Button writes size="sm" disabled={!connectReady() || connect.isPending} onClick={() => connect.mutate()}>
-                {connect.isPending && <Spinner />} {connect.isPending ? 'Connecting…' : `Connect ${connecting()?.label ?? ''}`}
-              </Button>
-        }>
-          <Button size="sm" disabled={connectStep() === 0 && !connecting()?.authorizeUrl && !connectReady()}
-            onClick={() => {
-              // The scope step validates before it moves on — a scope the
-              // provider would reject is caught here, not after the grant.
-              if (connecting()?.authorizeUrl && connectStep() === 1 && SCOPE_KINDS[connecting()!.value]) {
-                try { buildScope(pendingScopeKind(), pendingScopeValue()) } catch (err) { setErrorText(err instanceof Error ? err.message : 'Check the scope'); return }
-              }
-              setErrorText(null)
-              setConnectStep(s => s + 1)
-            }}>Continue</Button>
-        </Show>
-      </>}
+      submitLabel={connectStep() < connectSteps().length - 1
+        ? 'Continue'
+        : connecting()?.authorizeUrl ? `Continue to ${connecting()!.label}` : `Connect ${connecting()?.label ?? ''}`}
+      pendingLabel="Connecting…"
+      pending={connect.isPending}
+      error={connect.error}
+      errorTitle="Couldn't connect"
+      secondaryAction={connectStep() > 0
+        ? <Button type="button" variant="ghost" size="sm" onClick={() => setConnectStep(s => s - 1)}>Back</Button>
+        : undefined}
+      validate={() => {
+        // The scope step validates before it moves on — a scope the
+        // provider would reject is caught here, not after the grant.
+        if (connecting()?.authorizeUrl && connectStep() === 1 && SCOPE_KINDS[connecting()!.value]) {
+          try { buildScope(pendingScopeKind(), pendingScopeValue()) } catch (err) { return errorMessage(err, 'Check the scope.') }
+        }
+        return undefined
+      }}
+      onSubmit={() => {
+        if (connectStep() < connectSteps().length - 1) { setConnectStep(s => s + 1); return }
+        if (connecting()?.authorizeUrl) beginAuthorize(connecting()!)
+        else connect.mutate()
+      }}
     >
-      <Show when={connect.error}>
-        <ErrorCard class="mb-4">{connect.error instanceof Error ? connect.error.message : 'Connection failed'}</ErrorCard>
-      </Show>
-      <Show when={errorText()}>
-        <ErrorCard class="mb-4">{errorText()}</ErrorCard>
-      </Show>
-      <ol class="mb-4 flex list-none items-center gap-2 p-0 text-xs">
+      <ol class="m-0 flex list-none items-center gap-2 p-0 text-xs">
         <For each={connectSteps()}>{(label, i) => (
           <li class={connectStep() === i() ? 'font-medium text-foreground' : 'text-muted-foreground'}>
             {label}{i() < connectSteps().length - 1 ? <span class="mx-1.5 text-border">·</span> : null}
@@ -882,6 +864,7 @@ export function FanSourcesPanel(props: {
             <For each={connecting()?.fields ?? []}>{field => (
               <Field label={field.label} hint={field.hint}>
                 <Input
+                  required
                   type={field.type ?? 'text'}
                   autocomplete={field.type === 'password' ? 'new-password' : 'off'}
                   value={values()[field.key] ?? ''}
@@ -943,96 +926,84 @@ export function FanSourcesPanel(props: {
           </Show>
         </div>
       </Show>
-    </Dialog>
+    </FormDrawer>
 
     {/* ── Create a fanbase ── */}
-    <Dialog
+    <FormDrawer
       open={creating()}
-      onClose={() => setCreating(false)}
-      label="New fanbase"
+      onOpenChange={setCreating}
       title="New fanbase"
       description={authState.isPlatformLevel()
         ? 'A source is one place fans arrive from. The name is what every ingestion row, attribution report and audit entry refers back to.'
         : 'A source is one place fans arrive from. The name is what every import row, attribution report and audit entry refers back to.'}
-      class="max-w-lg"
-      footer={<>
-        <Show when={!name() || (needsAttestation() && !attestedBy())}>
-          <span class="mr-auto text-xs text-muted-foreground">
-            {needsAttestation() && !attestedBy() ? 'A name and a consent attestation are required.' : 'A name is required.'}
-          </span>
-        </Show>
-        <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
-        <Button writes size="sm" disabled={!name() || (needsAttestation() && !attestedBy()) || create.isPending} onClick={() => create.mutate()}>
-          {create.isPending && <Spinner />} {create.isPending ? 'Creating…' : 'Create fanbase'}
-        </Button>
-      </>}
+      submitLabel="Create fanbase"
+      pendingLabel="Creating…"
+      pending={create.isPending}
+      error={create.error}
+      errorTitle="Couldn't create the fanbase"
+      onSubmit={() => create.mutate()}
     >
-      <Show when={create.error}>
-        <ErrorCard class="mb-4">{create.error instanceof Error ? create.error.message : 'Create failed'}</ErrorCard>
+      <Field label="Name" hint="Yours to choose. Include the platform and the campaign or city, so two similar feeds stay tellable apart later.">
+        <Input required autocomplete="off" value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="Meta Lead Ads — Warsaw" />
+      </Field>
+      <Field label="Source kind" hint={authState.isPlatformLevel()
+        ? "How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to."
+        : "How fans reach you: a URL you import from, a batch you paste in, or a platform you're connected to."}>
+        <NativeSelect value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
+          <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
+        </NativeSelect>
+      </Field>
+      <Show when={sourceKind() === 'http_json_pull'}>
+        <Field label="Fetch URL" hint="HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic sync is not yet wired.">
+          <Input type="url" autocomplete="off" value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://example.com/candidates.json" />
+        </Field>
       </Show>
-      <div class="flex flex-col gap-4">
-        <Field label="Name" hint="Yours to choose. Include the platform and the campaign or city, so two similar feeds stay tellable apart later.">
-          <Input value={name()} onInput={e => setName(e.currentTarget.value)} placeholder="e.g. Meta Lead Ads — Warsaw" />
+      <Show when={needsAttestation()}>
+        <Field label={authState.isPlatformLevel() ? 'Consent attested by' : 'Consent confirmed by'} hint={authState.isPlatformLevel() ? 'This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.' : 'This kind carries personal data, so a named person has to confirm that the fans consented. The name is stored with every batch it imports.'}>
+          <Input required autocomplete="off" value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder={authState.isPlatformLevel() ? 'operator@label' : 'you@yourband'} />
         </Field>
-        <Field label="Source kind" hint={authState.isPlatformLevel()
-          ? "How fans reach the graph: a URL you import from, a batch you paste in, or a platform this tenant is connected to."
-          : "How fans reach you: a URL you import from, a batch you paste in, or a platform you're connected to."}>
-          <NativeSelect value={sourceKind()} onChange={e => setSourceKind(e.currentTarget.value)}>
-            <For each={SOURCE_KINDS}>{k => <option value={k.value}>{k.label}</option>}</For>
-          </NativeSelect>
-        </Field>
-        <Show when={sourceKind() === 'http_json_pull'}>
-          <Field label="Fetch URL" hint="HTTPS endpoint returning the candidate list as JSON. The URL is stored for manual import; automatic sync is not yet wired.">
-            <Input value={fetchUrl()} onInput={e => setFetchUrl(e.currentTarget.value)} placeholder="https://…/candidates.json" />
-          </Field>
-        </Show>
-        <Show when={needsAttestation()}>
-          <Field label={authState.isPlatformLevel() ? 'Consent attested by' : 'Consent confirmed by'} hint={authState.isPlatformLevel() ? 'This kind carries personal data, so a named operator has to attest that the fans consented. The name is stored with every batch it ingests.' : 'This kind carries personal data, so a named person has to confirm that the fans consented. The name is stored with every batch it imports.'}>
-            <Input value={attestedBy()} onInput={e => setAttestedBy(e.currentTarget.value)} placeholder={authState.isPlatformLevel() ? 'operator@label' : 'you@yourband'} />
-          </Field>
-        </Show>
-      </div>
-    </Dialog>
+      </Show>
+    </FormDrawer>
 
     {/* ── Ingest a batch ──
         This was a textarea inside a table cell, which made the row four times
         the height of its neighbours and put a JSON editor in a 200px column. */}
-    <Dialog
+    <FormDrawer
       open={ingestingId() !== null}
-      onClose={() => setIngestingId(null)}
-      label={authState.isPlatformLevel() ? 'Ingest a batch' : 'Import a batch'}
+      onOpenChange={open => { if (!open) setIngestingId(null) }}
       title={authState.isPlatformLevel() ? 'Ingest a batch' : 'Import a batch'}
       description={authState.isPlatformLevel()
         ? `Candidates land as pending double opt-in in ${blocks().find(b => b.id === ingestingId())?.name ?? 'this fanbase'}. Active fans are never downgraded and opt-outs are never resurrected.`
         : `New fans land as pending double opt-in in ${blocks().find(b => b.id === ingestingId())?.name ?? 'this fanbase'}. Active fans are never downgraded and opt-outs are never resurrected.`}
-      class="max-w-lg"
-      footer={<>
-        <Button variant="ghost" size="sm" onClick={() => setIngestingId(null)}>Cancel</Button>
-        <Button writes size="sm" disabled={!parseEntries() || ingest.isPending}
-          onClick={() => {
-            const parsed = parseEntries()
-            const id = ingestingId()
-            if (parsed && id) ingest.mutate({ id, entries: parsed.entries })
-          }}>
-          {ingest.isPending && <Spinner />} {ingest.isPending ? (authState.isPlatformLevel() ? 'Ingesting…' : 'Importing…') : (authState.isPlatformLevel() ? 'Run ingestion' : 'Run import')}
-        </Button>
-      </>}
+      size="lg"
+      submitLabel={authState.isPlatformLevel() ? 'Run ingestion' : 'Run import'}
+      pendingLabel={authState.isPlatformLevel() ? 'Ingesting…' : 'Importing…'}
+      pending={ingest.isPending}
+      error={ingest.error}
+      errorTitle="Couldn't import the data"
+      validate={() => parseEntries() ? undefined : 'Paste valid JSON with an "entries" list — see the example below the box.'}
+      onSubmit={() => {
+        const parsed = parseEntries()
+        const id = ingestingId()
+        if (parsed && id) ingest.mutate({ id, entries: parsed.entries })
+      }}
     >
-      <div class="flex flex-col gap-2.5">
-        <Textarea rows="8" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
-          aria-label="Fan batch JSON"
+      <Field label="Fan batch (JSON)" hint="Each entry needs external_id. Optional: email, display_name, locale.">
+        <Textarea required rows="10" class="font-mono text-xs" placeholder='{"entries":[{"external_id":"x1","email":"a@b.c"}]}'
           value={ingestJson()} onInput={e => setIngestJson(e.currentTarget.value)} />
-        <Show when={ingestJson().trim().length > 0} fallback={
-          <div class="rounded-md border border-border bg-background p-3">
-            <pre class="overflow-x-auto text-xs text-secondary-foreground"><code>{'{"entries":[{"external_id":"fan-001","email":"a@b.c","display_name":"Alex","locale":"en"}]}'}</code></pre>
-            <small class="mt-2 block text-xs text-muted-foreground">Each entry needs <code>external_id</code>. Optional: <code>email</code>, <code>display_name</code>, <code>locale</code>.</small>
-          </div>
-        }>
-          <Show when={parseEntries()} fallback={<small class="text-xs text-destructive">Invalid JSON — check the format and try again.</small>}>
-            <small class="text-xs text-success-foreground">Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready</small>
+      </Field>
+      <Show when={ingestJson().trim().length > 0} fallback={
+        <div class="rounded-md border border-border bg-background p-3">
+          <p class="m-0 mb-1.5 text-xs font-medium text-foreground">Example</p>
+          <pre class="m-0 overflow-x-auto text-xs text-secondary-foreground"><code>{'{"entries":[{"external_id":"fan-001","email":"a@b.c","display_name":"Alex","locale":"en"}]}'}</code></pre>
+        </div>
+      }>
+        <p class="m-0 text-xs" role="status">
+          <Show when={parseEntries()} fallback={<span class="text-destructive">This isn't valid JSON yet. Check the brackets and quotes.</span>}>
+            <span class="text-success-foreground">Valid — {parseEntries()!.entries.length} entr{parseEntries()!.entries.length === 1 ? 'y' : 'ies'} ready.</span>
           </Show>
-        </Show>
-      </div>
-    </Dialog>
+        </p>
+      </Show>
+    </FormDrawer>
   </>
 }

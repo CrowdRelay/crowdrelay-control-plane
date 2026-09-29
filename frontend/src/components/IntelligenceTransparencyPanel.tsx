@@ -1,8 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Skeleton } from './ui/skeleton'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
+import { formatIsoAge, humanizeToken } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
@@ -11,7 +13,7 @@ import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import type { IntelligenceDecision, IntelligenceDecisionTask } from '../lib/types'
 import { NativeSelect } from './ui/native-select'
-import { Brain, ChevronDown } from 'lucide-solid'
+import { Brain, ChevronDown, CloudOff } from 'lucide-solid'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -91,7 +93,7 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
         setError(null)
         return await api.intelligenceDecisions(props.slug, 30, days())
       } catch (err) {
-        setError(errorMessage(err, 'Failed to load intelligence decisions'))
+        setError(failureLine("Couldn't load intelligence decisions", err))
         return null
       }
     },
@@ -224,9 +226,9 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             <div class="flex flex-col gap-2.5 mt-4">
               {Array.from({ length: 3 }, () => (
                 <div class="p-4 rounded-lg border border-border">
-                  <div class="rounded-lg bg-muted border border-border h-5 w-2/5 mb-3" />
-                  <div class="rounded-lg bg-muted border border-border h-[14px] w-full mb-2" />
-                  <div class="rounded-lg bg-muted border border-border h-[14px] w-4/5" />
+                  <Skeleton class="h-5 w-2/5 mb-3" />
+                  <Skeleton class="h-[14px] w-full mb-2" />
+                  <Skeleton class="h-[14px] w-4/5" />
                 </div>
               ))}
             </div>
@@ -373,11 +375,11 @@ export function IntelligenceTransparencyPanel(props: { slug: string; active?: bo
             </Show>
           </Show>
         }>
-          <div class="p-4"><EmptyState label="Intelligence data unavailable" hint={error()!} /></div>
+          <div class="p-4"><EmptyState icon={<CloudOff />} label="Couldn't load intelligence decisions" hint="This is usually temporary. Try again in a few minutes." /></div>
         </Show>
       }>
         <div class="p-4">
-          <EmptyState label="No intelligence decisions" hint={authState.isPlatformLevel() ? 'Decisions appear here once the deterministic autopilot starts running.' : 'Decisions appear here once it starts running.'} />
+          <EmptyState icon={<Brain />} label="No intelligence decisions" hint={authState.isPlatformLevel() ? 'Decisions appear here once the deterministic autopilot starts running.' : 'Decisions appear here once it starts running.'} />
         </div>
       </Show>
     </div>

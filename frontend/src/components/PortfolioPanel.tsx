@@ -1,4 +1,6 @@
 import { AmplifyEdgeAction } from './AmplifyEdgeAction'
+import { CloudOff, Megaphone } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { SurfaceAction } from './capabilities/SurfaceAction'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
@@ -78,7 +80,7 @@ export function PortfolioPanel(props: {
     },
     onError: (error) => {
       setPendingId(null)
-      setErrorText(error instanceof Error ? error.message : 'Decision failed')
+      setErrorText(failureLine("Couldn't save your decision", error))
     },
   }))
 
@@ -244,13 +246,13 @@ export function PortfolioPanel(props: {
     <Show when={!edges().length}>
       <Show
         when={!props.consentsUnavailable}
-        fallback={<EmptyState label={authState.isPlatformLevel() ? 'Amplification edges unavailable' : 'Amplification unavailable'} hint="This section could not be loaded — see the alert above. The rest of the page keeps working." />}
+        fallback={<EmptyState icon={<CloudOff />} label="Couldn't load amplification" hint="The rest of the page still works. This part usually comes back on its own." />}
       >
         <Show
           when={(props.overview?.workspaceCount ?? 0) >= 2}
-          fallback={<EmptyState label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
+          fallback={<EmptyState icon={<Megaphone />} label="No amplification yet" hint="Amplification needs at least two artists sharing the roster — including band-to-band crossbill, which stays a manual ask inside each show's partner relay until a second artist joins." />}
         >
-          <EmptyState label={authState.isPlatformLevel() ? 'No amplification edges' : 'No amplification agreements'} hint={authState.isPlatformLevel() ? "Create an edge from either artist's page to start routing." : 'Ask the crew to set one up from either artist’s page.'} />
+          <EmptyState icon={<Megaphone />} label={authState.isPlatformLevel() ? 'No amplification edges' : 'No amplification agreements'} hint={authState.isPlatformLevel() ? "Create an edge from either artist's page to start routing." : 'Ask the crew to set one up from either artist’s page.'} />
         </Show>
       </Show>
     </Show>

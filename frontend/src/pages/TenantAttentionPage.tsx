@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, useRouterState } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { CircleCheck, Inbox, RefreshCw } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { humanize } from '../lib/opportunity-labels'
 import { authState } from '../lib/auth'
@@ -10,7 +10,7 @@ import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, relativeTime, formatTimestamp as observed, humanizeToken } from '../lib/format'
+import { relativeTime, formatTimestamp as observed, humanizeToken } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { TechId, TechIdList } from '../components/ui/TechnicalDetails'
@@ -112,7 +112,7 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
       <Show
         when={brain()}
         fallback={
-          <EmptyState
+          <EmptyState icon={<Inbox />}
             label={props.notReported.includes('brain') ? 'Not reported' : 'No self-assessment yet'}
             hint={props.notReported.includes('brain')
               ? (authState.isPlatformLevel()
@@ -263,7 +263,7 @@ export function TenantAttentionPage() {
       toast.success(`Reconciliation finished: ${result.findings.length} finding(s), status ${humanizeToken(result.run.status)}.`)
       await refreshMaintenance()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Reconciliation failed')
+      toast.error("Couldn't run reconciliation", error)
     } finally {
       setBusy('')
     }
@@ -286,11 +286,11 @@ export function TenantAttentionPage() {
           setTraceResult(await api.operationTrace(params().slug, id))
           return
         } catch (traceError) {
-          toast.error(traceError instanceof Error ? traceError.message : 'Trace unavailable')
+          toast.error("Couldn't load the trace", traceError)
           return
         }
       }
-      toast.error(error instanceof Error ? error.message : 'Timeline unavailable')
+      toast.error("Couldn't load the timeline", error)
     } finally {
       setBusy('')
     }
@@ -322,7 +322,7 @@ export function TenantAttentionPage() {
     />
 
     <Show when={operations.error}>
-      <SectionFailureCard error={operations.error} fallback="What needs you" onRetry={() => void operations.refetch()} />
+      <SectionFailureCard error={operations.error} title="Couldn't load what needs you" onRetry={() => void operations.refetch()} />
     </Show>
 
     <div class="mt-3">
@@ -367,7 +367,7 @@ export function TenantAttentionPage() {
     {/* ─── Decisions ─────────────────────────────────────────────── */}
     <WorkAreaPanel id="decisions" active={areas.active()}>
       <Show when={operations.error}>
-        <SectionFailureCard error={operations.error} fallback={authState.isPlatformLevel() ? 'Decision queue unavailable' : 'Decisions'} onRetry={() => void operations.refetch()} />
+        <SectionFailureCard error={operations.error} title="Couldn't load decisions" onRetry={() => void operations.refetch()} />
       </Show>
       <Show when={!operations.error && !operations.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="160px" />
@@ -385,7 +385,7 @@ export function TenantAttentionPage() {
     {/* ─── Inbox ─────────────────────────────────────────────────── */}
     <WorkAreaPanel id="inbox" active={areas.active()}>
       <Show when={summary.error}>
-        <ErrorCard>{errorMessage(summary.error, authState.isPlatformLevel() ? 'Operations attention snapshot unavailable' : 'The Needs you list could not be loaded')}</ErrorCard>
+        <ErrorCard title="Couldn't load the Needs you list" error={summary.error} />
       </Show>
       <Show when={!summary.error && !summary.data}>
         <SkeletonSection titleWidth="200px" lines={3} minHeight="120px" />
@@ -485,7 +485,7 @@ export function TenantAttentionPage() {
                 />
               </KpiStrip></Show>
               <Show when={findingsCount() > 0} fallback={
-                <EmptyState label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports." />
+                <EmptyState icon={<CircleCheck />} label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports." />
               }>
                 <div class="flex flex-col gap-3">
                   <For each={attention.data?.findings ?? []}>{finding =>
@@ -518,7 +518,7 @@ export function TenantAttentionPage() {
     {/* ─── Runtime ───────────────────────────────────────────────── */}
     <WorkAreaPanel id="runtime" active={areas.active()}>
       <Show when={summary.error}>
-        <ErrorCard>Runtime summary unavailable: {errorMessage(summary.error, 'We couldn\'t reach the runtime. Try refreshing — if it persists, the tenant may be down.')}</ErrorCard>
+        <ErrorCard title="Couldn't load the runtime summary" error={summary.error} />
       </Show>
       <SectionTitle title="Database health" icon={<SectionIcon name="database" />} action={<Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>

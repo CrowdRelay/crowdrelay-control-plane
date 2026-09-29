@@ -1,8 +1,9 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Section } from './layout'
+import { Alert } from './app/alert'
+import { failureLine, lowerFirst } from '../lib/errors'
+import { Section, ErrorCard } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
 import { StatusBadge } from './StatusBadge'
 import type { OperationsSummary } from '../lib/types'
 import { Button } from './app/button'
@@ -148,7 +149,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       setNotice({ tone: 'good', message: `${condition.action.label} — done.` })
       props.onChanged()
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, `${condition.action.label} failed`) })
+      setNotice({ tone: 'bad', message: failureLine(`Couldn't ${lowerFirst(condition.action.label)}`, error) })
     } finally {
       setRunning(null)
     }
@@ -200,13 +201,9 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
       </Show>
 
       <Show when={notice()}>
-        {value => (
-          <p
-            class={`mt-3 rounded-lg border p-4 text-sm ${value().tone === 'good' ? 'border-success-foreground/30 bg-success-foreground/10 text-success-foreground' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}
-          >
-            {value().message}
-          </p>
-        )}
+        {value => value().tone === 'bad'
+          ? <ErrorCard class="mt-3">{value().message}</ErrorCard>
+          : <Alert tone="success" role="status" class="mt-3">{value().message}</Alert>}
       </Show>
     </Section>
   )

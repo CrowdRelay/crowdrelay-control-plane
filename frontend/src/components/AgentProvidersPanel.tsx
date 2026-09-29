@@ -1,7 +1,9 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
+import { CircleCheck } from 'lucide-solid'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
 import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
+import { describeError, unavailableError } from '../lib/errors'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
@@ -25,6 +27,9 @@ const healthRank = (status: string) =>
 
 const healthTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' =>
   status === 'ok' ? 'good' : status === 'down' ? 'bad' : status === 'disabled' ? 'muted' : 'warn'
+
+/** The agent service itself is down or slow — not a problem with the key. */
+const isDown = (e: unknown) => ['unreachable', 'timeout', 'offline'].includes(describeError(e).kind)
 
 export function AgentProvidersPanel(props: {
   slug: string
@@ -52,6 +57,10 @@ export function AgentProvidersPanel(props: {
   models?: { models: AgentModel[]; connectedProviders: string[] } | null
 }) {
   const [error, setError] = createSignal<string | null>(null)
+  // Whether the last failure was the agent service being down rather than a
+  // bad key. Read from the error's kind, not its wording — the wording is
+  // translated for people and is not a contract.
+  const [serviceDownError, setServiceDownError] = createSignal(false)
   const [connectingProvider, setConnectingProvider] = createSignal<string | null>(null)
   const [testingProvider, setTestingProvider] = createSignal<string | null>(null)
   const [testResult, setTestResult] = createSignal<Record<string, { ok: boolean; message: string } | null>>({})
@@ -68,7 +77,8 @@ export function AgentProvidersPanel(props: {
         const data = await request<PremiumUsage>(`/tenants/${props.slug}/agents/premium/usage`)
         return data
       } catch (err) {
-        setError(errorMessage(err, 'Failed to load premium usage'))
+        setError(`Couldn't load premium usage. ${errorMessage(err, '')}`)
+        setServiceDownError(isDown(err))
         throw err
       }
     },
@@ -213,6 +223,7 @@ export function AgentProvidersPanel(props: {
     if (!key) return
     setConnectingProvider(providerId)
     setError(null)
+    setServiceDownError(false)
     try {
       await api.agentPasteCredential(props.slug, {
         provider: providerId,
@@ -229,20 +240,18 @@ export function AgentProvidersPanel(props: {
         const result = await api.agentValidateCredential(props.slug, providerId)
         if (!result.valid) {
           verified = false
-          const detail = result.error ?? 'the provider rejected it'
-          setError(`${provider?.name ?? humanizeToken(providerId)} rejected that key: ${detail}`)
+          setError(`${provider?.name ?? humanizeToken(providerId)} didn't accept that key. Check that you copied the whole key, then try again.`)
           toast.error(`${provider?.name ?? humanizeToken(providerId)} rejected that key`)
         }
       } catch (validationError) {
         verified = false
-        const detail = errorMessage(validationError, 'the provider rejected it')
         // A validator that is itself unavailable is not a bad key.
-        if (/unavailable|unreachable|503/i.test(detail)) {
+        if (isDown(validationError)) {
           verified = true
-          toast.info(`Saved the ${provider?.name ?? humanizeToken(providerId)} key. It could not be checked right now — the agent service is unavailable.`)
+          toast.info(`Saved the ${provider?.name ?? humanizeToken(providerId)} key. It couldn't be checked yet because the agent service isn't responding.`)
         } else {
-          setError(`${provider?.name ?? humanizeToken(providerId)} rejected that key: ${detail}`)
-          toast.error(`${provider?.name ?? humanizeToken(providerId)} rejected that key`)
+          setError(`${provider?.name ?? humanizeToken(providerId)} couldn't check that key. ${errorMessage(validationError, '')}`)
+          toast.error(`Couldn't check the ${provider?.name ?? humanizeToken(providerId)} key`, validationError)
         }
       }
       if (verified) {
@@ -253,9 +262,9 @@ export function AgentProvidersPanel(props: {
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {
-      const msg = errorMessage(e, 'Failed to connect provider')
-      setError(msg)
-      toast.error(msg)
+      setError(`Couldn't connect the provider. ${errorMessage(e, '')}`)
+      setServiceDownError(isDown(e))
+      toast.error("Couldn't connect the provider", e)
     } finally {
       setConnectingProvider(null)
     }
@@ -275,19 +284,17 @@ export function AgentProvidersPanel(props: {
         setTestResult(prev => ({ ...prev, [providerId]: { ok: true, message: 'Key valid ✓' } }))
         toast.success(`${name} accepted the stored key.`)
       } else {
-        const detail = result.error ?? 'the provider rejected it'
-        setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: `Rejected: ${detail}` } }))
+        setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: `${name} didn't accept this key. Replace it with a new one.` } }))
         toast.error(`${name} rejected the stored key`)
         // Status changed to "invalid" upstream — refetch so the card reflects it.
         refetchCreds()
       }
     } catch (e) {
-      const msg = errorMessage(e, 'the provider rejected it')
-      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: msg } }))
-      toast.error(`${name} rejected the stored key`)
-      // 503/unavailable means the validator itself is down, not a bad key —
-      // don't refetch, the credential status hasn't changed.
-      if (!/unavailable|unreachable|503/i.test(msg)) refetchCreds()
+      setTestResult(prev => ({ ...prev, [providerId]: { ok: false, message: errorMessage(e, '') } }))
+      toast.error(`Couldn't test the ${name} key`, e)
+      // A validator that is down is not a bad key — don't refetch, the
+      // credential status hasn't changed.
+      if (!isDown(e)) refetchCreds()
     } finally {
       setTestingProvider(null)
     }
@@ -309,17 +316,15 @@ export function AgentProvidersPanel(props: {
       refetchCreds()
       triggerLocalRefresh()
     } catch (e) {
-      const msg = errorMessage(e, 'Failed to disconnect')
-      setError(msg)
-      toast.error(msg)
+      setError(`Couldn't disconnect ${name}. ${errorMessage(e, '')}`)
+      setServiceDownError(isDown(e))
+      toast.error(`Couldn't disconnect ${name}`, e)
     }
   }
 
   // Detect service-unavailable errors (agent service down/restarting)
   const isServiceDown = () => {
-    const err = error()
-    if (!err) return false
-    return err.includes('unavailable') || err.includes('unreachable') || err.includes('503')
+    return error() != null && serviceDownError()
   }
 
   // One provider card. It was inlined twice — once in a free-models grid and
@@ -363,8 +368,8 @@ export function AgentProvidersPanel(props: {
 
       {/* A failed read-model section is a degraded surface, not an empty
           one — name it, and let whileIncomplete refill it. */}
-      <Show when={props.providersError}>{msg => <ErrorCard recovery={false}>Provider list unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
-      <Show when={props.credentialsError}>{msg => <ErrorCard recovery={false}>Credential status unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
+      <Show when={props.providersError}>{msg => <ErrorCard title="Couldn't load the provider list" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
+      <Show when={props.credentialsError}>{msg => <ErrorCard title="Couldn't load credential status" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
 
       {/* The spend strip describes what this tenant is doing. It gates only
           itself — a failed usage read must not hide the provider controls. */}
@@ -467,7 +472,7 @@ export function AgentProvidersPanel(props: {
             What the health checker last saw per model — the card grid says
             what is connected, this says whether it answers. */}
         <Show when={props.mode !== 'library' && health.error}>
-          <ErrorCard recovery={false}>Provider health unavailable: {errorMessage(health.error, 'The probe results could not be read.')} Retrying automatically.</ErrorCard>
+          <ErrorCard title="Couldn't load provider health" error={health.error} recovery="It retries on its own." />
         </Show>
         <Show when={props.mode !== 'library' && healthRows().length > 0}>
           <section>
@@ -525,7 +530,7 @@ export function AgentProvidersPanel(props: {
             </p>
             <Show
               when={libraryProviders().length > 0}
-              fallback={props.providersError || props.serviceDown ? null : <EmptyState label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
+              fallback={props.providersError || props.serviceDown ? null : <EmptyState icon={<CircleCheck />} label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
             >
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <For each={libraryProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>

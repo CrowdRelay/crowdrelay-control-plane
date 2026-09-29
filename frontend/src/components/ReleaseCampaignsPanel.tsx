@@ -1,11 +1,15 @@
 import { SurfaceAction } from './capabilities/SurfaceAction'
+import { FormDrawer } from './app/form-drawer'
+import { Field } from './ui/field'
+import { Image, Plus } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { KpiStrip, KpiCard, ErrorCard } from './layout'
@@ -87,7 +91,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       await api.launchBeaconReleaseCampaign(props.slug, campaignId)
       refreshQueries(['release-campaigns', props.slug], ['release-recipients', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to launch campaign'))
+      setError(failureLine("Couldn't launch the campaign", err))
     } finally {
       setActing(null)
     }
@@ -100,7 +104,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       await api.closeBeaconReleaseCampaign(props.slug, campaignId)
       refreshQueries(['release-campaigns', props.slug], ['release-recipients', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to close campaign'))
+      setError(failureLine("Couldn't close the campaign", err))
     } finally {
       setActing(null)
     }
@@ -125,7 +129,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
       setCreating(false)
       refreshQueries(['release-campaigns', props.slug])
     } catch (caught) {
-      setError(errorMessage(caught, 'Could not create the campaign'))
+      setError(failureLine("Couldn't create the campaign", caught))
     } finally {
       setActing(null)
     }
@@ -138,46 +142,47 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
         <Show when={campaigns.data}>
           <span class="text-sm text-muted-foreground">{campaigns.data!.campaigns.length} campaigns · {campaigns.data!.pool.contactable_latarnicy ?? '—'} contactable</span>
         </Show>
-        <Button writes variant="ghost" size="sm" onClick={() => setCreating(v => !v)}>
-          {creating() ? 'Cancel' : 'Add release campaign'}
+        <Button writes variant="outline" size="sm" onClick={() => { setError(null); setCreating(true) }}>
+          <Plus aria-hidden="true" /> Add release campaign
         </Button>
       </div>
     </div>
-    <Show when={error()}>
+    <Show when={error() && !creating()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
 
-    <Show when={creating()}>
-      <form class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" onSubmit={event => { event.preventDefault(); void createCampaign() }}>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">Title <small class="text-muted-foreground font-normal">what the recipient sees</small></span>
-          <Input value={form().title} maxlength={200} required
-                 onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">{authState.isPlatformLevel() ? 'Slug' : 'Link name'} <small class="text-muted-foreground font-normal">lowercase, used in links</small></span>
-          <Input value={form().slug} maxlength={100} required
-                 onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">SKU <small class="text-muted-foreground font-normal">the physical item being sent</small></span>
-          <Input value={form().sku} maxlength={100} required
-                 onInput={e => setForm({ ...form(), sku: e.currentTarget.value })} />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium text-foreground">Claim deadline <small class="text-muted-foreground font-normal">must be in the future</small></span>
-          <Input type="datetime-local" value={form().claimDeadline} required
-                 onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
-        </label>
-        <div class="flex justify-end md:col-span-2">
-          <Button writes size="sm" type="submit" disabled={acting() === 'create'}>
-            {acting() === 'create' ? 'Creating…' : 'Create campaign'}
-          </Button>
-        </div>
-      </form>
-    </Show>
+    <FormDrawer
+      open={creating()}
+      onOpenChange={setCreating}
+      title="New release campaign"
+      description="Physical release delivery to amplifiers. Launching it later notifies everyone eligible."
+      submitLabel="Create campaign"
+      pendingLabel="Creating…"
+      pending={acting() === 'create'}
+      error={error()}
+      validate={() => new Date(form().claimDeadline).getTime() > Date.now() ? undefined : 'Pick a claim deadline in the future.'}
+      onSubmit={() => void createCampaign()}
+    >
+      <Field label="Title" hint="What the recipient sees.">
+        <Input value={form().title} maxlength={200} required autocomplete="off"
+               onInput={e => setForm({ ...form(), title: e.currentTarget.value })} />
+      </Field>
+      <Field label={authState.isPlatformLevel() ? 'Slug' : 'Link name'} hint="Lowercase letters, digits and dashes — used in links.">
+        <Input value={form().slug} maxlength={100} required autocomplete="off"
+               pattern="[a-z0-9][a-z0-9\-]*" title="Lowercase letters, digits and dashes."
+               onInput={e => setForm({ ...form(), slug: e.currentTarget.value })} />
+      </Field>
+      <Field label="SKU" hint="The physical item being sent.">
+        <Input value={form().sku} maxlength={100} required autocomplete="off"
+               onInput={e => setForm({ ...form(), sku: e.currentTarget.value })} />
+      </Field>
+      <Field label="Claim deadline" hint="Must be in the future.">
+        <Input type="datetime-local" value={form().claimDeadline} required
+               onInput={e => setForm({ ...form(), claimDeadline: e.currentTarget.value })} />
+      </Field>
+    </FormDrawer>
 
-    <Show when={campaigns.error}><ErrorCard>Release campaigns unavailable: {errorMessage(campaigns.error, 'We couldn\'t reach the release campaigns. Try refreshing.')}</ErrorCard></Show>
+    <Show when={campaigns.error}><ErrorCard title="Couldn't load release campaigns" error={campaigns.error} onRetry={() => void campaigns.refetch()} /></Show>
     <Show when={campaigns.data} fallback={<SkeletonRows count={3} />}>
       <Show when={campaigns.data!.pool.active_release_latarnicy > 0 || campaigns.data!.pool.missing_email > 0}>
         <KpiStrip>
@@ -187,7 +192,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
         </KpiStrip>
       </Show>
 
-      <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
+      <Show when={campaigns.data!.campaigns.length > 0} fallback={<EmptyState icon={<Image />} label="No release campaigns" hint="Release campaigns coordinate outreach around a single or album launch. Create one from the release plan." />}>
         <div class="flex flex-col gap-3 mt-4">
           <For each={showAllCampaigns() ? campaigns.data!.campaigns : campaigns.data!.campaigns.slice(0, MAX_VISIBLE)}>{(c) => (
             <Card class="p-4" classList={{ 'border-primary/30': selectedCampaign() === c.id }}>
@@ -231,7 +236,7 @@ export function ReleaseCampaignsPanel(props: { slug: string }) {
               </div>
 
               <Show when={selectedCampaign() === c.id}>
-                <Show when={recipients.error}><ErrorCard>Campaign recipients unavailable: {errorMessage(recipients.error, 'We couldn\'t reach the campaign recipients. Try refreshing.')}</ErrorCard></Show>
+                <Show when={recipients.error}><ErrorCard title="Couldn't load campaign recipients" error={recipients.error} onRetry={() => void recipients.refetch()} /></Show>
                 <Show when={recipients.data} fallback={<SkeletonRows count={3} />}>
                   <Table class="mt-3">
                     <TableHeader>

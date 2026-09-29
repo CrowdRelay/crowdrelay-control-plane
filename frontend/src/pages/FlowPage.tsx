@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { Skeleton } from '../components/ui/skeleton'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -14,6 +15,9 @@ import { Link } from '@tanstack/solid-router'
 import { cn } from '../lib/cn'
 import { Alert } from '../components/app/alert'
 import { NativeSelect } from '../components/ui/native-select'
+import { EmptyState } from '../components/ui/empty-state'
+import { buttonVariants } from '../components/app/button'
+import { Building2 } from 'lucide-solid'
 
 // Naming the brain-model sections a '—' on the map belongs to — same idea
 // as the Intelligence page's degraded strip, compressed to one line.
@@ -105,13 +109,15 @@ export function FlowPage() {
         when={slug()}
         fallback={<>
           <Show when={tenants.error}>
-            <ErrorCard>Could not load tenants: {String(tenants.error?.message ?? tenants.error)}</ErrorCard>
+            <ErrorCard title="Couldn't load tenants" error={tenants.error} onRetry={() => void tenants.refetch()} />
           </Show>
           <Show when={!tenants.error && tenants.isPending && !tenants.data}>
             <SkeletonSection titleWidth="160px" lines={3} minHeight="120px" />
           </Show>
           <Show when={!tenants.error && !tenants.isPending && !slug()}>
-            <ErrorCard>No active tenant — create one on the Tenants tab.</ErrorCard>
+            <EmptyState icon={<Building2 />} label="No active tenant yet" hint="Create a tenant on the Tenants page to see how work flows through it.">
+              <Link to="/tenants" class={buttonVariants({ variant: 'outline', size: 'sm' })}>Go to tenants</Link>
+            </EmptyState>
           </Show>
         </>}
       >
@@ -140,7 +146,7 @@ export function FlowPage() {
             <span class="text-sm text-muted-foreground">Live for {tenantName()} · updated {updated()}</span>
           </Show>
           <Show when={!brain.data && brain.isPending}>
-            <span class="text-sm text-muted-foreground">Loading live counts…</span>
+            <span role="status"><span class="sr-only">Loading live counts…</span><Skeleton class="h-4 w-48" /></span>
           </Show>
           <Show when={degradedNames().length > 0}>
             <span class="text-xs text-muted-foreground">
@@ -154,7 +160,7 @@ export function FlowPage() {
         <Show when={brain.error}>
           <Alert tone="warning" class="mb-4">
             {platform()
-              ? 'Live counts could not be read — the map below is the static shape.'
+              ? "Couldn't load live counts. The map below shows the usual shape."
               : "Couldn't check the live numbers right now — the map below is the fixed shape."}
           </Alert>
         </Show>

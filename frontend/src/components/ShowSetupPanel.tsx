@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { TenantShowTimelineResponse } from '../lib/types'
@@ -263,7 +264,7 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
         <p class="mt-2 text-xs text-muted-foreground">{flash()}</p>
       </Show>
       <Show when={mutationError()}>
-        {error => <p class="mt-2 text-xs text-destructive-foreground">{String(error().message ?? error())}</p>}
+        {error => <p class="mt-2 text-xs text-destructive-foreground">{failureLine("Couldn't save the show setup", error())}</p>}
       </Show>
     </div>
   )

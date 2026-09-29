@@ -1,7 +1,9 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
+import { ShieldCheck } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { api, errorHeading } from '../lib/api'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { api } from '../lib/api'
+import { formatTimestamp } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard, Section } from './layout'
@@ -68,7 +70,7 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
       await queryClient.invalidateQueries({ queryKey: ['attestations', props.slug] })
       await queryClient.invalidateQueries({ queryKey: ['tenant-proof', props.slug] })
     } catch (e) {
-      setError(errorMessage(e, 'The write failed.'))
+      setError(failureLine("Couldn't issue the proof card", e))
     } finally {
       setActing(null)
     }
@@ -111,7 +113,7 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
       }
     >
       <Show when={error()}>
-        <ErrorCard>{errorHeading(error(), 'Something went wrong')}: {error()}</ErrorCard>
+        <ErrorCard>{error()}</ErrorCard>
       </Show>
 
       <Show
@@ -121,9 +123,7 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
         <Show
           when={fed() || attestations.isSuccess}
           fallback={
-            <ErrorCard>
-              {errorHeading(attestations.error, "Couldn't load proof cards")}: {errorMessage(attestations.error, 'That service is temporarily unavailable.')}
-            </ErrorCard>
+            <ErrorCard title="Couldn't load proof cards" error={attestations.error} onRetry={() => void attestations.refetch()} />
           }
         >
           <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -151,7 +151,7 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
           <Show
             when={cards().length > 0}
             fallback={
-              <EmptyState
+              <EmptyState icon={<ShieldCheck />}
                 label="No proof cards yet"
                 hint="Issue one and it measures the audience — reachable fans, tickets, attendance — then signs it. The link is what you post."
               />

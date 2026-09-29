@@ -1,9 +1,10 @@
 import { For, Show, createEffect, createSignal, on, onCleanup } from 'solid-js'
+import { CircleCheck } from 'lucide-solid'
 import { Link, useRouterState } from '@tanstack/solid-router'
 import type { PendingActionSummary } from '../lib/types'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoUntil } from '../lib/format'
+import { formatIsoUntil, errorMessage } from '../lib/format'
 import { DraftEditor, changedFields, emptiedField } from './DraftEditor'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
@@ -149,8 +150,8 @@ export function AttentionInbox(props: {
       await props.onRefresh()
       toast.success('Saved — the draft now reads as you wrote it')
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) setItemError(item.id, error.message)
-      else toast.error(errorMessage(error, 'Your edit was not saved'))
+      if (error instanceof ApiError && error.status === 409) setItemError(item.id, errorMessage(error, ""))
+      else toast.error("Couldn't save your edit", error)
     } finally {
       setBusy(null)
     }
@@ -184,9 +185,9 @@ export function AttentionInbox(props: {
       if (error instanceof ApiError && error.status === 409) {
         // Upstream's refusal is a sentence written for a person — put it on
         // the item it refused rather than a toast that fades.
-        setItemError(item.id, error.message)
+        setItemError(item.id, errorMessage(error, ""))
       } else {
-        toast.error(errorMessage(error, 'That did not go through'))
+        toast.error("Couldn't complete that action", error)
       }
     } finally {
       setBusy(null)
@@ -397,7 +398,7 @@ export function AttentionInbox(props: {
     </Show>
 
     <Show when={total() === 0}>
-      <EmptyState
+      <EmptyState icon={<CircleCheck />}
         label={authState.isPlatformLevel() ? 'Nothing needs attention' : 'Nothing needs you'}
         hint={authState.isPlatformLevel()
           ? 'The system is operating autonomously. Items appear here when the brain needs your decision or when delivery issues occur.'

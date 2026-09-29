@@ -13,7 +13,7 @@ import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Alert } from './app/alert'
 import { cn } from '../lib/cn'
 import { Button } from './app/button'
-import { ArrowRight, ChevronDown } from 'lucide-solid'
+import { ArrowRight, Brain, ChevronDown } from 'lucide-solid'
 
 const MAX_VISIBLE_ENTRIES = 10
 
@@ -84,7 +84,7 @@ function DecisionEvidenceView(props: { slug: string; decisionId: string }) {
         <p class="text-xs text-muted-foreground m-0">Reading the record…</p>
       </Show>
       <Show when={evidence.error}>
-        <p class="text-xs text-destructive m-0">The evidence for this decision could not be read.</p>
+        <p class="text-xs text-destructive m-0">Couldn't load the evidence for this decision.</p>
       </Show>
       <Show when={evidence.data}>{e => (
         <div class="space-y-2">
@@ -166,7 +166,7 @@ export function LearningLoopPanel(props: { slug: string; data?: LearningLoopEntr
   >
     <Show when={!fed() && model.error}>
       <Alert tone="warning" role="status">
-        Learning loop data is temporarily unavailable.
+        Couldn't load the learning loop. Try again in a few minutes.
       </Alert>
     </Show>
 
@@ -176,7 +176,7 @@ export function LearningLoopPanel(props: { slug: string; data?: LearningLoopEntr
 
     <Show when={fed() || model.data}>
       <Show when={total() > 0} fallback={
-        <EmptyState
+        <EmptyState icon={<Brain />}
           label="No decisions yet"
           hint="The learning loop appears once the brain has evaluated signals and made decisions."
         />

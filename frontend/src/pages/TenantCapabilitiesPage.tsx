@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { PageShell, Section } from '../components/layout'
 import { Card, DashHeader, ItemRow, Tile, Tiles } from '../components/ui/dash'
-import { Puzzle } from 'lucide-solid'
+import { Lock, Puzzle } from 'lucide-solid'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/app/badge'
 import { EmptyState } from '../components/ui/empty-state'
@@ -44,7 +44,7 @@ export function TenantCapabilitiesPage() {
 
   return (
     <PageShell>
-      <Show when={authState.isPlatformLevel()} fallback={<EmptyState label="This map is for the people who run the console." />}>
+      <Show when={authState.isPlatformLevel()} fallback={<EmptyState icon={<Lock />} label="This map is for the people who run the console." />}>
         <DashHeader
           title="Capabilities"
           subtitle="Where every feature lives, and which have no home"

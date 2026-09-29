@@ -283,7 +283,7 @@ export function TenantOperationsPage() {
     />
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback={authState.isPlatformLevel() ? 'Tenant operations channel unavailable' : 'Today'} onRetry={() => void refresh()} />
+      <SectionFailureCard error={model.error} title="Couldn't load today's overview" onRetry={() => void refresh()} />
     </Show>
 
     {/* The band's "is anything broken for me" — one plain line, silent when
@@ -798,7 +798,7 @@ function FansCard(props: { model: () => TenantTodayReadModel | undefined }) {
   const monthRate = () => (act() ? act()!.new_fans_30d / 30 : null)
   return (
     <Card title="Fans, last 30 days" icon={<ChartLine />}>
-      <Show when={act()} fallback={<p class="m-0 text-sm text-muted-foreground">Arrivals could not be read.</p>}>
+      <Show when={act()} fallback={<p class="m-0 text-sm text-muted-foreground">Couldn't load arrivals.</p>}>
         {a => (
           <>
             <Bar label="Last 30 days" value={a().new_fans_30d} max={Math.max(1, a().new_fans_30d)} display={`+${a().new_fans_30d}`} />
@@ -889,7 +889,7 @@ function IsItWorking(props: { model: () => TenantTodayReadModel | undefined; slu
     <Card title="Did it work" icon={<Ticket />} aside={<Link to="/tenants/$slug/audience" params={{ slug: props.slug }} class="hover:text-foreground">Audience →</Link>}>
       <Show when={outcomes.data} fallback={
         <Show when={!outcomes.isPending}>
-          <p class="m-0 text-sm text-muted-foreground">The outcome ledger could not be read — try refreshing.</p>
+          <p class="m-0 text-sm text-muted-foreground">Couldn't load the outcome ledger. Try refreshing the page.</p>
         </Show>
       }>
         <Show

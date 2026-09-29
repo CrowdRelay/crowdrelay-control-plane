@@ -1,4 +1,5 @@
 import { For, Show, createMemo } from 'solid-js'
+import { Sparkles } from 'lucide-solid'
 import { formatIsoAge, formatUsd } from '../lib/format'
 import { budgetPct, taskStatusTone } from '../lib/credential-health'
 import { StatusBadge } from './StatusBadge'
@@ -82,7 +83,7 @@ export function PremiumModelsSection(props: { usage: PremiumUsage }) {
         when={props.usage.premium_models.length > 0}
         fallback={
           <div>
-            <EmptyState label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
+            <EmptyState icon={<Sparkles />} label="No premium models active" hint="Premium AI models provide higher quality output for critical worker tasks. Configure API keys to enable them." />
           </div>
         }
       >

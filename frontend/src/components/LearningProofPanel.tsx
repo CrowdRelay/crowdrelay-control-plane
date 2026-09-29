@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Brain } from 'lucide-solid'
 import { Eyebrow, KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -73,7 +74,7 @@ export function LearningProofPanel(props: { slug: string; data?: LearningProof }
 
     <Show when={!fed() && model.error}>
       <Alert tone="warning" role="status">
-        Learning proof data is temporarily unavailable.
+        Couldn't load learning proof. Try again in a few minutes.
       </Alert>
     </Show>
 
@@ -86,7 +87,7 @@ export function LearningProofPanel(props: { slug: string; data?: LearningProof }
 
     <Show when={fed() || model.data}>
       <Show when={entries().length > 0} fallback={
-        <EmptyState
+        <EmptyState icon={<Brain />}
           label="No belief changes recorded yet"
           hint={authState.isPlatformLevel()
             ? "A revision is written when measured outcomes move the strategy posterior or a template's lifecycle state. Until outcomes resolve, there is nothing to record."

@@ -220,8 +220,8 @@ export function NeedsYouCard(props: { ov: OverviewModel; loading: boolean }) {
       <CardContent class="p-0">
         <Show when={props.loading}>
           <div class="space-y-3 px-4 pb-4 pt-2">
-            <Skeleton class="h-5 w-3/5" animate />
-            <Skeleton class="h-5 w-2/5" animate />
+            <Skeleton class="h-5 w-3/5" />
+            <Skeleton class="h-5 w-2/5" />
           </div>
         </Show>
         <Show when={!props.loading && props.ov.needsYou().length === 0}>
@@ -322,9 +322,9 @@ export function NorthStarSkeleton() {
     <div data-kpi-strip="" class="grid border-y border-border [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
       {Array.from({ length: 4 }, () => (
         <div class="flex flex-col gap-2 border-l border-border px-4 py-3.5 first:border-l-0 first:pl-0">
-          <Skeleton class="h-3 w-20" animate />
-          <Skeleton class="h-6 w-14" animate />
-          <Skeleton class="h-3 w-28" animate />
+          <Skeleton class="h-3 w-20" />
+          <Skeleton class="h-6 w-14" />
+          <Skeleton class="h-3 w-28" />
         </div>
       ))}
     </div>
@@ -356,7 +356,7 @@ export function TenantsTable(props: { rows: TenantRow[]; loading: boolean; ccLoa
   const navigate = useNavigate()
   const open = (slug: string) => navigate({ to: '/tenants/$slug', params: { slug } })
   const cell = (value: number | null | undefined, loading: boolean) =>
-    loading ? <Skeleton class="ml-auto h-4 w-8" animate /> : fmt(value)
+    loading ? <Skeleton class="ml-auto h-4 w-8" /> : fmt(value)
   return (
     <Table>
       <TableHeader>
@@ -374,12 +374,12 @@ export function TenantsTable(props: { rows: TenantRow[]; loading: boolean; ccLoa
         <Show when={props.loading}>
           <For each={[0, 1, 2]}>{() => (
             <TableRow>
-              <TableCell><Skeleton class="h-4 w-32" animate /></TableCell>
-              <TableCell><Skeleton class="h-4 w-16" animate /></TableCell>
-              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
-              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
-              <TableCell><Skeleton class="ml-auto h-4 w-8" animate /></TableCell>
-              <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-20" animate /></TableCell>
+              <TableCell><Skeleton class="h-4 w-32" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-16" /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" /></TableCell>
+              <TableCell><Skeleton class="ml-auto h-4 w-8" /></TableCell>
+              <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-20" /></TableCell>
               <TableCell />
             </TableRow>
           )}</For>

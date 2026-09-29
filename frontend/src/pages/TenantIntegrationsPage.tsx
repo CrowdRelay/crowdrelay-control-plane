@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { unavailableError } from '../lib/errors'
 import { useIsFetching, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { AlertTriangle, Plug, RefreshCw } from 'lucide-solid'
@@ -57,7 +58,7 @@ export function TenantIntegrationsPage() {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const missing = (name: 'health' | 'alerts' | 'usage') =>
-    overview.error ?? (overview.data?.degraded.includes(name) ? new Error(`${name} could not be read`) : null)
+    overview.error ?? (overview.data?.degraded.includes(name) ? unavailableError(`${name} didn't load.`) : null)
   const health = { get data() { return overview.data?.health ?? undefined }, get error() { return missing('health') } }
   const alerts = { get data() { return overview.data?.alerts ?? undefined }, get error() { return missing('alerts') } }
   const usage = { get data() { return overview.data?.usage ?? undefined } }
@@ -161,7 +162,7 @@ export function TenantIntegrationsPage() {
 
     <Split mid>
       <Card title="Lanes" icon={<Plug />} aside="per provider">
-        <Show when={health.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{health.error ? 'The health probes could not be read.' : ''}</p>}>
+        <Show when={health.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{health.error ? "Couldn't check lane health." : ''}</p>}>
           <For each={providers()}>{row => (
             <StatRow
               label={<>{row.provider} <span class="text-muted-foreground">· {row.answering} of {row.total} models</span></>}
@@ -171,7 +172,7 @@ export function TenantIntegrationsPage() {
         </Show>
       </Card>
       <Card title="What went wrong lately" icon={<AlertTriangle />}>
-        <Show when={(alerts.data?.alerts ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{alerts.error ? 'The alerts could not be read.' : 'Nothing went wrong lately.'}</p>}>
+        <Show when={(alerts.data?.alerts ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{alerts.error ? "Couldn't load recent problems." : 'Nothing went wrong lately.'}</p>}>
           <For each={alerts.data!.alerts.slice(0, 4)}>{alert => (
             <ItemRow
               pill={{ tone: alert.severity === 'critical' ? 'bad' : 'warn', text: alert.severity }}

@@ -1,4 +1,5 @@
 import { For, Show, createSignal, type JSX } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { Link } from '@tanstack/solid-router'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -93,7 +94,7 @@ export function useGigPlanApproval(slug: () => string) {
       setApprovingCityId(null)
       setApproveError({
         cityId: input.proposal.city_id,
-        message: error instanceof Error ? error.message : 'Approval failed',
+        message: failureLine("Couldn't approve the plan", error),
       })
     },
   }))

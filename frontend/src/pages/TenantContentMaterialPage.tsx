@@ -82,7 +82,7 @@ export function TenantContentMaterialPage() {
     />
 
     <Show when={view.error}>
-      <SectionFailureCard error={view.error} fallback="Material unavailable" onRetry={() => void view.refetch()} />
+      <SectionFailureCard error={view.error} title="Couldn't load this material" onRetry={() => void view.refetch()} />
     </Show>
 
     <WorkAreas

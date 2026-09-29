@@ -1,4 +1,6 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
+import { Users } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { ApiError, api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -7,7 +9,6 @@ import { FileInput } from './ui/file-input'
 import { buttonVariants } from './app/button'
 import { cn } from '../lib/cn'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage } from '../lib/format'
 import type { DriveContact, DriveSegmentCounts } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -191,7 +192,7 @@ export function DriveContactsPanel(props: { slug: string }) {
           : ''
         setNotice(`Staged ${result.staged} contact${result.staged === 1 ? '' : 's'} from ${file.name}${skipped}.`)
       } catch (err) {
-        setError(errorMessage(err, 'The upload did not land — the file stayed unchanged.'))
+        setError(failureLine("Couldn't upload the file", err))
       } finally {
         setUploading(false)
       }
@@ -208,7 +209,7 @@ export function DriveContactsPanel(props: { slug: string }) {
       setNotice('Scan requested — the sources scan runs in the background and new contacts appear here as it finds them.')
       void contacts.refetch()
     } catch (err) {
-      setError(errorMessage(err, 'Could not request a scan'))
+      setError(failureLine("Couldn't start a scan", err))
     } finally {
       setScanning(false)
     }
@@ -247,7 +248,7 @@ export function DriveContactsPanel(props: { slug: string }) {
       }
       refreshQueries(['gdrive-contacts', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'The decision could not be saved'))
+      setError(failureLine("Couldn't save the decision", err))
     } finally {
       setBusy(null)
     }
@@ -343,11 +344,11 @@ export function DriveContactsPanel(props: { slug: string }) {
       if (err instanceof ApiError && err.status === 409) {
         // The segment moved between render and click — show the live
         // numbers again instead of confirming a count that no longer is.
-        setError(errorMessage(err, 'The segment changed since this count — confirm again.'))
+        setError('The list changed since you counted it. Check the new numbers, then confirm again.')
         setPromoteAllOpen(false)
         void contacts.refetch()
       } else {
-        setError(errorMessage(err, 'The batch promote did not land — nothing was marked.'))
+        setError(failureLine("Couldn't promote the contacts", err))
       }
     } finally {
       setPromoteAllBusy(false)
@@ -396,7 +397,7 @@ export function DriveContactsPanel(props: { slug: string }) {
       </Show>
 
       <Show when={contacts.error}>
-        <ErrorCard>{errorMessage(contacts.error, 'Drive contacts unavailable')}</ErrorCard>
+        <ErrorCard title="Couldn't load Drive contacts" error={contacts.error} onRetry={() => void contacts.refetch()} />
       </Show>
       <Show when={!contacts.error && !contacts.data}>
         <SkeletonRows count={4} />
@@ -406,7 +407,7 @@ export function DriveContactsPanel(props: { slug: string }) {
         <Show
           when={staged().length > 0 || decided().length > 0}
           fallback={
-            <EmptyState
+            <EmptyState icon={<Users />}
               label="No contacts staged yet"
               hint="Connect Google Drive or Gmail under Sources, then Scan now — every address they hold lands here for review."
             />

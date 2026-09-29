@@ -1,10 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
+import { CalendarDays, Users } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { Link } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, humanizeToken } from '../lib/format'
+import { humanizeToken } from '../lib/format'
 import type { OutreachCandidateView, BookingCandidateView } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -57,7 +59,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       await api.confirmOutreachCandidate(props.slug, candidate.id)
       refreshQueries(['outreach-candidates', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to confirm outreach candidate'))
+      setError(failureLine("Couldn't confirm the outreach candidate", err))
     } finally {
       setConfirming(null)
     }
@@ -70,7 +72,7 @@ export function OutreachPipelinePanel(props: { slug: string }) {
       await api.confirmBookingCandidate(props.slug, candidate.candidate_id)
       refreshQueries(['booking-candidates', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to confirm booking candidate'))
+      setError(failureLine("Couldn't confirm the booking candidate", err))
     } finally {
       setConfirming(null)
     }
@@ -102,9 +104,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     </Show>
     <Show when={tab() === 'booking'}>
       <>
-      <Show when={booking.error}><ErrorCard>Booking pipeline unavailable: {errorMessage(booking.error, 'We couldn\'t reach the booking pipeline. Try refreshing.')}</ErrorCard></Show>
+      <Show when={booking.error}><ErrorCard title="Couldn't load the booking pipeline" error={booking.error} onRetry={() => void booking.refetch()} /></Show>
       <Show when={booking.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={booking.data!.length > 0} fallback={<EmptyState label="No booking candidates" hint={authState.isPlatformLevel() ? 'The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows.' : 'It scans for gig opportunities with worked-out economics. Candidates appear here when it finds viable shows.'} />}>
+        <Show when={booking.data!.length > 0} fallback={<EmptyState icon={<CalendarDays />} label="No booking candidates" hint={authState.isPlatformLevel() ? 'The intelligence scans for gig opportunities with computed economics. Candidates appear here when the detector finds viable shows.' : 'It scans for gig opportunities with worked-out economics. Candidates appear here when it finds viable shows.'} />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -161,9 +163,9 @@ export function OutreachPipelinePanel(props: { slug: string }) {
     </Show>
     <Show when={tab() === 'outreach'}>
       <>
-      <Show when={outreach.error}><ErrorCard>Outreach pipeline unavailable: {errorMessage(outreach.error, 'We couldn\'t reach the outreach pipeline. Try refreshing.')}</ErrorCard></Show>
+      <Show when={outreach.error}><ErrorCard title="Couldn't load the outreach pipeline" error={outreach.error} onRetry={() => void outreach.refetch()} /></Show>
       <Show when={outreach.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={outreach.data!.length > 0} fallback={<EmptyState label="No outreach candidates" hint={authState.isPlatformLevel() ? 'Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them.' : 'Outreach candidates are fans or contacts it identified for engagement. They appear here when it raises them.'} />}>
+        <Show when={outreach.data!.length > 0} fallback={<EmptyState icon={<Users />} label="No outreach candidates" hint={authState.isPlatformLevel() ? 'Outreach candidates are fans or contacts the intelligence identified for engagement. They appear here when detectors raise them.' : 'Outreach candidates are fans or contacts it identified for engagement. They appear here when it raises them.'} />}>
           <Table>
             <TableHeader>
               <TableRow>

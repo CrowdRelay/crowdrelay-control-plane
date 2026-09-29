@@ -1,7 +1,7 @@
 import { Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
-import { errorMessage } from '../lib/format'
 import { Button } from './app/button'
 import { SurfaceAction } from './capabilities/SurfaceAction'
 
@@ -21,7 +21,7 @@ export function AmplifyEdgeAction(props: { slug: string; consentId: string; onDo
       const result = await surface.read<{ reachableFans: number }>(props.slug, path)
       setReach(result.reachableFans)
     } catch (caught) {
-      setError(errorMessage(caught, 'Could not count who this reaches'))
+      setError(failureLine("Couldn't count who this reaches", caught))
     } finally {
       setBusy(false)
     }

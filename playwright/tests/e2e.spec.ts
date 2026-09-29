@@ -302,7 +302,7 @@ test.describe('Control Plane E2E @e2e', () => {
     await expect(page.getByRole('heading', { name: 'In motion' })).toBeVisible({ timeout: 10000 })
     // With a backend the run list or the empty state renders; without one the
     // failure card does. Either is a rendered answer — a blank is the bug.
-    const content = page.getByText(/Post relays|No relays yet|did not load|unavailable|no longer exists|Retry/i)
+    const content = page.getByText(/Post relays|No relays yet|Couldn't load|did not load|unavailable|doesn't exist|no longer exists|Try again|Retry/i)
     await expect(content.first()).toBeVisible({ timeout: 10000 })
   })
 

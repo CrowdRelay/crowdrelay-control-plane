@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { api } from './api'
-import { errorMessage } from './format'
 import { toast } from '../components/app/toast'
 
 // Shared mutation + confirmation logic for the Operations and Runtime
@@ -23,7 +23,7 @@ export function useOperationsMutations(slug: string, refresh: () => Promise<unkn
       await operation()
       await (onRefresh ?? refresh)()
     } catch (error) {
-      setMutationError(errorMessage(error, 'Tenant operation failed'))
+      setMutationError(failureLine("Couldn't complete the change", error))
     } finally {
       setPendingMutation(null)
     }

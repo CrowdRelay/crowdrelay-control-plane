@@ -1,10 +1,14 @@
 import { For, Index, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { Field } from './ui/field'
+import { FormDrawer } from './app/form-drawer'
+import { Users, Plus } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { Link } from '@tanstack/solid-router'
-import { api, errorHeading } from '../lib/api'
+import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp, humanizeToken } from '../lib/format'
+import { formatTimestamp, humanizeToken } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { ErrorCard, Section } from './layout'
@@ -217,7 +221,7 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
       // three catch it on next visit.
       refreshQueries(['tenant-today', props.slug], ['tenant-operator-attention-snapshot', props.slug], ['tenant-proof', props.slug])
     } catch (e) {
-      setError(errorMessage(e, 'That could not be saved.'))
+      setError(failureLine("Couldn't save your changes", e))
     } finally {
       setActing(null)
     }
@@ -295,8 +299,8 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
 
   return (
     <div class="flex flex-col gap-4">
-      <Show when={error()}>
-        <ErrorCard>{errorHeading(error(), 'Something went wrong')}: {error()}</ErrorCard>
+      <Show when={error() && !addingContact()}>
+        <ErrorCard>{error()}</ErrorCard>
       </Show>
 
       {/* The listing — the band-authored profile a share link admits a
@@ -315,7 +319,7 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
         }
       >
         <Show when={!fed() && listing.error}>
-          <ErrorCard>Listing unavailable: {errorMessage(listing.error, 'We could not reach the listing.')}</ErrorCard>
+          <ErrorCard title="Couldn't load the listing" error={listing.error} onRetry={() => void listing.refetch()} />
         </Show>
         <Show when={seededSlug() === props.slug || state()} fallback={<SkeletonRows count={4} />}>
           <div class="flex flex-col gap-4">
@@ -528,13 +532,13 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
         }
       >
         <Show when={!fed() && targets.error}>
-          <ErrorCard>Contacts unavailable: {errorMessage(targets.error, 'We could not reach the contact list.')}</ErrorCard>
+          <ErrorCard title="Couldn't load contacts" error={targets.error} onRetry={() => void targets.refetch()} />
         </Show>
         <Show when={targetsState()} fallback={<SkeletonRows count={3} />}>
           <Show
             when={(targetsState()?.targets.length ?? 0) > 0}
             fallback={
-              <EmptyState
+              <EmptyState icon={<Users />}
                 label="No representation contacts yet"
                 hint="Add an agent or label below, or promote one from the Drive contacts scan. A contact must opt in before you can approach."
               />
@@ -611,104 +615,82 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
               opt-in mean something, and the confirmed-address check is the
               band's own attestation that the mailbox reaches the person. */}
           <div class="mt-4 border-t border-border pt-4">
-            <Show
-              when={addingContact()}
-              fallback={
-                <Button variant="ghost" size="sm" onClick={() => { setContact({ ...EMPTY_CONTACT }); setAddingContact(true) }} {...writeGuard()}>
-                  Add an agent or label
-                </Button>
-              }
-            >
-              <div class="grid gap-3 md:grid-cols-2">
-                <label class="flex flex-col gap-1.5">
-                  <span class="text-xs font-medium text-muted-foreground">Name</span>
-                  <Input
-                    value={contact().display_name}
-                    onInput={e => setContact(c => ({ ...c, display_name: e.currentTarget.value }))}
-                    placeholder="Roster agency / label name"
-                  />
-                </label>
-                <label class="flex flex-col gap-1.5">
-                  <span class="text-xs font-medium text-muted-foreground">
-                    {contact().editing_id ? 'Contact email — re-enter to confirm or correct' : 'Contact email'}
-                  </span>
-                  <Input
-                    type="email"
-                    value={contact().contact_email}
-                    onInput={e => setContact(c => ({ ...c, contact_email: e.currentTarget.value }))}
-                    placeholder="bookings@example.com"
-                  />
-                </label>
-                <label class="flex flex-col gap-1.5">
-                  <span class="text-xs font-medium text-muted-foreground">Kind</span>
-                  <NativeSelect
-                    value={contact().kind}
-                    onChange={e => setContact(c => ({ ...c, kind: e.currentTarget.value as 'agent' | 'label' }))}
-                  >
-                    <option value="agent">Agent</option>
-                    <option value="label">Label</option>
-                  </NativeSelect>
-                </label>
-                <div class="flex flex-col gap-2 self-end pb-2">
-                  <Checkbox
-                    checked={contact().accepts_outreach}
-                    onChange={on => setContact(c => ({ ...c, accepts_outreach: on }))}
-                    label="They take pitches"
-                  />
-                  <Checkbox
-                    checked={contact().verified}
-                    onChange={on => setContact(c => ({ ...c, verified: on }))}
-                    label="Address confirmed"
-                  />
-                </div>
-                <Show when={contact().editing_id}>
-                  <div class="flex flex-col gap-2 self-end pb-2">
-                    <Checkbox
-                      checked={contact().active}
-                      onChange={on => setContact(c => ({ ...c, active: on }))}
-                      label="Active"
-                    />
-                    <Checkbox
-                      checked={contact().do_not_contact}
-                      onChange={on => setContact(c => ({ ...c, do_not_contact: on }))}
-                      label="Do not contact"
-                    />
-                  </div>
-                </Show>
-                <Show when={contact().accepts_outreach}>
-                  <label class="flex flex-col gap-1.5 md:col-span-2">
-                    <span class="text-xs font-medium text-muted-foreground">
-                      On what basis — how you know they take pitches
-                    </span>
-                    <Textarea
-                      rows={2}
-                      value={contact().accepts_outreach_basis}
-                      onInput={e => setContact(c => ({ ...c, accepts_outreach_basis: e.currentTarget.value }))}
-                      placeholder="Asked for bands drawing 200+ in PL at the showcase; roster page lists submissions"
-                    />
-                  </label>
-                </Show>
-              </div>
-              <div class="mt-3 flex items-center gap-2">
-                <Button
-                  size="sm"
-                  disabled={
-                    acting() !== null ||
-                    !contact().display_name.trim() ||
-                    !contact().contact_email.trim() ||
-                    (contact().accepts_outreach && !contact().accepts_outreach_basis.trim())
-                  }
-                  onClick={() => void saveContact()}
-                  {...writeGuard()}
-                >
-                  {acting() === 'save-contact' ? 'Saving…' : contact().editing_id ? 'Save contact' : 'Add contact'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => { setContact({ ...EMPTY_CONTACT }); setAddingContact(false) }}>
-                  Cancel
-                </Button>
-              </div>
-            </Show>
+            <Button variant="outline" size="sm" writes onClick={() => { setContact({ ...EMPTY_CONTACT }); setError(null); setAddingContact(true) }}>
+              <Plus aria-hidden="true" /> Add an agent or label
+            </Button>
           </div>
+          <FormDrawer
+            open={addingContact()}
+            onOpenChange={open => { setAddingContact(open); if (!open) setContact({ ...EMPTY_CONTACT }) }}
+            title={contact().editing_id ? 'Edit contact' : 'Add an agent or label'}
+            description="Consent is asserted, not assumed: say how you know they take pitches, and confirm the address reaches them."
+            submitLabel={contact().editing_id ? 'Save contact' : 'Add contact'}
+            pendingLabel="Saving…"
+            pending={acting() === 'save-contact'}
+            error={error()}
+            onSubmit={() => void saveContact()}
+          >
+            <Field label="Name">
+              <Input
+                required autocomplete="organization"
+                value={contact().display_name}
+                onInput={e => setContact(c => ({ ...c, display_name: e.currentTarget.value }))}
+                placeholder="Roster agency or label name"
+              />
+            </Field>
+            <Field label="Contact email" hint={contact().editing_id ? 'Re-enter it to confirm or correct it.' : undefined}>
+              <Input
+                required type="email" autocomplete="email"
+                value={contact().contact_email}
+                onInput={e => setContact(c => ({ ...c, contact_email: e.currentTarget.value }))}
+                placeholder="bookings@example.com"
+              />
+            </Field>
+            <Field label="Kind">
+              <NativeSelect
+                value={contact().kind}
+                onChange={e => setContact(c => ({ ...c, kind: e.currentTarget.value as 'agent' | 'label' }))}
+              >
+                <option value="agent">Agent</option>
+                <option value="label">Label</option>
+              </NativeSelect>
+            </Field>
+            <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+              <legend class="mb-2 p-0 text-sm font-medium text-foreground">Status</legend>
+              <Checkbox
+                checked={contact().accepts_outreach}
+                onChange={on => setContact(c => ({ ...c, accepts_outreach: on }))}
+                label="They take pitches"
+              />
+              <Checkbox
+                checked={contact().verified}
+                onChange={on => setContact(c => ({ ...c, verified: on }))}
+                label="Address confirmed"
+              />
+              <Show when={contact().editing_id}>
+                <Checkbox
+                  checked={contact().active}
+                  onChange={on => setContact(c => ({ ...c, active: on }))}
+                  label="Active"
+                />
+                <Checkbox
+                  checked={contact().do_not_contact}
+                  onChange={on => setContact(c => ({ ...c, do_not_contact: on }))}
+                  label="Do not contact"
+                />
+              </Show>
+            </fieldset>
+            <Show when={contact().accepts_outreach}>
+              <Field label="How you know they take pitches">
+                <Textarea
+                  required rows={3}
+                  value={contact().accepts_outreach_basis}
+                  onInput={e => setContact(c => ({ ...c, accepts_outreach_basis: e.currentTarget.value }))}
+                  placeholder="Asked for bands drawing 200+ in PL at the showcase; roster page lists submissions"
+                />
+              </Field>
+            </Show>
+          </FormDrawer>
         </Show>
       </Section>
     </div>

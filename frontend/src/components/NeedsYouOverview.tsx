@@ -105,7 +105,7 @@ export function NeedsYouOverview(props: {
         <Tile
           label="Waiting for yes"
           value={batchesWithheld() ? null : waiting()}
-          sub={batchesWithheld() ? 'could not be read' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'batch' : 'batches'} · ${singles()} single`}
+          sub={batchesWithheld() ? 'couldn\'t load' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'batch' : 'batches'} · ${singles()} single`}
         />
         <Tile label="Expire in 24 h" value={lapsed()?.expiring_within_24h} sub={soonest() ? `next: ${expiresShort(soonest()!)}` : 'none pending'} />
         <Tile label="Your turn to reply" value={props.model.reply_triage ? replies().length : null} sub={`${saidYes()} said yes`} />
@@ -203,7 +203,7 @@ export function NeedsYouOverview(props: {
 export function needsYouStatus(model: TenantTodayReadModel | undefined): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null {
   if (!model) return null
   const batches = model.derived?.approval_batches
-  if (batches == null) return { tone: 'muted', text: 'The queue could not be read' }
+  if (batches == null) return { tone: 'muted', text: "Couldn't load the queue" }
   const count = batches.reduce((sum, b) => sum + b.count, 0)
   if (count === 0) return { tone: 'good', text: 'Nothing waits for your yes' }
   // Every ask in the queue has expired by the last batch's first expiry.

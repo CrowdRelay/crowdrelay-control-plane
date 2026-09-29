@@ -1,4 +1,5 @@
 import { createSignal } from 'solid-js'
+import { describeError, failureLine } from './errors'
 
 // Re-authentication flow for destructive mutations from mobile sessions.
 //
@@ -57,7 +58,7 @@ export async function submitReauth(password: string): Promise<boolean> {
     return true
   } catch (error) {
     setReauthBusy(false)
-    setReauthError(error instanceof Error ? error.message : 'Re-authentication failed')
+    setReauthError(describeError(error).kind === 'credentials' ? "That password isn't right. Try again." : failureLine("Couldn't confirm your password", error))
     return false
   }
 }
@@ -65,7 +66,7 @@ export async function submitReauth(password: string): Promise<boolean> {
 /// Called by the ReauthModal when the operator cancels.
 export function cancelReauth() {
   const pending = reauthPending()
-  if (pending) pending.reject(new Error('Re-authentication cancelled'))
+  if (pending) pending.reject(new Error('Password check cancelled.'))
   setReauthPending(null)
   setReauthError('')
   setReauthBusy(false)

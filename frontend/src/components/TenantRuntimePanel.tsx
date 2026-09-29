@@ -63,7 +63,7 @@ export function TenantRuntimePanel(props: { slug: string; initial?: TenantRuntim
     action={<StatusBadge status={healthLabel(snapshot().runtimeHealth)} tone={runtimeHealthTone(snapshot().runtimeHealth)} />}
     aria-busy={runtime.isFetching && !runtime.data}
   >
-    <Show when={runtime.error}><p class="text-sm text-muted-foreground" role="status">Live refresh failed. Showing the last known runtime snapshot.</p></Show>
+    <Show when={runtime.error}><p class="text-sm text-muted-foreground" role="status">Couldn't refresh just now. Showing the last known status.</p></Show>
     <Show when={snapshot().runtimeHealth === 'unknown'}>
       <p class="text-sm text-muted-foreground">This tenant has never reported a runtime heartbeat, so there is nothing to score here yet. Service health measured inside CrowdRelay is on the Today page.</p>
     </Show>

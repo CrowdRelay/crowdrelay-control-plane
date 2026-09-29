@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { ChartLine } from 'lucide-solid'
 import { KpiCard, KpiStrip, Section } from './layout'
 import { confidencePercent } from '../lib/format'
 import { useQuery } from '@tanstack/solid-query'
@@ -288,7 +289,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
     </>}</Show>
 
     <Show when={d() && !model.isPending && d()!.executed_24h === 0 && d()!.failed_24h === 0 && d()!.stopped.length === 0 && d()!.about_to_act.length === 0 && d()!.attention_items.length === 0}>
-      <EmptyState label="No autopilot activity recorded" hint="Once a cycle runs and a policy allows it to act, this is where the run shows up." />
+      <EmptyState icon={<ChartLine />} label="No autopilot activity recorded" hint="Once a cycle runs and a policy allows it to act, this is where the run shows up." />
     </Show>
   </Section>
 }

@@ -1,9 +1,10 @@
 import { Show, createSignal } from 'solid-js'
+import { Alert } from './app/alert'
+import { failureLine } from '../lib/errors'
 import { For } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
 import { triggerRefresh, refreshQueries } from '../lib/refresh'
 import { SkeletonPanel } from './Skeleton'
 import { Spinner } from './Spinner'
@@ -58,7 +59,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       refreshQueries(['north-star-options', props.slug])
       await preview.refetch()
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, 'Could not change the goal') })
+      setNotice({ tone: 'bad', message: failureLine("Couldn't change the goal", error) })
     } finally {
       setSavingGoal(false)
     }
@@ -79,7 +80,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       triggerRefresh()
       await preview.refetch()
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, 'Could not request a cycle') })
+      setNotice({ tone: 'bad', message: failureLine("Couldn't start a brain cycle", error) })
     } finally {
       setRunning(false)
     }
@@ -97,7 +98,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       <Show when={preview.isFetching}><SkeletonPanel /></Show>
 
       <Show when={preview.error}>
-        <ErrorCard>Could not read what the brain believes: {errorMessage(preview.error, 'unknown error')}</ErrorCard>
+        <ErrorCard title="Couldn't load what the brain believes" error={preview.error} onRetry={() => void preview.refetch()} />
       </Show>
 
       <Show when={preview.data}>
@@ -203,9 +204,9 @@ export function RunBrainCyclePanel(props: { slug: string }) {
       </Show>
 
       <Show when={notice()}>
-        {value => (
-          <p class={`mt-3 rounded-lg p-4 text-sm ${value().tone === 'bad' ? 'border border-destructive/30 bg-destructive/10 text-destructive' : 'border border-success-foreground/30 bg-success-foreground/10 text-success-foreground'}`}>{value().message}</p>
-        )}
+        {value => value().tone === 'bad'
+          ? <ErrorCard class="mt-3">{value().message}</ErrorCard>
+          : <Alert tone="success" role="status" class="mt-3">{value().message}</Alert>}
       </Show>
     </Section>
   )

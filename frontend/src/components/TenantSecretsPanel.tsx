@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -79,7 +80,7 @@ export function TenantSecretsPanel(props: { slug: string }) {
     },
     onError: (error) => {
       setPendingName(null)
-      setErrorText(error instanceof Error ? error.message : 'Save failed')
+      setErrorText(failureLine("Couldn't save your changes", error))
     },
   }))
 
@@ -94,7 +95,7 @@ export function TenantSecretsPanel(props: { slug: string }) {
     },
     onError: (error) => {
       setPendingName(null)
-      setErrorText(error instanceof Error ? error.message : 'Remove failed')
+      setErrorText(failureLine("Couldn't remove it", error))
     },
   }))
 
@@ -110,7 +111,7 @@ export function TenantSecretsPanel(props: { slug: string }) {
     </>}
   >
     <Show when={secrets.error}>
-      <ErrorCard>Stripe key state could not be loaded — {secrets.error instanceof Error ? secrets.error.message : 'unavailable'}</ErrorCard>
+      <ErrorCard title="Couldn't check your Stripe keys" error={secrets.error} onRetry={() => void secrets.refetch()} />
     </Show>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
       <For each={SECRETS}>{row => (

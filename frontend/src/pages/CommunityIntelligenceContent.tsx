@@ -1,4 +1,7 @@
 import { CommunityHouseRulesPanel } from '../components/CommunityHouseRulesPanel'
+import { FormDrawer } from '../components/app/form-drawer'
+import { Alert } from '../components/app/alert'
+import { failureLine } from '../lib/errors'
 import { ReplyQueuePanel } from '../components/ReplyQueuePanel'
 import { For, Show, createSignal, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
@@ -8,7 +11,7 @@ import type { CommunityItem, CommunityObservationItem, CommunityEntityItem, Audi
 import { SkeletonRows } from '../components/Skeleton'
 import { TabBar, TabPanel, useTabPanels, SectionTitle, ErrorCard } from '../components/layout'
 import { toast } from '../components/app/toast'
-import { errorMessage, humanizeToken, httpUrl } from '../lib/format'
+import { humanizeToken, httpUrl } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Button } from '../components/app/button'
 import { Input } from '../components/ui/input'
@@ -16,7 +19,7 @@ import { Textarea } from '../components/ui/textarea'
 import { NativeSelect } from '../components/ui/native-select'
 import { Field } from '../components/ui/field'
 import { writeGuard } from '../lib/read-only'
-import { ArrowUpRight, ChevronRight } from 'lucide-solid'
+import { ArrowUpRight, ChevronRight, Plus } from 'lucide-solid'
 
 /**
  * Community Intelligence content — the Communities tab inside the Audience page.
@@ -158,7 +161,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       toast.success(`Marked ${MEMBERSHIP_LABEL[state] ?? state}.`)
       await communities.refetch()
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not record that'))
+      toast.error("Couldn't record that", error)
     }
   }
 
@@ -191,8 +194,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
   }
 
   // ── Add / Import handlers (ported from CommunitiesPanel) ──
-  const submit = async (event: Event) => {
-    event.preventDefault()
+  const submit = async () => {
     if (saving()) return
     setSaving(true)
     setNotice(null)
@@ -207,20 +209,19 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       setName(''); setUrl(''); setAdding(false)
       await communities.refetch()
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, 'Could not register the community') })
+      setNotice({ tone: 'bad', message: failureLine("Couldn't register the community", error) })
     } finally {
       setSaving(false)
     }
   }
 
-  const runImport = async (event: Event) => {
-    event.preventDefault()
+  const runImport = async () => {
     if (saving()) return
     let parsed: unknown
     try {
       parsed = JSON.parse(importText())
     } catch {
-      setNotice({ tone: 'bad', message: 'That is not valid JSON.' })
+      setNotice({ tone: 'bad', message: "That isn't valid JSON yet. Check the brackets and quotes." })
       return
     }
     let importPlaces: unknown
@@ -229,11 +230,11 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
     } else if (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as Record<string, unknown>).places)) {
       importPlaces = (parsed as Record<string, unknown>).places
     } else {
-      setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
+      setNotice({ tone: 'bad', message: 'Paste a list of places: an array, or { "places": [...] }.' })
       return
     }
     if (!Array.isArray(importPlaces) || importPlaces.length === 0) {
-      setNotice({ tone: 'bad', message: 'Expected an array of places, or { "places": [...] }.' })
+      setNotice({ tone: 'bad', message: 'Paste a list of places: an array, or { "places": [...] }.' })
       return
     }
     setSaving(true)
@@ -244,7 +245,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
       setImportText(''); setImporting(false)
       await communities.refetch()
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, 'Import failed') })
+      setNotice({ tone: 'bad', message: failureLine("Couldn't finish the import", error) })
     } finally {
       setSaving(false)
     }
@@ -315,59 +316,65 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
 
       {/* ─── Communities Tab ────────────────────────────────────── */}
       <TabPanel active={activeTab()} id="ci-communities" visited={isVisited('ci-communities')}>
-        {/* ── Add form ── */}
-        <Show when={adding()}>
-          <form class="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submit}>
-            <Field label="Kind"><NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}><For each={PLACE_KINDS}>{value => <option value={value}>{value.replaceAll('_', ' ')}</option>}</For></NativeSelect></Field>
-            <Field label="Name" hint="as people refer to it, e.g. r/progmetal"><Input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} /></Field>
-            <Field label="URL" hint="identity is the platform and URL together"><Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} /></Field>
-            <div class="flex justify-end mt-4">
-              <Button writes size="sm" type="submit" disabled={saving() || !name().trim() || !url().trim()}>
-                {saving() ? 'Registering…' : 'Register'}
-              </Button>
-            </div>
-          </form>
-        </Show>
+        <FormDrawer
+          open={adding()}
+          onOpenChange={open => { setAdding(open); if (open) setNotice(null) }}
+          title="Add a community"
+          description="A place your listeners already gather. The brain observes it; joining stays a person's job."
+          submitLabel="Add community"
+          pendingLabel="Adding…"
+          pending={saving()}
+          error={adding() && notice()?.tone === 'bad' ? notice()!.message : undefined}
+          onSubmit={() => void submit()}
+        >
+          <Field label="Kind"><NativeSelect value={kind()} onChange={event => setKind(event.currentTarget.value)}><For each={PLACE_KINDS}>{value => <option value={value}>{humanizeToken(value)}</option>}</For></NativeSelect></Field>
+          <Field label="Name" hint="As people refer to it, e.g. r/progmetal."><Input value={name()} onInput={event => setName(event.currentTarget.value)} required maxlength={200} autocomplete="off" /></Field>
+          <Field label="URL" hint="The platform and the URL together identify it."><Input value={url()} onInput={event => setUrl(event.currentTarget.value)} required type="url" maxlength={512} placeholder="https://reddit.com/r/progmetal" /></Field>
+        </FormDrawer>
 
-        {/* ── Import form ── */}
-        <Show when={importing()}>
-          <form onSubmit={runImport}>
-            <Field label="Paste a scan" hint="A JSON array of { placeKind, platform, name, url } — genres, memberCount, notes and country optional. Re-importing the same platform and URL refreshes it rather than duplicating it.">
-              <Textarea
-                class="font-mono p-3"
-                rows={8}
-                spellcheck={false}
-                value={importText()}
-                onInput={event => setImportText(event.currentTarget.value)}
-                placeholder='[{"placeKind":"subreddit","platform":"reddit","name":"r/progmetal","url":"https://reddit.com/r/progmetal"}]'
-              />
-            </Field>
-            <div class="flex justify-end mt-4">
-              <Button writes size="sm" type="submit" disabled={saving() || !importText().trim()}>
-                {saving() ? 'Importing…' : 'Import'}
-              </Button>
-            </div>
-          </form>
-        </Show>
+        <FormDrawer
+          open={importing()}
+          onOpenChange={open => { setImporting(open); if (open) setNotice(null) }}
+          title="Import a list"
+          description="Re-importing the same platform and URL refreshes it rather than duplicating it."
+          size="lg"
+          submitLabel="Import"
+          pendingLabel="Importing…"
+          pending={saving()}
+          error={importing() && notice()?.tone === 'bad' ? notice()!.message : undefined}
+          onSubmit={() => void runImport()}
+        >
+          <Field label="Paste a scan" hint="A JSON array of { placeKind, platform, name, url }. genres, memberCount, notes and country are optional.">
+            <Textarea
+              required
+              class="font-mono text-xs"
+              rows={12}
+              spellcheck={false}
+              value={importText()}
+              onInput={event => setImportText(event.currentTarget.value)}
+              placeholder='[{"placeKind":"subreddit","platform":"reddit","name":"r/progmetal","url":"https://reddit.com/r/progmetal"}]'
+            />
+          </Field>
+        </FormDrawer>
 
-        <Show when={notice()}>
-          {value => <p class={`p-3 rounded-md text-sm ${value().tone === 'good' ? 'bg-success-foreground/10 text-success-foreground' : 'bg-destructive/10 text-destructive'}`}>{value().message}</p>}
+        <Show when={notice() && !adding() && !importing()}>
+          {notice()?.tone === 'bad'
+          ? <ErrorCard>{notice()!.message}</ErrorCard>
+          : <Alert tone="success" role="status">{notice()?.message}</Alert>}
         </Show>
 
         {/* ── Community intelligence ── */}
         <div class="flex items-center gap-2 mt-4 mb-4">
-          <Button writes variant="outline" size="sm" onClick={() => { setImporting(false); setAdding(value => !value) }}>
-            {adding() ? 'Cancel' : 'Add a community'}
+          <Button writes variant="outline" size="sm" onClick={() => setAdding(true)}>
+            <Plus aria-hidden="true" /> Add a community
           </Button>
-          <Button writes variant="outline" size="sm" onClick={() => { setAdding(false); setImporting(value => !value) }}>
-            {importing() ? 'Cancel' : 'Import a list'}
+          <Button writes variant="ghost" size="sm" onClick={() => setImporting(true)}>
+            Import a list
           </Button>
         </div>
 
         <Show when={communities.error}>
-          <ErrorCard>
-            {communities.error instanceof Error ? communities.error.message : 'Community intelligence channel unavailable'}
-          </ErrorCard>
+          <ErrorCard title="Couldn't load communities" error={communities.error} onRetry={() => void communities.refetch()} />
         </Show>
 
         <Show when={!communities.error && communities.isPending}>
@@ -529,7 +536,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <h3>Observations</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
           <Show when={detail.data?.observations && '__error' in detail.data!.observations}>
-            <ErrorCard>Failed to load observations</ErrorCard>
+            <ErrorCard title="Couldn't load observations" recovery="Try again in a few minutes." />
           </Show>
           <Show when={detail.data}>
             <Show when={observations().length === 0}>
@@ -563,7 +570,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
           <h3>{authState.isPlatformLevel() ? 'Extracted Entities (Latest)' : 'What it found (latest)'}</h3>
           <Show when={detail.isPending}><SkeletonRows /></Show>
           <Show when={detail.data?.entities && '__error' in detail.data!.entities}>
-            <ErrorCard>{authState.isPlatformLevel() ? 'Failed to load entities' : 'Failed to load what it found'}</ErrorCard>
+            <ErrorCard title={authState.isPlatformLevel() ? "Couldn't load extracted entities" : "Couldn't load what it found"} recovery="Try again in a few minutes." />
           </Show>
           <Show when={detail.data}>
             <Show when={entities().length === 0}>

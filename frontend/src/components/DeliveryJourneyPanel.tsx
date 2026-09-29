@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
+import { ClipboardCheck, Inbox, Send } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage, formatIsoAge, formatTimestamp, httpUrl, relativeTime, humanizeToken} from '../lib/format'
+import { formatIsoAge, formatTimestamp, httpUrl, relativeTime, humanizeToken } from '../lib/format'
 import { toast } from './app/toast'
 import { Dialog } from './Dialog'
 import { EmptyState } from './ui/empty-state'
@@ -122,7 +123,7 @@ export function DeliveryJourneyPanel(props: {
       toast.success(result.status === 'queued' ? 'Queued for another attempt.' : `Retry: ${humanizeToken(result.status)}`)
       props.onRefresh()
     } catch (error) {
-      toast.error(errorMessage(error, 'Retry failed'))
+      toast.error("Couldn't retry", error)
     } finally {
       setBusy(null)
     }
@@ -133,7 +134,7 @@ export function DeliveryJourneyPanel(props: {
     try {
       setDetail(await api.deliveryDetails(props.slug, item.id))
     } catch (error) {
-      toast.error(errorMessage(error, 'We couldn\'t load the delivery details. Try refreshing.'))
+      toast.error("Couldn't load delivery details", error)
     } finally {
       setBusy(null)
     }
@@ -182,7 +183,7 @@ export function DeliveryJourneyPanel(props: {
         >
           <Show
             when={liveOutbox().length > 0}
-            fallback={<EmptyState label="Nothing queued" hint="Every event either went out or is in the dead list above." />}
+            fallback={<EmptyState icon={<ClipboardCheck />} label="Nothing queued" hint="Every event either went out or is in the dead list above." />}
           >
             <div class="grid gap-2">
               <For each={liveOutbox()}>{item => (
@@ -214,7 +215,7 @@ export function DeliveryJourneyPanel(props: {
         >
           <Show
             when={liveDeliveries().length > 0}
-            fallback={<EmptyState label="Nothing on the wire" hint="No delivery attempt is in flight right now." />}
+            fallback={<EmptyState icon={<Send />} label="Nothing on the wire" hint="No delivery attempt is in flight right now." />}
           >
             <div class="grid gap-2">
               <For each={liveDeliveries()}>{item => (
@@ -249,7 +250,7 @@ export function DeliveryJourneyPanel(props: {
         >
           <Show
             when={landed().length > 0}
-            fallback={<EmptyState label="Nothing landed yet" hint="When a send or a post reaches its channel, the receipt lands here." />}
+            fallback={<EmptyState icon={<Inbox />} label="Nothing landed yet" hint="When a send or a post reaches its channel, the receipt lands here." />}
           >
             <div class="grid gap-2">
               <For each={landed()}>{item => (

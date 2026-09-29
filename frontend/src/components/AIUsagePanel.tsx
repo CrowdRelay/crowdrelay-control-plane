@@ -1,7 +1,7 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatUsd } from '../lib/format'
+import { formatUsd } from '../lib/format'
 import { ModelIcon } from './ProviderIcon'
 import { Sparkline } from './Sparkline'
 import type { TemplateRoi, ModelAnalytics } from '../lib/types'
@@ -10,7 +10,7 @@ import { SkeletonRows } from './Skeleton'
 import { ErrorCard } from './layout'
 import { Badge } from './app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { Crown } from 'lucide-solid'
+import { Crown, Sparkles } from 'lucide-solid'
 
 // --- Icons ---
 const CrownIcon = (props: { size?: number }) => (
@@ -72,7 +72,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
 
   return <div class="space-y-8">
     <Show when={data.isError}>
-      <ErrorCard>{errorMessage(data.error, 'Failed to load usage analytics')}</ErrorCard>
+      <ErrorCard title="Couldn't load usage analytics" error={data.error} onRetry={() => void data.refetch()} />
     </Show>
 
     {/* Budget header */}
@@ -218,7 +218,7 @@ export function AIUsagePanel(props: { slug: string; active?: boolean }) {
     {/* Empty state */}
     <Show when={data.data && templateRoi().length === 0 && modelAnalytics().length === 0}>
       <div class="mt-4">
-        <EmptyState label="No AI usage data" hint="Data appears once the intelligence dispatches workers." />
+        <EmptyState icon={<Sparkles />} label="No AI usage data" hint="Data appears once the intelligence dispatches workers." />
       </div>
     </Show>
 

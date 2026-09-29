@@ -4,18 +4,16 @@ import { Link, useParams } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { TenantShow } from '../lib/types'
-import { PageShell, ErrorCard } from '../components/layout'
+import { PageShell } from '../components/layout'
 import { Act, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Row, Split, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { BookingJourneyPanel } from '../components/BookingJourneyPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
-import { Dialog } from '../components/Dialog'
 import { Field, FieldGrid } from '../components/ui/field'
 import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/app/checkbox'
-import { Button } from '../components/app/button'
-import { Spinner } from '../components/Spinner'
+import { FormDrawer } from '../components/app/form-drawer'
 import { toast } from '../components/app/toast'
 import { compareTimestamps } from '../lib/format'
 
@@ -86,7 +84,7 @@ export function TenantShowsPage() {
       <AddShowDialog slug={params().slug} open={adding()} onClose={() => setAdding(false)} />
 
       <Show when={model.error}>
-        <SectionFailureCard error={model.error} fallback="Shows unavailable" onRetry={() => void model.refetch()} />
+        <SectionFailureCard error={model.error} title="Couldn't load shows" onRetry={() => void model.refetch()} />
       </Show>
 
       <WorkAreas
@@ -243,8 +241,6 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
   }
   const ticketOk = () =>
     draft().ticketUrl.trim() === '' || /^https:\/\/\S+$/.test(draft().ticketUrl.trim())
-  const ready = () =>
-    draft().title.trim() !== '' && startsIso() !== null && scheduleOk() && cityOk() && ticketOk()
 
   const create = useMutation(() => ({
     // The session key rides as the mutation variable: a submit that lands
@@ -275,26 +271,24 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
   }))
 
   return (
-    <Dialog
+    <FormDrawer
       open={props.open}
-      onClose={close}
-      label="Add show"
+      onOpenChange={open => { if (!open) close() }}
       title="Add show"
       description="The night as you know it — checklists, gig planning and the report pick it up from here. Uncheck 'announce' to keep it a draft."
-      class="max-w-2xl"
-      footer={<>
-        <span class="mr-auto text-xs text-muted-foreground" aria-live="polite">
-          {ready() ? 'Ready to save.' : 'Title and a start time are required.'}
-        </span>
-        <Button variant="ghost" size="sm" onClick={close}>Cancel</Button>
-        <Button size="sm" writes onClick={() => create.mutate(createKey())} disabled={create.isPending || !ready()}>
-          {create.isPending && <Spinner />} {create.isPending ? 'Adding…' : 'Add show'}
-        </Button>
-      </>}
+      size="lg"
+      submitLabel="Add show"
+      pendingLabel="Adding…"
+      pending={create.isPending}
+      error={create.error}
+      errorTitle="Couldn't add the show"
+      validate={() =>
+        !scheduleOk() ? 'Doors must be before the start, and the end after it.'
+        : !cityOk() ? 'Give the city its two-letter country code, or leave both empty.'
+        : !ticketOk() ? 'Ticket links start with https://.'
+        : undefined}
+      onSubmit={() => create.mutate(createKey())}
     >
-      <Show when={create.error}>
-        <ErrorCard class="mb-4">{create.error instanceof Error ? create.error.message : 'Could not add the show'}</ErrorCard>
-      </Show>
       <FieldGrid>
         <Field label="Title" hint="As it appears on the poster — e.g. Live in Warszawa.">
           <Input
@@ -372,7 +366,7 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
           error={!ticketOk() ? 'Ticket links start with https://' : undefined}
         >
           <Input
-            type="url" maxlength="2048" autocomplete="off"
+            type="url" pattern="https://.+" title="Ticket links start with https://" maxlength="2048" autocomplete="off"
             aria-invalid={!ticketOk()}
             value={draft().ticketUrl}
             onInput={e => set('ticketUrl', e.currentTarget.value)}
@@ -381,12 +375,11 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
         </Field>
       </FieldGrid>
       <Checkbox
-        class="mt-4"
         label="Announce on the public site now — unchecked keeps it a draft only the console sees."
         checked={draft().publish}
         onChange={checked => set('publish', checked === true)}
       />
-    </Dialog>
+    </FormDrawer>
   )
 }
 

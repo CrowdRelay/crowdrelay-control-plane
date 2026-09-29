@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
-import { errorMessage, formatTimestamp, httpUrl } from '../lib/format'
+import { formatTimestamp, httpUrl } from '../lib/format'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
@@ -45,7 +45,7 @@ function ReplyRow(props: { slug: string; reply: Reply; onDone: () => void }) {
       toast.success(label === 'Send reply' ? 'Reply approved — it goes out on the next paced send.' : 'Skipped.')
       props.onDone()
     } catch (error) {
-      toast.error(errorMessage(error, 'The reply could not be saved.'))
+      toast.error("Couldn't save the reply", error)
     } finally {
       setBusy(false)
     }

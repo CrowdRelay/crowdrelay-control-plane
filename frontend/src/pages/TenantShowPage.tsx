@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -63,7 +64,7 @@ export function TenantShowPage() {
             <PageHeader eyebrow="SHOW" title="Show" />
             <SectionFailureCard
               error={model.error}
-              fallback="The show could not be loaded"
+              title="Couldn't load this show"
               onRetry={() => void model.refetch()}
             />
           </Show>
@@ -699,7 +700,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
       })
       .catch((error: unknown) =>
         setAdmitNote(
-          `Adding ${name} did not work — ${error instanceof Error && error.message ? error.message : 'the request was rejected'}.`,
+          failureLine(`Couldn't add ${name}`, error),
         ),
       )
       .finally(() => setAdmitting(null))
@@ -709,7 +710,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
     <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
       <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Who can help</p>
       <Show when={props.helpers === null}>
-        <p class="mt-1 text-xs text-muted-foreground">The candidate list could not be loaded.</p>
+        <p class="mt-1 text-xs text-muted-foreground">Couldn't load the candidate list.</p>
       </Show>
       <Show when={props.helpers}>
         {data => (

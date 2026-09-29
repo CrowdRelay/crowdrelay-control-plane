@@ -1,10 +1,10 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useNavigate } from '@tanstack/solid-router'
-import { ChevronRight, Plus, Search } from 'lucide-solid'
+import { Building2, ChevronRight, Plus, Search, SearchX } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge } from '../lib/format'
+import { formatIsoAge } from '../lib/format'
 import { healthLabel, healthTone } from '../lib/health-tone'
 import type { TenantSummary } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
@@ -66,7 +66,7 @@ export function TenantsPage() {
     </WorkAreaPanel>
     <WorkAreaPanel id="details" active={areas.active()}>
     <Show when={tenants.isError}>
-      <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
+      <ErrorCard title="Couldn't load tenants" error={tenants.error} onRetry={() => void tenants.refetch()} />
     </Show>
 
     <Show when={!tenants.isError}>
@@ -93,7 +93,7 @@ export function TenantsPage() {
       <Card>
         <CardContent class="p-0">
           <Show when={tenants.data && items().length === 0}>
-            <EmptyState
+            <EmptyState icon={<Building2 />}
               label="No tenants yet"
               hint="Create the first tenant to start managing fan growth operations."
             >
@@ -105,7 +105,7 @@ export function TenantsPage() {
             </EmptyState>
           </Show>
           <Show when={tenants.data && items().length > 0 && visible().length === 0}>
-            <EmptyState label={`No tenant matches “${search().trim()}”`} hint="Try part of the name or the slug." />
+            <EmptyState icon={<SearchX />} label={`No tenant matches “${search().trim()}”`} hint="Try part of the name or the slug." />
           </Show>
           <Show when={!tenants.data || visible().length > 0}>
             <Table>
@@ -123,11 +123,11 @@ export function TenantsPage() {
                 <Show when={!tenants.data}>
                   <For each={[0, 1, 2]}>{() => (
                     <TableRow>
-                      <TableCell><Skeleton class="h-4 w-36" animate /></TableCell>
-                      <TableCell><Skeleton class="h-5 w-14" animate /></TableCell>
-                      <TableCell><Skeleton class="h-5 w-20" animate /></TableCell>
-                      <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-40" animate /></TableCell>
-                      <TableCell class="hidden lg:table-cell"><Skeleton class="h-4 w-16" animate /></TableCell>
+                      <TableCell><Skeleton class="h-4 w-36" /></TableCell>
+                      <TableCell><Skeleton class="h-5 w-14" /></TableCell>
+                      <TableCell><Skeleton class="h-5 w-20" /></TableCell>
+                      <TableCell class="hidden md:table-cell"><Skeleton class="h-4 w-40" /></TableCell>
+                      <TableCell class="hidden lg:table-cell"><Skeleton class="h-4 w-16" /></TableCell>
                       <TableCell />
                     </TableRow>
                   )}</For>
