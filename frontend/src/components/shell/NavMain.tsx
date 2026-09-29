@@ -56,9 +56,9 @@ export function NavLink(props: {
   const item = (
     <>
       <Show when={(props.badge ?? 0) > 0}>
-        {/* The flyout chevron takes the badge's corner while the row is
-            hovered or focused. */}
-        <SidebarMenuBadge class={hasPages() && !isMobile() ? 'group-hover/menu-item:opacity-0 group-focus-within/menu-item:opacity-0' : undefined}>{props.badge}</SidebarMenuBadge>
+        {/* The chevron owns the right corner on a section with sub-pages,
+            so the count sits just left of it. */}
+        <SidebarMenuBadge class={hasPages() ? 'right-7' : undefined}>{props.badge}</SidebarMenuBadge>
       </Show>
       <Show when={hasPages() && isMobile()}>
         <NavSubPagesInline item={props.item} params={props.params} />
@@ -91,8 +91,8 @@ const HOVER_CLOSE_MS = 180
  * dropdown, opened by hover rather than a click. Hovering the row (or the
  * icon in the collapsed rail) opens it; leaving both the row and the menu
  * closes it after a beat, so the pointer can cross the gap. The chevron is
- * the keyboard's way in: it appears on hover and focus, and opens the same
- * menu with arrow-key navigation. The menu is non-modal so the rest of the
+ * the keyboard's way in: always visible, it opens the same menu with
+ * arrow-key navigation. The menu is non-modal so the rest of the
  * sidebar stays live while it is open.
  */
 function NavSubPages(props: { item: NavItem; params?: Record<string, string>; link: JSX.Element; children: JSX.Element }) {
@@ -131,7 +131,6 @@ function NavSubPages(props: { item: NavItem; params?: Record<string, string>; li
       >
         <SidebarMenuAction
           as={DropdownMenuTrigger}
-          showOnHover
           aria-label={`${props.item.label} pages`}
           class="data-[expanded]:bg-sidebar-accent"
         >
