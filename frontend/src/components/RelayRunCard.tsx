@@ -129,7 +129,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
       {/* Header: the observed post — thumbnail, title, where it came from. */}
       <div class="flex items-start gap-3 p-4 pb-0">
         <Show when={run().thumbnail_url}>
-          {url => <img src={url()} alt="" class="size-10 shrink-0 rounded-md object-cover" loading="lazy" />}
+          {url => <img src={url()} alt="" class="size-10 shrink-0 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" loading="lazy" />}
         </Show>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
@@ -757,6 +757,7 @@ function TargetRow(props: {
                 <Input
                   type="url"
                   class="h-7 w-64 max-w-full text-xs"
+                  aria-label="Link to the live post"
                   placeholder="https://www.reddit.com/r/…/comments/…"
                   value={manualUrl()}
                   onInput={e => setManualUrl(e.currentTarget.value)}

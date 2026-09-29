@@ -47,7 +47,7 @@ export function RefreshControl(props: {
       type="button"
       variant="ghost"
       size="icon"
-      class="text-muted-foreground transition-all duration-150 hover:rotate-180 active:scale-95"
+      class="text-muted-foreground"
       onClick={() => triggerRefresh()}
       disabled={loading()}
       title="Refresh now"

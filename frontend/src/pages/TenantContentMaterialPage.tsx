@@ -115,7 +115,7 @@ export function TenantContentMaterialPage() {
                   <Pill tone={row.usable ? 'muted' : 'warn'}>{row.usable ? (KIND_SINGULAR[row.kind] ?? row.kind) : 'aged out'}</Pill>
                   <div class="min-w-0 flex-1">
                     <p class="m-0 truncate text-sm text-foreground">{row.title}</p>
-                    <p class="m-0 text-xs text-muted-foreground/70">
+                    <p class="m-0 text-xs text-muted-foreground">
                       {[platformLabel(row.platform), shortDate(row.occurred_at), row.usable ? `good until ${shortDate(row.expires_at)}` : null].filter(Boolean).join(' · ')}
                     </p>
                   </div>

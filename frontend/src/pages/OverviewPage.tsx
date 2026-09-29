@@ -90,7 +90,7 @@ export function OverviewPage() {
       <Tile label="Tenants" value={t()?.total ?? tenants.data?.items.length} sub={t() ? `${t()!.healthy} healthy · ${t()!.unknown + t()!.stale} unknown` : undefined} />
       <Tile
         label="Services"
-        value={ov.platformServices().length ? <>{ov.healthyServices()}<span class="text-sm font-normal text-muted-foreground/70"> / {ov.platformServices().length}</span></> : null}
+        value={ov.platformServices().length ? <>{ov.healthyServices()}<span class="text-sm font-normal text-muted-foreground"> / {ov.platformServices().length}</span></> : null}
         sub={ov.platformServices().map(s => s.label).join(' · ') || undefined}
       />
       <Tile label="North star, all tenants" value={northStar()} sub="each tenant's own measure, added" />

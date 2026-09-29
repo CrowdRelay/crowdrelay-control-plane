@@ -403,7 +403,7 @@ export function TenantContentPage() {
     </Show>
     <Show when={pipeline.data?.revision_trend}>
       {trend => (
-        <p class="m-0 mb-3 text-xs text-muted-foreground/70">
+        <p class="m-0 mb-3 text-xs text-muted-foreground">
           Voice match: {trend().revised_fields_30d} fields fixed in 30 days · about {trend().avg_distance_chars_30d} characters per fix — falls as drafts get closer to your words.
         </p>
       )}
@@ -491,6 +491,7 @@ function ManualSocialPostRegister(props: { slug: string; post: DeliveryResult; o
         <Input
           type="url"
           class="h-7 w-64 max-w-full text-xs"
+          aria-label="Link to the live post"
           placeholder="https://… where the post landed"
           value={url()}
           onInput={e => setUrl(e.currentTarget.value)}
@@ -552,6 +553,7 @@ function ManualMessageRegister(props: { slug: string; post: DeliveryResult; onDo
         <Input
           class="h-7 w-64 max-w-full text-xs"
           inputMode="numeric"
+          aria-label={telegram() ? 'Telegram message id' : 'Discord message id'}
           placeholder={telegram() ? 'Telegram message id' : 'Discord message id'}
           value={messageId()}
           onInput={e => setMessageId(e.currentTarget.value)}

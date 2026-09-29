@@ -146,6 +146,7 @@ export function FanDetailDrawer(props: {
               <Input
                 type="text"
                 class="h-7 w-28 px-2 py-0.5 text-xs"
+                aria-label="Add a tag"
                 placeholder="add tag"
                 value={tagInput()}
                 onInput={e => setTagInput(e.currentTarget.value)}

@@ -328,8 +328,8 @@ function ContributionEditor(props: {
         {/* draw_estimate */}
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <KindTag kind="draw_estimate" active={own().has('draw_estimate')} onRevoke={props.onRevoke} revoking={props.revoking} />
-          <Input class="w-32" placeholder="reachable fans" value={reachable()} onInput={e => setReachable(e.currentTarget.value)} />
-          <Input class="w-32" placeholder="expected draw" value={expectedDraw()} onInput={e => setExpectedDraw(e.currentTarget.value)} />
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">Reachable fans<Input class="w-32" inputmode="numeric" value={reachable()} onInput={e => setReachable(e.currentTarget.value)} /></label>
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">Expected draw<Input class="w-32" inputmode="numeric" value={expectedDraw()} onInput={e => setExpectedDraw(e.currentTarget.value)} /></label>
           <Button
             class="h-7 px-2 text-xs"
             disabled={props.pending || drawValue() === null}
@@ -369,6 +369,7 @@ function ContributionEditor(props: {
           <Textarea
             class="mt-1.5 w-full text-xs"
             rows={2}
+            aria-label="Asks for the other acts"
             placeholder="One ask per line — up to 8, public to the other acts on this bill"
             value={asksText()}
             onInput={e => setAsksText(e.currentTarget.value)}
@@ -377,8 +378,9 @@ function ContributionEditor(props: {
         {/* terms */}
         <div class="mt-2 flex flex-wrap items-center gap-2">
           <KindTag kind="terms" active={own().has('terms')} onRevoke={props.onRevoke} revoking={props.revoking} />
-          <Input class="w-32" placeholder="amount, minor" value={amountMinor()} onInput={e => setAmountMinor(e.currentTarget.value)} />
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">Amount (minor units)<Input class="w-32" inputmode="numeric" value={amountMinor()} onInput={e => setAmountMinor(e.currentTarget.value)} /></label>
           <Input
+            aria-label="Currency"
             class="w-20 font-mono text-xs uppercase"
             placeholder="PLN"
             value={currency()}

@@ -99,7 +99,7 @@ export function FlowPage() {
       <DashHeader
         title="Process map"
         subtitle={<>The brain's loop, with live counts · {tenantName()}</>}
-        pill={stuck() ? { tone: 'warn', text: `stuck at: ${stuck()!.label.toLowerCase()}` } : brain.data ? { tone: 'good', text: 'Loop moving' } : null}
+        pill={stuck() ? { tone: 'warn', text: `Stuck at ${stuck()!.label.toLowerCase()}` } : brain.data ? { tone: 'good', text: 'Loop moving' } : null}
       />
       <Show
         when={slug()}
@@ -163,7 +163,7 @@ export function FlowPage() {
           <div class="mb-2 flex flex-wrap items-stretch gap-1.5">
             <For each={stages()}>{(stage, index) => (
               <>
-                <Show when={index() > 0}><span class="flex items-center text-muted-foreground/70" aria-hidden="true">›</span></Show>
+                <Show when={index() > 0}><span class="flex items-center text-muted-foreground" aria-hidden="true">›</span></Show>
                 <Link
                   to={STAGE_PAGE[stage.key] ?? '/tenants/$slug/intelligence'}
                   params={{ slug: slug() }}
@@ -171,14 +171,14 @@ export function FlowPage() {
                     stage.key === stuck()?.key ? 'border-warning-foreground/70 bg-warning-foreground/10' : 'border-border bg-muted/55')}
                 >
                   <p class="m-0 text-sm font-medium text-foreground">{STAGE_NAME[stage.key] ?? stage.label}</p>
-                  <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground/70')}>
+                  <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground')}>
                     {[stage.count != null ? String(stage.count) : null, typeof stage.detail === 'string' ? stage.detail : null].filter(Boolean).join(' · ') || '—'}
                   </p>
                 </Link>
               </>
             )}</For>
           </div>
-          <p class="m-0 mb-3 text-xs text-muted-foreground/70">Each block opens the page that owns it. The stuck block is where the loop loses the most.</p>
+          <p class="m-0 mb-3 text-xs text-muted-foreground">Each block opens the page that owns it. The stuck block is where the loop loses the most.</p>
         </Show>
 
         <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[{ id: 'map', label: 'The full map' }]} />

@@ -125,6 +125,7 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
               <div class="mt-1.5 flex items-center gap-2">
                 <Input
                   class="w-40"
+                  aria-label="Act name"
                   placeholder="act name"
                   value={act.name}
                   onInput={e =>
@@ -136,12 +137,14 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
                 />
                 <Input
                   class="w-36 font-mono text-xs"
+                  aria-label="Act slug"
                   placeholder="slug"
                   value={act.slug}
                   onInput={e => updateAct(index(), { slug: e.currentTarget.value, slugTouched: true })}
                 />
                 <Input
                   class="min-w-0 flex-1"
+                  aria-label="Ticket URL"
                   placeholder="ticket url (https://…)"
                   value={act.ticketUrl}
                   onInput={e => updateAct(index(), { ticketUrl: e.currentTarget.value })}
@@ -205,12 +208,16 @@ export function ShowSetupPanel(props: { slug: string; eventSlug: string; timelin
           <div class="mt-1.5 flex items-center gap-2">
             <Input
               class="w-44"
+              aria-label="Promoter or venue name"
               placeholder="promoter / venue name"
               value={counterpartyName()}
               onInput={e => setCounterpartyName(e.currentTarget.value)}
             />
             <Input
               class="min-w-0 flex-1"
+              type="email"
+              autocomplete="email"
+              aria-label="Their email"
               placeholder="their email"
               value={counterpartyEmail()}
               onInput={e => setCounterpartyEmail(e.currentTarget.value)}

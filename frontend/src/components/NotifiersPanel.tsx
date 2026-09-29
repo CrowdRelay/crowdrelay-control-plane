@@ -134,8 +134,8 @@ export function NotifiersPanel(props: { slug: string }) {
           <Show when={createdId() === null}>
             <ol class="flex items-center gap-2 mt-1 mb-4 m-0 p-0 list-none text-xs">
               <For each={['Where alerts go', 'Name and point it', 'What reaches it']}>{(label, i) => (
-                <li class={cn('flex items-center gap-1.5', addStep() === i() ? 'text-foreground font-medium' : i() < addStep() ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
-                  <span class={cn('inline-flex items-center justify-center size-5 rounded-full border text-xs', addStep() === i() ? 'border-primary text-primary' : 'border-border')}>{i() + 1}</span>
+                <li class={cn('flex items-center gap-1.5', addStep() === i() ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                  <span class={cn('inline-flex items-center justify-center size-5 rounded-full border text-xs', addStep() === i() ? 'border-primary text-primary' : 'border-border')}>{i() < addStep() ? '✓' : i() + 1}</span>
                   {label}
                   <Show when={i() < 2}><span class="text-border mx-1">·</span></Show>
                 </li>

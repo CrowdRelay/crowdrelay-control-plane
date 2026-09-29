@@ -73,6 +73,7 @@ function ReplyRow(props: { slug: string; reply: Reply; onDone: () => void }) {
         maxlength={10000}
         value={text()}
         onInput={event => setText(event.currentTarget.value)}
+        aria-label="Your reply"
         placeholder="No draft yet — write the answer yourself, or skip."
       />
       <div class="mt-2 flex flex-wrap items-center gap-2">

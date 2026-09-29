@@ -89,7 +89,7 @@ function MediaThumb(props: { url: string }) {
       <img
         src={props.url}
         alt="Attached media"
-        class="mt-1 max-h-48 rounded-md border border-border object-cover"
+        class="mt-1 max-h-48 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
         loading="lazy"
         onError={() => setFailed(true)}
       />

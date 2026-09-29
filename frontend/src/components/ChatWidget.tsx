@@ -248,7 +248,7 @@ export function ChatWidget(props: { slug: string }) {
 
     try {
       const result = await runChatAction(action, props.slug, (to) => navigate({ to }))
-      if (result.closePanel) setOpen(false)
+      if (result.closePanel) close()
       if (result.error) setError(result.error)
       if (result.reply) setMessages(m => [...m, { role: 'assistant', content: result.reply! }])
     } catch (err) {
@@ -259,9 +259,28 @@ export function ChatWidget(props: { slug: string }) {
     }
   }
 
+  // The launcher unmounts while the panel is open, so closing marks the
+  // remount to take focus back — keyboard users land where they started.
+  let returnFocus = false
+  const close = () => { returnFocus = true; setOpen(false) }
+  const focusLauncher = (el: HTMLButtonElement) => {
+    if (!returnFocus) return
+    returnFocus = false
+    queueMicrotask(() => el.focus())
+  }
+  // aria-modal promises the page behind is out of reach; keep Tab inside.
+  const trapTab = (e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || !panelRef) return
+    const items = [...panelRef.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    if (!items.length) return
+    const first = items[0]!, last = items[items.length - 1]!
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+
   // Close on Escape
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && open()) setOpen(false)
+    if (e.key === 'Escape' && open()) close()
   }
   document.addEventListener('keydown', onKey)
   onCleanup(() => {
@@ -277,6 +296,7 @@ export function ChatWidget(props: { slug: string }) {
           the two stay on one corner. */}
       <Show when={!open()}>
         <Button
+          ref={focusLauncher}
           class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-40 h-auto gap-2 rounded-full px-4 py-3 shadow-lg"
           onClick={() => setOpen(true)}
           title="Ask AI Assistant"
@@ -289,8 +309,8 @@ export function ChatWidget(props: { slug: string }) {
 
       {/* Chat panel */}
       <Show when={open()}>
-        <div class="fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
-        <div class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant">
+        <div class="fixed inset-0 z-40 bg-black/50" onClick={() => close()} />
+        <div class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant" onKeyDown={trapTab}>
           <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 flex-shrink-0">
             <div class="flex items-center gap-2 min-w-0">
               <SparkIcon />
@@ -299,7 +319,7 @@ export function ChatWidget(props: { slug: string }) {
                 <div class="text-xs text-muted-foreground">Free • Powered by Laguna S 2.1</div>
               </div>
             </div>
-            <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground" onClick={() => setOpen(false)} aria-label="Close chat">
+            <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground" onClick={() => close()} aria-label="Close chat">
               <CloseIcon />
             </Button>
           </div>
@@ -372,6 +392,7 @@ export function ChatWidget(props: { slug: string }) {
               <Textarea
                 ref={inputRef}
                 class="flex-1 resize-none"
+                aria-label="Message the assistant"
                 placeholder={authState.isPlatformLevel() ? 'Ask about operations, growth, or autopilot…' : 'Ask about your shows, fans, or growth…'}
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}

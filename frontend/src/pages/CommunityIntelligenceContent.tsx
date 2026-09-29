@@ -576,7 +576,7 @@ export function CommunityIntelligenceContent(props: { slug: string }) {
                     <span class="text-xs font-medium text-foreground">{entity.entityType}</span>
                     <span class="text-sm text-muted-foreground flex-1 min-w-0">{entity.entityRef}</span>
                     <div class="flex-1 h-1.5 rounded-full bg-border overflow-hidden max-w-32">
-                      <div class="h-full rounded-full bg-primary transition-all" style={{ width: `${(entity.strength / 10000) * 100}%` }} />
+                      <div class="h-full rounded-full bg-primary transition-[width]" style={{ width: `${(entity.strength / 10000) * 100}%` }} />
                     </div>
                     <span class="text-xs text-muted-foreground tabular-nums">{entity.strength}</span>
                   </div>

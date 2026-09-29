@@ -206,7 +206,7 @@ export function TenantIntelligencePage() {
     <WorkAreaPanel id="brief" active={areas.active()}>
       <Show when={model.data}>
         <div class="mb-5">
-        <PanelTitle as="h3" class="mb-2">
+        <PanelTitle as="h2" class="mb-2">
           {authState.isPlatformLevel() ? 'The autopilot cycle, live' : 'How the brain works for you, right now'}
         </PanelTitle>
         <JourneyRail stages={cycleStages()} />

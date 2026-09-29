@@ -652,7 +652,7 @@ export function TenantPage() {
                     <For each={['Planned', 'Picked up', 'Deploying', job().status === 'failed' ? 'Failed' : 'Deployed']}>{(label, i) => {
                       const stage = () => job().status === 'planned' ? 0 : job().status === 'approved' ? 1 : job().status === 'running' ? 2 : 3
                       const failed = () => job().status === 'failed'
-                      return <li class={stage() === i() ? (failed() && i() === 3 ? 'font-medium text-destructive' : 'font-medium text-foreground') : i() < stage() ? 'text-muted-foreground' : 'text-muted-foreground/50'}>
+                      return <li class={stage() === i() ? (failed() && i() === 3 ? 'font-medium text-destructive' : 'font-medium text-foreground') : 'text-muted-foreground'}>
                         {i() < stage() ? '✓ ' : ''}{label}{i() < 3 ? <span class="mx-1 text-border">→</span> : null}
                       </li>
                     }}</For>
@@ -670,7 +670,7 @@ export function TenantPage() {
                   </FieldGrid>
                   <p class="mt-3 text-xs italic text-muted-foreground">The instance is healthy locally. Route <code>{t.crowdrelayBaseUrl}</code> to this host port to expose it publicly.</p>
                 </div></Show>
-                <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard class="mt-3">
+                <Show when={job().status === 'failed' ? (job().errorCode ?? 'provisioning_failed') : undefined}>{code => <ErrorCard class="mt-3" recovery={false}>
                   <strong>{provisionFailures[code()]?.title ?? 'Deployment failed'}</strong>
                   <Show when={provisionFailures[code()]}>{failure => <>
                     <p class="mt-1">{failure().guidance}</p>

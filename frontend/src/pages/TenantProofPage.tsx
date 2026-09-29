@@ -125,7 +125,7 @@ export function TenantProofPage() {
         <Show when={reports().length > 0} fallback={<EmptyState label="No reports yet" hint="A night that has happened files its report here." />}>
           <For each={reports()}>{show => (
             <Row>
-              <span class="w-24 shrink-0 text-xs text-muted-foreground/70">{formatTimestamp(show.starts_at)}</span>
+              <span class="w-24 shrink-0 text-xs text-muted-foreground">{formatTimestamp(show.starts_at)}</span>
               <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: params().slug, eventSlug: show.slug }} class="min-w-0 flex-1 truncate text-sm text-foreground hover:underline">
                 {show.title}{show.venue && show.venue !== show.title ? ` · ${show.venue}` : ''}
               </Link>
@@ -152,7 +152,7 @@ function ProofFirstScreen(props: { data: TenantProofReadModel; reports: number; 
   const used = () => props.data.representation?.approaches_used_this_month ?? props.data.listing?.approaches_used_this_month ?? null
   const cards = () => (props.data.attestations ?? []).filter(card => !card.revoked).length
   const hasListing = () => Boolean(props.data.listing?.listing)
-  const check = (done: boolean) => <span class={done ? 'text-success-foreground' : 'text-muted-foreground/70'}>{done ? 'done' : 'not yet'}</span>
+  const check = (done: boolean) => <span class={done ? 'text-success-foreground' : 'text-muted-foreground'}>{done ? 'done' : 'not yet'}</span>
   return (
     <>
       <Tiles>
@@ -161,13 +161,13 @@ function ProofFirstScreen(props: { data: TenantProofReadModel; reports: number; 
         <Tile label="Agents and labels" value={props.data.representation ? targets().length : null} sub={`${agents()} agents · ${labels()} ${labels() === 1 ? 'label' : 'labels'}`} />
         <Tile
           label="Approaches this month"
-          value={used() != null && allowance() != null ? <>{used()}<span class="text-sm font-normal text-muted-foreground/70"> / {allowance()}</span></> : null}
+          value={used() != null && allowance() != null ? <>{used()}<span class="text-sm font-normal text-muted-foreground"> / {allowance()}</span></> : null}
           sub={used() != null && allowance() != null ? `allowance left: ${allowance()! - used()!}` : undefined}
         />
       </Tiles>
       <Split even>
         <Card title="Your listing" icon={<BookOpen />}>
-          <p class="m-0 text-xs text-muted-foreground/70">One page an agent can read in a minute: sound, shows, fans, links.</p>
+          <p class="m-0 text-xs text-muted-foreground">One page an agent can read in a minute: sound, shows, fans, links.</p>
           <div class="mt-2">
             <StatRow label="Shows and dates" value={check(props.reports > 0)} />
             <StatRow label="Door counts from a show" value={check(props.measuredReports > 0)} />

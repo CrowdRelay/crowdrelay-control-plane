@@ -1,4 +1,5 @@
 import { For, Show, Suspense, createEffect, createSignal, untrack, type JSX } from 'solid-js'
+import { onTabListKeyDown } from '../../lib/roving-tabs'
 import { Link, useNavigate, useRouterState } from '@tanstack/solid-router'
 import { cn } from '../../lib/cn'
 import { httpUrl } from '../../lib/format'
@@ -60,7 +61,7 @@ export function DashHeader(props: {
   actions?: JSX.Element
 }) {
   return (
-    <div class="mb-3.5 flex items-start justify-between gap-3">
+    <div class="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
       <div class="min-w-0">
         <Show when={props.back}>
           {back => (
@@ -69,13 +70,13 @@ export function DashHeader(props: {
             </Link>
           )}
         </Show>
-        <h1 class="m-0 text-xl font-medium text-foreground">{props.title}</h1>
+        <h1 class="m-0 text-xl font-semibold tracking-tight text-foreground">{props.title}</h1>
         <Show when={props.subtitle}>
           <p class="m-0 text-xs text-muted-foreground">{props.subtitle}</p>
         </Show>
       </div>
-      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 pt-1">
-        <Show when={props.pill}>{pill => <Pill tone={pill().tone}>{pill().text}</Pill>}</Show>
+      <div class="flex min-w-0 flex-wrap items-center justify-end gap-2 pt-1">
+        <Show when={props.pill}>{pill => <Pill tone={pill().tone} class="shrink whitespace-normal sm:whitespace-nowrap">{pill().text}</Pill>}</Show>
         {props.actions}
       </div>
     </div>
@@ -100,7 +101,7 @@ export function Tile(props: { label: string; value: JSX.Element | null | undefin
         {props.value ?? '—'}
       </p>
       <Show when={props.sub}>
-        <p class="m-0 mt-0.5 text-xs text-muted-foreground/70">{props.sub}</p>
+        <p class="m-0 mt-0.5 text-xs text-muted-foreground">{props.sub}</p>
       </Show>
     </div>
   )
@@ -160,7 +161,7 @@ export function ItemRow(props: {
       <Show when={props.pill}>{pill => <Pill tone={pill().tone}>{pill().text}</Pill>}</Show>
       <div class="min-w-0 flex-1">
         <p class="m-0 truncate text-sm text-foreground">{props.title}</p>
-        <Show when={props.sub}><p class="m-0 mt-0.5 text-xs text-muted-foreground/70">{props.sub}</p></Show>
+        <Show when={props.sub}><p class="m-0 mt-0.5 text-xs text-muted-foreground">{props.sub}</p></Show>
       </div>
       <Show when={props.action}>{props.action}</Show>
     </Row>
@@ -322,13 +323,16 @@ export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onT
   return (
     <div class="flex flex-wrap items-center gap-2" role="tablist">
       <span class="mr-1 text-xs text-muted-foreground">{props.label ?? 'Work areas'}</span>
-      <For each={props.areas}>{area => (
+      <For each={props.areas}>{(area, i) => (
         <button
           type="button"
           role="tab"
           id={`tab-${area.id}`}
           aria-controls={`tabpanel-${area.id}`}
           aria-selected={props.active === area.id}
+          // Roving tabindex: the open area, or the first one when none is open.
+          tabIndex={props.active === area.id || (i() === 0 && !props.areas.some(a => a.id === props.active)) ? 0 : -1}
+          onKeyDown={onTabListKeyDown}
           class={cn('rounded-md border px-2.5 py-1 text-xs transition-colors',
             props.active === area.id ? 'border-foreground bg-foreground text-background' : 'border-border text-foreground hover:bg-muted')}
           onClick={() => props.onToggle(area.id)}
@@ -357,13 +361,13 @@ export function WorkAreaPanel(props: { id: string; active: string | null; childr
 
 /** A quiet one-line note under a block — "Arrivals stopped 9 days ago". */
 export function Note(props: { children: JSX.Element; class?: string }) {
-  return <p class={cn('m-0 mt-2 text-xs text-muted-foreground/70', props.class)}>{props.children}</p>
+  return <p class={cn('m-0 mt-2 text-xs text-muted-foreground', props.class)}>{props.children}</p>
 }
 
 /** A bare icon control — the header's refresh. */
 export function IconAct(props: { children: JSX.Element; onClick: () => void; disabled?: boolean; label: string; title?: string }) {
   return (
-    <button type="button" class="text-muted-foreground hover:text-foreground disabled:opacity-50" onClick={() => props.onClick()} disabled={props.disabled} aria-label={props.label} title={props.title ?? props.label}>
+    <button type="button" class="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground disabled:opacity-50" onClick={() => props.onClick()} disabled={props.disabled} aria-label={props.label} title={props.title ?? props.label}>
       {props.children}
     </button>
   )

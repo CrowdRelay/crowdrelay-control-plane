@@ -102,7 +102,7 @@ export function TenantShowsPage() {
           <Tile
             label="Tickets sold"
             value={ticketsKnown()
-              ? <>{ticketsSold().toLocaleString()}<Show when={capacityKnown()}><span class="text-sm font-normal text-muted-foreground/70"> / {capacity().toLocaleString()}</span></Show></>
+              ? <>{ticketsSold().toLocaleString()}<Show when={capacityKnown()}><span class="text-sm font-normal text-muted-foreground"> / {capacity().toLocaleString()}</span></Show></>
               : null}
             sub={ticketsKnown() ? 'upcoming nights' : 'no ticket sale on the upcoming nights'}
           />
@@ -416,13 +416,13 @@ function UpcomingCard(props: { show: TenantShow; slug: string }) {
         <span class="truncate text-sm font-medium text-foreground">{props.show.city ?? props.show.title}</span>
         <Pill tone={props.show.status === 'draft' ? 'warn' : warn() ? 'warn' : 'muted'}>{props.show.status === 'draft' ? 'not announced' : daysUntil(props.show.starts_at)}</Pill>
       </div>
-      <p class="m-0 text-xs text-muted-foreground/70">
+      <p class="m-0 text-xs text-muted-foreground">
         {[shortDate(props.show.starts_at), roomOf(props.show), props.show.city ? props.show.title : null].filter(Boolean).join(' · ')}
       </p>
       <div class="my-2 h-1.5 overflow-hidden rounded bg-muted/55">
         <div class="h-full rounded bg-info-foreground" style={{ width: `${Math.max(share(), sold() === 0 ? 2 : 0)}%` }} />
       </div>
-      <p class="m-0 text-xs text-muted-foreground/70">
+      <p class="m-0 text-xs text-muted-foreground">
         {sold() == null ? 'no ticket sale' : `${sold()} ${cap() ? `of ${cap()} ` : ''}tickets`}
         {props.show.interested != null ? ` · ${props.show.interested} ${props.show.interested === 1 ? 'fan' : 'fans'} interested` : ''}
       </p>
@@ -436,7 +436,7 @@ function PlayedRow(props: { show: TenantShow; slug: string }) {
   const day = () => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(props.show.starts_at))
   return (
     <Row>
-      <span class="w-12 shrink-0 text-xs text-muted-foreground/70">{day()}</span>
+      <span class="w-12 shrink-0 text-xs text-muted-foreground">{day()}</span>
       <Link to="/tenants/$slug/shows/$eventSlug/report" params={{ slug: props.slug, eventSlug: props.show.slug }} class="min-w-0 flex-1 truncate text-sm text-foreground hover:underline">
         {[props.show.city, roomOf(props.show)].filter(Boolean).join(' · ') || props.show.title}
       </Link>

@@ -96,15 +96,15 @@ export function TenantOperationsPage() {
       return { text: `${st.dead_jobs} send${st.dead_jobs === 1 ? '' : 's'} stuck — needs a look`, tone: 'bad' }
     if (st.failed_24h != null && st.failed_24h > 0)
       return { text: `${st.failed_24h} failed in the last day`, tone: 'warn' }
-    if (st.running === false) return { text: 'the machine is off — nothing runs without you', tone: 'warn' }
+    if (st.running === false) return { text: 'Machine is off — nothing runs until you start it', tone: 'warn' }
     const done = st.done_24h
     if (st.running == null)
       // Nobody reported a run state — name what was done, claim nothing more.
       return done != null
         ? { text: `${done} done in 24h`, tone: done > 0 ? 'good' : 'muted' }
-        : { text: 'the machine has not reported in', tone: 'muted' }
+        : { text: 'Machine has not reported in', tone: 'muted' }
     return {
-      text: done != null && done > 0 ? `on its own · ${done} done in 24h` : 'on its own',
+      text: done != null && done > 0 ? `Running on its own · ${done} done in 24h` : 'Running on its own',
       tone: 'good',
     }
   })
@@ -319,7 +319,7 @@ export function TenantOperationsPage() {
           value={metric(waitingTotal())}
           sub={(() => {
             const c = d()?.derived?.work_area_counts
-            return c ? `${c.replies ?? '—'} answers · ${c.approvals ?? '—'} approvals` : undefined
+            return c && c.replies != null && c.approvals != null ? `${c.replies} answers · ${c.approvals} approvals` : undefined
           })()}
         />
         <Tile
@@ -697,7 +697,7 @@ function DoThisNext(props: {
   const totalWaiting = () => props.model()?.attention?.awaiting_approval
 
   return (
-    <Card title="Do this next" icon={<Target />} aside="ranked by what rots first">
+    <Card title="Do this next" icon={<Target />} aside="Most urgent first">
       <For each={moves()}>{move => (
         <ItemRow
           pill={move.pill}
@@ -766,7 +766,7 @@ function NextShowCard(props: {
           title={<Link to="/tenants/$slug/shows/$eventSlug" params={{ slug: props.slug, eventSlug: show().slug }} class="hover:underline">{[props.city ?? show().title, shortDate(show().starts_at)].filter(Boolean).join(' · ')}</Link>}
           icon={<MapPin />}
         >
-          <p class="m-0 text-xs text-muted-foreground/70">{[props.city ? show().title : null, venue()].filter(Boolean).join(' · ')}</p>
+          <p class="m-0 text-xs text-muted-foreground">{[props.city ? show().title : null, venue()].filter(Boolean).join(' · ')}</p>
           <div class="my-3 flex items-center gap-3">
             <DashRing share={props.days == null ? 0 : 1 - Math.min(props.days, 30) / 30} label={props.days == null ? '—' : `${props.days}d`} title={`${props.days ?? '—'} days left`} />
             <div class="min-w-0">
@@ -774,7 +774,7 @@ function NextShowCard(props: {
                 {props.sales.sold == null ? 'No ticket sale' : `${props.sales.sold} ${props.sales.sold === 1 ? 'ticket' : 'tickets'}`}
                 {props.interested != null ? ` · ${props.interested} interested` : ''}
               </p>
-              <p class="m-0 mt-0.5 text-xs text-muted-foreground/70">
+              <p class="m-0 mt-0.5 text-xs text-muted-foreground">
                 {props.sales.capacity != null ? `${props.sales.capacity} capacity · ` : ''}the machine promotes it
               </p>
             </div>

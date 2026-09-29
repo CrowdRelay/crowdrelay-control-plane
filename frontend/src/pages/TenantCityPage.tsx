@@ -213,7 +213,7 @@ export function TenantCityPage() {
                     <div class="min-w-0">
                       <p class="m-0 text-sm text-foreground">{v().proposed ? 'Proposed — approve it in the plan' : 'Passed, not refused'}</p>
                       <Show when={v().reason}>
-                        <p class="m-0 mt-0.5 text-xs text-muted-foreground/70">{v().reason}</p>
+                        <p class="m-0 mt-0.5 text-xs text-muted-foreground">{v().reason}</p>
                       </Show>
                     </div>
                   </div>
@@ -236,7 +236,7 @@ export function TenantCityPage() {
             <Show when={lastShow()} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No night here on record yet.</p>}>
               {last => (
                 <>
-                  <p class="m-0 text-xs text-muted-foreground/70">{last().title}{last().venue ? ` · ${last().venue}` : ''}</p>
+                  <p class="m-0 text-xs text-muted-foreground">{last().title}{last().venue ? ` · ${last().venue}` : ''}</p>
                   <div class="mt-1.5">
                     <StatRow label="Paid tickets" value={last().paid_buyers == null ? <Pill>not measured · no ticket sale</Pill> : <span class="text-foreground">{last().paid_buyers}</span>} />
                     <StatRow label="Ticket link clicks" value={<span class="text-foreground">{last().ticket_clicks}</span>} />
@@ -298,7 +298,7 @@ export function TenantCityPage() {
                           </p>
                         </Show>
                         <Show when={row.assessment === 'insufficient_evidence'}>
-                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/80">
+                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground">
                             {row.assessment_sentence}
                           </p>
                         </Show>
@@ -311,7 +311,7 @@ export function TenantCityPage() {
                             read, so the sentence says so rather than claiming
                             a verdict the read could not support. */}
                         <Show when={row.assessment === 'not_assessed'}>
-                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/60">
+                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground">
                             {row.assessment_sentence}
                           </p>
                         </Show>

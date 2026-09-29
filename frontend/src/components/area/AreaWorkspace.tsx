@@ -193,7 +193,7 @@ export function AreaWorkspace(props: { slug: string }) {
     <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
 
     <Show when={overview.data} fallback={
-      <Show when={overview.isPending} fallback={<ErrorCard>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <Button variant="ghost" size="sm" onClick={()=>overview.refetch()}>Retry</Button></ErrorCard>}>
+      <Show when={overview.isPending} fallback={<ErrorCard recovery={false}>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <Button variant="ghost" size="sm" onClick={()=>overview.refetch()}>Retry</Button></ErrorCard>}>
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>

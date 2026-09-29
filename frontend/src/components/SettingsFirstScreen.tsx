@@ -61,7 +61,7 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
 
   const fact = (label: string, value: string | null, warn?: string) => (
     <Row class="text-xs">
-      <span class="w-24 shrink-0 text-muted-foreground/70">{label}</span>
+      <span class="w-24 shrink-0 text-muted-foreground">{label}</span>
       <span class={cn('min-w-0 flex-1 truncate', value ? 'text-foreground' : 'text-warning-foreground')}>{value ?? warn ?? 'not set'}</span>
     </Row>
   )

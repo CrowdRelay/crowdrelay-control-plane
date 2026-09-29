@@ -41,25 +41,27 @@ export function AppSidebar(props: {
         </Show>
       </SidebarHeader>
       <SidebarContent>
-        <Show when={props.platformLevel}>
-          <SidebarGroup>
-            <SidebarGroupLabel>Platform</SidebarGroupLabel>
-            <SidebarMenu>
-              {platformItems.map(item => <NavLink item={item} />)}
-            </SidebarMenu>
-          </SidebarGroup>
-        </Show>
-        <Show when={props.navSlug}>
-          {slug => (
-            <NavMain
-              groups={props.groups}
-              slug={slug()}
-              isOpen={props.isOpen}
-              onToggle={props.onToggle}
-              badgeFor={props.badgeFor}
-            />
-          )}
-        </Show>
+        <nav aria-label="Main" class="flex flex-col gap-2">
+          <Show when={props.platformLevel}>
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SidebarMenu>
+                {platformItems.map(item => <NavLink item={item} />)}
+              </SidebarMenu>
+            </SidebarGroup>
+          </Show>
+          <Show when={props.navSlug}>
+            {slug => (
+              <NavMain
+                groups={props.groups}
+                slug={slug()}
+                isOpen={props.isOpen}
+                onToggle={props.onToggle}
+                badgeFor={props.badgeFor}
+              />
+            )}
+          </Show>
+        </nav>
       </SidebarContent>
       <SidebarFooter>
         <NavUser name={props.user.name} role={props.user.role} onLogout={props.onLogout} />

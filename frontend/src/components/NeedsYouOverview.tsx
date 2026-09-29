@@ -125,7 +125,7 @@ export function NeedsYouOverview(props: {
                 <Pill tone={batch.count > 1 ? 'accent' : 'muted'}>{batch.count > 1 ? `${batch.count} ${kindWord(batch)}` : kindWord(batch)}</Pill>
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm text-foreground">{batchTitle(batch)}</span>
-                  <span class="block text-xs text-muted-foreground/70">
+                  <span class="block text-xs text-muted-foreground">
                     {[batch.entry?.reason, batch.expiresAt ? `expires ${expiresShort(batch.expiresAt)}` : null].filter(Boolean).join(' · ')}
                   </span>
                 </span>
@@ -142,7 +142,7 @@ export function NeedsYouOverview(props: {
             return (
               <Card title={batchTitle(batch())} aside={batch().count > 1 ? `1 of ${batch().count}` : undefined}>
                 <Show when={entry()?.briefing?.why_it_matters}>
-                  <p class="m-0 text-xs text-muted-foreground/70">{entry()!.briefing!.why_it_matters}</p>
+                  <p class="m-0 text-xs text-muted-foreground">{entry()!.briefing!.why_it_matters}</p>
                 </Show>
                 <Show when={draft()}>
                   {fields => (
@@ -184,7 +184,7 @@ export function NeedsYouOverview(props: {
             <Row>
               <Pill tone={reply.disposition === 'positive' ? 'good' : 'muted'}>{reply.disposition === 'positive' ? 'said yes' : 'answered'}</Pill>
               <span class="min-w-0 flex-1 truncate text-sm text-foreground">{reply.display_name} · {reply.target_kind.replaceAll('_', ' ')}</span>
-              <span class="shrink-0 text-xs text-muted-foreground/70">{formatIsoAge(reply.replied_at)}</span>
+              <span class="shrink-0 text-xs text-muted-foreground">{formatIsoAge(reply.replied_at)}</span>
             </Row>
           )}</For>
           <Show when={replies().length > 3}>

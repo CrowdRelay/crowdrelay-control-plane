@@ -18,6 +18,7 @@ import { buttonVariants } from './app/button'
 import { cn } from '../lib/cn'
 import { EmptyState } from './ui/empty-state'
 import { ErrorCard, Section } from './layout'
+import { confirmAction } from './Dialog'
 
 // The beacon roster, and everything you can do to it.
 //
@@ -498,7 +499,15 @@ export function BeaconConsolePanel(props: { slug: string }) {
                         </Show>
                         <Show when={profile.status !== 'unverified' && profile.status !== 'revoked'}>
                           <Button writes variant="destructive-ghost" size="sm" disabled={busy() !== null}
-                                  onClick={() => setState(profile.beaconId, 'revoked')}>
+                                  onClick={async () => {
+                                    const ok = await confirmAction({
+                                      title: `Revoke ${profile.displayName}?`,
+                                      body: 'They stop receiving releases. You can send a fresh invitation later.',
+                                      confirmLabel: 'Revoke amplifier',
+                                      destructive: true,
+                                    })
+                                    if (ok) setState(profile.beaconId, 'revoked')
+                                  }}>
                             {busy() === `state:${profile.beaconId}` && <Spinner />} Revoke
                           </Button>
                         </Show>

@@ -11,7 +11,7 @@ import { FanbaseIcon } from './ProviderIcon'
 import { SkeletonRows } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Spinner } from './Spinner'
-import { Dialog } from './Dialog'
+import { Dialog, confirmAction } from './Dialog'
 import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { Input } from './ui/input'
@@ -342,6 +342,13 @@ export function FanSourcesPanel(props: {
   }))
 
   const disconnectConnection = async (id: string) => {
+    const ok = await confirmAction({
+      title: 'Disconnect this fan source?',
+      body: 'New fans from it stop arriving. Fans already imported stay in your audience.',
+      confirmLabel: 'Disconnect source',
+      destructive: true,
+    })
+    if (!ok) return
     setErrorText(null)
     setNotice(null)
     try {

@@ -1,5 +1,6 @@
-import { Show, createSignal } from 'solid-js'
-import { PanelTitle } from './layout'
+import { createSignal } from 'solid-js'
+import { Dialog } from './Dialog'
+import { Field } from './ui/field'
 import type { Component } from 'solid-js'
 import { reauthState, submitReauth, cancelReauth } from '../lib/reauth'
 import { Button } from './app/button'
@@ -24,39 +25,38 @@ export const ReauthModal: Component = () => {
     cancelReauth()
   }
 
+  // Built on the shared Dialog: focus moves in and is trapped, Escape and the
+  // close button cancel, and focus returns to whatever triggered the action.
   return (
-    <Show when={reauthState.pending()}>
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={cancel}>
-        <div class="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-label="Confirm your identity" onClick={(e) => e.stopPropagation()}>
-          <PanelTitle>Confirm your identity</PanelTitle>
-          <div class="mt-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">{reauthState.pending()?.description}</p>
-            <p class="mt-1 text-xs text-muted-foreground">Enter your password to authorize this action from your mobile device.</p>
-            <form class="mt-4 flex flex-col gap-3" onSubmit={submit}>
-              <Input
-                type="password"
-                placeholder="Password"
-                autocomplete="current-password"
-                value={password()}
-                onInput={(e) => setPassword(e.currentTarget.value)}
-                required
-                autofocus
-              />
-              <Show when={reauthState.error()}>
-                <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{reauthState.error()}</div>
-              </Show>
-              <div class="flex justify-end gap-2">
-                <Button type="button" variant="ghost" size="sm" onClick={cancel} disabled={reauthState.busy()}>
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" disabled={reauthState.busy() || !password().trim()}>
-                  {reauthState.busy() ? 'Verifying…' : 'Authorize'}
-                </Button>
-              </div>
-            </form>
-          </div>
+    <Dialog
+      open={reauthState.pending() != null}
+      onClose={cancel}
+      label="Confirm your identity"
+      description={reauthState.pending()?.description}
+    >
+      <form class="flex flex-col gap-3" onSubmit={submit}>
+        <p class="m-0 text-xs text-muted-foreground">Enter your password to authorize this action from your mobile device.</p>
+        <Field label="Password" error={reauthState.error() ?? undefined}>
+          <Input
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            value={password()}
+            onInput={(e) => setPassword(e.currentTarget.value)}
+            aria-invalid={reauthState.error() ? true : undefined}
+            required
+            autofocus
+          />
+        </Field>
+        <div class="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={cancel} disabled={reauthState.busy()}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={reauthState.busy()}>
+            {reauthState.busy() ? 'Verifying…' : 'Authorize'}
+          </Button>
         </div>
-      </div>
-    </Show>
+      </form>
+    </Dialog>
   )
 }

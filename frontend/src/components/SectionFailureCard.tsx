@@ -65,12 +65,12 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
   return <Show when={error()}>
     <Show when={isAllSectionsFailed()} fallback={
       <Show when={authState.isPlatformLevel()} fallback={
-        <ErrorCard>
+        <ErrorCard recovery={false}>
           {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
           <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
         </ErrorCard>
       }>
-      <ErrorCard>
+      <ErrorCard recovery={props.onRetry ? false : undefined}>
         {errorHeading(error(), props.fallback)}
         <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
       </ErrorCard>
@@ -79,12 +79,12 @@ export function SectionFailureCard(props: { error: unknown; fallback: string; on
       {/* Band-facing copy does not name channels, sections or verdicts — to the
           act the whole read is one thing that could not be checked. */}
       <Show when={authState.isPlatformLevel()} fallback={
-        <ErrorCard>
+        <ErrorCard recovery={false}>
           {bandHeading()} couldn't be checked right now. The rest of the page keeps working and it comes back on its own.
           <Show when={props.onRetry}><Button variant="ghost" size="sm" class="mt-2.5" onClick={() => props.onRetry!()}>Retry</Button></Show>
         </ErrorCard>
       }>
-      <ErrorCard>
+      <ErrorCard recovery={props.onRetry ? false : undefined}>
         <strong class="block mb-1">{errorHeading(error(), props.fallback)}</strong>
         <Show when={channel()}>
           {ch => <p class="m-0 mb-2 text-sm text-muted-foreground">Channel: <code class="text-destructive">{ch()}</code></p>}

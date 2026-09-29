@@ -10,7 +10,7 @@ import { Toaster, showToast } from '~/components/ui/toast'
  */
 export const toast = {
   success: (text: string) => showToast({ description: text, variant: 'success', duration: 4000 }),
-  error: (text: string) => showToast({ description: text, variant: 'error', duration: 6000 }),
+  error: (text: string) => showToast({ description: text, variant: 'error', persistent: true }),
   info: (text: string) => showToast({ description: text, duration: 4000 }),
 }
 

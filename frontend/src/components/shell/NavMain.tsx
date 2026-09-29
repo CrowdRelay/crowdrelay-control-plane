@@ -20,7 +20,7 @@ import type { NavGroup, NavItem } from '~/lib/nav'
 
 // TanStack's Link marks the current route `data-status="active"`; the stock
 // menu button styles `data-active`. Same look, keyed on the router's answer.
-const ACTIVE = 'data-[status=active]:bg-sidebar-accent data-[status=active]:font-medium data-[status=active]:text-sidebar-accent-foreground'
+const ACTIVE = 'data-[status=active]:bg-sidebar-accent data-[status=active]:font-medium data-[status=active]:text-sidebar-accent-foreground data-[status=active]:[&>svg]:stroke-2'
 
 /**
  * One link. The stock `tooltip` prop wraps the button in a `TooltipTrigger`

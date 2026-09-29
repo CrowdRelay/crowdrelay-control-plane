@@ -1,5 +1,5 @@
 import { type Component, splitProps } from 'solid-js'
-import { Switch as StockSwitch, SwitchControl, SwitchThumb } from '~/components/ui/switch'
+import { Switch as StockSwitch, SwitchControl, SwitchLabel, SwitchThumb } from '~/components/ui/switch'
 import { READ_ONLY_REASON, readOnly } from '~/lib/read-only'
 
 /**
@@ -31,7 +31,11 @@ export const Switch: Component<SwitchProps> = (props) => {
       onChange={() => local.onChange?.()}
       title={blocked() ? READ_ONLY_REASON : local.title}
     >
-      <SwitchControl aria-label={local.label}>
+      {/* Kobalte wires this label to the hidden checkbox, which is what
+          assistive tech focuses — an aria-label on the drawn track names
+          nothing. */}
+      <SwitchLabel class="sr-only">{local.label}</SwitchLabel>
+      <SwitchControl>
         <SwitchThumb />
       </SwitchControl>
     </StockSwitch>
