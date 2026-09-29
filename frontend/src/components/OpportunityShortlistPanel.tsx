@@ -79,7 +79,7 @@ const moneyLine = (entry: OpportunityShortlistEntry) => {
 }
 
 export function OpportunityShortlistPanel() {
-  const params = useParams({ from: '/tenants/$slug/operations' })
+  const params = useParams({ strict: false }) as () => { slug: string }
   const model = useQuery(() => ({
     queryKey: ['opportunity-shortlist', params().slug],
     queryFn: () => api.opportunityShortlist(params().slug),

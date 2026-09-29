@@ -58,7 +58,7 @@ const targetKindLabel = (kind: string) =>
 
 
 export function ReplyTriagePanel() {
-  const params = useParams({ from: '/tenants/$slug/operations' })
+  const params = useParams({ strict: false }) as () => { slug: string }
   // The reply queue rides the tenant's /today snapshot — same query key the
   // page already holds, so this subscriber adds no request of its own.
   const model = useQuery(() => ({

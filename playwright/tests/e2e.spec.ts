@@ -11,7 +11,7 @@
  *
  * @e2e
  */
-import { test, expect, Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { addBug, resetBugs, writeBugReport } from './bug-report'
 import { login, setupErrorCollectors } from './fixtures/auth'
 
@@ -271,14 +271,45 @@ test.describe('Control Plane E2E @e2e', () => {
     // `aria-current` is the marker that survives the SidebarMenuButton `as`
     // composition — TanStack sets `data-status` too, but the wrapper drops it.
     await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-    for (const [label, segment] of [['Workspace', 'workspace'], ['Deployment', 'deployment'], ['Access', 'access']]) {
+    // Row hover only reveals the `>`; the chevron is what opens the flyout.
+    // On mobile the same children list inline inside the nav sheet instead —
+    // there is no flyout, so the open is a tap on the section's expander and
+    // the items are links, not menuitems.
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768
+    const sheet = page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
+    const chevron = page.getByRole('button', { name: 'Settings pages', exact: true })
+    const openFlyout = async () => {
+      if (isMobile) {
+        // Navigation dismisses the sheet, but it lingers through the exit —
+        // settle closed first (closing it ourselves if it never dismissed),
+        // then reopen, or lookups land in a dying tree.
+        await expect(sheet).toHaveCount(0).catch(async () => {
+          // The sheet is modal — its toggle is inert while it is open;
+          // Escape is the close an operator has left.
+          await page.keyboard.press('Escape')
+          await expect(sheet).toHaveCount(0)
+        })
+        await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click()
+        const expand = sheet.getByRole('button', { name: 'Show Settings pages', exact: true })
+        if (await expand.isVisible().catch(() => false)) await expand.click()
+        return sheet
+      }
+      // A pointer leaving an open flyout starts a ~300ms close grace — a
+      // chevron click inside it would toggle the open menu shut, so wait for
+      // the dismissal to land first.
+      await expect(chevron).toHaveAttribute('aria-expanded', 'false')
       await settingsLink.hover()
-      await page.getByRole('menuitem', { name: label, exact: true }).click()
+      await chevron.click()
+      return page
+    }
+    const item = (scope: Page | Locator, label: string) =>
+      scope.getByRole(isMobile ? 'link' : 'menuitem', { name: label, exact: true })
+    for (const [label, segment] of [['Workspace', 'workspace'], ['Deployment', 'deployment'], ['Access', 'access']]) {
+      await item(await openFlyout(), label).click()
       await expect(page).toHaveURL(new RegExp(`/settings/${segment}$`))
       await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-      await settingsLink.hover()
-      await expect(page.getByRole('menuitem', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
-      await page.mouse.move(800, 400)
+      await expect(item(await openFlyout(), label)).toHaveAttribute('aria-current', 'page')
+      if (!isMobile) await page.mouse.move(800, 400)
     }
   })
 

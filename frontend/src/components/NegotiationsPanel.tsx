@@ -53,7 +53,7 @@ const settledTone = (state: string): 'good' | 'bad' | 'muted' =>
   state === 'accepted' ? 'good' : state === 'declined' ? 'bad' : 'muted'
 
 export function NegotiationsPanel() {
-  const params = useParams({ from: '/tenants/$slug/operations' })
+  const params = useParams({ strict: false }) as () => { slug: string }
   const model = useQuery(() => ({
     queryKey: ['negotiations', params().slug],
     queryFn: () => api.negotiations(params().slug),
