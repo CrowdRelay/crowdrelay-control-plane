@@ -766,6 +766,36 @@ fn build_per_tenant_summary(
         "unpublishedDraftChannels": if not_reported("unpublished_drafts") { Value::Null } else {
             att.and_then(|a| a.get("unpublished_drafts")).cloned().unwrap_or(Value::Null)
         },
+        // The post queue's machine half — sends the system is carrying
+        // (in-flight) or gave up on (failed). Same placeholder discipline:
+        // a tenant that does not publish the lane reads null, never 0.
+        "automaticInFlight": if not_reported("automatic_queue") { Value::Null } else {
+            att.and_then(|a| a.get("automatic_queue"))
+                .and_then(Value::as_array)
+                .and_then(|channels| {
+                    channels
+                        .iter()
+                        .map(|c| c.get("in_flight").and_then(Value::as_u64))
+                        .collect::<Option<Vec<u64>>>()
+                })
+                .map(|counts| json!(counts.iter().sum::<u64>()))
+                .unwrap_or(Value::Null)
+        },
+        "automaticFailed": if not_reported("automatic_queue") { Value::Null } else {
+            att.and_then(|a| a.get("automatic_queue"))
+                .and_then(Value::as_array)
+                .and_then(|channels| {
+                    channels
+                        .iter()
+                        .map(|c| c.get("failed").and_then(Value::as_u64))
+                        .collect::<Option<Vec<u64>>>()
+                })
+                .map(|counts| json!(counts.iter().sum::<u64>()))
+                .unwrap_or(Value::Null)
+        },
+        "automaticQueueChannels": if not_reported("automatic_queue") { Value::Null } else {
+            att.and_then(|a| a.get("automatic_queue")).cloned().unwrap_or(Value::Null)
+        },
         // The placeholder names, passed through so the per-tenant row names
         // what it could not measure instead of going quiet.
         "notReported": att.and_then(|a| a.get("not_reported")).cloned().unwrap_or_else(|| json!([])),
@@ -4637,6 +4667,69 @@ mod tests {
         // `ecosystem` is how the command center silently saw Null for months.
         assert_eq!(projected["brain"]["state"], json!("improving"));
         assert_eq!(projected["brain"]["quiet_cycles"], json!(0));
+    }
+
+    #[test]
+    fn command_center_automatic_queue_totals_from_upstream() {
+        let data = TenantCommandData {
+            attention: Some(
+                json!({
+                    "needs_you": [],
+                    "automatic_queue": [
+                        {"channel": "telegram", "in_flight": 2, "failed": 1},
+                        {"channel": "discord", "in_flight": 0, "failed": 3}
+                    ],
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            autopilot: None,
+            learning: None,
+            outcomes: None,
+            audience: None,
+            trends: None,
+            objectives: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["attention"]["automaticInFlight"], json!(2));
+        assert_eq!(projected["attention"]["automaticFailed"], json!(4));
+        assert_eq!(
+            projected["attention"]["automaticQueueChannels"],
+            json!([
+                {"channel": "telegram", "in_flight": 2, "failed": 1},
+                {"channel": "discord", "in_flight": 0, "failed": 3}
+            ])
+        );
+    }
+
+    #[test]
+    fn command_center_automatic_queue_stays_null_when_unreported() {
+        let data = TenantCommandData {
+            attention: Some(
+                json!({
+                    "needs_you": [],
+                    "automatic_queue": [],
+                    "not_reported": ["automatic_queue"],
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            autopilot: None,
+            learning: None,
+            outcomes: None,
+            audience: None,
+            trends: None,
+            objectives: None,
+        };
+        let projected = build_per_tenant_summary(&mock_tenant(), &data);
+        assert_eq!(projected["attention"]["automaticInFlight"], Value::Null);
+        assert_eq!(projected["attention"]["automaticFailed"], Value::Null);
+        assert_eq!(
+            projected["attention"]["automaticQueueChannels"],
+            Value::Null
+        );
     }
 
     #[test]

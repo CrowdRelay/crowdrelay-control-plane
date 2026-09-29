@@ -1192,13 +1192,18 @@ export type TenantAttentionReadModel = {
   needs_you?: PendingActionSummary[]
   /// Count of opportunities awaiting approval. Optional for the same reason.
   awaiting_approval?: number
-  /// Drafted posts waiting for a person to publish them, per channel.
+  /// Drafted posts waiting for a person to publish them, per channel —
+  /// the human half of the post queue.
   ///
   /// The one queue where the system is blocked on the operator rather than the
   /// reverse: every outbound channel drafts and waits. Optional for the same
   /// reason as the fields above — absent means the tenant does not report the
   /// queue, which is not the same as reporting an empty one.
   unpublished_drafts?: UnpublishedDraftChannel[]
+  /// The post queue's machine half — sends in flight or resolved by the
+  /// system, per channel. Optional: an API that predates the field does not
+  /// publish it, and absent does not mean empty.
+  automatic_queue?: AutomaticQueueChannel[]
   /// What the brain makes of its own recent performance, and — when it has
   /// been doing nothing — why. `null` (or absent on an older tenant) means
   /// the tenant does not report a self-assessment; the page prints
@@ -4286,6 +4291,13 @@ export type CommandCenterTenantAttention = {
   unpublishedDrafts: number | null
   /// Per-channel breakdown behind `unpublishedDrafts`, for the card detail.
   unpublishedDraftChannels: { channel: string; drafts: number; oldest_drafted_at: string | null }[] | null
+  /// The machine half of the post queue: sends the system is carrying
+  /// (in_flight) or gave up on (failed), summed across channels. null when
+  /// the tenant does not report the lane — not the same as zero.
+  automaticInFlight: number | null
+  automaticFailed: number | null
+  /// Per-channel breakdown behind the automatic totals.
+  automaticQueueChannels: { channel: string; in_flight: number; failed: number; oldest_queued_at: string | null }[] | null
   /// Sections the tenant does not publish — the attention snapshot's
   /// placeholders, named so the row can say "not reported" instead of a
   /// substituted zero.
@@ -4826,11 +4838,26 @@ export type BrainSelfAssessment = {
   latest_wait_reason?: string | null
 }
 
-/// One channel's backlog of drafted-but-unpublished posts.
+/// One channel's backlog of drafted-but-unpublished posts — the human half
+/// of the post queue. `channel` is the post table's channel name
+/// (`reddit`, `telegram`, `discord`) or the social platform itself
+/// (`instagram`, `facebook`, `x`) so Meta entries are not lumped under a
+/// generic "social" label.
 export type UnpublishedDraftChannel = {
   channel: string
   drafts: number
   oldest_drafted_at: string | null
+}
+
+/// One channel's backlog inside the machine's own lane — the automatic
+/// half of the post queue. `in_flight` rows are being worked (`pending`,
+/// `posting`, `rate_limited` mid-backoff); `failed` resolved in the
+/// machine's lane. Neither needs a person.
+export type AutomaticQueueChannel = {
+  channel: string
+  in_flight: number
+  failed: number
+  oldest_queued_at: string | null
 }
 
 /// One read answering "is the brain working, what mode, what found, what
@@ -4850,8 +4877,14 @@ export type IntelligenceBrief = {
   awaiting_approval: number
   /// Communities the brain wants but cannot reach.
   blocked_communities: BlockedCommunity[]
-  /// Finished work nobody published.
-  unpublished_drafts: UnpublishedDraftChannel[]
+  /// Finished work nobody published — the human half of the post queue.
+  /// Optional for the same reason as automatic_queue: the route passes the
+  /// tenant's object through untouched, so an API that predates the field
+  /// serves nothing — absent is not "none".
+  unpublished_drafts?: UnpublishedDraftChannel[]
+  /// The post queue's machine half — in-flight and failed sends the system
+  /// owns. Optional: an API that predates the field does not publish it.
+  automatic_queue?: AutomaticQueueChannel[]
   /// What the weekly join-ask needs from a person before it can run at all.
   ///
   /// Optional: a CrowdRelay that predates the field does not publish it, and

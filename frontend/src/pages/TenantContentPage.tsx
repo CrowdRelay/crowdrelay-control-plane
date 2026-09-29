@@ -68,6 +68,8 @@ const RESULT_STATUS: Record<string, { label: string; variant: 'success' | 'warni
   awaiting_manual_post: { label: 'Waiting for a manual post', variant: 'warning' },
   failed: { label: 'Failed', variant: 'destructive' },
   pending: { label: 'Queued', variant: 'muted' },
+  posting: { label: 'Posting', variant: 'muted' },
+  rate_limited: { label: 'Rate-limited — retrying', variant: 'warning' },
 }
 
 const statusBadge = (status: string) =>
