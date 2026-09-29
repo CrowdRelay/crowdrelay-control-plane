@@ -78,7 +78,7 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'tiktok', label: 'TikTok', icon: 'tiktok', provides: 'Follower count and video engagement',
-    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/tiktok/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/tiktok/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience/sources`)}`,
   },
   {
     value: 'discord', label: 'Discord', icon: 'discord', provides: 'Server member count and presence',
@@ -140,15 +140,15 @@ const PLATFORMS: PlatformSpec[] = [
   },
   {
     value: 'gdrive', label: 'Google Drive', icon: 'gdrive', provides: 'Contacts from your spreadsheets — deduplicated by email into the Contacts review queue',
-    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gdrive/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gdrive/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience/sources`)}`,
   },
   {
     value: 'gmail', label: 'Gmail', icon: 'gmail', provides: 'Contacts from your mailbox headers — same deduplicated Contacts review queue as Drive',
-    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gmail/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/gmail/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience/sources`)}`,
   },
   {
     value: 'youtube_account', label: 'YouTube (replies)', icon: 'youtube', provides: 'Lets approved answers to comments on your videos be posted from your channel — reading comments needs no grant',
-    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/youtube_account/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience?tab=sources`)}`,
+    authorizeUrl: (slug, apiBase) => `${apiBase}/v1/public/connections/youtube_account/authorize?redirect=${encodeURIComponent(`/tenants/${slug}/audience/sources`)}`,
   },
 ]
 
@@ -645,9 +645,8 @@ export function FanSourcesPanel(props: {
                   <p class="m-0 text-xs leading-relaxed text-muted-foreground">
                     Set this tenant's Public API URL first — under{' '}
                     <Link
-                      to="/tenants/$slug"
+                      to="/tenants/$slug/settings/profile"
                       params={{ slug: props.slug }}
-                      search={{ tab: 'profile' }}
                       class="text-primary underline-offset-2 hover:underline"
                     >
                       Settings → Profile

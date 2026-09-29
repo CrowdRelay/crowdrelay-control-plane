@@ -1,5 +1,5 @@
 import { ComparableActsPanel } from '../components/ComparableActsPanel'
-import { For, Show, createMemo, createSignal, lazy, onCleanup, onMount } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, lazy, onCleanup, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -7,7 +7,7 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { PanelTitle } from '../components/layout'
 import { PageShell } from '../components/layout'
-import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { PlacesFirstScreen, placesStatus } from '../components/PlacesFirstScreen'
 import { SectionIcon } from '../components/SectionIcon'
 import { EmptyState } from '../components/ui/empty-state'
@@ -113,8 +113,24 @@ function DegradedNotices(props: { degraded: readonly string[] }) {
   )
 }
 
-export function TenantPlacesPage() {
-  const params = useParams({ from: '/tenants/$slug/places' })
+export type PlacesSection = 'overview' | 'cities' | 'rooms' | 'online' | 'area'
+
+const SECTION_TITLE: Record<PlacesSection, string> = {
+  overview: 'Places',
+  cities: 'Cities',
+  rooms: 'Rooms',
+  online: 'Online',
+  area: 'AREA',
+}
+
+export const PlacesOverviewPage = () => <TenantPlacesPage section="overview" />
+export const PlacesCitiesPage = () => <TenantPlacesPage section="cities" />
+export const PlacesRoomsPage = () => <TenantPlacesPage section="rooms" />
+export const PlacesOnlinePage = () => <TenantPlacesPage section="online" />
+export const PlacesAreaPage = () => <TenantPlacesPage section="area" />
+
+export function TenantPlacesPage(props: { section: PlacesSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   const queryClient = useQueryClient()
 
 
@@ -124,10 +140,13 @@ export function TenantPlacesPage() {
   // platform-only, and its read waits until the area is opened: the first
   // screen is one call (`places/cities`), not two.
   const areaVisible = () => authState.isPlatformLevel()
-  // The valid list follows the visibility: 'area' is not a tab for band
-  // sessions, so `?tab=area` (the legacy /area redirect) cannot activate a
-  // work area this session can never see.
-  const areas = useWorkAreas(areaVisible() ? ['overview', 'cities', 'rooms', 'online', 'area'] : ['overview', 'cities', 'rooms', 'online'], 'tab', 'overview')
+  const areas = useSubPage(() => props.section, '/tenants/$slug/places')
+  // AREA is not a sub-page for band sessions — a pasted /places/area goes
+  // back to the overview rather than mounting an area it can never read.
+  // Waits for the profile: before it hydrates every session reads as band.
+  createEffect(() => {
+    if (props.section === 'area' && authState.profile() && !areaVisible()) areas.open('overview')
+  })
   const activeTab = () => areas.active()
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
@@ -209,7 +228,7 @@ export function TenantPlacesPage() {
 
   return <PageShell>
     <DashHeader
-      title="Places"
+      title={SECTION_TITLE[props.section]}
       subtitle="Where your fans are, and where to play next"
       pill={placesStatus(cities.data)}
       actions={
@@ -219,23 +238,12 @@ export function TenantPlacesPage() {
       }
     />
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'cities', label: 'Cities', count: cities.data?.city_funnel?.length ?? null },
-        { id: 'rooms', label: 'Rooms', count: cities.data?.rooms_summary?.total ?? null },
-        { id: 'online', label: 'Online', count: cities.data?.online_summary?.total ?? null },
-        ...(areaVisible() ? [{ id: 'area', label: 'AREA' }] : []),
-      ]}
-    />
 
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={cities.data}>{data => <PlacesFirstScreen slug={params().slug} model={data()} onOpenTab={switchTab} />}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="cities" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'cities'}>
       <Show when={cities.error}>
         <SectionFailureCard error={cities.error} title="Couldn't load cities" onRetry={() => void cities.refetch()} />
       </Show>
@@ -266,9 +274,9 @@ export function TenantPlacesPage() {
           <LazyGigPlan slug={params().slug} initialPlan={data.gig_plan} />
         </div>
       </>}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="rooms" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'rooms'}>
       <Show when={rooms.error}>
         <SectionFailureCard error={rooms.error} title="Couldn't load rooms" onRetry={() => void rooms.refetch()} />
       </Show>
@@ -288,9 +296,9 @@ export function TenantPlacesPage() {
       </>}</Show>
       {/* The acts whose past nights make a room provable — operator curation. */}
       <ComparableActsPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="online" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'online'}>
       <Show when={online.error}>
         <SectionFailureCard error={online.error} title="Couldn't load gathering places" onRetry={() => void online.refetch()} />
       </Show>
@@ -307,14 +315,14 @@ export function TenantPlacesPage() {
           degraded={data.degraded.includes('audience_places')}
         />
       </>}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* The AREA workspace mounts only once the tab is visited and only for
         a session allowed to see it — for a band on a tenant without AREA the
         tab is neither listed nor mounted. */}
-    <WorkAreaPanel id="area" active={areaVisible() ? areas.active() : null}>
+    <SubPagePanel when={areaVisible() && areas.active() === 'area'}>
       <AreaWorkspace slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }
 

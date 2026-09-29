@@ -1,6 +1,6 @@
 import { For, Show, Suspense, createEffect, createSignal, untrack, type JSX } from 'solid-js'
 import { onTabListKeyDown } from '../../lib/roving-tabs'
-import { Link, useNavigate, useRouterState } from '@tanstack/solid-router'
+import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
 import { cn } from '../../lib/cn'
 import { httpUrl } from '../../lib/format'
 import { SkeletonTabContent } from '../Skeleton'
@@ -374,6 +374,43 @@ export function WorkAreaPanel(props: { id: string; active: string | null; childr
   return (
     <Show when={props.active === props.id}>
       <div class="mt-4 border-t border-border pt-4" role="tabpanel" id={`tabpanel-${props.id}`} aria-labelledby={`tab-${props.id}`} data-slot="tab-panel">
+        <Suspense fallback={<SkeletonTabContent />}>{props.children}</Suspense>
+      </div>
+    </Show>
+  )
+}
+
+/** A page split into sub-routes — `/base` is the overview, `/base/<id>` each
+ *  area — with `useWorkAreas`' shape, so a page's own cross-links
+ *  (`areas.open('decisions')`) keep working: opening an area navigates to
+ *  its route. The hash rides along so `#…&action=<id>` reveal links survive
+ *  the hop; a stale `?tab=` does not. */
+export function useSubPage(section: () => string, base: string) {
+  const navigate = useNavigate()
+  const params = useParams({ strict: false }) as () => { slug?: string }
+  const open = (id: string | null) => {
+    const target = id ?? 'overview'
+    if (target === section()) return
+    untrack(() => {
+      void navigate({
+        to: target === 'overview' ? base : `${base}/${target}`,
+        params: { slug: params().slug },
+        hash: true,
+        search: (prev: Record<string, unknown>) => { const { tab: _tab, ...rest } = prev; return rest },
+      } as never)
+    })
+  }
+  return { active: section, open, toggle: open }
+}
+
+/** One sub-page's body — a section reached through the sidebar's nested
+ *  items rather than a tab strip, so no tabpanel role and no rule above it.
+ *  Keeps the Suspense boundary: a panel that suspends shows its own
+ *  skeleton instead of bubbling up and blanking the page header. */
+export function SubPagePanel(props: { when: boolean; children: JSX.Element }) {
+  return (
+    <Show when={props.when}>
+      <div data-slot="sub-page">
         <Suspense fallback={<SkeletonTabContent />}>{props.children}</Suspense>
       </div>
     </Show>

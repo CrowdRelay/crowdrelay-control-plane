@@ -14,11 +14,15 @@ export type NavItem = {
   /// stays path-based: one path owns one item, so any `?tab=` on the page
   /// keeps its nav item lit.
   search?: Record<string, string>
-  /// Further `?tab=` values the breadcrumb names this item for — the page's
-  /// other tabs that belong under the same heading.
-  matchTabs?: string[]
+  /// Sub-pages nested under the item in the sidebar — each is a real route,
+  /// `${path}/${segment}`. The parent link is the section's landing page and
+  /// stays lit on every child. Keyed by `segment`, not `path`, on purpose:
+  /// a sub-page is part of its parent's destination, not a new one, so the
+  /// destination-count ratchet does not count it.
+  children?: NavSubItem[]
 }
-export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
+export type NavSubItem = { segment: string; label: string }
+export type NavGroup = { label: string; items: NavItem[] }
 
 // The sidebar is grouped by cadence, not by subsystem. 'Every day' is what
 // moves daily — today's queue, the shows, the runs in flight, the content
@@ -27,8 +31,9 @@ export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 // own: it lives under Places as the AREA tab, next to the places its drops
 // land in; the /area route redirects there. 'The rest' is what remains —
 // Intelligence and Settings. The bare tenant URL redirects to /operations,
-// and the Settings link points at the tenant page's ?tab= URLs — Deployment
-// and Access are named under it in the breadcrumb.
+// and the sections with sub-pages (Intelligence, Settings, and Health, AI
+// Integrations and Automation for the operator) each land on their
+// overview and each area is a sub-page nested under it.
 //
 // Both arrays are written out literally on purpose: the destination-count
 // ratchet and the label-collision gate parse each declaration's literal body
@@ -37,32 +42,69 @@ export type NavGroup = { label: string; items: NavItem[]; defaultOpen: boolean }
 export const BAND_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Every day',
-    defaultOpen: true,
     items: [
-      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
+      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations', children: [
+        { segment: 'replies', label: 'Replies' },
+        { segment: 'outreach', label: 'Outreach' },
+        { segment: 'negotiations', label: 'Negotiations' },
+        { segment: 'press', label: 'Press' },
+        { segment: 'releases', label: 'Releases' },
+        { segment: 'plays', label: 'Play ledger' },
+        { segment: 'growth', label: 'Fan growth' },
+      ] },
+      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows', children: [
+        { segment: 'booking', label: 'Get booked' },
+        { segment: 'merch', label: 'Merch table' },
+      ] },
       // Needs you merged into Today: the strip on the daily page names the
       // parked asks, and the badge lands on this item. The page itself stays
       // reachable by URL — its queue/alerts/findings depth is still there.
-      { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
-      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
+      { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion', children: [
+        { segment: 'relays', label: 'Post relays' },
+      ] },
+      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content', children: [
+        { segment: 'material', label: 'Material' },
+        { segment: 'hooks', label: 'What held attention' },
+        { segment: 'links', label: 'Tracked links' },
+      ] },
     ],
   },
   {
     label: 'Your audience',
-    defaultOpen: true,
     items: [
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
-      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
-      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel', children: [
+        { segment: 'fans', label: 'Fans' },
+        { segment: 'sources', label: 'Sources' },
+        { segment: 'contacts', label: 'Contacts' },
+        { segment: 'communities', label: 'Communities' },
+        { segment: 'portfolio', label: 'Portfolio' },
+      ] },
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places', children: [
+        { segment: 'cities', label: 'Cities' },
+        { segment: 'rooms', label: 'Rooms' },
+        { segment: 'online', label: 'Online' },
+      ] },
+      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof', children: [
+        { segment: 'listing', label: 'Listing and who to approach' },
+        { segment: 'cards', label: 'Signed proof cards' },
+        { segment: 'reports', label: 'Show reports' },
+        { segment: 'story', label: 'The roster story' },
+      ] },
     ],
   },
   {
     label: 'The rest',
-    defaultOpen: false,
     items: [
-      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
+      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence', children: [
+        { segment: 'brief', label: 'Are we getting anywhere' },
+        { segment: 'standing', label: 'Where it stands' },
+        { segment: 'decisions', label: 'What it decided' },
+        { segment: 'learning', label: 'What it learned' },
+      ] },
+      { path: '/tenants/$slug/settings', label: 'Settings', exact: false, icon: 'settings', children: [
+        { segment: 'profile', label: 'Profile' },
+        { segment: 'workspace', label: 'Workspace' },
+      ] },
     ],
   },
 ]
@@ -70,45 +112,100 @@ export const BAND_NAV_GROUPS: NavGroup[] = [
 // The platform sidebar is the same cadence map plus two extras: Needs you in
 // 'Every day' (the operator's dedicated queue the band map folded into
 // Today), and 'Operator', where the machinery (queues, tunnels, provider
-// wiring, automation) sits one level in behind a labelled disclosure. The
-// operator keeps every control — it moved a level in, not out. Pages stay
+// wiring, automation) sits in a group of its own. The operator keeps every
+// control. Pages stay
 // reachable by URL for everyone — a focus split, not a permission boundary.
 export const TENANT_NAV_GROUPS: NavGroup[] = [
   {
     label: 'Every day',
-    defaultOpen: true,
     items: [
-      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations' },
-      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows' },
-      { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention' },
-      { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion' },
-      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content' },
+      { path: '/tenants/$slug/operations', label: 'Today', exact: false, icon: 'operations', children: [
+        { segment: 'replies', label: 'Replies' },
+        { segment: 'outreach', label: 'Outreach' },
+        { segment: 'negotiations', label: 'Negotiations' },
+        { segment: 'press', label: 'Press' },
+        { segment: 'releases', label: 'Releases' },
+        { segment: 'plays', label: 'Play ledger' },
+        { segment: 'growth', label: 'Fan growth' },
+      ] },
+      { path: '/tenants/$slug/shows', label: 'Shows', exact: false, icon: 'shows', children: [
+        { segment: 'booking', label: 'Get booked' },
+        { segment: 'merch', label: 'Merch table' },
+      ] },
+      { path: '/tenants/$slug/attention', label: 'Needs you', exact: false, icon: 'attention', children: [
+        { segment: 'decisions', label: 'Decision history' },
+        { segment: 'inbox', label: 'Inbox' },
+        { segment: 'queues', label: 'Queues' },
+        { segment: 'runtime', label: 'Runtime' },
+        { segment: 'trace', label: 'Trace' },
+      ] },
+      { path: '/tenants/$slug/in-motion', label: 'In motion', exact: false, icon: 'motion', children: [
+        { segment: 'relays', label: 'Post relays' },
+      ] },
+      { path: '/tenants/$slug/content', label: 'Content', exact: false, icon: 'content', children: [
+        { segment: 'material', label: 'Material' },
+        { segment: 'hooks', label: 'What held attention' },
+        { segment: 'links', label: 'Tracked links' },
+      ] },
     ],
   },
   {
     label: 'Your audience',
-    defaultOpen: true,
     items: [
-      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel' },
-      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places' },
-      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof' },
+      { path: '/tenants/$slug/audience', label: 'Audience', exact: false, icon: 'fan-intel', children: [
+        { segment: 'fans', label: 'Fans' },
+        { segment: 'sources', label: 'Sources' },
+        { segment: 'contacts', label: 'Contacts' },
+        { segment: 'communities', label: 'Communities' },
+        { segment: 'portfolio', label: 'Label portfolio' },
+      ] },
+      { path: '/tenants/$slug/places', label: 'Places', exact: false, icon: 'places', children: [
+        { segment: 'cities', label: 'Cities' },
+        { segment: 'rooms', label: 'Rooms' },
+        { segment: 'online', label: 'Online' },
+        { segment: 'area', label: 'AREA' },
+      ] },
+      { path: '/tenants/$slug/proof', label: 'Proof', exact: false, icon: 'proof', children: [
+        { segment: 'listing', label: 'Listing and who to approach' },
+        { segment: 'cards', label: 'Signed proof cards' },
+        { segment: 'reports', label: 'Show reports' },
+        { segment: 'story', label: 'The roster story' },
+      ] },
     ],
   },
   {
     label: 'The rest',
-    defaultOpen: false,
     items: [
-      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence' },
-      { path: '/tenants/$slug', label: 'Settings', exact: true, icon: 'settings', search: { tab: 'profile' }, matchTabs: ['workspace', 'deployment', 'access', 'destinations'] },
+      { path: '/tenants/$slug/intelligence', label: 'Intelligence', exact: false, icon: 'intelligence', children: [
+        { segment: 'brief', label: 'Are we getting anywhere' },
+        { segment: 'standing', label: 'Where it stands' },
+        { segment: 'decisions', label: 'What it decided' },
+        { segment: 'learning', label: 'What it learned' },
+      ] },
+      { path: '/tenants/$slug/settings', label: 'Settings', exact: false, icon: 'settings', children: [
+        { segment: 'profile', label: 'Profile' },
+        { segment: 'workspace', label: 'Workspace' },
+        { segment: 'deployment', label: 'Deployment' },
+        { segment: 'access', label: 'Access' },
+        { segment: 'destinations', label: 'Destinations' },
+      ] },
     ],
   },
   {
     label: 'Operator',
-    defaultOpen: false,
     items: [
-      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders' },
-      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations' },
-      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation' },
+      { path: '/tenants/$slug/health', label: 'Health', exact: false, icon: 'sliders', children: [
+        { segment: 'delivery', label: 'Delivery' },
+        { segment: 'policies', label: 'Policies' },
+        { segment: 'switches', label: 'Switches' },
+      ] },
+      { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations', children: [
+        { segment: 'providers', label: 'Providers, tasks and schedules' },
+      ] },
+      { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation', children: [
+        { segment: 'routing', label: 'Workflow routing' },
+        { segment: 'events', label: 'Events' },
+      ] },
     ],
   },
 ]
@@ -162,17 +259,18 @@ export const currentPageLabel = (pathname: string, slug: string | undefined, pla
     // The band map is matched first — it is the same map the operator sees,
     // so the names are already shared; for a band session on an operator-only
     // page (a deep link into Health, say) the full map names it instead of
-    // falling back to a generic 'Overview'. Search-declaring items (the
-    // Settings link carries ?tab=profile) match only when the location's tab
-    // agrees with what they declare.
+    // falling back to a generic 'Overview'. Search-declaring items match
+    // only when the location's tab agrees with what they declare.
     const matches = (item: NavItem) => {
       const itemSuffix = item.path.replace('/tenants/$slug', '')
       if (!(itemSuffix ? suffix.startsWith(itemSuffix) : suffix === '')) return false
-      if (item.search?.tab != null) return search?.tab === item.search.tab || (search?.tab != null && (item.matchTabs ?? []).includes(search.tab))
+      if (item.search?.tab != null) return search?.tab === item.search.tab
       return true
     }
     const match = tenantNavItems(platformLevel).find(matches)
       ?? (!platformLevel ? ALL_NAV_ITEMS.find(matches) : undefined)
+    // A sub-page names itself — 'Access', not the section's 'Settings'.
+    const child = match?.children?.find(c => suffix.startsWith(`${match.path.replace('/tenants/$slug', '')}/${c.segment}`))
     const page = suffix.endsWith('/scan')
       ? 'The scan'
       : suffix.endsWith('/report')
@@ -181,7 +279,9 @@ export const currentPageLabel = (pathname: string, slug: string | undefined, pla
     // Page labels name the deeper routes first — the band nav's '/shows'
     // item would otherwise shadow 'Show'/'The scan'/'The report' with the
     // generic 'Shows' on every gig URL.
-    return page ?? match?.label ?? 'Overview'
+    // A nav sub-page's own name wins over the generic page labels —
+    // /shows/booking is 'Get booked', not the '/shows/' gig page's 'Show'.
+    return child?.label ?? page ?? match?.label ?? 'Overview'
   }
   return GLOBAL_NAV.find(item => item.exact ? pathname === item.path : pathname.startsWith(item.path))?.label ?? 'Overview'
 }

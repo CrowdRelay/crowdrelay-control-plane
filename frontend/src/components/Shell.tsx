@@ -15,7 +15,7 @@ import { SidebarInset, SidebarProvider, useSidebar } from './ui/sidebar'
 import { AppSidebar } from './shell/AppSidebar'
 import { SiteHeader } from './shell/SiteHeader'
 import { CommandTrigger } from './shell/CommandTrigger'
-import { tenantNavGroups, currentPageLabel, type NavGroup } from '../lib/nav'
+import { tenantNavGroups, currentPageLabel } from '../lib/nav'
 
 // The palette component loads on first invocation; the shortcut lives here so
 // Ctrl/⌘-K works before that chunk exists.
@@ -65,24 +65,6 @@ export const Shell: Component = () => {
   const isPlatformLevel = () => authState.isPlatformLevel()
   const isAdmin = () => authState.isAdmin()
 
-  // Which nav groups are open. Remembered, because an operator who opens
-  // "Set up once" is usually in the middle of setting something up and should
-  // not have to reopen it on every navigation.
-  const NAV_GROUP_KEY = 'nav-open-groups'
-  const [openGroups, setOpenGroups] = createSignal<Record<string, boolean>>((() => {
-    try {
-      const raw = localStorage.getItem(NAV_GROUP_KEY)
-      return raw ? JSON.parse(raw) as Record<string, boolean> : {}
-    } catch { return {} }
-  })())
-  const groupOpen = (group: NavGroup) => openGroups()[group.label] ?? group.defaultOpen
-  const toggleGroup = (group: NavGroup) => {
-    setOpenGroups(prev => {
-      const next = { ...prev, [group.label]: !(prev[group.label] ?? group.defaultOpen) }
-      try { localStorage.setItem(NAV_GROUP_KEY, JSON.stringify(next)) } catch {}
-      return next
-    })
-  }
   // Desktop expanded/collapsed (icon rail), remembered across reloads. The
   // stock provider stores a cookie; this console already kept the choice in
   // localStorage, so the provider is controlled from here instead.
@@ -194,8 +176,6 @@ export const Shell: Component = () => {
         navSlug={navSlug()}
         ownTenantSlug={profile()?.tenantSlug ?? undefined}
         groups={tenantNavGroups(isPlatformLevel())}
-        isOpen={groupOpen}
-        onToggle={toggleGroup}
         onSelectTenant={selectTenant}
         badgeFor={item =>
           // Platform sessions carry the estate-wide count on Needs you.

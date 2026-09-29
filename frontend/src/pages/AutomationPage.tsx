@@ -14,15 +14,13 @@ import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { PageShell, ErrorCard, Section } from '../components/layout'
 import { formatIsoAge } from '../lib/format'
-import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, SubPagePanel } from '../components/ui/dash'
 import { Button } from '../components/app/button'
 import { Badge } from '../components/app/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
 import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
 import { writeGuard } from '../lib/read-only'
-
-const TABS = ['overview', 'routing', 'events'] as const
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' || s === 'retried' ? 'warn' : s === 'resolved' ? 'good' : 'muted'
@@ -37,17 +35,28 @@ const formatTime = (iso: string) => {
   return d.toLocaleDateString()
 }
 
+export type AutomationSection = 'overview' | 'routing' | 'events'
+
+const SECTION_TITLE: Record<AutomationSection, string> = {
+  overview: 'Automation',
+  routing: 'Workflow routing',
+  events: 'Events',
+}
+
+export const AutomationOverviewPage = () => <AutomationPage section="overview" />
+export const AutomationRoutingPage = () => <AutomationPage section="routing" />
+export const AutomationEventsPage = () => <AutomationPage section="events" />
+
 // n8n workflow outcomes for one tenant. Two views of the same system: the
 // events it produced, and the per-workflow rules that decide what an event
 // does. They used to be one page that swapped wholesale behind a ghost button
-// in the header; they are two tabs now, so the current view is always named.
-export function AutomationPage() {
-  const params = useParams({ from: '/tenants/$slug/automation' })
+// in the header; they are two sub-pages now, nested under Automation in the
+// sidebar, so the current view is always named.
+export function AutomationPage(props: { section: AutomationSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
+  const section = () => props.section
   const slug = () => params().slug
   const queryClient = useQueryClient()
-  // The id list makes `?tab=` deep links land on the right tab; `overview`
-  // is the landing tab — the dashboard body is its panel.
-  const areas = useWorkAreas([...TABS], 'tab', 'overview')
   const [statusFilter, setStatusFilter] = createSignal<string>('')
 
   // One read for the first screen: the newest events and every workflow's
@@ -140,7 +149,7 @@ export function AutomationPage() {
     finally { setBusyId(null) }
   }
   // n8n owns the workflows; the mirrored routing rows only appear after a
-  // sync. It lives here — routing is this tab's surface — not on
+  // sync. It lives here — routing is this sub-page's surface — not on
   // Destinations, where it used to sit beside the channels it is not one of.
   const [syncing, setSyncing] = createSignal(false)
   const syncRouting = async () => {
@@ -170,7 +179,7 @@ export function AutomationPage() {
 
   return <PageShell>
     <DashHeader
-      title="Automation"
+      title={SECTION_TITLE[section()]}
       subtitle="The workflows that carry the machine's work out"
       pill={eventsReady()
         ? (errorCount() > 0 ? { tone: 'bad', text: `${errorCount()} errors in the last 100 events` }
@@ -184,17 +193,7 @@ export function AutomationPage() {
       }
     />
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'routing', label: 'Workflow routing' },
-        { id: 'events', label: 'Events', count: newCount() || null },
-      ]}
-    />
-
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={section() === 'overview'}>
       <Tiles>
         <Tile label="Workflows" value={configsReady() ? configMap().size : null} sub={configsReady() ? `${byCategory('real_work')} do real work` : undefined} />
         <Tile label="Muted" value={configsReady() ? mutedCount() : null} sub="send no alerts" />
@@ -212,20 +211,20 @@ export function AutomationPage() {
                 sub={formatIsoAge(event.occurredAt)}
               />
             )}</For>
-            <MoreRow text="Every event, with ack, retry and resolve" link={<Act onClick={() => areas.open('events')}>Open</Act>} />
+            <MoreRow text="Every event, with ack, retry and resolve" link={<Act to="/tenants/$slug/automation/events" params={{ slug: slug() }}>Open</Act>} />
           </Show>
         </Card>
         <Card title="Workflows by kind" icon={<Workflow />}>
           <StatRow label="Real work · routes to Discord" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('real_work') : '—'}</span>} />
           <StatRow label="Status" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('status') : '—'}</span>} />
           <StatRow label="System" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('system') : '—'}</span>} />
-          <div class="mt-3"><Act onClick={() => areas.open('routing')}>Workflow routing</Act></div>
+          <div class="mt-3"><Act to="/tenants/$slug/automation/routing" params={{ slug: slug() }}>Workflow routing</Act></div>
         </Card>
       </Split>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Events ─────────────────────────────────────────────────── */}
-    <WorkAreaPanel id="events" active={areas.active()}>
+    <SubPagePanel when={section() === 'events'}>
       <Section
         flush
         title="Recent events"
@@ -296,10 +295,10 @@ export function AutomationPage() {
           </Show>
         </Show>
       </Section>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Workflow routing ───────────────────────────────────────── */}
-    <WorkAreaPanel id="routing" active={areas.active()}>
+    <SubPagePanel when={section() === 'routing'}>
       <Section
         flush
         title="Workflow routing"
@@ -372,6 +371,6 @@ export function AutomationPage() {
           </Show>
         </Show>
       </Section>
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }

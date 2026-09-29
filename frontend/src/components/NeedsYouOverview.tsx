@@ -190,7 +190,7 @@ export function NeedsYouOverview(props: {
           <Show when={replies().length > 3}>
             <MoreRow
               text={`${replies().length - 3} more`}
-              link={<Link to="/tenants/$slug/operations" params={{ slug: props.slug }} search={{ tab: 'replies' }}>Open replies</Link>}
+              link={<Link to="/tenants/$slug/operations/replies" params={{ slug: props.slug }}>Open replies</Link>}
             />
           </Show>
         </Show>

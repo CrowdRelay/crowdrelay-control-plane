@@ -19,15 +19,13 @@ import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, Note, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { Act, Card, DashHeader, IconAct, ItemRow, Note, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
 import { ListChecks } from 'lucide-solid'
 import { operationalLabel } from '../lib/health-tone'
 import type { TenantDeliveryReadModel, TenantTodayReadModel } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
-const TABS = ['overview', 'delivery', 'policies', 'runtime'] as const
-
-// The section labels the delivery tab's degraded strip prints — a section
+// The section labels the Delivery page's degraded strip prints — a section
 // the tenant could not answer is named, never silently absent.
 const DELIVERY_SECTION_LABEL: Record<string, string> = {
   summary: 'Queue depths',
@@ -37,14 +35,28 @@ const DELIVERY_SECTION_LABEL: Record<string, string> = {
   delivery_results: 'The landed ledger',
 }
 
-// Is the tenant's machine well, and what may the autopilot do. Three tabs:
-// status, the authority policies, and the runtime switches. This is the only
+export type HealthSection = 'overview' | 'delivery' | 'policies' | 'switches'
+
+const SECTION_TITLE: Record<HealthSection, string> = {
+  overview: 'Health',
+  delivery: 'Delivery',
+  policies: 'Policies',
+  switches: 'Switches',
+}
+
+export const HealthOverviewPage = () => <TenantHealthPage section="overview" />
+export const HealthDeliveryPage = () => <TenantHealthPage section="delivery" />
+export const HealthPoliciesPage = () => <TenantHealthPage section="policies" />
+export const HealthSwitchesPage = () => <TenantHealthPage section="switches" />
+
+// Is the tenant's machine well, and what may the autopilot do. The overview
+// lands at /health; delivery, the authority policies and the runtime
+// switches are sub-pages nested under it in the sidebar. This is the only
 // place the autopilot's switches and sliders live; Operations links here.
-export function TenantHealthPage() {
-  const params = useParams({ from: '/tenants/$slug/health' })
-  // The id list makes `?tab=` deep links land on the right tab.
-  const areas = useWorkAreas([...TABS], 'tab', 'overview')
-  const isVisited = (id: string) => areas.active() === id
+export function TenantHealthPage(props: { section: HealthSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
+  const section = () => props.section
+  const isVisited = (id: HealthSection) => section() === id
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),
@@ -61,7 +73,7 @@ export function TenantHealthPage() {
     queryFn: () => fetchTenantOverview(params().slug),
     // Only the Switches area reads it (`canRedeploy`); the first screen is
     // the today model alone.
-    enabled: isVisited('runtime'),
+    enabled: isVisited('switches'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -70,7 +82,7 @@ export function TenantHealthPage() {
     queryKey: ['tenant-delivery', params().slug],
     queryFn: () => api.deliveryModel(params().slug),
     // The delivery model is a 5-call upstream fan-out consumed only inside
-    // the Delivery tab — the default Status tab must not pay for it.
+    // the Delivery page — the overview must not pay for it.
     enabled: isVisited('delivery'),
     reconcile: 'id',
     refetchOnWindowFocus: false,
@@ -81,11 +93,11 @@ export function TenantHealthPage() {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   // The panels this feeds mutate queues and switches the delivery model
-  // also reads — a today-only refetch would leave the sibling tab stale.
+  // also reads — a today-only refetch would leave the sibling page stale.
   // `refetch()` on a disabled query fires anyway — `enabled` only gates
   // automatic fetching. Gate the delivery fan-out on isFetched so a
-  // Status-tab Refresh or a queue mutation does not pay the 5-call
-  // upstream cost for a tab never visited (same idiom as AudiencePage).
+  // overview Refresh or a queue mutation does not pay the 5-call
+  // upstream cost for a page never visited (same idiom as AudiencePage).
   const refresh = () => Promise.all([model.refetch(), ...(delivery.isFetched ? [delivery.refetch()] : [])])
   const refreshAll = () => { void model.refetch(); if (overview.isFetched) void overview.refetch(); if (delivery.isFetched) void delivery.refetch() }
   const refreshing = () => model.isFetching || overview.isFetching || delivery.isFetching
@@ -123,16 +135,16 @@ export function TenantHealthPage() {
   // Where each alert is cleared — the one page or setting that fixes it.
   const fixFor = (key: string): { to: string; search?: Record<string, string> } => {
     if (key.startsWith('approval.')) return { to: '/tenants/$slug/attention' }
-    if (key.startsWith('executor.')) return { to: '/tenants/$slug/intelligence', search: { tab: 'standing' } }
+    if (key.startsWith('executor.')) return { to: '/tenants/$slug/intelligence/standing' }
     if (key.startsWith('publishing.')) return { to: '/tenants/$slug/content' }
-    if (key.startsWith('learning.')) return { to: '/tenants/$slug/intelligence', search: { tab: 'learning' } }
-    return { to: '/tenants/$slug/health', search: { tab: 'overview' } }
+    if (key.startsWith('learning.')) return { to: '/tenants/$slug/intelligence/learning' }
+    return { to: '/tenants/$slug/health' }
   }
   const ago = (seconds: number) => (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`)
 
   return <PageShell>
     <DashHeader
-      title="Health"
+      title={SECTION_TITLE[section()]}
       subtitle="Is anything broken, and what to do"
       pill={pill()}
       actions={
@@ -145,22 +157,11 @@ export function TenantHealthPage() {
     <Show when={model.error}>
       <SectionFailureCard error={model.error} title="Couldn't load operations" onRetry={() => void refresh()} />
     </Show>
-    {/* The tabs render regardless of the today model — every tab's content
+    {/* The sub-pages render regardless of the today model — every page's content
         answers from its own channel except the two panels that take today's
         summary as a prop, and those gate on it alone. A dead today read
         must not hide a working delivery view. */}
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'delivery', label: 'Delivery' },
-        { id: 'policies', label: 'Policies' },
-        { id: 'runtime', label: 'Switches' },
-      ]}
-    />
-
-      <WorkAreaPanel id="overview" active={areas.active()}>
+      <SubPagePanel when={section() === 'overview'}>
         <Show when={!model.error && !model.data}>
           <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
         </Show>
@@ -208,12 +209,12 @@ export function TenantHealthPage() {
         )}</Show>
         <ChiefOfStaffPanel slug={params().slug} />
         <PlatformAgreementPanel slug={params().slug} />
-      </WorkAreaPanel>
+      </SubPagePanel>
 
       {/* ── Delivery — the pipe as a journey: drafted → queued → wire →
             landed, with the dead queues leading because they are the ask.
             One read model feeds every row; retries invalidate it. ── */}
-      <WorkAreaPanel id="delivery" active={areas.active()}>
+      <SubPagePanel when={section() === 'delivery'}>
         <Show when={delivery.error}>
           <SectionFailureCard error={delivery.error} title="Couldn't load delivery status" onRetry={() => void delivery.refetch()} />
         </Show>
@@ -230,17 +231,17 @@ export function TenantHealthPage() {
             onRefresh={() => { void delivery.refetch(); void model.refetch() }}
           />
         </>}</Show>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="policies" active={areas.active()}>
+      <SubPagePanel when={section() === 'policies'}>
         <AuthorityPoliciesPanel slug={params().slug} />
         {/* The policies say how much it may do; the standing grants say where
-            it never has to ask — same question, so same tab. */}
+            it never has to ask — same question, so same page. */}
         <StandingApprovalsPanel slug={params().slug} />
         <BoundsPanel slug={params().slug} />
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="runtime" active={areas.active()}>
+      <SubPagePanel when={section() === 'switches'}>
         <Show when={model.data}>{data => (
           <RuntimeSwitchesPanel
             slug={params().slug}
@@ -249,6 +250,6 @@ export function TenantHealthPage() {
             canRedeploy={overview.data?.platform?.capabilities?.canRedeploy}
           />
         )}</Show>
-      </WorkAreaPanel>
+      </SubPagePanel>
   </PageShell>
 }

@@ -14,13 +14,13 @@ const PAGES = [
   { path: '/', name: 'root', title: /.+/i },
   { path: '/login', name: 'login', title: /.+/i },
   { path: '/tenants', name: 'tenants', title: /.+/i },
-  { path: '/tenants/virya?tab=profile', name: 'tenant-settings', title: /.+/i },
-  { path: '/tenants/virya?tab=workspace', name: 'tenant-workspace', title: /.+/i },
+  { path: '/tenants/virya/settings', name: 'tenant-settings', title: /.+/i },
+  { path: '/tenants/virya/settings/workspace', name: 'tenant-workspace', title: /.+/i },
   { path: '/tenants/virya/operations', name: 'operations', title: /.+/i },
   { path: '/tenants/virya/audience', name: 'audience', title: /.+/i },
   { path: '/tenants/virya/attention', name: 'attention', title: /.+/i },
   { path: '/tenants/virya/integrations', name: 'integrations', title: /.+/i },
-  { path: '/tenants/virya/places?tab=area', name: 'area', title: /.+/i },
+  { path: '/tenants/virya/places/area', name: 'area', title: /.+/i },
   { path: '/tenants/virya/shows', name: 'shows', title: /.+/i },
 ]
 

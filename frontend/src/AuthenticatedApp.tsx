@@ -19,31 +19,90 @@ import { SkeletonPage } from './components/Skeleton'
 const warm = <T,>(queryKey: readonly unknown[], queryFn: () => Promise<T>, staleTime = 10_000) =>
   () => { void queryClient.ensureQueryData({ queryKey, queryFn, staleTime }); return undefined }
 
+// A page split into sub-pages keeps its old `?tab=` links: each maps onto the
+// sub-page that now holds it — '' is the overview, a leading '/' a page of
+// its own the tab moved to. An unknown tab falls through to the overview.
+// The rest of the query and the hash ride along, so `?tab=inbox#…&action=`
+// reveal links and `?tab=contacts&kind=` filters still land.
+const subPageTabs = (base: string, tabs: Record<string, string>) => ({ params, search, location }: { params: { slug: string }; search: unknown; location: { hash: string } }) => {
+  const { tab, ...rest } = search as Record<string, unknown>
+  if (typeof tab !== 'string' || tabs[tab] == null) return
+  const to = tabs[tab]
+  const path = to.startsWith('/') ? `/tenants/${params.slug}${to}` : `/tenants/${params.slug}/${base}${to ? `/${to}` : ''}`
+  const query = new URLSearchParams(Object.entries(rest).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])).toString()
+  throw redirect({ href: `${path}${query ? `?${query}` : ''}${location.hash ? `#${location.hash}` : ''}` })
+}
+
 const FlowPage = lazyRouteComponent(() => import('./pages/FlowPage'), 'FlowPage')
 const OverviewPage = lazyRouteComponent(() => import('./pages/OverviewPage'), 'OverviewPage')
 const TenantsPage = lazyRouteComponent(() => import('./pages/TenantsPage'), 'TenantsPage')
 const TenantWizardPage = lazyRouteComponent(() => import('./pages/TenantWizardPage'), 'TenantWizardPage')
-const TenantPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'TenantPage')
-const TenantAttentionPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'TenantAttentionPage')
-const TenantOperationsPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TenantOperationsPage')
-const TenantHealthPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'TenantHealthPage')
-const TenantIntelligencePage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'TenantIntelligencePage')
-const TenantIntegrationsPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'TenantIntegrationsPage')
+const SettingsOverviewPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsOverviewPage')
+const SettingsProfilePage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsProfilePage')
+const SettingsWorkspacePage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsWorkspacePage')
+const SettingsDeploymentPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsDeploymentPage')
+const SettingsAccessPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsAccessPage')
+const SettingsDestinationsPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsDestinationsPage')
+const AttentionOverviewPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionOverviewPage')
+const AttentionDecisionsPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionDecisionsPage')
+const AttentionInboxPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionInboxPage')
+const AttentionQueuesPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionQueuesPage')
+const AttentionRuntimePage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionRuntimePage')
+const AttentionTracePage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionTracePage')
+const TodayOverviewPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayOverviewPage')
+const TodayRepliesPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayRepliesPage')
+const TodayOutreachPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayOutreachPage')
+const TodayNegotiationsPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayNegotiationsPage')
+const TodayPressPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayPressPage')
+const TodayReleasesPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayReleasesPage')
+const TodayPlaysPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayPlaysPage')
+const TodayGrowthPage = lazyRouteComponent(() => import('./pages/TenantOperationsPage'), 'TodayGrowthPage')
+const HealthOverviewPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'HealthOverviewPage')
+const HealthDeliveryPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'HealthDeliveryPage')
+const HealthPoliciesPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'HealthPoliciesPage')
+const HealthSwitchesPage = lazyRouteComponent(() => import('./pages/TenantHealthPage'), 'HealthSwitchesPage')
+const IntelligenceOverviewPage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'IntelligenceOverviewPage')
+const IntelligenceBriefPage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'IntelligenceBriefPage')
+const IntelligenceStandingPage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'IntelligenceStandingPage')
+const IntelligenceDecisionsPage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'IntelligenceDecisionsPage')
+const IntelligenceLearningPage = lazyRouteComponent(() => import('./pages/TenantIntelligencePage'), 'IntelligenceLearningPage')
+const IntegrationsOverviewPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'IntegrationsOverviewPage')
+const IntegrationsProvidersPage = lazyRouteComponent(() => import('./pages/TenantIntegrationsPage'), 'IntegrationsProvidersPage')
 // PortfolioPage merged into AudiencePage (UX-3.1) — the /portfolio route is
 // a redirect kept for old links; the page file is deleted.
-const AudiencePage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePage')
-const TenantPlacesPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'TenantPlacesPage')
-const TenantProofPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'TenantProofPage')
+const AudienceOverviewPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudienceOverviewPage')
+const AudienceFansPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudienceFansPage')
+const AudienceSourcesPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudienceSourcesPage')
+const AudienceContactsPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudienceContactsPage')
+const AudienceCommunitiesPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudienceCommunitiesPage')
+const AudiencePortfolioPage = lazyRouteComponent(() => import('./pages/AudiencePage'), 'AudiencePortfolioPage')
+const PlacesOverviewPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'PlacesOverviewPage')
+const PlacesCitiesPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'PlacesCitiesPage')
+const PlacesRoomsPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'PlacesRoomsPage')
+const PlacesOnlinePage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'PlacesOnlinePage')
+const PlacesAreaPage = lazyRouteComponent(() => import('./pages/TenantPlacesPage'), 'PlacesAreaPage')
+const ProofOverviewPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'ProofOverviewPage')
+const ProofListingPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'ProofListingPage')
+const ProofCardsPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'ProofCardsPage')
+const ProofReportsPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'ProofReportsPage')
+const ProofStoryPage = lazyRouteComponent(() => import('./pages/TenantProofPage'), 'ProofStoryPage')
 const TenantCapabilitiesPage = lazyRouteComponent(() => import('./pages/TenantCapabilitiesPage'), 'TenantCapabilitiesPage')
-const AutomationPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationPage')
+const AutomationOverviewPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationOverviewPage')
+const AutomationRoutingPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationRoutingPage')
+const AutomationEventsPage = lazyRouteComponent(() => import('./pages/AutomationPage'), 'AutomationEventsPage')
 const TenantCityPage = lazyRouteComponent(() => import('./pages/TenantCityPage'), 'TenantCityPage')
-const TenantShowsPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'TenantShowsPage')
+const ShowsOverviewPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'ShowsOverviewPage')
+const ShowsBookingPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'ShowsBookingPage')
+const ShowsMerchPage = lazyRouteComponent(() => import('./pages/TenantShowsPage'), 'ShowsMerchPage')
 const TenantShowPage = lazyRouteComponent(() => import('./pages/TenantShowPage'), 'TenantShowPage')
 const TenantShowScanPage = lazyRouteComponent(() => import('./pages/TenantShowScanPage'), 'TenantShowScanPage')
 const TenantShowReportPage = lazyRouteComponent(() => import('./pages/TenantShowReportPage'), 'TenantShowReportPage')
-const TenantContentPage = lazyRouteComponent(() => import('./pages/TenantContentPage'), 'TenantContentPage')
+const ContentOverviewPage = lazyRouteComponent(() => import('./pages/TenantContentPage'), 'ContentOverviewPage')
+const ContentHooksPage = lazyRouteComponent(() => import('./pages/TenantContentPage'), 'ContentHooksPage')
+const ContentLinksPage = lazyRouteComponent(() => import('./pages/TenantContentPage'), 'ContentLinksPage')
 const TenantContentMaterialPage = lazyRouteComponent(() => import('./pages/TenantContentMaterialPage'), 'TenantContentMaterialPage')
-const TenantInMotionPage = lazyRouteComponent(() => import('./pages/TenantInMotionPage'), 'TenantInMotionPage')
+const InMotionOverviewPage = lazyRouteComponent(() => import('./pages/TenantInMotionPage'), 'InMotionOverviewPage')
+const InMotionRelaysPage = lazyRouteComponent(() => import('./pages/TenantInMotionPage'), 'InMotionRelaysPage')
 
 const rootRoute = createRootRoute({ component: Shell })
 // The overview is a platform command centre — a tenant operator's console
@@ -72,22 +131,40 @@ const flowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/flow', 
 const tenantsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants', component: TenantsPage, loader: warm(['tenants'], api.tenants, 15_000) })
 const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/new', component: TenantWizardPage })
 // The bare tenant URL is the tenant, not a settings surface — it lands on
-// Today (`/operations`), the daily read. TenantPage is the Settings surface:
-// it renders only its `?tab=` URLs (profile, deployment, access), which is
-// where the sidebar's Settings item and every deep link already point. A
-// legacy `?tab=today` follows the content to its one home.
-const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', component: TenantPage, beforeLoad: ({ params, search }) => {
+// Today (`/operations`), the daily read. Settings is its own section at
+// `/settings`: the overview there, and each settings area a sub-page under
+// it. The tenant page's old `?tab=` URLs follow their content — the retired
+// `about` tab was the Profile, and `?tab=profile` (the old sidebar link) now
+// means the Profile page it was named after. A legacy `?tab=today` follows
+// the content to its one home.
+const SETTINGS_TABS: Record<string, string> = { overview: '', profile: '/profile', about: '/profile', workspace: '/workspace', deployment: '/deployment', access: '/access', destinations: '/destinations' }
+const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', beforeLoad: ({ params, search }) => {
   const tab = (search as { tab?: string }).tab
   if (tab == null || tab === 'today') throw redirect({ href: `/tenants/${params.slug}/operations` })
-}, loader: ({ params }) => warm(['tenant-overview', params.slug], () => fetchTenantOverview(params.slug))() })
+  throw redirect({ href: `/tenants/${params.slug}/settings${SETTINGS_TABS[tab] ?? ''}` })
+} })
+const warmSettings = ({ params }: { params: { slug: string } }) => warm(['tenant-overview', params.slug], () => fetchTenantOverview(params.slug))()
+const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings', component: SettingsOverviewPage, loader: warmSettings })
+const settingsProfileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/profile', component: SettingsProfilePage, loader: warmSettings })
+const settingsWorkspaceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/workspace', component: SettingsWorkspacePage, loader: warmSettings })
+const settingsDeploymentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/deployment', component: SettingsDeploymentPage, loader: warmSettings })
+const settingsAccessRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/access', component: SettingsAccessPage, loader: warmSettings })
+const settingsDestinationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/destinations', component: SettingsDestinationsPage, loader: warmSettings })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=portfolio` }) } })
-const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudiencePage, beforeLoad: ({ params, search }) => {
-  // The places tab became a first-class destination — a deep link to it
-  // follows the content rather than landing on the fans tab.
-  const tab = (search as { tab?: string }).tab
-  if (tab === 'places') throw redirect({ href: `/tenants/${params.slug}/places` })
-}, loader: ({ params }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))() })
-const placesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places', component: TenantPlacesPage, loader: ({ params }) => warm(['tenant-places', params.slug, 'cities'], () => api.placesCities(params.slug))() })
+// The places tab became a first-class destination — `?tab=places` follows it.
+const audienceRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))()
+const audienceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience', component: AudienceOverviewPage, beforeLoad: subPageTabs('audience', { fans: 'fans', sources: 'sources', contacts: 'contacts', communities: 'communities', portfolio: 'portfolio', places: '/places' }), loader: audienceRouteLoader })
+const audienceFansRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience/fans', component: AudienceFansPage, loader: audienceRouteLoader })
+const audienceSourcesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience/sources', component: AudienceSourcesPage, loader: audienceRouteLoader })
+const audienceContactsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience/contacts', component: AudienceContactsPage, loader: audienceRouteLoader })
+const audienceCommunitiesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience/communities', component: AudienceCommunitiesPage, loader: audienceRouteLoader })
+const audiencePortfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/audience/portfolio', component: AudiencePortfolioPage, loader: audienceRouteLoader })
+const placesRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-places', params.slug, 'cities'], () => api.placesCities(params.slug))()
+const placesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places', component: PlacesOverviewPage, beforeLoad: subPageTabs('places', { cities: 'cities', rooms: 'rooms', online: 'online', area: 'area' }), loader: placesRouteLoader })
+const placesCitiesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places/cities', component: PlacesCitiesPage, loader: placesRouteLoader })
+const placesRoomsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places/rooms', component: PlacesRoomsPage, loader: placesRouteLoader })
+const placesOnlineRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places/online', component: PlacesOnlinePage, loader: placesRouteLoader })
+const placesAreaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/places/area', component: PlacesAreaPage, loader: placesRouteLoader })
 // Beacons dissolved into Audience → Contacts: every contact surface — the
 // roster, the signal funnel, the dual-role list — is a `kind` on that tab.
 // The route redirects rather than breaking old links.
@@ -95,31 +172,94 @@ const beaconsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tena
 // AREA folded into Places as its fourth tab — the route redirects rather
 // than breaking old links, the way /portfolio and /beacons did before it.
 const areaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/area', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/places?tab=area` }) } })
-const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: TenantAttentionPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
-const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TenantOperationsPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
+const tenantAttentionRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))()
+const tenantAttentionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention', component: AttentionOverviewPage, beforeLoad: subPageTabs('attention', { decisions: 'decisions', inbox: 'inbox', queues: 'queues', runtime: 'runtime', trace: 'trace' }), loader: tenantAttentionRouteLoader })
+const tenantAttentionDecisionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention/decisions', component: AttentionDecisionsPage, loader: tenantAttentionRouteLoader })
+const tenantAttentionInboxRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention/inbox', component: AttentionInboxPage, loader: tenantAttentionRouteLoader })
+const tenantAttentionQueuesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention/queues', component: AttentionQueuesPage, loader: tenantAttentionRouteLoader })
+const tenantAttentionRuntimeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention/runtime', component: AttentionRuntimePage, loader: tenantAttentionRouteLoader })
+const tenantAttentionTraceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/attention/trace', component: AttentionTracePage, loader: tenantAttentionRouteLoader })
+const tenantOperationsRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))()
+const tenantOperationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations', component: TodayOverviewPage, beforeLoad: subPageTabs('operations', { replies: 'replies', outreach: 'outreach', negotiations: 'negotiations', press: 'press', releases: 'releases', plays: 'plays', growth: 'growth', listing: '/proof' }), loader: tenantOperationsRouteLoader })
+const tenantOperationsRepliesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/replies', component: TodayRepliesPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsOutreachRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/outreach', component: TodayOutreachPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsNegotiationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/negotiations', component: TodayNegotiationsPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsPressRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/press', component: TodayPressPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsReleasesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/releases', component: TodayReleasesPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsPlaysRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/plays', component: TodayPlaysPage, loader: tenantOperationsRouteLoader })
+const tenantOperationsGrowthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/operations/growth', component: TodayGrowthPage, loader: tenantOperationsRouteLoader })
 // In motion: the process view — every run the brain is working, each as its
 // steps. The list warms on intent like its siblings; a run's forum detail is
 // a second query that only fires when the card opens.
-const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: TenantInMotionPage, loader: ({ params }) => warm(['in-motion-model', params.slug], () => api.inMotionModel(params.slug))() })
-const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: TenantHealthPage, loader: ({ params }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))() })
+const tenantInMotionRouteLoader = ({ params }: { params: { slug: string } }) => warm(['in-motion-model', params.slug], () => api.inMotionModel(params.slug))()
+const tenantInMotionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion', component: InMotionOverviewPage, beforeLoad: subPageTabs('in-motion', { relays: 'relays' }), loader: tenantInMotionRouteLoader })
+const tenantInMotionRelaysRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/in-motion/relays', component: InMotionRelaysPage, loader: tenantInMotionRouteLoader })
+// Health, AI integrations and Automation are sections like Intelligence:
+// the overview at the bare path, each area a sub-page under it, and the old
+// `?tab=` links redirected onto the sub-page (Health's `runtime` tab is the
+// Switches page).
+const HEALTH_TABS: Record<string, string> = { delivery: 'delivery', policies: 'policies', runtime: 'switches', switches: 'switches' }
+const INTEGRATIONS_TABS: Record<string, string> = { providers: 'providers' }
+const AUTOMATION_TABS: Record<string, string> = { routing: 'routing', events: 'events' }
+const warmToday = ({ params }: { params: { slug: string } }) => warm(['tenant-today', params.slug], () => api.tenantToday(params.slug))()
+const tenantHealthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health', component: HealthOverviewPage, beforeLoad: ({ params, search }) => {
+  const tab = (search as { tab?: string }).tab
+  if (tab != null && HEALTH_TABS[tab]) throw redirect({ href: `/tenants/${params.slug}/health/${HEALTH_TABS[tab]}` })
+}, loader: warmToday })
+const healthDeliveryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health/delivery', component: HealthDeliveryPage, loader: warmToday })
+const healthPoliciesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health/policies', component: HealthPoliciesPage, loader: warmToday })
+const healthSwitchesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/health/switches', component: HealthSwitchesPage, loader: warmToday })
 // The default tab reads the brief, not the operations model — warm both so
 // intent-hover prefetch reaches the data the first screenful actually shows.
-const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: TenantIntelligencePage, loader: ({ params }) => warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))() })
+// Intelligence is a section: the overview at /intelligence, each part of the
+// loop a sub-page under it. Old `?tab=` links follow their content — the
+// current ids by name, the pre-regroup ids onto the page their evidence
+// moved to.
+const INTELLIGENCE_TABS: Record<string, string> = { brief: 'brief', standing: 'standing', decisions: 'decisions', learning: 'learning', overview: 'standing', growth: 'standing', material: 'standing', funnel: 'decisions', numbers: 'learning' }
+const warmBrain = ({ params }: { params: { slug: string } }) => warm(['tenant-brain', params.slug], () => api.brainModel(params.slug))()
+const tenantIntelligenceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence', component: IntelligenceOverviewPage, beforeLoad: ({ params, search }) => {
+  const tab = (search as { tab?: string }).tab
+  if (tab != null && INTELLIGENCE_TABS[tab]) throw redirect({ href: `/tenants/${params.slug}/intelligence/${INTELLIGENCE_TABS[tab]}` })
+}, loader: warmBrain })
+const intelligenceBriefRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence/brief', component: IntelligenceBriefPage, loader: warmBrain })
+const intelligenceStandingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence/standing', component: IntelligenceStandingPage, loader: warmBrain })
+const intelligenceDecisionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence/decisions', component: IntelligenceDecisionsPage, loader: warmBrain })
+const intelligenceLearningRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/intelligence/learning', component: IntelligenceLearningPage, loader: warmBrain })
 const tenantCapabilitiesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/capabilities', component: TenantCapabilitiesPage })
-const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof', component: TenantProofPage, loader: ({ params }) => warm(['tenant-proof', params.slug], () => api.proofModel(params.slug))() })
-const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: TenantContentPage, loader: ({ params }) => warm(['content-model', params.slug], () => api.contentModel(params.slug))() })
+const tenantProofRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-proof', params.slug], () => api.proofModel(params.slug))()
+const tenantProofRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof', component: ProofOverviewPage, beforeLoad: subPageTabs('proof', { listing: 'listing', cards: 'cards', reports: 'reports', story: 'story' }), loader: tenantProofRouteLoader })
+const tenantProofListingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof/listing', component: ProofListingPage, loader: tenantProofRouteLoader })
+const tenantProofCardsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof/cards', component: ProofCardsPage, loader: tenantProofRouteLoader })
+const tenantProofReportsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof/reports', component: ProofReportsPage, loader: tenantProofRouteLoader })
+const tenantProofStoryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/proof/story', component: ProofStoryPage, loader: tenantProofRouteLoader })
+const tenantContentRouteLoader = ({ params }: { params: { slug: string } }) => warm(['content-model', params.slug], () => api.contentModel(params.slug))()
+const tenantContentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content', component: ContentOverviewPage, beforeLoad: subPageTabs('content', { hooks: 'hooks', links: 'links', material: 'material' }), loader: tenantContentRouteLoader })
+const tenantContentHooksRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/hooks', component: ContentHooksPage, loader: tenantContentRouteLoader })
+const tenantContentLinksRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/links', component: ContentLinksPage, loader: tenantContentRouteLoader })
 const tenantContentMaterialRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/content/material', component: TenantContentMaterialPage, loader: ({ params }) => warm(['content-material-view', params.slug], () => api.contentMaterialView(params.slug))() })
-const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: TenantIntegrationsPage })
-// Notifiers live on the tenant page's Destinations tab — the route redirects
-// rather than keep a second copy of the same panel alive.
-const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}?tab=destinations` }) } })
-const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationPage })
+const tenantIntegrationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations', component: IntegrationsOverviewPage, beforeLoad: ({ params, search }) => {
+  const tab = (search as { tab?: string }).tab
+  if (tab != null && INTEGRATIONS_TABS[tab]) throw redirect({ href: `/tenants/${params.slug}/integrations/${INTEGRATIONS_TABS[tab]}` })
+} })
+const integrationsProvidersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations/providers', component: IntegrationsProvidersPage })
+// Notifiers live on Settings → Destinations — the route redirects rather
+// than keep a second copy of the same panel alive.
+const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/settings/destinations` }) } })
+const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationOverviewPage, beforeLoad: ({ params, search }) => {
+  const tab = (search as { tab?: string }).tab
+  if (tab != null && AUTOMATION_TABS[tab]) throw redirect({ href: `/tenants/${params.slug}/automation/${AUTOMATION_TABS[tab]}` })
+} })
+const automationRoutingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation/routing', component: AutomationRoutingPage })
+const automationEventsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation/events', component: AutomationEventsPage })
 // N.12 — a city opens as its own read. Not a nav destination: the funnel
 // table, the venue registry and the gig plan link here. The loader warms the
 // two datasets that carry the city's identity — the same keys the Places
 // tab's panels already hold, so a click through lands on warm data.
 const tenantCityRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/cities/$cityId', component: TenantCityPage, loader: ({ params }) => warm(['city-view', params.slug, params.cityId], () => api.cityView(params.slug, params.cityId))() })
-const tenantShowsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows', component: TenantShowsPage, loader: ({ params }) => warm(['tenant-shows', params.slug], () => api.shows(params.slug))() })
+const tenantShowsRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-shows', params.slug], () => api.shows(params.slug))()
+const tenantShowsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows', component: ShowsOverviewPage, beforeLoad: subPageTabs('shows', { booking: 'booking', merch: 'merch', nights: '' }), loader: tenantShowsRouteLoader })
+const tenantShowsBookingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/booking', component: ShowsBookingPage, loader: tenantShowsRouteLoader })
+const tenantShowsMerchRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/merch', component: ShowsMerchPage, loader: tenantShowsRouteLoader })
 const tenantShowRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/$eventSlug', component: TenantShowPage, loader: ({ params }) => warm(['tenant-show-page', params.slug, params.eventSlug], () => api.showModel(params.slug, params.eventSlug))() })
 const tenantShowScanRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/$eventSlug/scan', component: TenantShowScanPage, loader: ({ params }) => warm(['tenant-show-scan', params.slug, params.eventSlug], () => api.showScan(params.slug, params.eventSlug))() })
 const tenantShowReportRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/shows/$eventSlug/report', component: TenantShowReportPage, loader: ({ params }) => warm(['tenant-show-report', params.slug, params.eventSlug], () => api.showReport(params.slug, params.eventSlug))() })
@@ -128,10 +268,10 @@ const automationRedirect = createRoute({ getParentRoute: () => rootRoute, path: 
 
 // Legacy redirects — old routes that were consolidated into other pages
 const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/actions', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/attention` }) } })
-const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence?tab=decisions` }) } })
+const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence/decisions` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=communities` }) } })
 
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, tenantActionsRedirect, tenantAttentionRoute, tenantOperationsRoute, tenantInMotionRoute, tenantHealthRoute, tenantIntelligenceRoute, tenantProofRoute, tenantCapabilitiesRoute, tenantContentRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, tenantNotifiersRoute, tenantAutomationRoute, communityRedirect, portfolioRoute, audienceRoute, placesRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, settingsRoute, settingsProfileRoute, settingsWorkspaceRoute, settingsDeploymentRoute, settingsAccessRoute, settingsDestinationsRoute, tenantActionsRedirect, tenantAttentionRoute, tenantAttentionDecisionsRoute, tenantAttentionInboxRoute, tenantAttentionQueuesRoute, tenantAttentionRuntimeRoute, tenantAttentionTraceRoute, tenantOperationsRoute, tenantOperationsRepliesRoute, tenantOperationsOutreachRoute, tenantOperationsNegotiationsRoute, tenantOperationsPressRoute, tenantOperationsReleasesRoute, tenantOperationsPlaysRoute, tenantOperationsGrowthRoute, tenantInMotionRoute, tenantInMotionRelaysRoute, tenantHealthRoute, healthDeliveryRoute, healthPoliciesRoute, healthSwitchesRoute, tenantIntelligenceRoute, intelligenceBriefRoute, intelligenceStandingRoute, intelligenceDecisionsRoute, intelligenceLearningRoute, tenantProofRoute, tenantProofListingRoute, tenantProofCardsRoute, tenantProofReportsRoute, tenantProofStoryRoute, tenantCapabilitiesRoute, tenantContentRoute, tenantContentHooksRoute, tenantContentLinksRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, integrationsProvidersRoute, tenantNotifiersRoute, tenantAutomationRoute, automationRoutingRoute, automationEventsRoute, communityRedirect, portfolioRoute, audienceRoute, audienceFansRoute, audienceSourcesRoute, audienceContactsRoute, audienceCommunitiesRoute, audiencePortfolioRoute, placesRoute, placesCitiesRoute, placesRoomsRoute, placesOnlineRoute, placesAreaRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowsBookingRoute, tenantShowsMerchRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
 // `defaultPendingMs: 0` shows the skeleton on the first frame. The default
 // (500ms) leaves the previous page frozen on screen while a route chunk loads,
 // which reads as a hang rather than as loading — the blank operator screen this

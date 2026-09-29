@@ -730,7 +730,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
               <For each={data().bill_mates}>
                 {row => (
                   <div class="mt-0.5 flex items-baseline justify-between gap-2">
-                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={`${rowLink} mt-0 flex-1`}>
+                    <Link to="/tenants/$slug/audience/contacts" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
                       <span class="text-foreground">{row.act_name}</span>
                       {` · slot ${row.position}`}
                       {row.shared_bills > 1 ? ` · shared ${row.shared_bills} bills` : ''}
@@ -756,7 +756,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
               <Show when={data().venue_channel}>
                 {channel => (
                   <div class="mt-0.5 flex items-baseline justify-between gap-2">
-                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={`${rowLink} mt-0 flex-1`}>
+                    <Link to="/tenants/$slug/audience/contacts" params={{ slug: props.slug }} class={`${rowLink} mt-0 flex-1`}>
                       <span class="text-foreground">{channel().display_name}</span>
                       {channel().venue_id ? ' · on the registry' : ' · not on the registry yet'}
                       {channel().on_roster ? ' · on the roster' : ''}
@@ -837,7 +837,7 @@ function ShowHelpersPanel(props: { slug: string; eventSlug: string; helpers: Ten
               <HelperGroup section="photographers" slug={props.slug} count={data().photographers.length} degraded={sectionDegraded('photographers')} empty={emptyLine('photographers', city())}>
                 <For each={data().photographers}>
                   {row => (
-                    <Link to="/tenants/$slug/audience" params={{ slug: props.slug }} search={{ tab: 'contacts' }} class={rowLink}>
+                    <Link to="/tenants/$slug/audience/contacts" params={{ slug: props.slug }} class={rowLink}>
                       <span class="text-foreground">{row.display_name}</span>
                       {row.verified ? ' · verified' : ''}
                       {row.contacted_before ? ' · contacted before' : ''}

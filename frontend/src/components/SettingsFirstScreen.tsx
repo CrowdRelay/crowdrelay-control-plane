@@ -32,7 +32,7 @@ export function settingsStatus(settings: Record<string, string> | undefined): { 
   return { tone: 'good', text: 'Letters describe you' }
 }
 
-export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary; onOpen: (area: string) => void }) {
+export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary }) {
   const settings = useQuery(() => ({
     queryKey: ['tenant-settings', props.slug],
     queryFn: () => api.tenantSettings(props.slug),
@@ -69,7 +69,7 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
   return (
     <>
       <Split even>
-        <Card title="How letters describe you" icon={<Mail />} aside={<Act onClick={() => props.onOpen('workspace')}>Edit</Act>}>
+        <Card title="How letters describe you" icon={<Mail />} aside={<Act to="/tenants/$slug/settings/workspace" params={{ slug: props.slug }}>Edit</Act>}>
           {fact('Name', props.tenant.displayName)}
           {fact('Sound', style())}
           {fact('From', city(), 'not set · letters guess it from where you played most')}
@@ -92,7 +92,7 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
             )}</For>
             <Note>
               {policies().filter(alone).length} areas act alone · {policies().filter(p => !alone(p) && !suggest(p)).length} ask first · {policies().filter(suggest).length} only suggest.{' '}
-              <Act onClick={() => props.onOpen('about')}>All {policies().length}</Act>
+              <Act to="/tenants/$slug/settings/profile" params={{ slug: props.slug }}>All {policies().length}</Act>
             </Note>
           </Show>
         </Card>

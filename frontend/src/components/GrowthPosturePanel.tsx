@@ -153,7 +153,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
           signpost is operator-only, same as the page it opens. */}
       <Show when={authState.isPlatformLevel()}>
         <p class="mt-2 text-sm text-muted-foreground">
-          <Link to="/tenants/$slug/health" params={{ slug: props.slug }} search={{ tab: 'policies' }} class="text-primary underline-offset-4 hover:underline">
+          <Link to="/tenants/$slug/health/policies" params={{ slug: props.slug }} class="text-primary underline-offset-4 hover:underline">
             Tune each rule
           </Link>
           {' — every policy keeps its own setting under Health.'}

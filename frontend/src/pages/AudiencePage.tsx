@@ -17,7 +17,7 @@ import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { PageShell } from '../components/layout'
-import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { Alert } from '../components/app/alert'
 import { Button } from '../components/app/button'
 import { RefreshCw } from 'lucide-solid'
@@ -84,9 +84,27 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
   </Show>
 }
 
-export function AudiencePage() {
-  const params = useParams({ from: '/tenants/$slug/audience' })
-  const areas = useWorkAreas(['overview', 'fans', 'sources', 'contacts', 'communities', 'portfolio'], 'tab', 'overview')
+export type AudienceSection = 'overview' | 'fans' | 'sources' | 'contacts' | 'communities' | 'portfolio'
+
+const SECTION_TITLE: Record<AudienceSection, string> = {
+  overview: 'Audience',
+  fans: 'Fans',
+  sources: 'Sources',
+  contacts: 'Contacts',
+  communities: 'Communities',
+  portfolio: 'Portfolio',
+}
+
+export const AudienceOverviewPage = () => <AudiencePage section="overview" />
+export const AudienceFansPage = () => <AudiencePage section="fans" />
+export const AudienceSourcesPage = () => <AudiencePage section="sources" />
+export const AudienceContactsPage = () => <AudiencePage section="contacts" />
+export const AudienceCommunitiesPage = () => <AudiencePage section="communities" />
+export const AudiencePortfolioPage = () => <AudiencePage section="portfolio" />
+
+export function AudiencePage(props: { section: AudienceSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
+  const areas = useSubPage(() => props.section, '/tenants/$slug/audience')
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
   const model = useQuery(() => ({
@@ -132,7 +150,7 @@ export function AudiencePage() {
 
   return <PageShell>
     <DashHeader
-      title="Audience"
+      title={props.section === 'portfolio' && authState.isPlatformLevel() ? 'Label portfolio' : SECTION_TITLE[props.section]}
       subtitle="Who follows you, and who you can reach"
       pill={model.data?.signal?.activity
         ? (model.data.signal.activity.new_fans_7d > 0
@@ -146,26 +164,14 @@ export function AudiencePage() {
       }
     />
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'fans', label: 'Fans', count: model.data?.overview?.active_fans ?? null },
-        { id: 'sources', label: 'Sources' },
-        { id: 'contacts', label: 'Contacts' },
-        { id: 'communities', label: 'Communities' },
-        { id: 'portfolio', label: authState.isPlatformLevel() ? 'Label portfolio' : 'Portfolio' },
-      ]}
-    />
 
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={model.data}>{data => <AudienceFirstScreen slug={params().slug} model={data()} />}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ── Fans tab — the funnel (sources → captured → activated →
           retained → converted), then the people and their segments ── */}
-    <WorkAreaPanel id="fans" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'fans'}>
       <Show when={model.error}>
         <SectionFailureCard error={model.error} title="Couldn't load your audience" onRetry={() => void refresh()} />
       </Show>
@@ -200,10 +206,10 @@ export function AudiencePage() {
           <FanMessagesPanel slug={params().slug} />
         </Show>
       </>}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
-    <WorkAreaPanel id="sources" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'sources'}>
       <Show when={portfolio.error}>
         <SectionFailureCard error={portfolio.error} title="Couldn't load fan sources" onRetry={refreshPortfolio} />
       </Show>
@@ -231,25 +237,25 @@ export function AudiencePage() {
       <Show when={authState.isPlatformLevel()}>
         <RedditCookieUploader slug={params().slug} />
       </Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ── Contacts tab — one directory by kind: booking contacts,
           amplifiers (the beacon roster + funnel), fan channels, and the
           staged imports awaiting review. The old Beacons destination
           redirects here. ── */}
-    <WorkAreaPanel id="contacts" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'contacts'}>
       <ContactsPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ── Communities tab — observation layer ── */}
-    <WorkAreaPanel id="communities" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'communities'}>
       <CommunityIntelligenceContent slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ── Label portfolio tab — roster KPIs and consent edges. Settings and
           keys moved to the tenant page: Workspace holds the editors, Access
           holds the secrets. ── */}
-    <WorkAreaPanel id="portfolio" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'portfolio'}>
       <Show when={portfolio.error}>
         <SectionFailureCard error={portfolio.error} title="Couldn't load the portfolio" onRetry={refreshPortfolio} />
       </Show>
@@ -268,6 +274,6 @@ export function AudiencePage() {
           />
         </Show>
       </>}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }
