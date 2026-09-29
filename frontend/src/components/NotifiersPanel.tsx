@@ -1,4 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
+import { FormDrawer } from './app/form-drawer'
+import { Field } from './ui/field'
+import { unavailableError } from '../lib/errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { toast } from '../components/app/toast'
@@ -6,7 +9,7 @@ import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfig
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
 import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { ChevronDown } from 'lucide-solid'
+import { ChevronDown, Send, Plus } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -66,7 +69,7 @@ export function NotifiersPanel(props: { slug: string }) {
 
   const section = <T,>(pick: (o: NotifiersOverview) => { error?: string } | undefined, take: (o: NotifiersOverview) => T | undefined) => ({
     get data() { const o = overview.data; return o && !pick(o)?.error ? take(o) : undefined },
-    get error() { const o = overview.data; return overview.error ?? (o && pick(o)?.error ? new Error(pick(o)!.error) : undefined) },
+    get error() { const o = overview.data; return overview.error ?? (o && pick(o)?.error ? unavailableError(pick(o)!.error) : undefined) },
     get isPending() { return overview.isPending },
   })
   const channels = section(o => o.channels, o => ({ items: o.channels.items ?? [] }))
@@ -101,7 +104,6 @@ export function NotifiersPanel(props: { slug: string }) {
     : kind() === 'webhook'
       ? 'Must be HTTPS and reachable from the internet. Delivery is best-effort with bounded retries, so the endpoint should tolerate a repeat of the same event.'
       : 'One mailbox. Distribution lists work, but each address you want reached separately needs its own channel.'
-  const formReady = () => label().trim().length >= 2 && (kind() === 'email_relay' ? /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(target().trim()) : target().trim().startsWith('https://'))
 
   const create = useMutation(() => ({ mutationFn: () => api.createNotifier(slug(), { kind: kind(), label: label().trim(), url: target().trim(), events: events(), enabled: true }), onSuccess: async ch => { await refresh(); toast.success(`${label().trim()} added.`); setCreatedId(ch.id); setLabel(''); setTarget(''); setEvents([]) } }))
   const update = useMutation(() => ({ mutationFn: (i: { id: string; enabled?: boolean }) => api.updateNotifier(slug(), i.id, { enabled: i.enabled }), onSuccess: refresh }))
@@ -114,7 +116,7 @@ export function NotifiersPanel(props: { slug: string }) {
   return <>
 
     {/* ── Create form ────────────────────────────────────────────── */}
-    <Show when={channels.error}><ErrorCard>{errorMessage(channels.error, 'Channels could not be loaded')}</ErrorCard></Show>
+    <Show when={channels.error}><ErrorCard title="Couldn't load channels" error={channels.error} /></Show>
     <Show when={!channels.error && !channels.data}><SkeletonNotifiersPage /></Show>
 
 
@@ -126,11 +128,28 @@ export function NotifiersPanel(props: { slug: string }) {
         icon={<SectionIcon name="bell" />}
         count={items().length}
         description="The places you added for this tenant's alerts. Send a test after saving; a wrong URL only fails at delivery time."
-        action={<Button writes size="sm" onClick={() => { setAdding(v => !v); setAddStep(0); setCreatedId(null) }}>{adding() ? 'Cancel' : 'Add channel'}</Button>}
+        action={<Button writes variant="outline" size="sm" onClick={() => { create.reset(); setAddStep(0); setCreatedId(null); setAdding(true) }}><Plus aria-hidden="true" /> Add channel</Button>}
       >
-        <Show when={adding()}>
-        <div class="rounded-lg border border-border bg-card p-4">
-          {/* The step rail — three named moves, current one emphasised. */}
+        <FormDrawer
+          open={adding()}
+          onOpenChange={open => { setAdding(open); if (!open) { setAddStep(0); setCreatedId(null) } }}
+          title={createdId() ? 'Channel added' : 'Add channel'}
+          description="Where alerts go when something needs a person."
+          size="lg"
+          submitLabel={createdId() ? 'Done' : addStep() < 2 ? 'Continue' : 'Add channel'}
+          pendingLabel="Saving…"
+          pending={create.isPending}
+          error={create.error}
+          errorTitle="Couldn't add the channel"
+          secondaryAction={createdId()
+            ? <Button type="button" writes variant="outline" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(createdId()!)}>{test.isPending && <Spinner />} Send test</Button>
+            : addStep() > 0 ? <Button type="button" variant="ghost" size="sm" onClick={() => setAddStep(s => s - 1)}>Back</Button> : undefined}
+          onSubmit={() => {
+            if (createdId()) { setAdding(false); setAddStep(0); setCreatedId(null) }
+            else if (addStep() === 2) create.mutate()
+            else setAddStep(s => s + 1)
+          }}
+        >
           <Show when={createdId() === null}>
             <ol class="flex items-center gap-2 mt-1 mb-4 m-0 p-0 list-none text-xs">
               <For each={['Where alerts go', 'Name and point it', 'What reaches it']}>{(label, i) => (
@@ -142,23 +161,16 @@ export function NotifiersPanel(props: { slug: string }) {
               )}</For>
             </ol>
           </Show>
-
-          {/* Done — the test runs on the channel just written. */}
           <Show when={createdId()}>{id => (
-            <div class="py-2">
-              <p class="m-0 text-sm text-foreground">Saved. A wrong URL only fails at delivery time — send a test now and know it landed.</p>
+            <div class="flex flex-col gap-3">
+              <p class="m-0 text-sm text-foreground">Saved. A wrong address only fails at delivery time — send a test now to know it lands.</p>
               <Show when={testResult()[id()]}>
-                <small class={testResult()[id()]?.includes('failed') ? 'block mt-2 text-sm text-destructive' : 'block mt-2 text-sm text-success-foreground'}>{testResult()[id()]}</small>
+                <p role="status" class={testResult()[id()]?.includes('failed') ? 'm-0 text-sm text-destructive' : 'm-0 text-sm text-success-foreground'}>{testResult()[id()]}</p>
               </Show>
-              <div class="flex gap-2 mt-4">
-                <Button writes size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(id())}>{test.isPending && <Spinner />} Send test</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setAddStep(0); setCreatedId(null) }}>Done</Button>
-              </div>
             </div>
           )}</Show>
 
           <Show when={createdId() === null}>
-          <form onSubmit={(e) => { e.preventDefault(); if (addStep() === 2) create.mutate(); else if (addStep() === 0 || formReady()) setAddStep(s => s + 1) }}>
             {/* Step 1 — the kind. The choice drives what the target asks for. */}
             <Show when={addStep() === 0}>
               <div class="grid gap-2">
@@ -177,18 +189,16 @@ export function NotifiersPanel(props: { slug: string }) {
 
             {/* Step 2 — a name the rows show, and the address the kind needs. */}
             <Show when={addStep() === 1}>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label class="grid gap-1.5 text-muted-foreground text-sm">
-                  <span>Label</span>
-                  <Input value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" {...writeGuard()} />
-                  <small class="text-xs text-muted-foreground">Your name for this destination — it is what the rows above and the delivery log show.</small>
-                </label>
-                <label class="grid gap-1.5 text-muted-foreground text-sm">
-                  <span>{targetLabel()}</span>
-                  <Input value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} {...writeGuard()} />
-                  <small class="text-xs text-muted-foreground">{targetHint()}</small>
-                </label>
-              </div>
+              <Field label="Label" hint="Your name for this destination — it is what the channel list and the delivery log show.">
+                <Input required minLength={2} autocomplete="off" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} placeholder="Ops Discord" />
+              </Field>
+              <Field label={targetLabel()} hint={targetHint()}>
+                <Show when={kind() === 'email_relay'} fallback={
+                  <Input required type="url" pattern="https://.+" title="Use an https:// address." autocomplete="off" value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+                }>
+                  <Input required type="email" autocomplete="email" value={target()} onInput={(e) => setTarget(e.currentTarget.value)} placeholder={targetPh()} />
+                </Show>
+              </Field>
             </Show>
 
             {/* Step 3 — which events reach it, then the save. */}
@@ -211,22 +221,8 @@ export function NotifiersPanel(props: { slug: string }) {
               <p class="mt-3 mb-0 text-xs text-muted-foreground">Saving <strong class="text-foreground">{label().trim()}</strong> — {kindLabel(kind())} · {kind() === 'email_relay' ? target().trim() : 'webhook'} · {events().length ? `${events().length} events` : 'all events'}.</p>
             </Show>
 
-            <Show when={create.error}><div class="mt-3"><ErrorCard>{errorMessage(create.error, 'Channel creation failed')}</ErrorCard></div></Show>
-            <div class="flex justify-end gap-2 mt-5">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setAdding(false)}>Cancel</Button>
-              <Show when={addStep() > 0}>
-                <Button variant="ghost" size="sm" type="button" onClick={() => setAddStep(s => s - 1)}>Back</Button>
-              </Show>
-              <Show when={addStep() < 2} fallback={
-                <Button writes type="submit" size="sm" disabled={create.isPending || !formReady()}>{create.isPending && <Spinner />} {create.isPending ? 'Saving…' : 'Save channel'}</Button>
-              }>
-                <Button type="submit" size="sm" disabled={addStep() === 1 && !formReady()}>Continue</Button>
-              </Show>
-            </div>
-          </form>
           </Show>
-        </div>
-        </Show>
+        </FormDrawer>
 
         <Show when={items().length === 0} fallback={
           <div class="grid gap-2.5 mt-4">
@@ -264,13 +260,13 @@ export function NotifiersPanel(props: { slug: string }) {
             )}</For>
           </div>
         }>
-          <EmptyState label="No destinations yet" hint="Add a channel to start receiving operational alerts." />
+          <EmptyState icon={<Send />} label="No destinations yet" hint="Add a channel to start receiving operational alerts." />
         </Show>
       </Section>
     </Show>
 
     {/* ── PLATFORM / CONTROL PLANE ──────────────────────────────── */}
-    <Show when={platformConfig.error}><ErrorCard>{errorMessage(platformConfig.error, 'Platform config could not be loaded')}</ErrorCard></Show>
+    <Show when={platformConfig.error}><ErrorCard title="Couldn't load platform settings" error={platformConfig.error} /></Show>
     <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
       <section class="border-t border-border pt-6">
@@ -319,7 +315,7 @@ export function NotifiersPanel(props: { slug: string }) {
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
     <Show when={discovered.error}>
       <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />}>
-        <p class="text-sm text-muted-foreground">CrowdRelay webhook endpoints unavailable: {errorMessage(discovered.error, 'We couldn\'t read the webhook endpoints. Try refreshing.')}</p>
+        <ErrorCard title="Couldn't load webhook endpoints" error={discovered.error} />
       </Section>
     </Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
@@ -345,13 +341,13 @@ export function NotifiersPanel(props: { slug: string }) {
     {/* ── Recent deliveries — the control plane's own outbox ─────── */}
     <Show when={outbox.error}>
       <Section title="Recent deliveries" icon={<SectionIcon name="mail" />}>
-        <p class="text-sm text-muted-foreground">Notification outbox unavailable: {errorMessage(outbox.error, 'We couldn\'t read the outbox. Try refreshing.')}</p>
+        <ErrorCard title="Couldn't load recent deliveries" error={outbox.error} onRetry={() => void outbox.refetch()} />
       </Section>
     </Show>
     <Show when={!outbox.error && outbox.isPending}><SkeletonSection titleWidth="180px" lines={3} minHeight="120px" /></Show>
     <Show when={outbox.data && outbox.data.items.length === 0}>
       <Section title="Recent deliveries" icon={<SectionIcon name="mail" />} count={0} description="The last 50 notifications this tenant's channels were asked to send.">
-        <EmptyState label="Nothing sent yet" hint="Notifications land here when an event fires for a channel — test deliveries included." />
+        <EmptyState icon={<Send />} label="Nothing sent yet" hint="Notifications land here when an event fires for a channel — test deliveries included." />
       </Section>
     </Show>
     <Show when={outbox.data && outbox.data.items.length > 0}>

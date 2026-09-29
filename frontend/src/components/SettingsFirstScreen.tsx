@@ -80,7 +80,7 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
         </Card>
 
         <Card title="What it may do alone" icon={<Bot />} aside="per area">
-          <Show when={today.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{today.error ? 'The areas could not be read.' : ''}</p>}>
+          <Show when={today.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{today.error ? "Couldn't load these settings." : ''}</p>}>
             <For each={shown()}>{policy => (
               <Row class="text-xs">
                 <span class="min-w-0 flex-1 text-foreground">{AREA_LABEL[policy.context]}</span>

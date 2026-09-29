@@ -1,10 +1,13 @@
 import { For, Show, createSignal } from 'solid-js'
+import { CircleCheck } from 'lucide-solid'
+import { ErrorCard } from './layout'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { capabilityAction } from '../lib/capabilities'
-import { confidencePercent, errorMessage, money } from '../lib/format'
+import { confidencePercent, money } from '../lib/format'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
 import { EmptyState } from './ui/empty-state'
@@ -94,9 +97,7 @@ export function ReplyTriagePanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
-        {model.error instanceof Error ? model.error.message : (authState.isPlatformLevel() ? 'Reply triage is temporarily unavailable.' : 'The replies list is temporarily unavailable.')}
-      </div>
+      <ErrorCard class="mt-4" title="Couldn't load replies" error={model.error} onRetry={() => void model.refetch()} />
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
@@ -161,7 +162,7 @@ export function ReplyTriagePanel() {
         </div>
         <Show
           when={d().needs_human.length > 0}
-          fallback={<EmptyState label="No replies need human review" hint={authState.isPlatformLevel() ? 'The agent handles routine replies automatically. Items that need a human touch appear here.' : 'It handles routine replies on its own. Items that need a person appear here.'} />}
+          fallback={<EmptyState icon={<CircleCheck />} label="No replies need human review" hint={authState.isPlatformLevel() ? 'The agent handles routine replies automatically. Items that need a human touch appear here.' : 'It handles routine replies on its own. Items that need a person appear here.'} />}
         >
           <div class="flex flex-col mt-3">
             <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} actionable />}</For>
@@ -210,7 +211,7 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
       })
       refreshQueries(['tenant-today', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to record the disposition'))
+      setError(failureLine("Couldn't save the reply status", err))
     } finally {
       setBusy(null)
     }

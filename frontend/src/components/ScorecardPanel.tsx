@@ -10,7 +10,7 @@ import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
-import { ErrorCard, KpiCard, KpiStrip, Section } from './layout'
+import { KpiCard, KpiStrip, Section, ErrorCard } from './layout'
 import { Alert } from './app/alert'
 import { CAPABILITY_LABELS, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 
@@ -106,9 +106,7 @@ export function ScorecardPanel(props: { slug: string; data?: AgentScorecard }) {
     action={<StatusBadge status={statusBadgeLabel(statusLabel(data()))} tone={statusTone(data())} />}
   >
     <Show when={!fed() && model.error}>
-      <Alert tone="warning" role="status">
-        {model.error instanceof Error ? model.error.message : (authState.isPlatformLevel() ? 'Agent scorecard is temporarily unavailable.' : 'The scorecard is temporarily unavailable.')}
-      </Alert>
+      <ErrorCard title="Couldn't load the scorecard" error={model.error} onRetry={() => void model.refetch()} />
     </Show>
 
     <Show when={!fed() && !model.error && model.isPending}><SkeletonScorecard /></Show>
@@ -135,10 +133,9 @@ export function ScorecardPanel(props: { slug: string; data?: AgentScorecard }) {
           sub={d().status.live_capabilities.length === 0 ? 'none active' : 'running'}
         />
         <Show when={d().status.parked_capabilities.length > 0}>
-          <ErrorCard class="p-3 flex flex-col gap-1">
-            <strong class="text-destructive text-sm">{authState.isPlatformLevel() ? 'Execution gap' : 'Blocked'}</strong>
-            <span class="text-xs text-secondary-foreground">{d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} queued with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}</span>
-          </ErrorCard>
+          <Alert tone="warning" title={authState.isPlatformLevel() ? 'Execution gap' : 'Blocked'}>
+            {d().status.parked_capabilities.length === 1 ? 'One job is' : `${d().status.parked_capabilities.length} jobs are`} waiting with nothing able to run them: {d().status.parked_capabilities.map(cap => labelOr(CAPABILITY_LABELS, cap)).join(', ')}.
+          </Alert>
         </Show>
       </KpiStrip>
 
@@ -215,10 +212,9 @@ export function ScorecardPanel(props: { slug: string; data?: AgentScorecard }) {
                     && d().track_record.unmeasured > 0}>
           <details class="mt-3">
             <summary class="cursor-pointer text-sm text-warning-foreground font-medium">Low measurement coverage — click for details</summary>
-            <ErrorCard class="mt-2 p-3 flex flex-col gap-1">
-              <strong class="text-destructive">Low measurement coverage</strong>
-              <span class="text-sm text-secondary-foreground">{d().track_record.unmeasured} executed action(s) have no measurement scheduled, so their effect can never be judged. This excludes anything still inside its measurement horizon.</span>
-            </ErrorCard>
+            <Alert tone="warning" class="mt-2" title="Low measurement coverage">
+              {d().track_record.unmeasured === 1 ? 'One finished action has' : `${d().track_record.unmeasured} finished actions have`} no measurement scheduled, so their effect can never be judged. Actions still inside their measurement window aren't counted.
+            </Alert>
           </details>
         </Show>
         <Show when={(d().track_record.awaiting_measurement ?? 0) > 0

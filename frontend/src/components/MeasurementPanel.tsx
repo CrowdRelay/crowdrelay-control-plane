@@ -2,7 +2,7 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { Measure, MeasurementClaim, MeasurementLedger } from '../lib/types'
-import { SectionTitle } from './layout'
+import { SectionTitle, ErrorCard } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './app/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
@@ -112,9 +112,7 @@ export function MeasurementPanel(props: { slug: string; data?: MeasurementLedger
     />
 
     <Show when={!fed() && model.error}>
-      <div class="mt-4 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
-        {model.error instanceof Error ? model.error.message : 'The measurement ledger is temporarily unavailable.'}
-      </div>
+      <ErrorCard class="mt-4" title="Couldn't load the measurement ledger" error={model.error} onRetry={() => void model.refetch()} />
     </Show>
 
     <Show when={!fed() && !model.error && model.isPending}><SkeletonSection lines={8} /></Show>

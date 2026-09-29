@@ -1,41 +1,14 @@
 // Small formatting helpers shared by operator surfaces. Kept dependency-free
 // so both page read models and panels can use them without cycles.
 
-/** Backend error codes → the heading a person reads. One map for both
- *  consumers: `errorMessage` here duck-types `.code` (no ApiError import —
- *  api.ts is a heavier module and used to sit on a cycle) and `errorHeading`
- *  in api.ts delegates to this map for its typed ApiError switch. */
-export const errorCodeMessage = (code: string): string | undefined => {
-  switch (code) {
-    case 'unauthorized': return 'Session expired — please log in again.'
-    case 'forbidden': return "You don't have permission to do that."
-    case 'not_found': return 'That item no longer exists.'
-    case 'conflict': return 'That name or value is already taken.'
-    case 'invalid_input': return 'Check the entered values and try again.'
-    case 'unavailable': return 'That service is temporarily unavailable.'
-    case 'internal_error': return 'Internal error — check server logs for details.'
-    // Typed upstream error variants — preserve the semantic distinction
-    // instead of collapsing to generic "unavailable".
-    case 'all_sections_failed': return 'Every section of this channel failed — see the per-section diagnosis below.'
-    case 'upstream_timeout': return 'The tenant did not respond in time — retry may clear it.'
-    case 'upstream_unreachable': return 'The tenant could not be reached — check the runtime and its tunnel.'
-    case 'upstream_error': return 'The tenant returned an error — check its logs.'
-    case 'contract_mismatch': return 'The tenant answered in an unrecognised shape — treat these numbers as unknown.'
-  }
-  return undefined
-}
+import { describeErrorLine } from './errors'
 
-export const errorMessage = (value: unknown, fallback: string) => {
-  if (value instanceof Error) {
-    const code = (value as { code?: string }).code
-    if (code) {
-      const mapped = errorCodeMessage(code)
-      if (mapped) return mapped
-    }
-    return value.message
-  }
-  return fallback
-}
+/** A failure as one plain-language line: what happened and what to do.
+ *  Never the backend's raw `detail` — that is developer language and lives
+ *  in `ErrorCard`'s Technical details. `fallback` is used only when there is
+ *  no error to describe. See `errors.ts`. */
+export const errorMessage = (value: unknown, fallback: string) =>
+  value ? describeErrorLine(value) : fallback
 
 /** A stored enum token becomes the words a person would say:
  *  `awaiting_approval` → "awaiting approval", `membershipState` →
@@ -291,3 +264,12 @@ export const money = (minor: number, currency: string) =>
     currency,
     maximumFractionDigits: 0,
   })
+
+/** "starts at must be before ends at" → "Starts at must be before ends at." —
+ *  a backend message shown as a sentence. */
+export const sentenceCase = (text: string): string => {
+  const t = text.trim()
+  if (!t) return t
+  const s = t.charAt(0).toUpperCase() + t.slice(1)
+  return /[.!?…]$/.test(s) ? s : `${s}.`
+}

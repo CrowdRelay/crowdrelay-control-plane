@@ -1,4 +1,6 @@
 import { For, createSignal, onMount, type JSX } from 'solid-js'
+import { FormDrawer } from '../components/app/form-drawer'
+import { Skeleton } from '../components/ui/skeleton'
 import { cn } from '~/lib/cn'
 import {
   CommandBlock, DataRow, ErrorCard, Eyebrow, PageHeader, PanelTitle, Section, SectionTitle,
@@ -40,7 +42,15 @@ import { Switch } from '~/components/app/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/app/table'
 import { Textarea } from '~/components/ui/textarea'
 import { ToastContainer, toast } from '~/components/app/toast'
-import { Plus } from 'lucide-solid'
+import { CircleCheck, Plus, SearchX, Users } from 'lucide-solid'
+import { ApiError } from '~/lib/api'
+
+/** Real backend shapes, so the specimens show exactly what readers see. */
+const SAMPLE_ERRORS = {
+  unreachable: new ApiError(502, 'upstream unreachable', 'upstream_unreachable', undefined, '3f1c9a52-7d0e-4b8e-9d7a-2c6e1f0b9a41'),
+  conflict: new ApiError(409, 'conflict: operator username is already taken', 'conflict', undefined, 'b8e2d7c1-1a4f-4f3e-8c2b-5d9e0a7f6c13'),
+  missing: new ApiError(404, 'not found', 'not_found', undefined, 'e0a4c6d2-9b1f-47c3-a8e5-6f2d1b3c9e07'),
+}
 
 /**
  * Style guide — every token and primitive the console has, on one page.
@@ -216,6 +226,7 @@ export default function StyleGuidePage() {
   const [rung, setRung] = createSignal<(typeof RUNGS)[number]['value']>('approval')
   const [range, setRange] = createSignal(40)
   const [dialogOpen, setDialogOpen] = createSignal(false)
+  const [drawerOpen, setDrawerOpen] = createSignal(false)
   const [alertOpen, setAlertOpen] = createSignal(false)
   const [expanded, setExpanded] = createSignal(false)
 
@@ -425,18 +436,38 @@ export default function StyleGuidePage() {
                   <Alert tone="destructive" title="Destructive">Outbox delivery failed for 12 messages.</Alert>
                 </div>
               </Group>
-              <Group title="ErrorCard">
-                <ErrorCard>Learning proof is unavailable.</ErrorCard>
+              <Group title="ErrorCard — title names what failed, the error supplies why and what next">
+                <p class="m-0 mb-3 max-w-prose text-xs text-muted-foreground">
+                  Pass the caught error, never its message. <code>lib/errors.ts</code> turns it into a plain reason and next step,
+                  and keeps the raw status, code, detail and request ID under Technical details. Titles read "Couldn't load …"
+                  or "Couldn't &lt;verb&gt; …". Temporary problems (offline, slow, service down) take the warning tone.
+                </p>
+                <div class="grid gap-3 md:grid-cols-2">
+                  <ErrorCard title="Couldn't load growth trends" error={SAMPLE_ERRORS.unreachable} onRetry={() => new Promise(r => setTimeout(r, 800))} />
+                  <ErrorCard title="Couldn't save the operator" error={SAMPLE_ERRORS.conflict} />
+                  <ErrorCard title="Couldn't load this show" error={SAMPLE_ERRORS.missing} />
+                  <ErrorCard>{"Couldn't import the file. Choose a CSV file first."}</ErrorCard>
+                </div>
               </Group>
-              <Group title="EmptyState">
-                <Card class="rounded-lg">
-                  <EmptyState label="No fans reporting" hint="Connect a source to start aggregating." />
-                </Card>
+              <Group title="EmptyState — one muted, contextual icon; all-clear states use a check">
+                <div class="grid gap-3 md:grid-cols-3">
+                  <Card class="rounded-lg">
+                    <EmptyState icon={<Users />} label="No fans yet" hint="Connect a source to start counting fans.">
+                      <Button variant="outline" size="sm">Connect a source</Button>
+                    </EmptyState>
+                  </Card>
+                  <Card class="rounded-lg">
+                    <EmptyState icon={<CircleCheck />} label="No open alerts" hint="Everything is running as expected." />
+                  </Card>
+                  <Card class="rounded-lg">
+                    <EmptyState icon={<SearchX />} label="Nothing matches “metal”" hint="Try a shorter search or clear the filters." />
+                  </Card>
+                </div>
               </Group>
               <Group title="Toast">
                 <div class="flex flex-wrap gap-3">
                   <Button variant="outline" onClick={() => toast.success('Reconciliation finished')}>toast.success</Button>
-                  <Button variant="outline" onClick={() => toast.error('Deploy failed')}>toast.error</Button>
+                  <Button variant="outline" onClick={() => toast.error("Couldn't start the deploy", SAMPLE_ERRORS.unreachable)}>toast.error</Button>
                   <Button variant="outline" onClick={() => toast.info('Outbox item re-queued')}>toast.info</Button>
                 </div>
               </Group>
@@ -616,8 +647,21 @@ export default function StyleGuidePage() {
           </Section>
 
           {/* ── Overlays ────────────────────────────────────────── */}
-          <Section title="Overlays" description="Stock Dialog, AlertDialog and Popover (Kobalte).">
+          <Section title="Overlays" description="Stock Dialog, AlertDialog and Popover (Kobalte). FormDrawer is how every record is added: a right-hand sheet with a real form, native validation on submit, and focus returned to the opener.">
             <div id="overlays" class="flex flex-wrap gap-3">
+              <Button onClick={() => setDrawerOpen(true)}><Plus aria-hidden="true" /> Add show (FormDrawer)</Button>
+              <FormDrawer
+                open={drawerOpen()}
+                onOpenChange={setDrawerOpen}
+                title="Add show"
+                description="Specimen only — nothing is saved."
+                submitLabel="Add show"
+                onSubmit={() => { setDrawerOpen(false); toast.success('Specimen submitted') }}
+              >
+                <Field label="Title" hint="As it appears on the poster."><Input required placeholder="Live in Warszawa" autocomplete="off" /></Field>
+                <Field label="Starts"><Input required type="datetime-local" /></Field>
+                <Field label="Ticket URL" note="optional"><Input type="url" placeholder="https://tickets.example/yourband" /></Field>
+              </FormDrawer>
               <Button variant="outline" onClick={() => setDialogOpen(true)}>Open Dialog</Button>
               <Dialog open={dialogOpen()} onOpenChange={setDialogOpen}>
                 <DialogContent>
@@ -750,8 +794,15 @@ export default function StyleGuidePage() {
                   <Spinner /> <Spinner size={16} /> <Spinner size={24} /> Loading…
                 </div>
               </Group>
-              <Group title="Skeletons">
-                <div class="grid gap-4 md:grid-cols-2">
+              <Group title="Skeletons — shadcn Skeleton (ui/skeleton.tsx): animate-pulse rounded-md bg-muted">
+                <div class="grid gap-4 md:grid-cols-3">
+                  <div class="flex items-center gap-4">
+                    <Skeleton class="size-12 rounded-full" />
+                    <div class="flex flex-col gap-2">
+                      <Skeleton class="h-4 w-[250px] max-w-full" />
+                      <Skeleton class="h-4 w-[200px] max-w-full" />
+                    </div>
+                  </div>
                   <SkeletonBlock height="96px" />
                   <SkeletonRows count={2} />
                 </div>

@@ -161,7 +161,7 @@ export function TenantIntelligencePage() {
     />
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
+      <SectionFailureCard error={model.error} title="Couldn't load intelligence" onRetry={() => void model.refetch()} />
     </Show>
 
     {/* Degraded sections sit above the tabs — they describe the whole

@@ -1,8 +1,9 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatIsoAge, formatIsoUntil } from '../lib/format'
+import { formatIsoAge, formatIsoUntil } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog } from './Dialog'
@@ -17,7 +18,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { ErrorCard } from './layout'
 import type { AutopilotPolicy, PendingAutopilotAction, AgentWorkflow, AgentWorkflowTask } from '../lib/types'
 import { CAPABILITY_LABELS, DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
-import { Brain } from 'lucide-solid'
+import { Brain, CircleCheck, CloudOff, Sparkles } from 'lucide-solid'
 
 // --- Intelligence icon (deterministic Rust autopilot) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -104,7 +105,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       await api.setAutopilotPolicy(props.slug, policy, input)
       refreshQueries(['autopilot-overview', props.slug], ['tenant-brain', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to update policy'))
+      setError(failureLine("Couldn't update the policy", err))
     } finally {
       setPendingMutation(false)
     }
@@ -118,7 +119,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       setConfirming(null)
       refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug], ['tenant-brain', props.slug], ['tenant-delivery', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to approve action'))
+      setError(failureLine("Couldn't approve the action", err))
     } finally {
       setPendingMutation(false)
     }
@@ -132,7 +133,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       setConfirming(null)
       refreshQueries(['autopilot-overview', props.slug], ['growth-intelligence-workflows', props.slug], ['tenant-brain', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to reject action'))
+      setError(failureLine("Couldn't reject the action", err))
     } finally {
       setPendingMutation(false)
     }
@@ -144,7 +145,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       setViewingWorkflow(data.workflow)
       setWorkflowTasks(data.tasks)
     } catch (err) {
-      setError(errorMessage(err, 'We couldn\'t load the workflow detail. Try refreshing.'))
+      setError(failureLine("Couldn't load the workflow details", err))
     }
   }
 
@@ -166,13 +167,13 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? "Actions the intelligence has queued for your approval. Community posts, press pitches, and other growth actions appear here with rich detail before they're executed." : 'Actions it has lined up for your approval. Community posts, press pitches, and other growth work appear here with the full text before anything is sent.'}</p>
-        <Show when={overview.error}><ErrorCard>Growth intelligence overview unavailable: {errorMessage(overview.error, 'We couldn\'t reach the growth intelligence overview. Try refreshing.')}</ErrorCard></Show>
+        <Show when={overview.error}><ErrorCard title="Couldn't load the growth intelligence overview" error={overview.error} onRetry={() => void overview.refetch()} /></Show>
         <Show when={pendingGrowthActions().length > 0} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
-              <EmptyState label="Intelligence unavailable" hint={authState.isPlatformLevel() ? 'The autopilot overview could not be loaded. This may be a temporary issue.' : 'The overview could not be loaded. This may be a temporary issue.'} />
+              <EmptyState icon={<CloudOff />} label="Couldn't load the overview" hint="This is usually temporary. Try again in a few minutes." />
             }>
-              <EmptyState label="No actions awaiting approval" hint={authState.isPlatformLevel() ? 'When the intelligence proposes actions that require human approval, they appear here.' : 'When it proposes actions that need your approval, they appear here.'} />
+              <EmptyState icon={<CircleCheck />} label="No actions awaiting approval" hint={authState.isPlatformLevel() ? 'When the intelligence proposes actions that require human approval, they appear here.' : 'When it proposes actions that need your approval, they appear here.'} />
             </Show>
           }>
             <SkeletonRows count={2} />
@@ -264,9 +265,9 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
         <Show when={growthPolicy()} fallback={
           <Show when={overview.isFetching} fallback={
             <Show when={overview.data} fallback={
-              <EmptyState label="Policy unavailable" hint={authState.isPlatformLevel() ? 'The autopilot overview could not be loaded. This may be a temporary issue.' : 'The overview could not be loaded. This may be a temporary issue.'} />
+              <EmptyState icon={<CloudOff />} label="Couldn't load the policy" hint="This is usually temporary. Try again in a few minutes." />
             }>
-              <EmptyState label="No growth intelligence policy" hint={authState.isPlatformLevel() ? 'The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant.' : 'No growth policy is set for your act yet.'} />
+              <EmptyState icon={<Brain />} label="No growth intelligence policy" hint={authState.isPlatformLevel() ? 'The growth intelligence policy was not found in the autopilot overview. Ensure the autopilot is configured for this tenant.' : 'No growth policy is set for your act yet.'} />
             </Show>
           }>
             <SkeletonPanel lines={4} />
@@ -294,11 +295,11 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           </Show>
         </div>
         <p class="mt-1 text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Each of these is a growth plan the autopilot decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.' : 'Each of these is a growth plan it decided on: what to research, draft or analyse. It then hands the work to an AI worker and records what came back.'}</p>
-        <Show when={workflows.error}><ErrorCard>Growth workflows unavailable: {errorMessage(workflows.error, 'We couldn\'t reach the growth workflows. Try refreshing.')}</ErrorCard></Show>
+        <Show when={workflows.error}><ErrorCard title="Couldn't load growth workflows" error={workflows.error} onRetry={() => void workflows.refetch()} /></Show>
         <Show when={workflows.data && workflows.data!.length > 0} fallback={
           <Show when={workflows.data} fallback={<SkeletonGrid count={3} minCardHeight='100px' />}>
             <Show when={(workerRuns.data ?? []).length > 0} fallback={
-            <EmptyState label="No AI work yet" hint={authState.isPlatformLevel() ? 'When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.' : 'When it decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.'} />
+            <EmptyState icon={<Sparkles />} label="No AI work yet" hint={authState.isPlatformLevel() ? 'When the autopilot decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.' : 'When it decides something needs researching, drafting or analysing, it hands the job to an AI worker and the run appears here.'} />
             }>
               <Table class="mt-3">
                 <TableHeader>

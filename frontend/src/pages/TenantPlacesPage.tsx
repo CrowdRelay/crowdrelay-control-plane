@@ -19,7 +19,7 @@ import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPanel } from '../components/GigPlanPanel'
-import { RefreshCw } from 'lucide-solid'
+import { MapPin, RefreshCw } from 'lucide-solid'
 import { humanizeToken, httpUrl, relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
 import { cn } from '../lib/cn'
@@ -237,7 +237,7 @@ export function TenantPlacesPage() {
 
     <WorkAreaPanel id="cities" active={areas.active()}>
       <Show when={cities.error}>
-        <SectionFailureCard error={cities.error} fallback="Cities unavailable" onRetry={() => void cities.refetch()} />
+        <SectionFailureCard error={cities.error} title="Couldn't load cities" onRetry={() => void cities.refetch()} />
       </Show>
       <Show when={!cities.error && !cities.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
@@ -270,7 +270,7 @@ export function TenantPlacesPage() {
 
     <WorkAreaPanel id="rooms" active={areas.active()}>
       <Show when={rooms.error}>
-        <SectionFailureCard error={rooms.error} fallback="Rooms unavailable" onRetry={() => void rooms.refetch()} />
+        <SectionFailureCard error={rooms.error} title="Couldn't load rooms" onRetry={() => void rooms.refetch()} />
       </Show>
       <Show when={!rooms.error && !rooms.data}>
         <SkeletonSection titleWidth="160px" lines={5} minHeight="200px" />
@@ -292,7 +292,7 @@ export function TenantPlacesPage() {
 
     <WorkAreaPanel id="online" active={areas.active()}>
       <Show when={online.error}>
-        <SectionFailureCard error={online.error} fallback="Gathering places unavailable" onRetry={() => void online.refetch()} />
+        <SectionFailureCard error={online.error} title="Couldn't load gathering places" onRetry={() => void online.refetch()} />
       </Show>
       <Show when={!online.error && !online.data}>
         <SkeletonSection titleWidth="140px" lines={4} minHeight="160px" />
@@ -443,7 +443,7 @@ function CitiesCard(props: {
           <Show
             when={list().length > 0}
             fallback={
-              <EmptyState
+              <EmptyState icon={<MapPin />}
                 label="No cities yet"
                 hint="A city appears once a fan there says where they are. Nothing here means nobody has told us where they live, not that nobody is out there."
               />
@@ -536,7 +536,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
           <Show
             when={rows().length > 0}
             fallback={
-              <EmptyState
+              <EmptyState icon={<MapPin />}
                 label="No rooms on record"
                 hint="A room appears here when a published or completed show names it. Logging past shows fills this in — the registry builds itself from the calendar."
               />
@@ -648,7 +648,7 @@ function GatheringsCard(props: { places: AudiencePlace[] | null; degraded: boole
           <Show
             when={places().length > 0}
             fallback={
-              <EmptyState
+              <EmptyState icon={<MapPin />}
                 label="No gathering places yet"
                 hint="Communities get registered under Audience → Communities, or by importing a list. Nothing here means none are on record, not that none exist."
               />

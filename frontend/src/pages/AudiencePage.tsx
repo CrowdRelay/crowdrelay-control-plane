@@ -167,7 +167,7 @@ export function AudiencePage() {
           retained → converted), then the people and their segments ── */}
     <WorkAreaPanel id="fans" active={areas.active()}>
       <Show when={model.error}>
-        <SectionFailureCard error={model.error} fallback="Audience channel unavailable" onRetry={() => void refresh()} />
+        <SectionFailureCard error={model.error} title="Couldn't load your audience" onRetry={() => void refresh()} />
       </Show>
       {/* Per-panel skeletons — page head and tab bar are static and already
           rendered above. Only the panel area is skeletoned. Shows whenever
@@ -205,7 +205,7 @@ export function AudiencePage() {
     {/* ── Sources tab — where the fans come from (merged from Portfolio) ── */}
     <WorkAreaPanel id="sources" active={areas.active()}>
       <Show when={portfolio.error}>
-        <SectionFailureCard error={portfolio.error} fallback="Fan sources unavailable" onRetry={refreshPortfolio} />
+        <SectionFailureCard error={portfolio.error} title="Couldn't load fan sources" onRetry={refreshPortfolio} />
       </Show>
       <Show when={!portfolio.error && !portfolio.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="140px" />
@@ -251,7 +251,7 @@ export function AudiencePage() {
           holds the secrets. ── */}
     <WorkAreaPanel id="portfolio" active={areas.active()}>
       <Show when={portfolio.error}>
-        <SectionFailureCard error={portfolio.error} fallback="Portfolio channel unavailable" onRetry={refreshPortfolio} />
+        <SectionFailureCard error={portfolio.error} title="Couldn't load the portfolio" onRetry={refreshPortfolio} />
       </Show>
       <Show when={!portfolio.error && !portfolio.data}>
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />

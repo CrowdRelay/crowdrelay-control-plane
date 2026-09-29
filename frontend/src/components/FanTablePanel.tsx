@@ -1,4 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
+import { FormDrawer } from './app/form-drawer'
+import { SkeletonRows } from './Skeleton'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { humanizeToken } from '../lib/format'
@@ -13,14 +16,12 @@ import { FileInput } from './ui/file-input'
 import { Input } from './ui/input'
 import { Field } from './ui/field'
 import { NativeSelect } from './ui/native-select'
-import { Dialog } from './Dialog'
-import { Spinner } from './Spinner'
 import { toast } from './app/toast'
 import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { Download, Upload } from 'lucide-solid'
+import { Download, SearchX, Upload, Users } from 'lucide-solid'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -99,7 +100,7 @@ export function FanTablePanel(props: {
       }
     } catch (err) {
       setParsed(null)
-      setImportError(err instanceof Error ? err.message : 'Could not read that file')
+      setImportError(failureLine("Couldn't read that file", err))
     }
   }
 
@@ -117,7 +118,7 @@ export function FanTablePanel(props: {
       closeImport()
       props.onImported?.()
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : (authState.isPlatformLevel() ? 'Ingestion failed' : 'Import failed'))
+      setImportError(failureLine("Couldn't import the file", err))
     } finally {
       setSending(false)
     }
@@ -155,7 +156,7 @@ export function FanTablePanel(props: {
       setSelectedFan(detail)
       setJourney(journeyData)
     } catch (err) {
-      setDetailError(err instanceof Error ? err.message : 'Failed to load fan detail')
+      setDetailError(failureLine("Couldn't load the fan's details", err))
     } finally {
       setLoadingDetail(false)
     }
@@ -205,9 +206,9 @@ export function FanTablePanel(props: {
     <Show when={filtered().length > 0} fallback={
       <Show
         when={search().trim()}
-        fallback={<EmptyState label="No fans yet" hint={authState.isPlatformLevel() ? 'Fans appear here once a connected source completes its first ingestion.' : 'Fans appear here once a connected source completes its first import.'} />}
+        fallback={<EmptyState icon={<Users />} label="No fans yet" hint={authState.isPlatformLevel() ? 'Fans appear here once a connected source completes its first ingestion.' : 'Fans appear here once a connected source completes its first import.'} />}
       >
-        <EmptyState label={`Nothing matches “${search().trim()}”`} hint="Search covers name, email and locale." />
+        <EmptyState icon={<SearchX />} label={`Nothing matches “${search().trim()}”`} hint="Search covers name, email and locale." />
       </Show>
     }>
       {/* The height cap belongs on the table's own wrapper. Here it created a
@@ -255,26 +256,21 @@ export function FanTablePanel(props: {
       }}
     />
 
-    <Dialog
+    <FormDrawer
       open={importing()}
-      onClose={closeImport}
-      label="Import fans from CSV"
+      onOpenChange={open => { if (!open) closeImport() }}
+      title="Import fans from CSV"
       description={authState.isPlatformLevel()
         ? 'Rows land in the chosen fanbase as candidates, pending double opt-in — the same path every other source takes. Nobody is marked active by an import, and an opt-out is never reversed by one.'
         : 'Rows land in the chosen fanbase as pending fans who still have to confirm — the same path every other source takes. Nobody is marked active by an import, and an opt-out is never reversed by one.'}
-      footer={<>
-        <Button variant="ghost" onClick={closeImport}>Cancel</Button>
-        <Button
-          writes
-          onClick={() => void runImport()}
-          disabled={sending() || !targetFanbase() || (parsed()?.entries.length ?? 0) === 0}
-        >
-          <Show when={sending()}><Spinner /></Show>
-          {parsed() ? `Import ${parsed()!.entries.length.toLocaleString()} row${parsed()!.entries.length === 1 ? '' : 's'}` : 'Import'}
-        </Button>
-      </>}
+      submitLabel={parsed() ? `Import ${parsed()!.entries.length.toLocaleString()} row${parsed()!.entries.length === 1 ? '' : 's'}` : 'Import'}
+      pendingLabel="Importing…"
+      pending={sending()}
+      error={importError()}
+      validate={() => (parsed()?.entries.length ?? 0) === 0 ? 'Choose a CSV file with at least one usable row.' : undefined}
+      onSubmit={() => void runImport()}
     >
-      <div class="flex flex-col gap-4">
+      <div class="contents">
         <Field
           label="CSV file"
           hint="One header row. It needs an email or an external_id column; display_name and locale are used when present and everything else is ignored."
@@ -323,13 +319,14 @@ export function FanTablePanel(props: {
         >
           <Show
             when={!fanbases.isPending}
-            fallback={<p class="text-sm text-muted-foreground">Loading fanbases…</p>}
+            fallback={<SkeletonRows count={2} />}
           >
             <Show
               when={importable().length > 0}
               fallback={<p class="text-sm text-muted-foreground">No enabled fanbase yet — create one under the {authState.isPlatformLevel() ? 'Label portfolio' : 'Portfolio'} tab first, an import needs somewhere to land.</p>}
             >
               <NativeSelect
+                required
                 value={targetFanbase()}
                 onChange={event => setTargetFanbase(event.currentTarget.value)}
                 {...writeGuard()}
@@ -341,11 +338,8 @@ export function FanTablePanel(props: {
           </Show>
         </Field>
 
-        <Show when={importError()}>{message =>
-          <div class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{message()}</div>
-        }</Show>
       </div>
-    </Dialog>
+    </FormDrawer>
   </Section>
 }
 

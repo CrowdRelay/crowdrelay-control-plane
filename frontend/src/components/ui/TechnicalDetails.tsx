@@ -40,14 +40,20 @@ export function TechId(props: { label: string; value: string | null | undefined 
  *  shorter noun ("ids", "raw record") when the host line already says what
  *  the thing is. */
 export function TechnicalDetails(props: { label?: string; children: JSX.Element; class?: string }) {
+  // The rows mount only once opened: closed, they are raw developer text that
+  // page-text scans and find-in-page would otherwise pick up as if it were
+  // content.
+  const [open, setOpen] = createSignal(false)
   return (
-    <details class={cn('group', props.class)}>
+    <details class={cn('group', props.class)} onToggle={e => setOpen(e.currentTarget.open)}>
       <summary class="cursor-pointer list-none text-xs font-medium text-muted-foreground hover:text-secondary-foreground group-open:text-secondary-foreground">
         {props.label ?? 'Technical details'}
       </summary>
-      <div class="mt-1.5 flex flex-col gap-1 border-l-2 border-border pl-3">
-        {props.children}
-      </div>
+      <Show when={open()}>
+        <div class="mt-1.5 flex flex-col gap-1 border-l-2 border-border pl-3">
+          {props.children}
+        </div>
+      </Show>
     </details>
   )
 }

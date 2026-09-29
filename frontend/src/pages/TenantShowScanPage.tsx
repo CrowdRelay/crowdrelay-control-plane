@@ -67,7 +67,7 @@ export function TenantShowScanPage() {
             <DashHeader title="Door" back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }} />
             <SectionFailureCard
               error={model.error}
-              fallback="Door view unavailable"
+              title="Couldn't load the door view"
               onRetry={() => void model.refetch()}
             />
           </Show>

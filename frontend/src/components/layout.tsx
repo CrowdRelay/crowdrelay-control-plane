@@ -7,6 +7,11 @@ import { CollapsibleSection as UICollapsible } from './app/collapsible'
 import { cn } from '../lib/cn'
 import { SkeletonTabContent } from './Skeleton'
 import { Button } from './app/button'
+import { Skeleton } from './ui/skeleton'
+import { Dynamic } from 'solid-js/web'
+import { CircleAlert, Clock, CloudOff, Hourglass, Lock, RotateCw, SearchX, TriangleAlert, WifiOff } from 'lucide-solid'
+import { describeError, type ErrorKind } from '../lib/errors'
+import { TechId, TechnicalDetails } from './ui/TechnicalDetails'
 
 // ─── PageHeader ─────────────────────────────────────────────────────────
 // Every page starts with the same structure: eyebrow + title + description
@@ -335,33 +340,142 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
 }
 
 // ─── ErrorCard ─────────────────────────────────────────────────────────
-// Replaces the hand-rolled `.error-card` CSS class.
+// The one error surface. It speaks in the reader's words and keeps the
+// developer's words one click in:
+//
+//   <ErrorCard title="Couldn't load growth trends" error={trends.error}
+//              onRetry={() => trends.refetch()} />
+//
+// `title` names what failed from the reader's side. `error` supplies the
+// plain-language reason and next step (see `lib/errors.ts`) and fills the
+// Technical details disclosure with the raw status, code, detail and request
+// id. `children` replaces the reason when the caller knows better. A
+// temporary failure (offline, slow, service down) wears the warning tone —
+// waiting will fix it — and anything else the destructive one.
 
-/** An error names a way out. Most failures here are a read or a write that
- *  works on the next attempt, so that is the default line; pass `recovery`
- *  when the fix is something else, or `false` when the message already says. */
-export function ErrorCard(props: { children: JSX.Element; class?: string; recovery?: JSX.Element | false }) {
+const ERROR_ICON: Record<ErrorKind, Component<{ class?: string; 'aria-hidden'?: boolean }>> = {
+  offline: WifiOff,
+  timeout: Clock,
+  unreachable: CloudOff,
+  busy: Hourglass,
+  session: Lock,
+  permission: Lock,
+  missing: SearchX,
+  conflict: CircleAlert,
+  invalid: CircleAlert,
+  credentials: Lock,
+  server: TriangleAlert,
+  unknown: TriangleAlert,
+}
+
+const TEMPORARY: ReadonlySet<ErrorKind> = new Set(['offline', 'timeout', 'unreachable', 'busy'])
+
+export function ErrorCard(props: {
+  /** What failed, from the reader's side: "Couldn't load growth trends". */
+  title?: JSX.Element
+  /** The caught error. Supplies the reason, the next step and the
+   *  technical details. */
+  error?: unknown
+  /** Offers a Try again button. May return a promise; the button waits. */
+  onRetry?: () => unknown
+  /** Overrides the next-step line; `false` hides it when the text already
+   *  says what to do. */
+  recovery?: JSX.Element | false
+  /** Extra diagnosis shown inside Technical details, above the ids. */
+  details?: JSX.Element
+  children?: JSX.Element
+  class?: string
+}) {
+  const described = () => (props.error ? describeError(props.error) : undefined)
+  const kind = (): ErrorKind => described()?.kind ?? 'unknown'
+  const temporary = () => TEMPORARY.has(kind())
+  const [retrying, setRetrying] = createSignal(false)
+  const retry = async () => {
+    if (!props.onRetry || retrying()) return
+    setRetrying(true)
+    try { await props.onRetry() } catch { /* the card re-renders with the new error */ } finally { setRetrying(false) }
+  }
+  const recovery = () => {
+    if (props.recovery === false) return undefined
+    if (props.recovery !== undefined) return props.recovery
+    // Without a caught error the message is the caller's own sentence
+    // ("Choose a file first") — a generic "try again" would be wrong there.
+    return described()?.recovery
+  }
+  // A bare `<ErrorCard>{"Couldn't save. Email is too long."}</ErrorCard>`
+  // reads as a heading and a reason: the first sentence takes the heading's
+  // weight and the rest sits under it. With a title, children are the
+  // description beneath it.
+  const split = () => {
+    const text = props.children
+    if (props.title !== undefined || props.error || typeof text !== 'string') return undefined
+    const at = text.search(/[.!?]\s+\S/)
+    return at < 0 ? [text, undefined] as const : [text.slice(0, at + 1), text.slice(at + 1).trim()] as const
+  }
+  const heading = () => props.title ?? (split()?.[0] ?? (props.error ? undefined : props.children))
+  const body = () => {
+    const text = split()?.[1] ?? (props.title !== undefined || props.error ? props.children ?? described()?.reason : undefined)
+    // A reason that only restates the title ("Couldn't load X." under
+    // "Couldn't load X") is noise.
+    const same = (x: unknown) => typeof x === 'string' ? x.toLowerCase().replace(/[.\s]+$/, '') : undefined
+    return same(text) !== undefined && same(text) === same(props.title) ? undefined : text
+  }
+  const technical = () => described()?.technical ?? []
+
   return (
-    <div class={cn('error-card rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words', props.class)} role="alert">
-      {props.children}
-      <Show when={props.recovery !== false}>
-        <p class="m-0 mt-1 text-xs text-muted-foreground">{props.recovery ?? 'Try again in a moment. If it keeps failing, refresh the page.'}</p>
-      </Show>
+    <div
+      class={cn(
+        'error-card flex gap-3 rounded-lg border bg-card p-4 text-sm break-words',
+        temporary() ? 'border-warning-foreground/30' : 'border-destructive/30',
+        props.class,
+      )}
+      role="alert"
+    >
+      <span
+        class={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-md',
+          temporary() ? 'bg-warning text-warning-foreground' : 'bg-destructive/10 text-destructive',
+        )}
+      >
+        <Dynamic component={ERROR_ICON[kind()]} class="size-4" aria-hidden />
+      </span>
+      <div class="flex min-w-0 flex-1 flex-col gap-1 pt-1">
+        <Show when={heading()}>
+          <div class="m-0 font-medium text-foreground text-pretty">{heading()}</div>
+        </Show>
+        <Show when={body()}>
+          <div class="m-0 text-muted-foreground text-pretty">{body()}</div>
+        </Show>
+        <Show when={recovery()}>
+          <p class="m-0 text-xs text-muted-foreground text-pretty">{recovery()}</p>
+        </Show>
+        <Show when={props.onRetry || props.details || technical().length > 0}>
+          <div class="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <Show when={props.onRetry}>
+              <Button type="button" variant="outline" size="sm" disabled={retrying()} onClick={() => void retry()}>
+                <RotateCw class={cn('size-3.5', retrying() && 'animate-spin motion-reduce:animate-none')} aria-hidden />
+                {retrying() ? 'Trying again…' : 'Try again'}
+              </Button>
+            </Show>
+            <Show when={props.details || technical().length > 0}>
+              <TechnicalDetails class="min-w-0 flex-1 basis-60">
+                {props.details}
+                <For each={technical()}>{row => <TechId label={row.label} value={row.value} />}</For>
+              </TechnicalDetails>
+            </Show>
+          </div>
+        </Show>
+      </div>
     </div>
   )
 }
 
 // ─── SkeletonBlock ─────────────────────────────────────────────────────
-// Replaces the hand-rolled `.skeleton-block` CSS class. Static gradient
-// (no shimmer animation — this is an operator console, not a marketing site).
+// A single shadcn `Skeleton` sized by class — for one-off loading shapes that
+// sit inside a real layout. Composite shapes live in `Skeleton.tsx`.
 
 export function SkeletonBlock(props: { class?: string; style?: JSX.CSSProperties }) {
-  return (
-    <div
-      class={cn('rounded-lg bg-muted border border-border', props.class)}
-      style={props.style}
-    />
-  )
+  return <Skeleton class={props.class} style={props.style} />
 }
 
 // ─── SectionTitle ───────────────────────────────────────────────────────
@@ -607,7 +721,7 @@ export function CommandBlock(props: {
 //
 //   <QueryBoundary query={model} skeleton={<SkeletonRows count={3} />}
 //                  error="Learning proof is unavailable"
-//                  empty={<EmptyState label="No belief changes yet" />}
+//                  empty={<EmptyState icon={<Brain />} label="No belief changes yet" />}
 //                  isEmpty={d => d.entries.length === 0}>
 //     {data => <Table>…</Table>}
 //   </QueryBoundary>
@@ -615,8 +729,11 @@ export function CommandBlock(props: {
 export function QueryBoundary<T>(props: {
   query: { data: T | undefined; isPending: boolean; error: unknown }
   skeleton: JSX.Element
-  /** Shown instead of the body when the request failed. */
+  /** Names what failed — "Couldn't load learning proof". The reason and
+   *  next step come from the error itself. */
   error: JSX.Element
+  /** Offers Try again on the error card — normally `() => query.refetch()`. */
+  onRetry?: () => unknown
   /** Shown when the request succeeded but `isEmpty` says there is nothing. */
   empty?: JSX.Element
   isEmpty?: (data: T) => boolean
@@ -625,7 +742,7 @@ export function QueryBoundary<T>(props: {
   return (
     <Switch fallback={props.skeleton}>
       <Match when={props.query.error}>
-        <ErrorCard>{props.error}</ErrorCard>
+        <ErrorCard title={props.error} error={props.query.error} onRetry={props.onRetry} />
       </Match>
       <Match when={props.query.data !== undefined}>
         {(() => {

@@ -1,7 +1,8 @@
 import { For, Show, createSignal } from 'solid-js'
+import { CircleCheck, Send } from 'lucide-solid'
 import { api } from '../lib/api'
 import { toast } from './app/toast'
-import { errorMessage, formatTimestamp as observed } from '../lib/format'
+import { formatTimestamp as observed } from '../lib/format'
 import type { DeliveryDetails, OutboxItem, DeliveryItem, PushDeliveryItem, OperationsSummary } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
@@ -50,7 +51,7 @@ const PUSH_FAILURES: Record<string, { reason: string; retryable: boolean }> = {
 }
 
 const pushFailureReason = (code: string | null | undefined) =>
-  (code && PUSH_FAILURES[code]?.reason) ?? code ?? 'unknown error'
+  (code && PUSH_FAILURES[code]?.reason) ?? code ?? 'no reason recorded'
 
 // Unknown codes stay retryable: a new failure mode nobody has classified yet
 // should not silently lose its only remedy.
@@ -103,7 +104,7 @@ export function DeadQueuesPanel(props: {
       toast.success(`Cleanup complete: ${result.cleared} dead delivery item(s) cancelled. Outbox and push queues untouched.`)
       props.onRefresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Dead queue cleanup failed')
+      toast.error("Couldn't clear the failed queue", error)
     } finally {
       setBusy('')
     }
@@ -117,7 +118,7 @@ export function DeadQueuesPanel(props: {
       toast.success(`“${humanEvent(eventType)}” is back in the pending queue.`)
       props.onRefresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Outbox retry failed')
+      toast.error("Couldn't retry the event", error)
     } finally {
       setBusy('')
     }
@@ -132,7 +133,7 @@ export function DeadQueuesPanel(props: {
       setDeliveryDetails(null)
       props.onRefresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delivery retry failed')
+      toast.error("Couldn't retry the delivery", error)
     } finally {
       setBusy('')
     }
@@ -146,7 +147,7 @@ export function DeadQueuesPanel(props: {
       toast.success(`Push to ${label} is back in the queue.`)
       props.onRefresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Push retry failed')
+      toast.error("Couldn't retry the push notification", error)
     } finally {
       setBusy('')
     }
@@ -158,7 +159,7 @@ export function DeadQueuesPanel(props: {
     try {
       setDeliveryDetails(await api.deliveryDetails(props.slug, id))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delivery details unavailable')
+      toast.error("Couldn't load delivery details", error)
     } finally {
       setBusy('')
     }
@@ -169,7 +170,7 @@ export function DeadQueuesPanel(props: {
     <div class="flex items-start justify-between gap-4 mb-3" id="dead-outbox">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed events</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Retry is idempotent.</p></div>
     </div>
-    <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead outbox unavailable')}</ErrorCard></Show>
+    <Show when={props.error}><ErrorCard title="Couldn't load failed events" error={props.error} /></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandOutbox() ? (props.deadOutbox ?? []) : (props.deadOutbox ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -178,7 +179,7 @@ export function DeadQueuesPanel(props: {
             <Badge variant="warning">{item.event_type.replace(/_/g, ' ')}</Badge>
             <Badge variant="muted">outbox</Badge>
           </div>
-          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
+          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'no reason recorded'} · attempts {item.attempts}/{item.max_attempts} · dead {observed(item.dead_at)}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <Button writes variant="ghost" size="sm" disabled={!!busy()} onClick={() => void retryOutbox(item.id, item.event_type)}>{busy() === `outbox:${item.id}` && <Spinner />} {busy() === `outbox:${item.id}` ? 'Retrying…' : 'Retry'}</Button>
@@ -190,14 +191,14 @@ export function DeadQueuesPanel(props: {
         {expandOutbox() ? 'Show fewer' : `Show all ${props.deadOutbox?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState label="No dead outbox events" hint="Messages that failed delivery after all retries — a clean queue means everything is flowing." /></div></Show>
+    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed events" hint="Messages that failed delivery after all retries — a clean queue means everything is flowing." /></div></Show>
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3 mt-6" id="dead-deliveries">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Delivery failures</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">Inspect attempt history before retrying.</p></div>
       <Button writes type="button" variant={confirming() ? 'destructive-ghost' : 'ghost'} size="sm" disabled={(props.summary?.deliveries.dead ?? 0) <= 0 || !!busy()} onClick={() => void clearDead()}>{busy() === 'clear' && <Spinner />} {busy() === 'clear' ? 'Clearing…' : confirming() ? 'Confirm cleanup' : 'Clear old dead queues'}</Button>
     </div>
-    <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead deliveries unavailable')}</ErrorCard></Show>
+    <Show when={props.error}><ErrorCard title="Couldn't load delivery failures" error={props.error} /></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandDeliveries() ? (props.deadDeliveries ?? []) : (props.deadDeliveries ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -206,7 +207,7 @@ export function DeadQueuesPanel(props: {
             <Badge variant="warning">{item.event_type.replace(/_/g, ' ')}</Badge>
             <Badge variant="muted">{item.endpoint_name}</Badge>
           </div>
-          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'unknown error'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
+          <p class="mt-1.5 m-0 text-sm text-secondary-foreground">{item.last_error_kind ?? 'no reason recorded'} · HTTP {item.last_response_status ?? '—'} · attempts {item.attempt_count}/{item.max_attempts}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <Button variant="ghost" size="sm" disabled={!!busy()} onClick={() => void loadDeliveryDetails(item.id)}>Attempts</Button>
@@ -219,12 +220,12 @@ export function DeadQueuesPanel(props: {
         {expandDeliveries() ? 'Show fewer' : `Show all ${props.deadDeliveries?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState label="No dead webhook deliveries" hint="Deliveries that failed after all retries — a clean list means webhooks are reaching their destinations." /></div></Show>
+    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed webhook deliveries" hint="Deliveries that failed after all retries — a clean list means webhooks are reaching their destinations." /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <Card class="p-4">
       <div class="flex items-start justify-between gap-4 mb-3"><div><PanelTitle as="h3" icon={<SectionIcon name="mail" />}>{details().delivery.endpoint_name}</PanelTitle><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning">{details().delivery.event_type.replace(/_/g, ' ')}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
       <For each={details().attempts}>{attempt => <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4"><strong class="text-foreground">Attempt {attempt.attempt_number} · {attempt.outcome}</strong><p class="mt-1 m-0 text-sm text-secondary-foreground">HTTP {attempt.response_status ?? '—'} · {attempt.error_kind ?? 'no error kind'} · {attempt.duration_ms} ms · {observed(attempt.finished_at)}</p></div>}</For>
-      <Show when={details().attempts.length === 0}><EmptyState label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
+      <Show when={details().attempts.length === 0}><EmptyState icon={<Send />} label="No delivery attempts" hint="Delivery attempts are logged here once the outbox starts processing messages." /></Show>
     </Card>}</Show>
 
     {/* ─── Dead Push ───────────────────────────────────────────── */}
@@ -232,7 +233,7 @@ export function DeadQueuesPanel(props: {
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed push deliveries</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
       <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
     </div>
-    <Show when={props.error}><ErrorCard>{errorMessage(props.error, 'Dead push unavailable')}</ErrorCard></Show>
+    <Show when={props.error}><ErrorCard title="Couldn't load failed push deliveries" error={props.error} /></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
     <For each={expandPush() ? (props.deadPush ?? []) : (props.deadPush ?? []).slice(0, DEAD_PREVIEW)}>{item => <Card class="mb-2.5 border-warning-foreground/30 bg-warning-foreground/10 p-4 last:mb-0">
       <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -258,6 +259,6 @@ export function DeadQueuesPanel(props: {
         {expandPush() ? 'Show fewer' : `Show all ${props.deadPush?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState label="No dead push deliveries" hint="Pushes that failed after all retries — a clean list means pushes are reaching devices." /></div></Show>
+    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed push deliveries" hint="Pushes that failed after all retries — a clean list means pushes are reaching devices." /></div></Show>
   </>
 }

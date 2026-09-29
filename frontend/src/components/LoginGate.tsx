@@ -1,4 +1,5 @@
 import { Show, createSignal, onMount } from 'solid-js'
+import { describeError, failureLine } from '../lib/errors'
 import type { Component, JSX } from 'solid-js'
 import { authState } from '../lib/auth'
 import { SkeletonBlock } from './layout'
@@ -30,8 +31,12 @@ export const LoginGate: Component<{ children: JSX.Element }> = (props) => {
     try {
       await authState.login(user, password())
       setPassword('')
-    } catch {
-      setError('Sign-in failed. Check your username and password.')
+    } catch (caught) {
+      // A wrong password and a server that is down need different answers —
+      // telling someone to recheck a correct password sends them the wrong way.
+      setError(describeError(caught).kind === 'credentials'
+        ? "That username or password isn't right. Check them, then try again."
+        : failureLine("Couldn't sign you in", caught))
     } finally {
       setBusy(false)
     }

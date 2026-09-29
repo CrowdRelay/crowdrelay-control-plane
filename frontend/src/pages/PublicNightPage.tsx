@@ -1,4 +1,5 @@
 import { For, Show, createSignal, onMount } from 'solid-js'
+import { Skeleton } from '../components/ui/skeleton'
 import { api } from '../lib/api'
 import type { SharedNight } from '../lib/types'
 
@@ -60,7 +61,7 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
   return (
     <div class="mx-auto max-w-xl px-5 py-10"><div class="rounded-xl border border-border bg-card px-4 py-3.5">
       <Show when={night()} fallback={
-        <Show when={failed()} fallback={<p class="text-sm text-muted-foreground">Loading…</p>}>
+        <Show when={failed()} fallback={<div role="status" class="flex flex-col gap-2.5"><span class="sr-only">Loading…</span><Skeleton class="h-5 w-3/5" /><Skeleton class="h-4 w-full" /><Skeleton class="h-4 w-4/5" /></div>}>
           <p class="text-sm text-muted-foreground">
             This link does not resolve — it may have been rotated, revoked, or expired.
           </p>

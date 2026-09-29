@@ -1,7 +1,6 @@
 import { Show, createSignal } from 'solid-js'
 import { capabilityAction } from '../lib/capabilities'
 import { surface } from '../lib/surface'
-import { errorHeading } from '../lib/api'
 import { Button } from './app/button'
 import { toast } from './app/toast'
 
@@ -20,7 +19,7 @@ export function ApproveAllButton(props: { slug: string; actionIds: string[]; onD
       toast.success(`Approved ${props.actionIds.length}`)
       props.onDone()
     } catch (error) {
-      toast.error(errorHeading(error, 'Approving them all failed'))
+      toast.error("Couldn't approve them all", error)
     } finally {
       setBusy(false)
       setArmed(false)

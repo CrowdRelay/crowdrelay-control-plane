@@ -651,7 +651,7 @@ export function TenantWizardPage() {
           </KobalteCheckbox>
         </Show>
 
-        <Show when={createTenant.error}><ErrorCard>{createTenant.error instanceof Error ? createTenant.error.message : 'Tenant creation failed'}</ErrorCard></Show>
+        <Show when={createTenant.error}><ErrorCard title="Couldn't create the tenant" error={createTenant.error} /></Show>
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm" aria-live="polite">
             <span class="flex items-center gap-2">

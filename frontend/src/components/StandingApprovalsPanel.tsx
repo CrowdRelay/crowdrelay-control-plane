@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { formatTimestamp } from '../lib/format'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Section, ErrorCard } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -43,7 +43,7 @@ export function StandingApprovalsPanel(props: { slug: string }) {
       await queryClient.invalidateQueries({ queryKey: ['standing-approvals', props.slug] })
       toast.success('Revoked — it will ask again before acting there.')
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not revoke the grant'))
+      toast.error("Couldn't revoke the approval", error)
     } finally {
       setPending(null)
     }
@@ -63,7 +63,7 @@ export function StandingApprovalsPanel(props: { slug: string }) {
       description="Targets granted standing approval through the approve flow. Revoking one means the next action there waits for a person again."
     >
       <Show when={grants.error}>
-        <div class="p-4 mt-2.5"><ErrorCard>{errorMessage(grants.error, 'Standing approvals could not be loaded')}</ErrorCard></div>
+        <div class="p-4 mt-2.5"><ErrorCard title="Couldn't load standing approvals" error={grants.error} onRetry={() => void grants.refetch()} /></div>
       </Show>
       <Show when={!grants.error && grants.isPending}>
         <SkeletonSection titleWidth="160px" lines={2} minHeight="100px" />

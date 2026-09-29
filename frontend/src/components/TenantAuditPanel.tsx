@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { History } from 'lucide-solid'
 import { formatTimestamp, humanizeToken } from '../lib/format'
 import { ActivityHeatmap } from './ActivityHeatmap'
 import { EmptyState } from './ui/empty-state'
@@ -42,7 +43,7 @@ export function TenantAuditPanel(props: { items: AuditEntry[] }) {
     </ul>
     </Show>
     <Show when={props.items.length === 0}>
-      <EmptyState label="No recent changes" hint="Platform-level configuration changes are audited here. This includes deploys, flag toggles, and policy updates." />
+      <EmptyState icon={<History />} label="No recent changes" hint="Platform-level configuration changes are audited here. This includes deploys, flag toggles, and policy updates." />
     </Show>
   </Section>
 }

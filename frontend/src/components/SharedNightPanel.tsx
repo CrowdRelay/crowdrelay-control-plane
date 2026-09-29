@@ -1,9 +1,10 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { NightContributionKind, SharedNight } from '../lib/types'
 import { readOnly } from '../lib/read-only'
-import { errorMessage, formatIsoUntil, humanizeToken } from '../lib/format'
+import { formatIsoUntil, humanizeToken } from '../lib/format'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
@@ -260,7 +261,7 @@ export function SharedNightPanel(props: { slug: string; placeEventId: string; ni
             <p class="mt-2 text-xs text-muted-foreground">{flash()}</p>
           </Show>
           <Show when={mutationError()}>
-            {error => <p class="mt-2 text-xs text-destructive-foreground">{errorMessage(error(), 'The write failed.')}</p>}
+            {error => <p class="mt-2 text-xs text-destructive-foreground">{failureLine("Couldn't save that", error())}</p>}
           </Show>
         </div>
       )}

@@ -1,10 +1,10 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
+import { Activity, RefreshCw, SearchX, Workflow } from 'lucide-solid'
 import { Spinner } from '../components/Spinner'
 import { api } from '../lib/api'
-import { errorMessage, relativeTime } from '../lib/format'
+import { relativeTime } from '../lib/format'
 import { toast } from '../components/app/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/ui/empty-state'
@@ -15,7 +15,6 @@ import { StatusBadge } from '../components/StatusBadge'
 import { PageShell, ErrorCard, Section } from '../components/layout'
 import { formatIsoAge } from '../lib/format'
 import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
-import { Activity, Workflow } from 'lucide-solid'
 import { Button } from '../components/app/button'
 import { Badge } from '../components/app/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
@@ -121,7 +120,7 @@ export function AutomationPage() {
     const scopeSlug = slug()
     setBusyId(id)
     try { await api.ackAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to acknowledge') }
+    catch (e) { toast.error("Couldn't acknowledge the event", e) }
     finally { setBusyId(null) }
   }
   const handleResolve = async (id: string) => {
@@ -129,7 +128,7 @@ export function AutomationPage() {
     const scopeSlug = slug()
     setBusyId(id)
     try { await api.resolveAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to resolve') }
+    catch (e) { toast.error("Couldn't resolve the event", e) }
     finally { setBusyId(null) }
   }
   const handleRetry = async (id: string) => {
@@ -137,7 +136,7 @@ export function AutomationPage() {
     const scopeSlug = slug()
     setBusyId(id)
     try { await api.retryAutomationEvent(scopeSlug, id); invalidate(scopeSlug) }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Retry failed') }
+    catch (e) { toast.error("Couldn't retry", e) }
     finally { setBusyId(null) }
   }
   // n8n owns the workflows; the mirrored routing rows only appear after a
@@ -152,7 +151,7 @@ export function AutomationPage() {
       invalidate(slug())
       toast.success(`Synced ${result.synced} workflow${result.synced === 1 ? '' : 's'}${result.skipped ? ` · ${result.skipped} skipped` : ''}.`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Sync failed')
+      toast.error("Couldn't sync the routing", e)
     } finally {
       setSyncing(false)
     }
@@ -163,7 +162,7 @@ export function AutomationPage() {
     const scopeSlug = slug()
     setBusyId(`cfg:${workflowId}`)
     try { await api.updateAutomationWorkflowConfig(scopeSlug, workflowId, input); invalidate(scopeSlug) }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed') }
+    catch (e) { toast.error("Couldn't save the workflow settings", e) }
     finally { setBusyId(null) }
   }
 
@@ -205,7 +204,7 @@ export function AutomationPage() {
 
       <Split mid>
         <Card title="Latest events" icon={<Activity />}>
-          <Show when={(events.data?.items ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{events.error ? 'The events could not be read.' : 'No events yet.'}</p>}>
+          <Show when={(events.data?.items ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{events.error ? "Couldn't load events." : 'No events yet.'}</p>}>
             <For each={(events.data?.items ?? []).slice(0, 5)}>{event => (
               <ItemRow
                 pill={{ tone: event.severity === 'error' ? 'bad' : event.severity === 'warn' ? 'warn' : 'muted', text: event.status }}
@@ -243,15 +242,15 @@ export function AutomationPage() {
           </NativeSelect>
         }
       >
-        <Show when={events.error}><ErrorCard>{errorMessage(events.error, 'Automation events could not be loaded')}</ErrorCard></Show>
+        <Show when={events.error}><ErrorCard title="Couldn't load automation events" error={events.error} onRetry={() => void events.refetch()} /></Show>
         <Show when={eventsReady()} fallback={!events.error ? <SkeletonRows count={5} /> : null}>
           <Show when={events.data!.items.length > 0} fallback={
             // The copy used to say "no events match this filter" with no
             // filter set, and suggest a time-range filter the page never had.
             <Show when={statusFilter()} fallback={
-              <EmptyState label="No automation events yet" hint="Events land here when an n8n workflow reports an error, a status change or a heartbeat." />
+              <EmptyState icon={<Workflow />} label="No automation events yet" hint="Events land here when an n8n workflow reports an error, a status change or a heartbeat." />
             }>
-              <EmptyState label={`No ${statusFilter()} events`} hint="Choose All statuses to see every event." />
+              <EmptyState icon={<SearchX />} label={`No ${statusFilter()} events`} hint="Choose All statuses to see every event." />
             </Show>
           }>
             <ul class="divide-y divide-border rounded-lg border border-border">
@@ -309,10 +308,10 @@ export function AutomationPage() {
         description="One row per workflow. Category sorts its events, and only real work is worth waking someone for. Discord forwards them to the crew channel. Muted keeps them recorded without counting as new. Changes save as you make them."
         action={<Button writes variant="outline" size="sm" disabled={syncing()} onClick={() => void syncRouting()}>{syncing() && <Spinner />} {syncing() ? 'Syncing…' : 'Sync from n8n'}</Button>}
       >
-        <Show when={configs.error}><ErrorCard>{errorMessage(configs.error, 'Automation routing could not be loaded')}</ErrorCard></Show>
+        <Show when={configs.error}><ErrorCard title="Couldn't load automation routing" error={configs.error} onRetry={() => void configs.refetch()} /></Show>
         <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
           <Show when={configs.data!.items.length > 0} fallback={
-            <EmptyState label="No workflows yet" hint="A workflow appears here the first time it reports an event. Its routing starts as Status and can be changed here." />
+            <EmptyState icon={<Workflow />} label="No workflows yet" hint="A workflow appears here the first time it reports an event. Its routing starts as Status and can be changed here." />
           }>
             <div class="rounded-lg border border-border">
               <Table>

@@ -87,7 +87,7 @@ export function TenantInMotionPage() {
       />
 
       <Show when={model.error}>
-        <SectionFailureCard error={model.error} fallback="What the machine is doing did not load" onRetry={() => void model.refetch()} />
+        <SectionFailureCard error={model.error} title="Couldn't load what's in motion" onRetry={() => void model.refetch()} />
       </Show>
 
       <WorkAreas
@@ -119,7 +119,7 @@ export function TenantInMotionPage() {
 
         <Split>
           <Card title="Your posts, carried further" icon={<Share2 />} aside={`${runs().length} this week`}>
-            <Show when={model.data?.relays} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">The relay runs could not be read — they come back on the next refresh.</p>}>
+            <Show when={model.data?.relays} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Couldn't load relay runs. They come back on the next refresh.</p>}>
               <Show when={runs().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No relays yet — a post worth spreading lands here.</p>}>
                 <div class="flex items-center gap-2.5 pb-1 text-xs text-muted-foreground">
                   <span class="flex-1" />

@@ -1,4 +1,5 @@
 import { For, Show, createMemo } from 'solid-js'
+import { Inbox } from 'lucide-solid'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
@@ -179,7 +180,7 @@ export function OutreachContactDrawer(props: {
       }
     >
       <Show when={conversation.error}>
-        <ErrorCard>Couldn't load the conversation.</ErrorCard>
+        <ErrorCard title="Couldn't load the conversation" error={conversation.error} onRetry={() => void conversation.refetch()} />
       </Show>
       <Show when={data()} fallback={<SkeletonRows count={4} />}>
         {view => (
@@ -230,7 +231,7 @@ export function OutreachContactDrawer(props: {
 
             <div>
               <h3 class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">The thread</h3>
-              <Show when={view().timeline.length > 0} fallback={<EmptyState label="Nothing on record" hint="No message either way has reached the ledger for this contact." />}>
+              <Show when={view().timeline.length > 0} fallback={<EmptyState icon={<Inbox />} label="Nothing on record" hint="No message either way has reached the ledger for this contact." />}>
                 <ul class="space-y-2">
                   <For each={view().timeline}>{message => (
                     <li class="flex flex-col gap-1 rounded-md border border-border p-3">

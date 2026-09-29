@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js'
+import { failureLine, lowerFirst } from '../../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
-import { api, errorHeading } from '../../lib/api'
+import { api } from '../../lib/api'
 import { fillPath, pathParams, surface } from '../../lib/surface'
 import type { CapabilityAction, Field, ParamSource } from '../../lib/capabilities'
 import { Button } from '../app/button'
@@ -163,7 +164,7 @@ export function ActionForm(props: {
       toast.success(`${props.action.label}: done`)
       props.onDone?.(response)
     } catch (caught) {
-      setError(errorHeading(caught, `${props.action.label} failed`))
+      setError(failureLine(`Couldn't ${lowerFirst(props.action.label)}`, caught))
     } finally {
       setBusy(false)
       setConfirming(false)

@@ -1,8 +1,10 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
+import { Users } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, httpUrl } from '../lib/format'
+import { httpUrl } from '../lib/format'
 import type { BookingAgent } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { Dialog } from './Dialog'
@@ -156,7 +158,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       invalidateParked()
       await invalidate()
     } catch (error) {
-      setGuideError(errorMessage(error, 'Could not queue the approach'))
+      setGuideError(failureLine("Couldn't queue the approach", error))
     } finally {
       setPending(null)
     }
@@ -178,7 +180,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       invalidateParked()
       await invalidate()
     } catch (error) {
-      setGuideError(errorMessage(error, 'Approval did not land'))
+      setGuideError(failureLine("Couldn't send the approval", error))
     } finally {
       setPending(null)
     }
@@ -196,7 +198,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       invalidateParked()
       await invalidate()
     } catch (error) {
-      setGuideError(errorMessage(error, 'The cancel did not land — check the decisions board'))
+      setGuideError(failureLine("Couldn't cancel it. Check the decisions board", error))
     } finally {
       setPending(null)
     }
@@ -230,7 +232,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       invalidateParked()
       await invalidate()
     } catch (error) {
-      setWaveError(errorMessage(error, 'Could not queue the wave'))
+      setWaveError(failureLine("Couldn't queue the wave", error))
     } finally {
       setPending(null)
     }
@@ -248,7 +250,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       invalidateParked()
       await invalidate()
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not draft the answer'))
+      toast.error("Couldn't draft the answer", error)
     } finally {
       setPending(null)
     }
@@ -264,7 +266,7 @@ export function BookingAgentsPanel(props: { slug: string }) {
       await invalidate()
       toast.success('Reply filed — the season door is updated.')
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not file the reply'))
+      toast.error("Couldn't file the reply", error)
     } finally {
       setPending(null)
     }
@@ -328,14 +330,14 @@ export function BookingAgentsPanel(props: { slug: string }) {
         </div>
       </Show>
       <Show when={agents.error}>
-        <ErrorCard>{errorMessage(agents.error, 'The agent registry could not be loaded')}</ErrorCard>
+        <ErrorCard title="Couldn't load the agent registry" error={agents.error} onRetry={() => void agents.refetch()} />
       </Show>
       <Show when={!agents.error && agents.isPending}>
         <SkeletonRows count={3} />
       </Show>
       <Show when={agents.data}>
         <Show when={agents.data!.agents.length > 0} fallback={
-          <EmptyState
+          <EmptyState icon={<Users />}
             label="No screened agents"
             hint={authState.isPlatformLevel() ? 'Agents appear here once the screener admits them into the season registry.' : 'Agents appear here once they are screened for the season.'}
           />

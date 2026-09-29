@@ -1,7 +1,10 @@
 import { For, Show, createEffect, createSignal } from 'solid-js'
+import { Field } from './ui/field'
+import { FormDrawer } from './app/form-drawer'
+import { failureLine, unavailableError } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request, ApiError } from '../lib/api'
-import { confidencePercent, errorMessage, formatIsoAge } from '../lib/format'
+import { confidencePercent, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog, confirmAction } from './Dialog'
@@ -21,7 +24,7 @@ import type { AgentTaskResult, TaskSuggestion, AgentOutcome } from '../lib/types
 import { NativeSelect } from './ui/native-select'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasErrorSections } from '../lib/incomplete'
-import { Brain } from 'lucide-solid'
+import { Brain, CloudOff, Workflow, Plus } from 'lucide-solid'
 
 // --- Intelligence icon (autopilot intelligence → agent suggestions) ---
 const IntelligenceIcon = (props: { size?: number }) => (
@@ -188,7 +191,7 @@ export function AgentPanel(props: { slug: string }) {
       setPrompt('')
       refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to start task'))
+      setError(failureLine("Couldn't start the task", err))
     } finally {
       setSubmitting(false)
     }
@@ -205,7 +208,7 @@ export function AgentPanel(props: { slug: string }) {
       const result = await request<AgentTaskResult>(`/tenants/${props.slug}/agents/tasks/${taskId}/result`)
       setViewingResult(result)
     } catch (err) {
-      setError(errorMessage(err, 'Failed to load result'))
+      setError(failureLine("Couldn't load the result", err))
     }
   }
 
@@ -229,7 +232,7 @@ export function AgentPanel(props: { slug: string }) {
       setCreatingSchedule(false)
       refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to create schedule'))
+      setError(failureLine("Couldn't create the schedule", err))
     } finally {
       setSubmitting(false)
     }
@@ -242,7 +245,7 @@ export function AgentPanel(props: { slug: string }) {
       await api.agentToggleSchedule(props.slug, id, enabled)
       refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to toggle schedule'))
+      setError(failureLine("Couldn't change the schedule", err))
     } finally {
       setScheduleBusy(null)
     }
@@ -262,7 +265,7 @@ export function AgentPanel(props: { slug: string }) {
       await api.agentDeleteSchedule(props.slug, id)
       refreshQueries(['agent-tasks-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to delete schedule'))
+      setError(failureLine("Couldn't delete the schedule", err))
     } finally {
       setScheduleBusy(null)
     }
@@ -351,7 +354,7 @@ export function AgentPanel(props: { slug: string }) {
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <div class="space-y-8">
-      <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard recovery={false}>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+      <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard title="Couldn't load agent suggestions" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
       <Show when={suggestions().length > 0}>
         <Section flush title="Suggested by the autopilot" icon={<IntelligenceIcon size={18} />} count={suggestions().length} description="Built from your events and campaign performance. Pick one to run it.">
           <div class="grid gap-2.5 grid-cols-1 md:grid-cols-2">
@@ -380,10 +383,10 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Task templates and execution */}
       <Section flush={suggestions().length === 0} title="Run a task" count={templates().length} description="Pick a template, choose a model, and describe the work.">
-        <Show when={sectionError(templatesSectionError())}>{msg => <ErrorCard recovery={false}>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
-        <Show when={sectionError(modelsSectionError())}>{msg => <ErrorCard recovery={false}>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(templatesSectionError())}>{msg => <ErrorCard title="Couldn't load task templates" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
+        <Show when={sectionError(modelsSectionError())}>{msg => <ErrorCard title="Couldn't load the model list" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
         <Show when={tasksOverview.data && !templatesSectionError()} fallback={
-          <Show when={!tasksOverview.data} fallback={<EmptyState label="Templates unavailable" hint="The agent service did not return its templates. They appear here once it does." />}>
+          <Show when={!tasksOverview.data} fallback={<EmptyState icon={<CloudOff />} label="Templates aren't available right now" hint="They'll show up here as soon as the agent service responds." />}>
             <SkeletonGrid count={4} minCardHeight='120px' />
           </Show>
         }>
@@ -464,29 +467,45 @@ export function AgentPanel(props: { slug: string }) {
         title="Schedules"
         count={schedules().length}
         description="Recurring tasks run automatically. Results land in Recent tasks."
-        action={<Show when={!creatingSchedule()}>
-          <Button writes variant="outline" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}>New schedule</Button>
-        </Show>}
+        action={<Button writes variant="outline" size="sm" onClick={() => { setCreatingSchedule(true); setError(null) }}><Plus aria-hidden="true" /> New schedule</Button>}
       >
-        <Show when={creatingSchedule()}>
-          <div class="flex flex-col gap-3 mt-4 p-4 rounded-lg border border-border bg-background">
-            <label class="flex flex-col gap-1 text-sm text-muted-foreground">
-              <span>Interval (minutes)</span>
-              <Input type="number" min="60" max="10080" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
-              <small class="text-xs text-muted-foreground">Between 60 (hourly) and 10080 (weekly). 1440 is once a day.</small>
-            </label>
-            <Show when={!selectedTemplate() || !prompt().trim()}>
-              <p class="text-xs text-muted-foreground">A schedule repeats the task above, so pick a template and write its prompt first — this form only adds the interval.</p>
-            </Show>
-            <div class="flex items-center gap-2 mt-2">
-              <Button writes size="sm" disabled={submitting() || !selectedTemplate() || !prompt().trim()} onClick={createSchedule}>
-                {submitting() ? 'Creating…' : 'Create schedule'}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setCreatingSchedule(false)}>Cancel</Button>
-            </div>
-          </div>
-        </Show>
-        <Show when={sectionError(schedulesSectionError())}>{msg => <ErrorCard recovery={false}>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <FormDrawer
+          open={creatingSchedule()}
+          onOpenChange={setCreatingSchedule}
+          title="New schedule"
+          description="A task that repeats on its own. Results land in Recent tasks."
+          submitLabel="Create schedule"
+          pendingLabel="Creating…"
+          pending={submitting()}
+          error={error()}
+          onSubmit={() => void createSchedule()}
+        >
+          <Field label="Template">
+            <NativeSelect required value={selectedTemplate() ?? ''} onChange={(e) => setSelectedTemplate(e.currentTarget.value || null)}>
+              <option value="">Choose…</option>
+              <For each={templates()}>{template => <option value={template.id}>{template.name}</option>}</For>
+            </NativeSelect>
+          </Field>
+          <Field label="Model" hint="Free models cost nothing; paid models bill against the AI budget.">
+            <NativeSelect value={selectedModel()} onChange={(e) => setSelectedModel(e.currentTarget.value)}>
+              <For each={models()?.models ?? []}>
+                {(model) => <option value={model.id}>{model.name} {model.paid ? '(paid)' : '(free)'} — {model.providerName}</option>}
+              </For>
+            </NativeSelect>
+          </Field>
+          <Field label="What the agent should do">
+            <Textarea
+              required rows={5} maxlength={8000}
+              value={prompt()}
+              onInput={(e) => setPrompt(e.currentTarget.value)}
+              placeholder="Write a weekly round-up of new press mentions"
+            />
+          </Field>
+          <Field label="Interval (minutes)" hint="Between 60 (hourly) and 10080 (weekly). 1440 is once a day.">
+            <Input required type="number" min="60" max="10080" step="1" inputmode="numeric" value={scheduleInterval()} onInput={(e) => setScheduleInterval(parseInt(e.currentTarget.value, 10) || 1440)} />
+          </Field>
+        </FormDrawer>
+        <Show when={sectionError(schedulesSectionError())}>{msg => <ErrorCard title="Couldn't load agent schedules" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
         <Show when={schedules().length > 0}>
           <Table class="mt-4">
             <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -511,18 +530,18 @@ export function AgentPanel(props: { slug: string }) {
           </Table>
         </Show>
         <Show when={schedules().length === 0 && !schedulesSectionError()}>
-          <EmptyState label="No schedules configured" hint="Automate recurring intelligence tasks." />
+          <EmptyState icon={<Workflow />} label="No schedules configured" hint="Automate recurring intelligence tasks." />
         </Show>
       </Section>
 
       <Section title="Recent tasks" count={tasks().length} description="Every run, started here or by a schedule. Completed tasks show full output.">
-        <Show when={sectionError(tasksSectionError())}>{msg => <ErrorCard recovery={false}>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(tasksSectionError())}>{msg => <ErrorCard title="Couldn't load the task list" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
         <Show when={tasksOverview.data && !tasksSectionError()} fallback={
-          <Show when={!tasksOverview.data} fallback={<EmptyState label="Tasks unavailable" hint="The agent service did not return the task list. It appears here once it does." />}>
+          <Show when={!tasksOverview.data} fallback={<EmptyState icon={<CloudOff />} label="Tasks aren't available right now" hint="They'll show up here as soon as the agent service responds." />}>
             <SkeletonRows count={4} />
           </Show>
         }>
-          <Show when={tasks().length > 0} fallback={<EmptyState label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
+          <Show when={tasks().length > 0} fallback={<EmptyState icon={<Workflow />} label="No tasks yet" hint="Tasks appear once the intelligence or a schedule dispatches them." />}>
           <Table class="mt-4">
             <TableHeader>
               <TableRow>

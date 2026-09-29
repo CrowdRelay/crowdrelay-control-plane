@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { CalendarDays } from 'lucide-solid'
 import { NativeSelect } from './ui/native-select'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -83,7 +84,7 @@ export function GigPlanPanel(props: { slug: string; initialPlan?: GigPlanRespons
       <Show when={plan.error}>
         <SectionFailureCard
           error={plan.error}
-          fallback="Gig plan unavailable"
+          title="Couldn't load the gig plan"
           onRetry={() => void plan.refetch()}
         />
       </Show>
@@ -133,7 +134,7 @@ export function GigPlanPanel(props: { slug: string; initialPlan?: GigPlanRespons
             <Show
               when={data().proposals.length > 0}
               fallback={
-                <EmptyState
+                <EmptyState icon={<CalendarDays />}
                   label="Nothing to propose"
                   hint={
                     data().cities_considered === 0

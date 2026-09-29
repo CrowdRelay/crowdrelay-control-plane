@@ -1,8 +1,9 @@
 import { fillPath, surface } from '../lib/surface'
+import { Users } from 'lucide-solid'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createEffect, createSignal, on } from 'solid-js'
 import { api } from '../lib/api'
-import { errorMessage, humanizeToken } from '../lib/format'
+import { humanizeToken } from '../lib/format'
 import type { FanDetail, FanJourneyEntry } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
@@ -57,7 +58,7 @@ export function FanDetailDrawer(props: {
       const result = await surface.write<{ code: string }>(props.slug, 'POST', path)
       setReferralCode(result.code)
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not get the referral code'))
+      toast.error("Couldn't get the referral code", error)
     } finally {
       setReferralBusy(false)
     }
@@ -73,7 +74,7 @@ export function FanDetailDrawer(props: {
       setTagInput('')
       props.onRefresh()
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not add the tag'))
+      toast.error("Couldn't add the tag", error)
     } finally {
       setTagBusy(null)
     }
@@ -86,7 +87,7 @@ export function FanDetailDrawer(props: {
       await api.removeFanTag(props.slug, props.fan.fan.id, tag)
       props.onRefresh()
     } catch (error) {
-      toast.error(errorMessage(error, 'Could not remove the tag'))
+      toast.error("Couldn't remove the tag", error)
     } finally {
       setTagBusy(null)
     }
@@ -175,7 +176,7 @@ export function FanDetailDrawer(props: {
             <Show when={props.loading}><SkeletonRows count={3} /></Show>
             <Show when={props.error}><ErrorCard>{props.error}</ErrorCard></Show>
             <Show when={!props.loading && !props.error && props.journey.length === 0}>
-              <EmptyState label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />
+              <EmptyState icon={<Users />} label="No journey events" hint="Journey events track fan interactions over time. They appear here once the fan engages with the platform." />
             </Show>
             <Show when={!props.loading && !props.error && props.journey.length > 0}>
               <div class="flex flex-col gap-2">

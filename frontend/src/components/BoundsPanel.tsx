@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { api, errorHeading } from '../lib/api'
+import { api } from '../lib/api'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { surface } from '../lib/surface'
 import { formatTimestamp } from '../lib/format'
@@ -78,7 +79,7 @@ function BookingPolicyEditor(props: { slug: string; current: BookingPolicy; onDo
       toast.success('Booking policy saved')
       props.onDone()
     } catch (caught) {
-      setError(errorHeading(caught, 'The policy was not saved'))
+      setError(failureLine("Couldn't save the policy", caught))
     } finally {
       setBusy(false)
     }

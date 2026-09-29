@@ -143,7 +143,7 @@ export function TenantHealthPage() {
     />
 
     <Show when={model.error}>
-      <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
+      <SectionFailureCard error={model.error} title="Couldn't load operations" onRetry={() => void refresh()} />
     </Show>
     {/* The tabs render regardless of the today model — every tab's content
         answers from its own channel except the two panels that take today's
@@ -215,7 +215,7 @@ export function TenantHealthPage() {
             One read model feeds every row; retries invalidate it. ── */}
       <WorkAreaPanel id="delivery" active={areas.active()}>
         <Show when={delivery.error}>
-          <SectionFailureCard error={delivery.error} fallback="Delivery channel unavailable" onRetry={() => void delivery.refetch()} />
+          <SectionFailureCard error={delivery.error} title="Couldn't load delivery status" onRetry={() => void delivery.refetch()} />
         </Show>
         <Show when={delivery.data}>{(data: () => TenantDeliveryReadModel) => <>
           <For each={data().degraded}>{section => (

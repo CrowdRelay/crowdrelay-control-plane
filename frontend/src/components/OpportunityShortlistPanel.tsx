@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
-import { PanelTitle } from './layout'
+import { Compass } from 'lucide-solid'
+import { PanelTitle, ErrorCard } from './layout'
 import { Button } from './ui/button'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -110,9 +111,7 @@ export function OpportunityShortlistPanel() {
     </div>
 
     <Show when={model.error}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
-        {model.error instanceof Error ? model.error.message : 'The opportunity shortlist is temporarily unavailable.'}
-      </div>
+      <ErrorCard title="Couldn't load the opportunity shortlist" error={model.error} onRetry={() => void model.refetch()} />
     </Show>
 
     <Show when={!model.error && model.isPending}><SkeletonPanel lines={5} /></Show>
@@ -120,7 +119,7 @@ export function OpportunityShortlistPanel() {
     <Show when={data()}>{d => <>
       <Show when={d().degraded.length > 0}>
         <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-3 text-sm text-warning-foreground mb-3" role="status">
-          Some sections could not be read — the list below may be incomplete. Retrying automatically.
+          Part of this list didn't load, so it may be incomplete. It retries on its own.
         </div>
       </Show>
 
@@ -150,7 +149,7 @@ export function OpportunityShortlistPanel() {
       <section class="mt-6 pt-4 border-t border-border">
         <Show
           when={d().entries.length > 0}
-          fallback={<EmptyState label="No opportunities tracked yet" hint="When the scout or an import finds a festival, a lead or a funding call, it lands here with its link." />}
+          fallback={<EmptyState icon={<Compass />} label="No opportunities tracked yet" hint="When the scout or an import finds a festival, a lead or a funding call, it lands here with its link." />}
         >
           <ul class="divide-y divide-border">
             <For each={liveEntries().slice(0, MAX_LIVE)}>

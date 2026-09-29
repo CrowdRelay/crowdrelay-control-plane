@@ -1,10 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
+import { FormDrawer } from './app/form-drawer'
+import { failureLine } from '../lib/errors'
 import { Field } from './ui/field'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
-import { errorMessage, formatTimestamp, httpUrl, relativeTime } from '../lib/format'
+import { formatTimestamp, httpUrl, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { TabBar, ErrorCard } from './layout'
@@ -15,7 +17,7 @@ import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
-import { Check } from 'lucide-solid'
+import { Check, Newspaper, Users, Plus } from 'lucide-solid'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -90,7 +92,7 @@ export function PressRoomPanel(props: { slug: string }) {
       // A recorded reply changes the engagement and the coverage it rolls up into.
       refreshQueries(['press-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to record the reply'))
+      setError(failureLine("Couldn't save the reply", err))
     } finally {
       setReplying(null)
     }
@@ -103,7 +105,7 @@ export function PressRoomPanel(props: { slug: string }) {
       await api.resolveBeaconPressRequest(props.slug, requestId, { status: 'resolved' })
       refreshQueries(['press-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to resolve press request'))
+      setError(failureLine("Couldn't resolve the press request", err))
     } finally {
       setResolving(null)
     }
@@ -127,20 +129,10 @@ export function PressRoomPanel(props: { slug: string }) {
       setAdding(false)
       refreshQueries(['press-overview', props.slug])
     } catch (err) {
-      setError(errorMessage(err, 'Failed to save the press asset'))
+      setError(failureLine("Couldn't save the press asset", err))
     } finally {
       setSaving(false)
     }
-  }
-
-  // Enough to save: a key, a label, and an https URL Meta can fetch.
-  const draftIsComplete = () => {
-    const input = draft()
-    return (
-      /^[a-z][a-z0-9_-]{1,63}$/.test(input.assetKey.trim())
-      && input.labelEn.trim().length > 0
-      && /^https:\/\//.test(input.url.trim())
-    )
   }
 
   return <div class="space-y-4">
@@ -160,14 +152,14 @@ export function PressRoomPanel(props: { slug: string }) {
       ]}
     />
 
-    <Show when={error()}>
+    <Show when={error() && !adding()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
 
     <Show when={tab() === 'requests'}>
-      <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
+      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={requests().length > 0} fallback={<EmptyState label="No press requests" hint={authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.'} />}>
+        <Show when={requests().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No press requests" hint={authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.'} />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -211,67 +203,74 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'assets'}>
-      <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
+      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <div class="mb-3 flex items-center justify-between gap-4">
         <p class="text-sm text-muted-foreground">
           Photos and logos here are what Instagram posts use, least recently published first.
           With none active, every Instagram post is held.
         </p>
-        <Button writes variant="ghost" size="sm" onClick={() => setAdding(a => !a)}>
-          {adding() ? 'Cancel' : 'Add asset'}
+        <Button writes variant="outline" size="sm" onClick={() => { setError(null); setAdding(true) }}>
+          <Plus aria-hidden="true" /> Add asset
         </Button>
       </div>
 
-      <Show when={adding()}>
-        <form class="mb-4 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); if (draftIsComplete() && !saving()) saveAsset() }}>
-          <Field label="Key">
-            <Input
-              placeholder="band_photo_01"
-              value={draft().assetKey}
-              onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
-            />
-          </Field>
-          <Field label="Kind">
-            <NativeSelect
-              value={draft().assetKind}
-              onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
-            >
-              <option value="photo">photo</option>
-              <option value="logo">logo</option>
-              <option value="epk">epk</option>
-              <option value="bio">bio</option>
-              <option value="video">video</option>
-            </NativeSelect>
-          </Field>
-          <Field label="Label">
-            <Input
-              value={draft().labelEn}
-              onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
-            />
-          </Field>
+      <FormDrawer
+        open={adding()}
+        onOpenChange={setAdding}
+        title="Add press asset"
+        description="Photos, logos, bios and EPKs for outreach. Instagram posts pick from the active photos and logos."
+        submitLabel="Add asset"
+        pendingLabel="Saving…"
+        pending={saving()}
+        error={error()}
+        onSubmit={() => void saveAsset()}
+      >
+        <Field label="Key" hint="Lowercase letters, digits, - or _, starting with a letter.">
           <Input
-            placeholder="Label (PL, optional)"
+            required pattern="[a-z][a-z0-9_\-]{1,63}" title="Lowercase letters, digits, - or _, starting with a letter."
+            autocomplete="off" placeholder="band_photo_01"
+            value={draft().assetKey}
+            onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
+          />
+        </Field>
+        <Field label="Kind">
+          <NativeSelect
+            value={draft().assetKind}
+            onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
+          >
+            <option value="photo">Photo</option>
+            <option value="logo">Logo</option>
+            <option value="epk">EPK</option>
+            <option value="bio">Bio</option>
+            <option value="video">Video</option>
+          </NativeSelect>
+        </Field>
+        <Field label="Label">
+          <Input
+            required autocomplete="off"
+            value={draft().labelEn}
+            onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
+          />
+        </Field>
+        <Field label="Label in Polish" note="optional" hint="Leave empty to reuse the English label.">
+          <Input
+            autocomplete="off"
             value={draft().labelPl}
             onInput={(e) => setDraft(d => ({ ...d, labelPl: e.currentTarget.value }))}
           />
-          <Field label="URL" hint="Must be public — Meta fetches it." class="sm:col-span-2">
-            <Input
-              type="url"
-              placeholder="https://…"
-              value={draft().url}
-              onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
-            />
-          </Field>
-          <div class="sm:col-span-2">
-            <Button writes type="submit" size="sm" disabled={!draftIsComplete() || saving()}>
-              {saving() ? 'Saving…' : 'Save asset'}
-            </Button>
-          </div>
-        </form>
-      </Show>
+        </Field>
+        <Field label="URL" hint="Must be public — Meta fetches it.">
+          <Input
+            required type="url" pattern="https://.+" title="Use a public https:// link."
+            placeholder="https://example.com/photo.jpg"
+            value={draft().url}
+            onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
+          />
+        </Field>
+      </FormDrawer>
 
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={assets().length > 0} fallback={<EmptyState label="No press assets" hint="Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there." />}>
+        <Show when={assets().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No press assets" hint="Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there." />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -306,9 +305,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'engagements'}>
-      <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
+      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={engagements().length > 0} fallback={<EmptyState label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
+        <Show when={engagements().length > 0} fallback={<EmptyState icon={<Users />} label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -369,9 +368,9 @@ export function PressRoomPanel(props: { slug: string }) {
     </Show>
 
     <Show when={tab() === 'coverage'}>
-      <Show when={model.error}><ErrorCard>Press room unavailable: {errorMessage(model.error, 'We couldn\'t reach the press room. Try refreshing.')}</ErrorCard></Show>
+      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={coverage().length > 0} fallback={<EmptyState label="No earned media coverage" hint={authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.'} />}>
+        <Show when={coverage().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No earned media coverage" hint={authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.'} />}>
           <Table>
             <TableHeader>
               <TableRow>

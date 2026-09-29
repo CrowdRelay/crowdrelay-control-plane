@@ -1,7 +1,7 @@
 import { Show, createSignal, createMemo } from 'solid-js'
+import { failureLine } from '../lib/errors'
 import { useQuery, useMutation } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { errorMessage } from '../lib/format'
 import { toast } from './app/toast'
 import { cn } from '../lib/cn'
 import { ErrorCard, Section } from './layout'
@@ -47,7 +47,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       status.refetch()
     },
     onError: (error) => {
-      setFileError(errorMessage(error, 'Upload failed'))
+      setFileError(failureLine("Couldn't upload the file", error))
       toast.error('Reddit cookie upload failed')
     },
   }))
@@ -64,7 +64,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       }
     },
     onError: (error) => {
-      setValidateResult({ valid: false, error: errorMessage(error, 'Validation request failed') })
+      setValidateResult({ valid: false, error: failureLine("Couldn't check the cookies", error) })
       toast.error('Could not validate cookies')
     },
   }))
@@ -216,7 +216,7 @@ export function RedditCookieUploader(props: { slug: string }) {
       </Show>
 
       <Show when={status.isError}>
-        <ErrorCard>Could not load cookie status: {errorMessage(status.error, 'unknown error')}</ErrorCard>
+        <ErrorCard title="Couldn't load the cookie status" error={status.error} onRetry={() => void status.refetch()} />
       </Show>
     </Section>
   )

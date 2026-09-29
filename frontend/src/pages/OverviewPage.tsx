@@ -1,8 +1,8 @@
 import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { RefreshCw } from 'lucide-solid'
+import { Building2, RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { errorMessage, relativeTime } from '../lib/format'
+import { relativeTime } from '../lib/format'
 import { authState } from '../lib/auth'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
 import { cn } from '../lib/cn'
@@ -80,10 +80,10 @@ export function OverviewPage() {
     />
 
     <Show when={commandCenter.isError}>
-      <ErrorCard>{errorMessage(commandCenter.error, 'We couldn\'t reach the command center. Try refreshing.')}</ErrorCard>
+      <ErrorCard title="Couldn't load the command center" error={commandCenter.error} onRetry={() => void commandCenter.refetch()} />
     </Show>
     <Show when={tenants.isError}>
-      <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
+      <ErrorCard title="Couldn't load tenants" error={tenants.error} onRetry={() => void tenants.refetch()} />
     </Show>
 
     <WorkAreas
@@ -126,7 +126,7 @@ export function OverviewPage() {
     </WorkAreaPanel>
     <WorkAreaPanel id="table" active={areas.active()}>
       <Show when={tenants.data && ov.rows().length === 0}>
-        <EmptyState label="No tenants provisioned" hint="Create your first tenant to start managing fan growth operations." />
+        <EmptyState icon={<Building2 />} label="No tenants yet" hint="Create your first tenant to start managing fan growth operations." />
       </Show>
       <Show when={!tenants.data || ov.rows().length > 0}>
         <TenantsTable rows={ov.rows()} loading={!tenants.data} ccLoading={ccLoading()} />

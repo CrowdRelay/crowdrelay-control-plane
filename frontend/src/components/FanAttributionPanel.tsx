@@ -8,7 +8,7 @@ import { SectionIcon } from './SectionIcon'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonSection } from './Skeleton'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { TrendingUp, TrendingDown } from 'lucide-solid'
+import { TrendingDown, TrendingUp, Users } from 'lucide-solid'
 import type { FanSourceSnapshot, NorthStarShift } from '../lib/types'
 
 // `/operations/fan-sources` answers the causal half of the north star — which
@@ -83,7 +83,7 @@ export function FanAttributionPanel(props: { slug: string }) {
     <Show
       when={latest()}
       fallback={<Show when={!model.error && !model.isPending}>
-        <EmptyState
+        <EmptyState icon={<Users />}
           label="No fan-source snapshots yet"
           hint={authState.isPlatformLevel() ? 'The worker writes one attribution snapshot an hour once a cycle has run. Until the first lands this ledger is honestly empty.' : 'Once the system has run a cycle, what brought your fans shows up here.'}
         />
@@ -117,7 +117,7 @@ export function FanAttributionPanel(props: { slug: string }) {
 
       <Show
         when={(attribution()?.by_template.length ?? 0) > 0}
-        fallback={<EmptyState
+        fallback={<EmptyState icon={<Users />}
           label="No attributed fan growth yet"
           hint={authState.isPlatformLevel() ? 'A template appears once a resolved outcome lands — a post measured, a link clicked, a fan counted. Until then the ledger is honest and empty.' : 'Once a post or link brings someone in, what brought them shows up here.'}
         />}

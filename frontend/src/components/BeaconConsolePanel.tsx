@@ -1,4 +1,9 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
+import { FormDrawer } from './app/form-drawer'
+import { Field } from './ui/field'
+import { Alert } from './app/alert'
+import { Megaphone, SearchX, Plus } from 'lucide-solid'
+import { failureLine } from '../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { BeaconProfileView } from '../lib/types'
@@ -166,8 +171,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
     setSelected(allShown ? new Set<string>() : new Set<string>(shown))
   }
 
-  const act = async <T,>(key: string, run: () => Promise<T>, done: string | ((result: T) => string)) => {
-    if (busy() !== null) return
+  /** Resolves `true` only when `run` succeeded — a caller that clears a form
+   *  on completion must not clear it after a failure. */
+  const act = async <T,>(key: string, run: () => Promise<T>, done: string | ((result: T) => string), failure = "Couldn't complete that action"): Promise<boolean> => {
+    if (busy() !== null) return false
     setBusy(key)
     setNotice(null)
     try {
@@ -175,8 +182,10 @@ export function BeaconConsolePanel(props: { slug: string }) {
       setNotice({ tone: 'good', message: typeof done === 'function' ? done(result) : done })
       await roster.refetch()
       refreshQueries(['beacon-signal-network', props.slug], ['beacon-signal-candidates', props.slug])
+      return true
     } catch (error) {
-      setNotice({ tone: 'bad', message: errorMessage(error, 'That did not work') })
+      setNotice({ tone: 'bad', message: failureLine(failure, error) })
+      return false
     } finally {
       setBusy(null)
     }
@@ -237,7 +246,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
             // the error says what actually went out, never a flat failure.
             if (created === 0) throw error
             throw new Error(
-              `${created} invitation${created === 1 ? '' : 's'} sent, then a wave failed: ${errorMessage(error, 'upstream refused')}`,
+              `${created} invitation${created === 1 ? '' : 's'} sent, then the next batch didn't go out. ${errorMessage(error, '')}`,
             )
           }
         }
@@ -263,8 +272,7 @@ export function BeaconConsolePanel(props: { slug: string }) {
   const setState = (beaconId: string, status: 'active' | 'paused' | 'revoked') =>
     void act(`state:${beaconId}`, () => api.setBeaconState(props.slug, beaconId, status), `Amplifier ${status}.`)
 
-  const addBeacon = (event: Event) => {
-    event.preventDefault()
+  const addBeacon = () => {
     const values = form()
     void act(
       'add',
@@ -286,7 +294,9 @@ export function BeaconConsolePanel(props: { slug: string }) {
           confidenceBasisPoints: 7_500,
         }),
       `Added ${values.displayName.trim()}.`,
-    ).then(() => {
+      "Couldn't add the amplifier",
+    ).then(ok => {
+      if (!ok) return
       setForm({ ...EMPTY_FORM })
       setAdding(false)
     })
@@ -328,8 +338,8 @@ export function BeaconConsolePanel(props: { slug: string }) {
               onChange={importSubmithub}
             />
           </label>
-          <Button writes variant={adding() ? 'ghost' : 'default'} size="sm" onClick={() => setAdding(value => !value)}>
-            {adding() ? 'Cancel' : 'Add amplifier'}
+          <Button writes size="sm" onClick={() => { setNotice(null); setAdding(true) }}>
+            <Plus aria-hidden="true" /> Add amplifier
           </Button>
         </div>
       }
@@ -337,40 +347,39 @@ export function BeaconConsolePanel(props: { slug: string }) {
 
       <Show when={roster.isPending}><SkeletonPanel /></Show>
       <Show when={roster.error}>
-        <ErrorCard>Could not load the roster: {errorMessage(roster.error, 'We couldn\'t load the amplifier roster. Try refreshing.')}</ErrorCard>
+        <ErrorCard title="Couldn't load the amplifier roster" error={roster.error} onRetry={() => void roster.refetch()} />
       </Show>
 
-      <Show when={adding()}>
-        <form class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4" onSubmit={addBeacon}>
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            Name <small class="text-xs text-muted-foreground">venue, shop or person</small>
-            <Input value={form().displayName} required maxlength={200}
-                   onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
-          </label>
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            Kind <small class="text-xs text-muted-foreground">what they are to the band, not their job title</small>
-            <NativeSelect value={form().beaconKind}
-                    onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
-              <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
-            </NativeSelect>
-          </label>
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            City slug <small class="text-xs text-muted-foreground">as the public city list returns it</small>
-            <Input value={form().citySlug} maxlength={100}
-                   onInput={e => setForm({ ...form(), citySlug: e.currentTarget.value })} />
-          </label>
-          <label class="grid gap-1.5 text-muted-foreground text-sm">
-            Contact email <small class="text-xs text-muted-foreground">needed before they can be invited</small>
-            <Input type="email" value={form().contactEmail} maxlength={320}
-                   onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />
-          </label>
-          <div class="flex gap-2 justify-end mt-5 md:col-span-2">
-            <Button writes size="sm" type="submit" disabled={busy() !== null || !form().displayName.trim()}>
-              {busy() === 'add' && <Spinner />} {busy() === 'add' ? 'Adding…' : 'Add amplifier'}
-            </Button>
-          </div>
-        </form>
-      </Show>
+      <FormDrawer
+        open={adding()}
+        onOpenChange={setAdding}
+        title="Add amplifier"
+        description="A venue, shop or person who can carry the band's news to their own audience."
+        submitLabel="Add amplifier"
+        pendingLabel="Adding…"
+        pending={busy() === 'add'}
+        error={notice()?.tone === 'bad' ? notice()!.message : undefined}
+        onSubmit={addBeacon}
+      >
+        <Field label="Name" hint="Venue, shop or person.">
+          <Input value={form().displayName} required maxlength={200} autocomplete="off"
+                 onInput={e => setForm({ ...form(), displayName: e.currentTarget.value })} />
+        </Field>
+        <Field label="Kind" hint="What they are to the band, not their job title.">
+          <NativeSelect value={form().beaconKind}
+                  onChange={e => setForm({ ...form(), beaconKind: e.currentTarget.value })}>
+            <For each={KINDS}>{kind => <option value={kind}>{KIND_LABEL[kind]}</option>}</For>
+          </NativeSelect>
+        </Field>
+        <Field label="City slug" note="optional" hint="As the public city list returns it, e.g. warszawa.">
+          <Input value={form().citySlug} maxlength={100} autocomplete="off"
+                 onInput={e => setForm({ ...form(), citySlug: e.currentTarget.value })} />
+        </Field>
+        <Field label="Contact email" note="optional" hint="Needed before they can be invited.">
+          <Input type="email" autocomplete="email" value={form().contactEmail} maxlength={320}
+                 onInput={e => setForm({ ...form(), contactEmail: e.currentTarget.value })} />
+        </Field>
+      </FormDrawer>
 
       <Show when={roster.data}>
         {/* An empty roster was still shown a search box, a state filter, a
@@ -421,9 +430,9 @@ export function BeaconConsolePanel(props: { slug: string }) {
           fallback={
             <Show
               when={profiles().length === 0}
-              fallback={<EmptyState label="No amplifier matches that search" hint="Search covers name, city, email and kind." />}
+              fallback={<EmptyState icon={<SearchX />} label="No amplifier matches that search" hint="Search covers name, city, email and kind." />}
             >
-              <EmptyState
+              <EmptyState icon={<Megaphone />}
                 label="No amplifiers yet"
                 hint="Local growth needs people on the ground. Add the venues, shops and promoters the band already knows, then invite them to Signal."
               />
@@ -527,10 +536,9 @@ export function BeaconConsolePanel(props: { slug: string }) {
       </Show>
 
       <Show when={notice()}>
-        {value => <p class="rounded-lg border p-4 text-sm" classList={{
-          'border-success-foreground/30 bg-success-foreground/10 text-success-foreground': value().tone === 'good',
-          'border-destructive/30 bg-destructive/10 text-destructive': value().tone === 'bad',
-        }}>{value().message}</p>}
+        {value => value().tone === 'bad'
+          ? <ErrorCard>{value().message}</ErrorCard>
+          : <Alert tone="success" role="status">{value().message}</Alert>}
       </Show>
     </Section>
   )

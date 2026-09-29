@@ -1,5 +1,5 @@
 import type { OpsOutcomes, AreaCity, AreaDropDetail, AreaDropDraft, AreaDropSummary, AreaOverview, AreaValidationResult, AgentScorecard, LatarnikInviteResult, MeasurementLedger, NegotiationsView, AgentProvider, AgentCredential, AgentModel, AgentSchedule, AgentTask, AgentWorkflow, AgentWorkflowTask, AutomationEvent, AutomationWorkflowConfig, AutopilotOverview, AutopilotPolicy, BulkAutopilotResult, IntelligenceDecisionsData, CommunityItem, CommunityIntroDraft, CommandCenterReadModel, ConnectionCreationResult, ContentPipeline, ContentSourceUpsertInput, ContentSourceView, DeliveryDetails, DeliveryItem, DeliveryResult, DriveBatchPromoteResult, DriveContactsResponse, DualRoleReview, FanbaseConnection, FeatureFlag, GrowthFunnelData, NotifierChannel, NotifierOutboxItem, OperationTimeline, OperatorAccount, OpportunityShortlist, OutboxItem, Palette, PlatformHealthEntry, Profile, ProvisioningJob, ReconciliationResult, RegionalProfile, RetryResult, SentRecord, SignalOverview, TenantOverviewReadModel, PortfolioSettingsReadModel, TenantPortfolioReadModel, TenantRuntimeSnapshot, TenantSummary, FanDetail, FanJourneyEntry, SegmentPreview, AudienceReadModel, PressOverviewReadModel, GrowthMetricCoverageResponse, GrowthMetricTrendsResponse, GrowthObjectivesResponse, AutopilotControlMutation, GrowthPostureView, AcquisitionChannels, FanSourcesResponse, TenantShowsResponse, TenantShowTimelineResponse, TenantShowScanResponse, TenantShowReportResponse, TenantShowPageModel, AutopilotChiefOfStaff, ShowActInput, ShowCreateInput, ShowCreateResult, SharedNight, NightContributionKind, OutreachCandidateView, OutreachCandidatePromotion, BookingCandidateView, BeaconDashboardResponse, BeaconCandidatesResponse, BeaconPressRequestsResponse, BeaconPressAssetsResponse, BeaconEngagementsResponse, BeaconCoverageResponse, BeaconNetworkResponse, BeaconImportResult, NotifiersOverview, AdminReleaseCampaignsResponse, AdminReleaseRecipientsResponse, PlayLedger, UsageAnalyticsData, DecisionEvidence, LearningLoopEntry, LearningProof, CyclePreview, CycleRunResult, NorthStarOption, AudiencePlace, AudiencePlaceInput, BeaconUpsertInput, AgentTasksOverview, AgentProvidersOverview, CommunityDetail, ScanScope, BandListing, ListingState, AttestationSummary, IssuedAttestationResult, RepresentationTargetsResponse, RepresentationTargetInput, ApproachRequestResult, CityFunnelRow, CityVenueRow, CityViewModel, ContentMaterialView, GigPlanResponse, GigPlanApproval, TenantIntentOption, TenantExecutorCapabilities, ActionLedgerEntry, TraceTimeline, RelayProcessRuns, RelayProcessRunDetail, AgentHealthResponse, AgentHealthAlertsResponse, IntelligenceBrief, TenantSecret, UploadedMedia, StandingApproval, BookingAgent, BookingAgentDrawEvidence, BookingAgentDrawFloors, GuaranteeView, TenantTodayReadModel, TenantBookingReadModel, TenantPlacesCitiesModel, TenantPlacesRoomsModel, TenantPlacesOnlineModel, TenantBrainReadModel, TenantProofReadModel, TenantDeliveryReadModel, TenantInMotionModel, TenantContentModel, AgentIntegrationsOverview } from './types'
-import { errorCodeMessage } from './format'
+import { describeErrorLine } from './errors'
 
 
 export class ApiError extends Error {
@@ -12,20 +12,18 @@ export class ApiError extends Error {
      *  `sections` (per-section verdicts) and `degraded`. Rendering layers
      *  read these to show per-section diagnosis instead of a generic string. */
     public readonly body?: Record<string, unknown>,
+    /** The `x-request-id` this call was sent with — the handle that finds it
+     *  in the server log. Shown under Technical details. */
+    public readonly requestId?: string,
   ) { super(message) }
 }
 
-/** Map a backend error code to an operator-friendly heading. Falls back to
- *  the raw `detail` when no code-specific mapping applies. The code→message
- *  map itself lives in `format.ts` (`errorCodeMessage`) — `errorMessage`
- *  there serves callers that only hold an untyped Error. */
+/** A plain-language line for a failure. The translation itself lives in
+ *  `errors.ts` (`describeError`); the raw detail never reaches the reader
+ *  here — it belongs in `ErrorCard`'s Technical details. `fallback` is used
+ *  only when there is no error at all to describe. */
 export function errorHeading(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) {
-    const mapped = error.code ? errorCodeMessage(error.code) : undefined
-    if (mapped) return mapped
-    return error.message || fallback
-  }
-  return error instanceof Error ? error.message : fallback
+  return error ? describeErrorLine(error) : fallback
 }
 
 // Registered by lib/auth.ts so a 401 anywhere drops the in-memory profile.
@@ -67,13 +65,14 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // spinner for the life of the tab. AbortSignal.any keeps a caller's own
   // signal working alongside it.
   const timeoutSignal = AbortSignal.timeout(15_000)
+  const requestId = crypto.randomUUID()
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     credentials: 'same-origin',
     signal: init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal,
     headers: {
       'content-type': 'application/json',
-      'x-request-id': crypto.randomUUID(),
+      'x-request-id': requestId,
       ...init?.headers,
     },
   })
@@ -89,7 +88,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({ detail: response.statusText })) as Record<string, unknown>
     const detail = typeof body.detail === 'string' ? body.detail : `HTTP ${response.status}`
     const code = typeof body.error === 'string' ? body.error : undefined
-    throw new ApiError(response.status, detail, code, body)
+    // At sign-in and step-up a 401 is an answer about the password, not a
+    // dead session — say so, or the reader is told to sign in again while
+    // signing in.
+    if (response.status === 401 && path.startsWith('/auth/')) {
+      throw new ApiError(401, detail, 'invalid_credentials', body, requestId)
+    }
+    throw new ApiError(response.status, detail, code, body, requestId)
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>

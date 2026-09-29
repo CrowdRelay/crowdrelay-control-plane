@@ -1,7 +1,8 @@
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
+import { failureLine, unavailableError } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
-import { Bell, History, Layers, RefreshCw, Send } from 'lucide-solid'
+import { Bell, CircleCheck, History, Layers, RefreshCw, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
@@ -147,14 +148,14 @@ export function TenantContentPage() {
   // The two sections under the names the page was written against.
   const pipeline = {
     get data() { return model.data?.pipeline ?? undefined },
-    get error() { return model.error ?? (model.data && !model.data.pipeline ? new Error('The approval list could not be read') : null) },
+    get error() { return model.error ?? (model.data && !model.data.pipeline ? unavailableError("The approval list didn't load.") : null) },
     get isFetching() { return model.isFetching },
     get dataUpdatedAt() { return model.dataUpdatedAt },
     refetch: () => model.refetch(),
   }
   const results = {
     get data() { return model.data?.delivery_results?.results ?? undefined },
-    get error() { return model.error ?? (model.data && !model.data.delivery_results ? new Error('What went out could not be read') : null) },
+    get error() { return model.error ?? (model.data && !model.data.delivery_results ? unavailableError("The sent list didn't load.") : null) },
     get isFetching() { return model.isFetching },
     get dataUpdatedAt() { return model.dataUpdatedAt },
     refetch: () => model.refetch(),
@@ -202,7 +203,7 @@ export function TenantContentPage() {
   const queryClient = useQueryClient()
   const material = {
     get data() { return model.data?.material ?? undefined },
-    get error() { return model.error ?? (model.data && !model.data.material ? new Error('The material could not be read') : null) },
+    get error() { return model.error ?? (model.data && !model.data.material ? unavailableError("The material didn't load.") : null) },
   }
   createEffect(() => {
     const view = model.data?.material
@@ -243,8 +244,8 @@ export function TenantContentPage() {
     } catch (err) {
       // A 409's problem body is a sentence for a person — on the item,
       // where the refusal belongs.
-      if (err instanceof ApiError && err.status === 409) setItemError(action.id, err.message)
-      else setItemError(action.id, errorMessage(err, 'Could not approve it. Try again.'))
+      if (err instanceof ApiError && err.status === 409) setItemError(action.id, errorMessage(err, ""))
+      else setItemError(action.id, failureLine("Couldn't approve it", err))
     } finally {
       setPendingId(null)
     }
@@ -257,7 +258,7 @@ export function TenantContentPage() {
       setConfirming(null)
       refreshQueries(['content-model', params().slug])
     } catch (err) {
-      setItemError(action.id, errorMessage(err, 'Could not reject it. Try again.'))
+      setItemError(action.id, failureLine("Couldn't reject it", err))
     } finally {
       setPendingId(null)
     }
@@ -276,10 +277,10 @@ export function TenantContentPage() {
     />
 
     <Show when={pipeline.error}>
-      <SectionFailureCard error={pipeline.error} fallback={authState.isPlatformLevel() ? 'Approval queue unavailable' : 'The approval list'} onRetry={() => void pipeline.refetch()} />
+      <SectionFailureCard error={pipeline.error} title="Couldn't load the approval list" onRetry={() => void pipeline.refetch()} />
     </Show>
     <Show when={results.error}>
-      <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
+      <SectionFailureCard error={results.error} title="Couldn't load the published list" onRetry={() => void results.refetch()} />
     </Show>
 
     <WorkAreas
@@ -344,7 +345,7 @@ export function TenantContentPage() {
       </Show>
       <Show when={pipeline.data}>
         <Show when={pending().length > 0} fallback={
-          <EmptyState label="Nothing waiting" hint="When the brain drafts a post, a story or a push from your material, it lands here for your yes." />
+          <EmptyState icon={<CircleCheck />} label="Nothing waiting" hint="When the brain drafts a post, a story or a push from your material, it lands here for your yes." />
         }>
           <ul class="divide-y divide-border rounded-lg border border-border">
             <For each={pending()}>{(action) => {
@@ -441,7 +442,7 @@ export function TenantContentPage() {
         </Show>
       </Card>
       <Card title="Material it works from" icon={<Layers />} aside={<Link to="/tenants/$slug/content/material" params={{ slug: params().slug }} class="hover:text-foreground">Material →</Link>}>
-        <Show when={material.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{material.error ? 'The material could not be read.' : ''}</p>}>
+        <Show when={material.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{material.error ? "Couldn't load the material." : ''}</p>}>
           <For each={(material.data?.by_kind ?? []).slice().sort((a, b) => b.total - a.total)}>{kind => (
             <StatRow label={MATERIAL_LABEL[kind.kind] ?? humanizeToken(kind.kind)} value={<span class="tabular-nums text-foreground">{kind.kind === 'release' ? `~${kind.distinct_titles}` : kind.total}</span>} />
           )}</For>
@@ -476,7 +477,7 @@ function ManualSocialPostRegister(props: { slug: string; post: DeliveryResult; o
       toast.success('Registered — the post is being measured')
       props.onDone()
     } catch (error) {
-      toast.error(errorMessage(error, 'That did not register'))
+      toast.error("Couldn't register the post", error)
     } finally {
       setBusy(false)
       setOpen(false)
@@ -538,7 +539,7 @@ function ManualMessageRegister(props: { slug: string; post: DeliveryResult; onDo
       toast.success('Registered — the post is being measured')
       props.onDone()
     } catch (error) {
-      toast.error(errorMessage(error, 'That did not register'))
+      toast.error("Couldn't register the post", error)
     } finally {
       setBusy(false)
       setOpen(false)

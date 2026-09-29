@@ -138,7 +138,7 @@ export function RuntimeSwitchesPanel(props: {
         <summary class="flex items-center justify-between gap-4 cursor-pointer list-none"><div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="settings" />Feature flags</h3></div><small class="text-xs text-muted-foreground">{flags.data?.length ?? 0} declared</small></summary>
         <Show when={flags.data} fallback={
           <Show when={flags.error} fallback={<SkeletonFlagList />}>
-            <SectionFailureCard error={flags.error} fallback="Feature flags unavailable" onRetry={() => void flags.refetch()} />
+            <SectionFailureCard error={flags.error} title="Couldn't load feature flags" onRetry={() => void flags.refetch()} />
           </Show>
         }>{items => <div class="flex flex-col mt-3">
           <For each={items()}>{flag => <div class="flex items-center justify-between gap-3 py-2 border-b border-border">

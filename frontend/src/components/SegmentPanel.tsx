@@ -1,4 +1,7 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Users } from 'lucide-solid'
+import { errorMessage } from '../lib/format'
+import { describeError } from '../lib/errors'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { cn } from '../lib/cn'
@@ -32,8 +35,9 @@ export function SegmentPanel(props: {
       const result = await api.audienceSegmentPreview(props.slug, slug)
       setPreviewCount(result.total)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load segment preview'
-      setError(msg.includes('unavailable') || msg.includes('503') ? 'Segment preview is not available — the audience backend may not support this segment.' : msg)
+      setError(describeError(err).kind === 'unreachable'
+        ? "A preview isn't available for this segment yet."
+        : `Couldn't preview this segment. ${errorMessage(err, '')}`)
     } finally {
       setLoading(false)
     }
@@ -45,7 +49,7 @@ export function SegmentPanel(props: {
         control this panel does not have — read as two different screens
         arguing. The empty state says the one thing the description cannot:
         why there is nothing here yet. */}
-    <Show when={props.segments.length > 0} fallback={<EmptyState label="No segments yet" hint={authState.isPlatformLevel() ? 'The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion.' : 'Segments appear once fans are landing. Connect a source and they show up on the next import.'} />}>
+    <Show when={props.segments.length > 0} fallback={<EmptyState icon={<Users />} label="No segments yet" hint={authState.isPlatformLevel() ? 'The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion.' : 'Segments appear once fans are landing. Connect a source and they show up on the next import.'} />}>
       <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
         <For each={props.segments}>{(segment) => (
           <Button

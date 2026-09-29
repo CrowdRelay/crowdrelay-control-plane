@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { CalendarDays } from 'lucide-solid'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { capability, capabilityAction } from '../lib/capabilities'
 import { surface } from '../lib/surface'
@@ -96,7 +97,7 @@ export function ReleasePlanPanel(props: { slug: string }) {
       <Show when={!plans.error} fallback={<Alert tone="warning" title="Couldn't check the release plan">{errorMessage(plans.error, 'The tenant did not answer.')}</Alert>}>
         <Show when={plans.data} fallback={<SkeletonRows count={2} />}>
           <Show when={plans.data!.length > 0} fallback={
-            <EmptyState label="No release planned" hint="Plan the next release and the ladder — calendar, pitch, announcement, press, the day, the reports — starts from its date." />
+            <EmptyState icon={<CalendarDays />} label="No release planned" hint="Plan the next release and the ladder — calendar, pitch, announcement, press, the day, the reports — starts from its date." />
           }>
             <div class="space-y-3">
               <For each={plans.data!}>{plan => (

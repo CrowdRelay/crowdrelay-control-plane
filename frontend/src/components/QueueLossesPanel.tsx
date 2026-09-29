@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Skeleton } from './ui/skeleton'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { formatTimestamp, humanizeToken } from '../lib/format'
@@ -9,7 +10,6 @@ import { EmptyState } from './ui/empty-state'
 import { SectionIcon } from './SectionIcon'
 import { Card } from './app/card'
 import { Badge } from './app/badge'
-import { Spinner } from './Spinner'
 
 // The approval queue's other half, and the sends that never arrived.
 //
@@ -169,12 +169,12 @@ function FailedSendRow(props: { slug: string; send: FailedSend }) {
         What it tried to send
       </summary>
       <div class="mt-2 flex flex-col gap-1.5 border-l-2 border-border pl-3 text-sm">
-        <Show when={loading()}><span class="text-xs text-muted-foreground"><Spinner /> Loading…</span></Show>
+        <Show when={loading()}><div role="status" class="flex flex-col gap-1.5"><span class="sr-only">Loading…</span><Skeleton class="h-3.5 w-3/5" /><Skeleton class="h-3.5 w-2/5" /></div></Show>
         <Show when={record() === 'none'}>
           <span class="text-xs text-muted-foreground">Nothing left — the action never emitted, so there are no words and no addresses to show.</span>
         </Show>
         <Show when={record() === 'error'}>
-          <span class="text-xs text-destructive">The record could not be read — try again.</span>
+          <span class="text-xs text-destructive">Couldn't load this record. Try again.</span>
         </Show>
         <Show when={record() !== null && record() !== 'none' && record() !== 'error'}>
           {(() => {

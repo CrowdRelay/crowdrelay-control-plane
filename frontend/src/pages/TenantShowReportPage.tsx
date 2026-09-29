@@ -64,7 +64,7 @@ export function TenantShowReportPage() {
             <DashHeader title="After the show" back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }} />
             <SectionFailureCard
               error={model.error}
-              fallback="Report unavailable"
+              title="Couldn't load the show report"
               onRetry={() => void model.refetch()}
             />
           </Show>

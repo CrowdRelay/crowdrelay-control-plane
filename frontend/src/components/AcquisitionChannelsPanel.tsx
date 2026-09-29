@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Users } from 'lucide-solid'
 import { KpiCard, KpiStrip, Section } from './layout'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -76,7 +77,7 @@ export function AcquisitionChannelsPanel(props: { slug: string }) {
 
       <Show
         when={data().channels.length > 0}
-        fallback={<EmptyState
+        fallback={<EmptyState icon={<Users />}
           label="No attributed signups yet"
           hint={authState.isPlatformLevel() ? 'A channel appears here once a fan arrives carrying its attribution — a tracked link, a community post, or a campaign creative. Until then the funnel counts them, but cannot say who sent them.' : 'A channel appears here once a fan arrives by a tracked link, a community post, or a campaign. Until then we count them, but cannot say who sent them.'}
         />}

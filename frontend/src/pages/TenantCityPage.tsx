@@ -2,11 +2,10 @@ import { For, Show, createMemo } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
-import { authState } from '../lib/auth'
 import type { CityViewModel, CityViewShow, GigPlanOutcome } from '../lib/types'
 import { PageShell, KpiStrip, KpiCard } from '../components/layout'
 import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Pill, Ring, Split, StatRow, Steps, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
-import { Building, ChartBar, MapPin, Target } from 'lucide-solid'
+import { Building, CalendarDays, ChartBar, MapPin, Target, Users } from 'lucide-solid'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection, SkeletonKpiStrip } from '../components/Skeleton'
 import { EmptyState } from '../components/ui/empty-state'
@@ -157,7 +156,7 @@ export function TenantCityPage() {
       <Show when={view.error}>
         <SectionFailureCard
           error={view.error}
-          fallback={authState.isPlatformLevel() ? 'City view unavailable' : 'This city'}
+          title="Couldn't load this city"
           onRetry={() => void view.refetch()}
         />
       </Show>
@@ -275,7 +274,7 @@ export function TenantCityPage() {
       <Show when={model()}>
         <div>
           <WorkAreaPanel id="rooms" active={tabs.active()}>
-            <Show when={rooms().length > 0} fallback={<EmptyState label="No rooms on record here" hint="A room lands here once a show marks it or research finds it." />}>
+            <Show when={rooms().length > 0} fallback={<EmptyState icon={<MapPin />} label="No rooms on record here" hint="A room lands here once a show marks it or research finds it." />}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -344,7 +343,7 @@ export function TenantCityPage() {
             </Show>
           </WorkAreaPanel>
           <WorkAreaPanel id="fans" active={tabs.active()}>
-            <Show when={funnelRow()} fallback={<EmptyState label="No fan here yet" hint="A city fills in once a fan says they live here." />}>
+            <Show when={funnelRow()} fallback={<EmptyState icon={<Users />} label="No fan here yet" hint="A city fills in once a fan says they live here." />}>
               {row => (
                 <>
                   <KpiStrip>
@@ -367,7 +366,7 @@ export function TenantCityPage() {
             </Show>
           </WorkAreaPanel>
           <WorkAreaPanel id="shows" active={tabs.active()}>
-            <Show when={(model()?.shows.length ?? 0) > 0} fallback={<EmptyState label="No show here on record" />}>
+            <Show when={(model()?.shows.length ?? 0) > 0} fallback={<EmptyState icon={<CalendarDays />} label="No show here on record" />}>
               <div class="flex flex-col gap-2">
                 <For each={model()!.shows}>{show => <ShowRow show={show} slug={slug()} />}</For>
               </div>
@@ -406,13 +405,13 @@ function CityContacts(props: { slug: string; citySlug: string; cityName: string 
   return (
     <>
       <Show when={contacts.error}>
-        <SectionFailureCard error={contacts.error} fallback="Contacts unavailable" onRetry={() => void contacts.refetch()} />
+        <SectionFailureCard error={contacts.error} title="Couldn't load contacts" onRetry={() => void contacts.refetch()} />
       </Show>
       <Show when={!contacts.error && !contacts.data}>
         <SkeletonSection titleWidth="120px" lines={3} minHeight="120px" />
       </Show>
       <Show when={contacts.data && cityContacts().length === 0}>
-        <EmptyState label="No staged contact names this city" />
+        <EmptyState icon={<MapPin />} label="No staged contact names this city" />
       </Show>
       <Show when={cityContacts().length > 0}>
             <ul class="mt-3 space-y-2">
@@ -492,13 +491,13 @@ function CityPlan(props: { slug: string; citySlug: string }) {
         </Link>.
       </p>
       <Show when={plan.error}>
-        <SectionFailureCard error={plan.error} fallback="Gig plan unavailable" onRetry={() => void plan.refetch()} />
+        <SectionFailureCard error={plan.error} title="Couldn't load the gig plan" onRetry={() => void plan.refetch()} />
       </Show>
       <Show when={!plan.error && !plan.data}>
         <SkeletonSection titleWidth="140px" lines={4} minHeight="160px" />
       </Show>
       <Show when={plan.data && !proposal() && !passedOver() && !outcome()}>
-        <EmptyState label="The planner did not consider this city" />
+        <EmptyState icon={<MapPin />} label="The planner did not consider this city" />
       </Show>
           <Show when={proposal()}>
             {p => (

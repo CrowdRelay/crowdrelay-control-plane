@@ -1,17 +1,17 @@
 import { ApproveAllButton } from './ApproveAllButton'
+import { failureLine, unavailableError } from '../lib/errors'
 import { SurfaceAction } from './capabilities/SurfaceAction'
 import { capabilityAction } from '../lib/capabilities'
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import type { OpportunityBoardEntry } from '../lib/types'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { confidencePercent, errorMessage } from '../lib/format'
+import { confidencePercent } from '../lib/format'
 import { SkeletonOpportunityBoard } from './Skeleton'
 import { APPROVE_EFFECT, CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, RANK_FACTOR_LABELS, VALUE_TIER_LABELS, labelOr, opportunityTitle } from '../lib/opportunity-labels'
 import { SectionIcon } from './SectionIcon'
 import { Section, ErrorCard } from './layout'
 import { Spinner } from './Spinner'
-import { Alert } from './app/alert'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Checkbox } from './app/checkbox'
@@ -258,7 +258,7 @@ export function OpportunityBoardPanel(props: {
 }) {
   const board = {
     get data() { return props.opportunities ?? undefined },
-    get error() { return props.degraded ? new Error(authState.isPlatformLevel() ? 'Opportunity queue is temporarily unavailable.' : 'This could not be checked right now — it comes back on its own.') : undefined },
+    get error() { return props.degraded ? unavailableError(authState.isPlatformLevel() ? "Couldn't load the opportunity queue." : "Couldn't check this right now. It comes back on its own.") : undefined },
   }
 
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
@@ -289,7 +289,7 @@ export function OpportunityBoardPanel(props: {
       await props.refresh()
       refreshQueries(['tenant-brain', props.slug], ['tenant-delivery', props.slug])
     } catch (error) {
-      setMutationError(errorMessage(error, 'Opportunity decision failed'))
+      setMutationError(failureLine("Couldn't save your decision", error))
     } finally {
       setPendingMutation(null)
     }
@@ -347,9 +347,7 @@ export function OpportunityBoardPanel(props: {
 
   return <>
     <Show when={board.error}>
-      <Alert tone="warning" role="status">
-        {errorMessage(board.error, authState.isPlatformLevel() ? 'Opportunity queue is temporarily unavailable.' : 'This could not be checked right now — it comes back on its own.')}
-      </Alert>
+      <ErrorCard title="Couldn't load the opportunity queue" error={board.error} recovery="It usually comes back on its own in a minute or two." />
     </Show>
 
     <Show when={mutationError()}>

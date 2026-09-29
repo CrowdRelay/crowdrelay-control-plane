@@ -4,7 +4,7 @@ import { Section } from './layout'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage, formatTimestamp } from '../lib/format'
+import { formatTimestamp } from '../lib/format'
 import { toast } from './app/toast'
 import { confirmAction } from './Dialog'
 import { SectionIcon } from './SectionIcon'
@@ -74,7 +74,7 @@ export function GrowthPosturePanel(props: { slug: string }) {
       // The write carries `expected_version`, so a stale tab loses rather than
       // silently overwriting a change made elsewhere. Refetch and say so.
       await queryClient.invalidateQueries({ queryKey: ['growth-posture', props.slug] })
-      toast.error(errorMessage(error, 'Posture change was rejected'))
+      toast.error("Couldn't change the posture", error)
     },
     onSettled: () => setPending(null),
   }))

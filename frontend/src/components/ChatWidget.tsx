@@ -1,8 +1,9 @@
 import { Show, For, createSignal, createEffect, onCleanup } from 'solid-js'
+import { ErrorCard } from './layout'
+import { failureLine } from '../lib/errors'
 import { useNavigate, useLocation } from '@tanstack/solid-router'
 import { ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { errorMessage } from '../lib/format'
 import { cn } from '../lib/cn'
 import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
@@ -217,9 +218,9 @@ export function ChatWidget(props: { slug: string }) {
       } else {
         const msg = err instanceof ApiError
           ? err.status === 503
-            ? (authState.isPlatformLevel() ? 'The AI assistant is not available right now. Make sure the agent service is running.' : 'The AI assistant is not available right now — try again in a moment.')
-            : errorMessage(err, 'Chat failed')
-          : errorMessage(err, 'Chat failed')
+            ? (authState.isPlatformLevel() ? "The assistant isn't available right now. Make sure the agent service is running." : "The assistant isn't available right now. Try again in a moment.")
+            : failureLine("Couldn't get a reply", err)
+          : failureLine("Couldn't get a reply", err)
         setError(msg)
         setMessages(prev => {
           const next = [...prev]
@@ -252,8 +253,8 @@ export function ChatWidget(props: { slug: string }) {
       if (result.error) setError(result.error)
       if (result.reply) setMessages(m => [...m, { role: 'assistant', content: result.reply! }])
     } catch (err) {
-      setError(errorMessage(err, 'Action failed'))
-      setMessages(m => [...m, { role: 'assistant', content: `That action failed: ${errorMessage(err, 'unknown error')}` }])
+      setError(failureLine("Couldn't complete that action", err))
+      setMessages(m => [...m, { role: 'assistant', content: failureLine("That action didn't work", err) }])
     } finally {
       setExecutingAction(null)
     }
@@ -384,7 +385,7 @@ export function ChatWidget(props: { slug: string }) {
           </div>
 
           <Show when={error()}>
-            <div class="text-sm text-destructive px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30">{error()}</div>
+            <ErrorCard class="p-3">{error()}</ErrorCard>
           </Show>
 
           <div class="border-t border-border p-3 flex-shrink-0">

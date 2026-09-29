@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { Compass, Megaphone, Users } from 'lucide-solid'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { beaconKindLabel, formatTimestamp } from '../lib/format'
@@ -56,10 +57,10 @@ export function BeaconSignalPanel(props: { slug: string }) {
   >
 
     <Show when={dashboard.error}>
-      <ErrorCard>Amplifier discovery unavailable</ErrorCard>
+      <ErrorCard title="Couldn't load amplifier discovery" error={dashboard.error} onRetry={() => void dashboard.refetch()} />
     </Show>
     <Show when={dashboard.isPending && !dashboard.error}>
-      <SkeletonBlock height="60px" radius="10px" />
+      <SkeletonBlock height="60px" />
     </Show>
     <Show when={dashboard.data}>
       <KpiStrip class="mb-4">
@@ -83,7 +84,7 @@ export function BeaconSignalPanel(props: { slug: string }) {
 
       {/* ── Profiles tab ── */}
       <TabPanel active={activeTab()} id="profiles" visited={isVisited('profiles')}>
-        <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState label="No amplifier profiles" hint="Profiles say who in a physical room can carry word for this act." />}>
+        <Show when={dashboard.data!.profiles.length > 0} fallback={<EmptyState icon={<Megaphone />} label="No amplifier profiles" hint="Profiles say who in a physical room can carry word for this act." />}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -119,13 +120,13 @@ export function BeaconSignalPanel(props: { slug: string }) {
       {/* ── Candidates tab ── */}
       <TabPanel active={activeTab()} id="candidates" visited={isVisited('candidates')}>
         <Show when={candidates.error}>
-          <ErrorCard>Candidates unavailable</ErrorCard>
+          <ErrorCard title="Couldn't load candidates" error={candidates.error} onRetry={() => void candidates.refetch()} />
         </Show>
         <Show when={candidates.isPending && !candidates.error}>
-          <SkeletonBlock height="120px" radius="10px" />
+          <SkeletonBlock height="120px" />
         </Show>
         <Show when={candidates.data}>
-          <Show when={candidates.data!.candidates.length > 0} fallback={<EmptyState label="No candidates" hint="Candidates are discovered amplifiers not yet on the roster." />}>
+          <Show when={candidates.data!.candidates.length > 0} fallback={<EmptyState icon={<Users />} label="No candidates" hint="Candidates are discovered amplifiers not yet on the roster." />}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -160,13 +161,13 @@ export function BeaconSignalPanel(props: { slug: string }) {
       {/* ── Discovery tab ── */}
       <TabPanel active={activeTab()} id="discovery" visited={isVisited('discovery')}>
         <Show when={network.error}>
-          <ErrorCard>Network discovery unavailable</ErrorCard>
+          <ErrorCard title="Couldn't load network discovery" error={network.error} onRetry={() => void network.refetch()} />
         </Show>
         <Show when={network.isPending && !network.error}>
-          <SkeletonBlock height="120px" radius="10px" />
+          <SkeletonBlock height="120px" />
         </Show>
         <Show when={network.data}>
-          <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState label="No discovery runs" hint="Discovery runs scan for nearby fans through amplifier campaigns." />}>
+          <Show when={network.data!.discoveryRuns.length > 0} fallback={<EmptyState icon={<Compass />} label="No discovery runs" hint="Discovery runs scan for nearby fans through amplifier campaigns." />}>
             <Table>
               <TableHeader>
                 <TableRow>

@@ -2,11 +2,15 @@ import { Show, type Component, type JSX } from 'solid-js'
 import { cn } from '~/lib/cn'
 
 /**
- * EmptyState — honest empty/zero-data state. No decorative icon circle,
- * no encouraging copy. State what is absent and what action would change it.
+ * EmptyState — honest empty/zero-data state. State what is absent, what this
+ * place is for, and what action would change it.
+ *
+ * One contextual icon, muted, in a quiet tile: it tells the eye "this is a
+ * placeholder, not data" before the words do. The icon names the thing that
+ * is absent (fans, mail, a calendar), never a generic smiley or illustration.
  *
  * Usage:
- *   <EmptyState label="No fans reporting" hint="Connect a source to start aggregating." />
+ *   <EmptyState icon={<Users />} label="No fans reporting" hint="Connect a source to start counting fans." />
  */
 
 export const EmptyState: Component<{
@@ -20,14 +24,19 @@ export const EmptyState: Component<{
 }> = (props) => (
   <div class={cn('flex flex-col items-center justify-center gap-2 py-8 text-center', props.class)}>
     <Show when={props.icon}>
-      <div class="text-muted-foreground">{props.icon}</div>
+      <div
+        class="mb-1 flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground [&_svg]:size-5 [&_svg]:stroke-[1.5]"
+        aria-hidden="true"
+      >
+        {props.icon}
+      </div>
     </Show>
-    <strong class="text-sm font-medium text-foreground">{props.label}</strong>
+    <strong class="text-sm font-medium text-foreground text-balance">{props.label}</strong>
     <Show when={props.hint}>
-      <p class="max-w-sm text-xs text-muted-foreground">{props.hint}</p>
+      <p class="m-0 max-w-sm text-xs text-muted-foreground text-pretty">{props.hint}</p>
     </Show>
     <Show when={props.signal}>
-      <p class="text-xs text-muted-foreground">{props.signal}</p>
+      <p class="m-0 text-xs text-muted-foreground">{props.signal}</p>
     </Show>
     <Show when={props.children}>
       <div class="mt-2">{props.children}</div>

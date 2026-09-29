@@ -1,4 +1,6 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
+import { SkeletonRows } from './Skeleton'
+import { ErrorCard } from './layout'
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/solid-query'
 import { ChevronDown, ExternalLink } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
@@ -410,9 +412,9 @@ function RelayRunChecklist(props: {
       if (error instanceof ApiError && error.status === 409) {
         // Upstream's refusal is a sentence written for a person — on the
         // card, where the refused batch lives.
-        setApproveError(error.message)
+        setApproveError(errorMessage(error, ""))
       } else {
-        toast.error(errorMessage(error, 'The approval did not go through'))
+        toast.error("Couldn't send the approval", error)
       }
     } finally {
       setBusy(false)
@@ -437,7 +439,7 @@ function RelayRunChecklist(props: {
       toast.success('Pulled back — nothing else goes out')
       props.onChanged()
     } catch (error) {
-      toast.error(errorMessage(error, 'The revoke did not go through'))
+      toast.error("Couldn't revoke the approval", error)
     } finally {
       setBusy(false)
     }
@@ -457,7 +459,7 @@ function RelayRunChecklist(props: {
       toast.success(`Skipped r/${t.subreddit ?? 'community'}`)
       props.onChanged()
     } catch (error) {
-      toast.error(errorMessage(error, 'That did not go through'))
+      toast.error("Couldn't skip the community", error)
     } finally {
       setBusy(false)
     }
@@ -475,12 +477,10 @@ function RelayRunChecklist(props: {
   return (
     <div class="border-t border-border px-4 pb-4 pt-3">
       <Show when={props.detail.isPending}>
-        <p class="py-4 text-sm text-muted-foreground">Loading the forums…</p>
+        <SkeletonRows count={3} />
       </Show>
       <Show when={props.detail.error}>
-        <p class="py-4 text-sm text-destructive">
-          {errorMessage(props.detail.error, 'The forum list did not load')}
-        </p>
+        <ErrorCard class="my-4" title="Couldn't load the forums" error={props.detail.error} />
       </Show>
       <Show when={props.detail.data}>
         {/* The owned-audience half of the same decision. The thin strip
@@ -633,7 +633,7 @@ function TargetRow(props: {
       toast.success(`Registered — r/${name()} is being measured`)
       props.onChanged()
     } catch (error) {
-      toast.error(errorMessage(error, 'That did not register'))
+      toast.error("Couldn't register the post", error)
     } finally {
       setRegisterBusy(false)
       setRegistering(false)

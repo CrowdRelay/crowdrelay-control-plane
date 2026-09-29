@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Checkbox as KobalteCheckbox } from '@kobalte/core/checkbox'
 import { Check, MapPin, Plus } from 'lucide-solid'
 import { api } from '../../lib/api'
-import { errorMessage, humanizeToken } from '../../lib/format'
+import { humanizeToken, sentenceCase } from '../../lib/format'
 
 /** Lifecycle verbs → the past-tense word the flash line needs. */
 const ACTION_PAST_TENSE: Record<string, string> = {
@@ -13,7 +13,7 @@ import type { AreaCity, AreaDropDraft, AreaStatus, AreaValidationResult } from '
 import { StatusBadge } from '../StatusBadge'
 import { LocationCanvas } from './LocationCanvas'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '../ui/empty'
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../ui/sheet'
+import { FormDrawer } from '../app/form-drawer'
 import { SkeletonRows } from '../Skeleton'
 import { confirmAction } from '../Dialog'
 import { SectionIcon } from '../SectionIcon'
@@ -145,7 +145,7 @@ export function AreaWorkspace(props: { slug: string }) {
     const value = newCity()
     const latitude = Number(value.latitude)
     const longitude = Number(value.longitude)
-    if (!value.slug.trim() || !value.name.trim() || !value.region.trim() || !/^[A-Za-z]{2}$/.test(value.countryCode.trim())) throw new Error('Name, slug, region and a two-letter country code are required.')
+    if (!value.slug.trim() || !value.name.trim() || !value.region.trim() || !/^[A-Za-z]{2}$/.test(value.countryCode.trim())) throw new Error('Fill in the name, slug, region and a two-letter country code.')
     if (!value.latitude.trim() || !value.longitude.trim() || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) throw new Error('Valid public latitude and longitude are required.')
     return api.areaCreateCity(slug(), {
       slug:value.slug.trim().toLowerCase(), name:value.name.trim(), countryCode:value.countryCode.trim().toUpperCase(), region:value.region.trim(), latitude, longitude,
@@ -183,17 +183,17 @@ export function AreaWorkspace(props: { slug: string }) {
 
   const selectedCity = createMemo(() => { const d=draft(); return d ? cities.data?.items.find(city=>city.id===d.cityId) : undefined })
   const allPending = createMemo(() => save.isPending || validate.isPending || publish.isPending || lifecycle.isPending || discard.isPending || duplicate.isPending)
-  const mutationError = createMemo(() => [overview.error,drops.error,tenant.error,cities.error,detail.error,settings.error,createDrop.error,createCity.error,save.error,validate.error,publish.error,lifecycle.error,discard.error,duplicate.error].find(Boolean))
+  const mutationError = createMemo(() => [overview.error,drops.error,tenant.error,cities.error,detail.error,settings.error,save.error,validate.error,publish.error,lifecycle.error,discard.error].find(Boolean))
   const confirmationIssues = createMemo(() => validation()?.issues.filter(issue => issue.confirmationRequired) ?? [])
   const hardIssues = createMemo(() => validation()?.issues.filter(issue => !issue.confirmationRequired) ?? [])
   const toggleConfirmation = (code:string) => setConfirmations(current => current.includes(code) ? current.filter(item=>item!==code) : [...current,code])
 
   return <>
     <Show when={flash()}><Alert tone="info" role="status">{flash()}</Alert></Show>
-    <Show when={mutationError()}><ErrorCard>{errorMessage(mutationError(), 'AREA operation failed')}</ErrorCard></Show>
+    <Show when={mutationError()}><ErrorCard title="Couldn't save that AREA change" error={mutationError()} /></Show>
 
     <Show when={overview.data} fallback={
-      <Show when={overview.isPending} fallback={<ErrorCard recovery={false}>{errorMessage(overview.error, 'AREA management is unavailable. This is not an empty game state.')} <Button variant="ghost" size="sm" onClick={()=>overview.refetch()}>Retry</Button></ErrorCard>}>
+      <Show when={overview.isPending} fallback={<ErrorCard title="Couldn't load AREA" error={overview.error} onRetry={() => overview.refetch()}>Your drops are safe — this page just couldn't reach them.</ErrorCard>}>
         <SkeletonRows count={4} />
       </Show>
     }>{o => <>
@@ -255,38 +255,38 @@ export function AreaWorkspace(props: { slug: string }) {
           is about down the page. It is a side task with its own lifecycle —
           it belongs in a drawer that overlays, and closing it costs no
           scroll position. */}
-      <Sheet open={creating()} onOpenChange={setCreating}>
-        {/* A flex column whose middle section scrolls, same as the shared
-            Dialog shell: expanding the custom-city form must not push the
-            footer — and the Create draft button in it — below the fold. */}
-        <SheetContent class="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 text-left">
-            <SheetTitle class="text-sm">New location</SheetTitle>
-            <SheetDescription>A draft, not a public drop. The exact claim point is set afterwards, in the editor.</SheetDescription>
-          </SheetHeader>
-          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
-            <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" /></Field>
-            <Field label="Canonical city" hint="Where the drop lives. Missing city? Create one below."><NativeSelect value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
-            <Field label="Drop number" hint="1–3 digits, required. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input inputmode="numeric" maxlength="3" value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
-            <Show when={createCityOpen()}><div class="space-y-3 rounded-md border border-border bg-card p-3">
-              <Field label="Name"><Input required value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
-              <Field label="Slug"><Input required value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))}/></Field>
-              <Field label="Country"><Input required maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
-              <Field label="Region"><Input required value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></Field>
-              <Field label="Public latitude"><Input required type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></Field>
-              <Field label="Public longitude"><Input required type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></Field>
-              <Button writes size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>Save canonical city</Button>
-            </div></Show>
-          </div>
-          {/* The button was enabled without a drop number and the mutation threw
-              "Drop number must contain 1–3 digits" only after the click. Same
-              rule, checked where the operator can still act on it. */}
-          <SheetFooter class="shrink-0 gap-2 border-t border-border px-5 py-4 sm:space-x-0">
-            <Button writes variant="ghost" size="sm" onClick={()=>setCreateCityOpen(v=>!v)}>{createCityOpen() ? 'Hide custom city' : 'Create custom city'}</Button>
-            <Button writes size="sm" disabled={createDrop.isPending || !newCityId() || !/^\d{1,3}$/.test(newNumber().trim())} onClick={()=>createDrop.mutate()}>Create draft</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <FormDrawer
+        open={creating()}
+        onOpenChange={setCreating}
+        title="New location"
+        description="A draft, not a public drop. The exact claim point is set afterwards, in the editor."
+        submitLabel="Create draft"
+        pendingLabel="Creating…"
+        pending={createDrop.isPending}
+        onSubmit={() => createDrop.mutate()}
+        error={createDrop.error ?? createCity.error}
+        errorTitle={createDrop.error ? "Couldn't create the draft" : "Couldn't save the city"}
+        secondaryAction={<Button type="button" writes variant="ghost" size="sm" onClick={() => setCreateCityOpen(v => !v)}>{createCityOpen() ? 'Hide custom city' : 'Create custom city'}</Button>}
+      >
+        <Field label="Search city" hint="Type to filter the canonical list."><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" autocomplete="off" /></Field>
+        <Field label="Canonical city" hint="Where the drop lives. Missing city? Create a custom one."><NativeSelect required value={newCityId()} onChange={e=>setNewCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''} · {city.countryCode}</option>}</For></NativeSelect></Field>
+        <Field label="Drop number" hint="1–3 digits. Padded to three for the id: 7 in Wrocław becomes wro-007."><Input required inputmode="numeric" pattern="\d{1,3}" maxlength="3" title="Use 1–3 digits." value={newNumber()} onInput={e=>setNewNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
+        <Show when={createCityOpen()}>
+          {/* Not `required`: these belong to a second action inside the form,
+              and would otherwise block Create draft. The city mutation checks
+              them itself. */}
+          <fieldset class="m-0 flex flex-col gap-3 rounded-lg border border-border p-3">
+            <legend class="px-1 text-sm font-medium text-foreground">Custom city</legend>
+            <Field label="Name"><Input value={newCity().name} onInput={e=>setNewCity(v=>({...v,name:e.currentTarget.value}))}/></Field>
+            <Field label="Slug"><Input value={newCity().slug} onInput={e=>setNewCity(v=>({...v,slug:e.currentTarget.value}))} autocomplete="off"/></Field>
+            <Field label="Country" hint="Two-letter code, e.g. PL."><Input maxlength="2" value={newCity().countryCode} onInput={e=>setNewCity(v=>({...v,countryCode:e.currentTarget.value}))}/></Field>
+            <Field label="Region"><Input value={newCity().region} onInput={e=>setNewCity(v=>({...v,region:e.currentTarget.value}))}/></Field>
+            <Field label="Public latitude"><Input type="number" step="0.000001" value={newCity().latitude} onInput={e=>setNewCity(v=>({...v,latitude:e.currentTarget.value}))}/></Field>
+            <Field label="Public longitude"><Input type="number" step="0.000001" value={newCity().longitude} onInput={e=>setNewCity(v=>({...v,longitude:e.currentTarget.value}))}/></Field>
+            <div><Button type="button" writes variant="outline" size="sm" disabled={createCity.isPending} onClick={()=>createCity.mutate()}>{createCity.isPending ? 'Saving…' : 'Save city'}</Button></div>
+          </fieldset>
+        </Show>
+      </FormDrawer>
       {/* Column headings over nothing are furniture, and they implied the
           rows were loading when the list was simply empty. */}
       <Show when={(drops.data?.items.length ?? 0) > 0}>
@@ -415,19 +415,28 @@ export function AreaWorkspace(props: { slug: string }) {
           </KpiStrip>
           <Show when={validation()}>{_v=><>
             <Show when={hardIssues().length===0}><Alert tone="success" role="status">No blocking validation errors.</Alert></Show>
-            <For each={hardIssues()}>{issue=><ErrorCard><strong>{issue.code}</strong><p>{issue.message}</p></ErrorCard>}</For>
-            <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-background" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.code}</strong><small class="block text-xs text-muted-foreground">{issue.message}</small></span></KobalteCheckbox>}</For>
+            <For each={hardIssues()}>{issue=><ErrorCard title={issue.field ? `Fix ${humanizeToken(issue.field)}` : "Fix this drop"} recovery={false}>{sentenceCase(issue.message)}</ErrorCard>}</For>
+            <For each={confirmationIssues()}>{issue=><KobalteCheckbox class="flex items-start gap-3 cursor-pointer p-3 rounded-md border border-border bg-background" checked={confirmations().includes(issue.code)} onChange={()=>toggleConfirmation(issue.code)}><KobalteCheckbox.Input class="sr-only" /><KobalteCheckbox.Control class={checkboxControl}><KobalteCheckbox.Indicator class="flex items-center justify-center text-current"><Check class="h-3.5 w-3.5" /></KobalteCheckbox.Indicator></KobalteCheckbox.Control><span><strong class="text-sm text-foreground">{issue.field ? `Confirm ${humanizeToken(issue.field)}` : "Confirm this drop"}</strong><small class="block text-xs text-muted-foreground">{sentenceCase(issue.message)}</small></span></KobalteCheckbox>}</For>
           </>}</Show>
           <div class="flex justify-end gap-2"><Button variant="outline" size="sm" disabled={validate.isPending||save.isPending} onClick={()=>validate.mutate()}>Save and validate</Button><Button size="sm" disabled={!validation()?.valid || confirmationIssues().some(issue=>!confirmations().includes(issue.code)) || publish.isPending} onClick={()=>publish.mutate()}>Publish revision</Button></div>
         </div></Show>
 
-        <Show when={duplicateOpen()}><div class="rounded-lg border border-border bg-background p-4 space-y-3">
-          <strong class="text-sm text-foreground">Duplicate as a new draft</strong><p class="text-sm text-muted-foreground">The collectible/content is copied, but the exact claim coordinates are deliberately cleared.</p>
-          <Field label="Search destination city"><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Search canonical cities"/></Field>
-          <Field label="Destination city"><NativeSelect value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></Field>
-          <Field label="New number"><Input inputmode="numeric" maxlength="3" value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
-          <div class="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={()=>setDuplicateOpen(false)}>Cancel</Button><Button size="sm" disabled={duplicate.isPending || !duplicateCityId() || !duplicateNumber()} onClick={()=>duplicate.mutate()}>Create duplicate draft</Button></div>
-        </div></Show>
+        <FormDrawer
+          open={duplicateOpen()}
+          onOpenChange={setDuplicateOpen}
+          title="Duplicate as a new draft"
+          description="The collectible and content are copied. The exact claim point is cleared on purpose."
+          submitLabel="Create duplicate draft"
+          pendingLabel="Creating…"
+          pending={duplicate.isPending}
+          onSubmit={() => duplicate.mutate()}
+          error={duplicate.error}
+          errorTitle="Couldn't duplicate the draft"
+        >
+          <Field label="Search destination city"><Input value={citySearch()} onInput={e=>setCitySearch(e.currentTarget.value)} placeholder="Wrocław" autocomplete="off"/></Field>
+          <Field label="Destination city"><NativeSelect required value={duplicateCityId()} onChange={e=>setDuplicateCityId(e.currentTarget.value)}><option value="">Choose…</option><For each={cities.data?.items ?? []}>{city=><option value={city.id}>{city.name}{city.region ? ` · ${city.region}` : ''}</option>}</For></NativeSelect></Field>
+          <Field label="New number" hint="1–3 digits."><Input required inputmode="numeric" pattern="\d{1,3}" maxlength="3" title="Use 1–3 digits." value={duplicateNumber()} onInput={e=>setDuplicateNumber(e.currentTarget.value.replace(/\D/g,'').slice(0,3))}/></Field>
+        </FormDrawer>
 
         <div class="flex items-center justify-between gap-2 flex-wrap pt-4 border-t border-border">
           <div class="flex gap-2"><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>save.mutate()}>Save draft</Button><Show when={detail.data!.summary.hasDraft && detail.data!.summary.status!=='DRAFT'}><Button variant="ghost" size="sm" disabled={discard.isPending} onClick={()=>discard.mutate()}>Discard draft</Button></Show><Show when={detail.data!.summary.status!=='DRAFT' && detail.data!.summary.status!=='ARCHIVED'}><Button variant="ghost" size="sm" disabled={allPending()} onClick={()=>setDuplicateOpen(v=>!v)}>Duplicate</Button></Show></div>

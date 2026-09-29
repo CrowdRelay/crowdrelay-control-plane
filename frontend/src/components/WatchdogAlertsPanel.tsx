@@ -1,4 +1,5 @@
 import { For, Show } from 'solid-js'
+import { CircleCheck } from 'lucide-solid'
 import { authState } from '../lib/auth'
 import { PanelTitle } from './layout'
 import { Link } from '@tanstack/solid-router'
@@ -216,7 +217,7 @@ export function WatchdogAlertsPanel(props: {
     </div>
 
     <Show when={open().length === 0}>
-      <div class="p-4 mt-2.5"><EmptyState label="No open alerts" hint={authState.isPlatformLevel() ? 'The watchdog monitors runtime health and shows open alerts here.' : 'The monitor checks that nothing broke and shows open alerts here.'} /></div>
+      <div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No open alerts" hint={authState.isPlatformLevel() ? 'The watchdog monitors runtime health and shows open alerts here.' : 'The monitor checks that nothing broke and shows open alerts here.'} /></div>
     </Show>
 
     {/* Recovered rows stay for 24 hours so a cleared incident is visible as

@@ -1,7 +1,9 @@
 import { For, Show, createSignal } from 'solid-js'
+import { SkeletonRows } from './Skeleton'
+import { SearchX } from 'lucide-solid'
 import { useQuery } from '@tanstack/solid-query'
 import { api, ApiError } from '../lib/api'
-import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
+import { formatIsoAge, humanizeToken } from '../lib/format'
 import { TechIdList } from './ui/TechnicalDetails'
 import { Card } from './app/card'
 import { Badge } from './app/badge'
@@ -51,11 +53,11 @@ export function ActionLedgerPanel(props: { slug: string }) {
     <p class="mt-1 text-sm text-muted-foreground">
       The durable execution intent behind every autopilot move — what was planned, approved, sent, and what reconciled after going dark.
     </p>
-    <Show when={ledger.error}><ErrorCard class="mt-3">Action ledger unavailable: {errorMessage(ledger.error, 'Could not read the ledger. Try refreshing.')}</ErrorCard></Show>
-    <Show when={ledger.isPending}><p class="mt-3 text-sm text-muted-foreground"><Spinner /> Loading…</p></Show>
+    <Show when={ledger.error}><ErrorCard class="mt-3" title="Couldn't load the action ledger" error={ledger.error} onRetry={() => void ledger.refetch()} /></Show>
+    <Show when={ledger.isPending}><SkeletonRows count={3} /></Show>
     <Show when={ledger.data}>
       {data => <Show when={data().length > 0} fallback={
-        <EmptyState label={stateFilter() ? `Nothing in state ${stateFilter()}` : 'No actions yet'} hint="Actions land here when the autopilot plans, approves and executes work. A filter that matches nothing is a quiet ledger, not a broken one." />
+        <EmptyState icon={<SearchX />} label={stateFilter() ? `Nothing in state ${stateFilter()}` : 'No actions yet'} hint="Actions land here when the autopilot plans, approves and executes work. A filter that matches nothing is a quiet ledger, not a broken one." />
       }>
         <Table class="mt-3">
           <TableHeader><TableRow>
@@ -143,7 +145,7 @@ function ActionRow(props: { slug: string; entry: ActionLedgerEntry }) {
             <span class="text-xs text-muted-foreground">No events carry this trace id — the action exists but left nothing to join yet.</span>
           </Show>
           <Show when={trace() === 'error'}>
-            <span class="text-xs text-destructive">The trace could not be read — try again.</span>
+            <span class="text-xs text-destructive">Couldn't load the trace. Try again.</span>
           </Show>
           <Show when={trace() !== null && trace() !== 'none' && trace() !== 'error'}>
             {(() => { const t = trace() as TraceTimeline; return (

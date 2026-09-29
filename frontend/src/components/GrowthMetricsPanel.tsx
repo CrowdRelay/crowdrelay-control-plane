@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { SectionIcon } from './SectionIcon'
-import { errorMessage } from '../lib/format'
 import { compactNumber, trendArrow, trendDirection } from '../lib/charts'
 import { Sparkline } from './Sparkline'
 import { EmptyState } from './ui/empty-state'
@@ -272,7 +271,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
     </Show>}
   >
 
-    <Show when={coverage.error}><ErrorCard>Growth coverage unavailable: {errorMessage(coverage.error, 'We couldn\'t reach the growth coverage data. Try refreshing.')}</ErrorCard></Show>
+    <Show when={coverage.error}><ErrorCard title="Couldn't load growth coverage" error={coverage.error} onRetry={() => void coverage.refetch()} /></Show>
     <Show
       when={coverage.data && hasFeeds()}
       fallback={
@@ -285,7 +284,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
         // A permanent skeleton reads as a backend that never replied.
         <Show when={coverage.data} fallback={
           <Show when={coverage.error} fallback={<>
-            <SkeletonBlock height="80px" radius="10px" />
+            <SkeletonBlock height="80px" />
             <SkeletonRows count={3} />
           </>}>{null}</Show>
         }>
@@ -323,17 +322,17 @@ export function GrowthMetricsPanel(props: { slug: string }) {
           }</For>
         </div>
       </Show>
-      <Show when={trends.error}><ErrorCard>Growth trends unavailable: {errorMessage(trends.error, 'We couldn\'t reach the growth trends. Try refreshing.')}</ErrorCard></Show>
+      <Show when={trends.error}><ErrorCard title="Couldn't load growth trends" error={trends.error} onRetry={() => void trends.refetch()} /></Show>
       <Show when={trends.data && trends.data!.length > 0} fallback={
         <Show when={trends.isFetching} fallback={
-          <Show when={hasLive()} fallback={<EmptyState label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
-            <EmptyState label="No growth metric trends available" hint="Trends require at least one live data feed. Connect a source (Reddit, Spotify, Meta) to start collecting metric series." />
+          <Show when={hasLive()} fallback={<EmptyState icon={<ChartLine />} label="No live feeds yet" hint="Trends appear once data starts flowing." />}>
+            <EmptyState icon={<ChartLine />} label="No growth trends yet" hint="Trends require at least one live data feed. Connect a source (Reddit, Spotify, Meta) to start collecting metric series." />
           </Show>
         }>
           <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-            <SkeletonBlock height="120px" radius="10px" />
-            <SkeletonBlock height="120px" radius="10px" />
-            <SkeletonBlock height="120px" radius="10px" />
+            <SkeletonBlock height="120px" />
+            <SkeletonBlock height="120px" />
+            <SkeletonBlock height="120px" />
           </div>
         </Show>
       }>
