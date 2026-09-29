@@ -43,7 +43,7 @@ export function SignalOverviewPanel(props: { slug: string }) {
       <KpiCard label="Marketing opt-in" value={data().summary.marketing_opted_in.toLocaleString()} sub={`${data().summary.nearby_enabled.toLocaleString()} nearby`} />
       <KpiCard label={authState.isPlatformLevel() ? 'Suppressed' : 'Muted'} value={data().summary.suppressed_fans.toLocaleString()} sub={authState.isPlatformLevel() ? 'preference-disabled' : 'turned off'} />
       <KpiCard label="Organic new (7d)" value={data().activity.new_fans_7d.toLocaleString()} sub={`${data().activity.new_fans_30d.toLocaleString()} in 30d`} />
-      <KpiCard label="Archive recovered" value={data().activity.archive_confirmed.toLocaleString()} sub={`of ${data().activity.archive_imported.toLocaleString()} imported`} />
+      <KpiCard label="Archive → Signal" value={data().activity.archive_engaged.toLocaleString()} sub={`${data().activity.archive_staged.toLocaleString()} staged · ${data().activity.archive_pending.toLocaleString()} pending · ${data().activity.archive_confirmed.toLocaleString()} confirmed of ${data().activity.archive_imported.toLocaleString()}`} />
       <KpiCard label="Referrals" value={data().activity.referral_attributions_total.toLocaleString()} sub={`${data().activity.referral_attributions_30d.toLocaleString()} in 30d`} />
       <KpiCard label="Event interests" value={data().activity.event_interests_total.toLocaleString()} sub={`${data().activity.event_interests_30d.toLocaleString()} in 30d`} />
       <KpiCard label="Nearby (30d)" value={data().activity.nearby_notifications_30d.toLocaleString()} sub={`${data().activity.pending_city_requests.toLocaleString()} city requests`} />

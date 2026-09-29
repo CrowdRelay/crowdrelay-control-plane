@@ -486,7 +486,10 @@ export type SignalOverview = {
     nearby_notifications_30d: number
     pending_city_requests: number
     archive_imported: number
+    archive_staged: number
+    archive_pending: number
     archive_confirmed: number
+    archive_engaged: number
   }
   top_cities: { slug: string; name: string; country_code: string; active_fans: number }[]
   unavailable_sources: string[]
