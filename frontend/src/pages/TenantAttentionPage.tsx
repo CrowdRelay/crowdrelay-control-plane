@@ -408,9 +408,11 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
             notReported={attention.data?.not_reported ?? []}
           />
 
-          {/* The queue the operator, not the system, is blocking. */}
+          {/* The post queue, in both lanes — what the machine is carrying
+              and what waits for a person. */}
           <UnpublishedDraftsPanel
             drafts={attention.data?.unpublished_drafts ?? []}
+            automatic={attention.data?.automatic_queue}
             notReported={attention.data?.not_reported ?? []}
           />
 

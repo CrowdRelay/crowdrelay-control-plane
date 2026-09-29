@@ -1192,13 +1192,18 @@ export type TenantAttentionReadModel = {
   needs_you?: PendingActionSummary[]
   /// Count of opportunities awaiting approval. Optional for the same reason.
   awaiting_approval?: number
-  /// Drafted posts waiting for a person to publish them, per channel.
+  /// Drafted posts waiting for a person to publish them, per channel —
+  /// the human half of the post queue.
   ///
   /// The one queue where the system is blocked on the operator rather than the
   /// reverse: every outbound channel drafts and waits. Optional for the same
   /// reason as the fields above — absent means the tenant does not report the
   /// queue, which is not the same as reporting an empty one.
   unpublished_drafts?: UnpublishedDraftChannel[]
+  /// The post queue's machine half — sends in flight or resolved by the
+  /// system, per channel. Optional: an API that predates the field does not
+  /// publish it, and absent does not mean empty.
+  automatic_queue?: AutomaticQueueChannel[]
   /// What the brain makes of its own recent performance, and — when it has
   /// been doing nothing — why. `null` (or absent on an older tenant) means
   /// the tenant does not report a self-assessment; the page prints
@@ -4826,11 +4831,26 @@ export type BrainSelfAssessment = {
   latest_wait_reason?: string | null
 }
 
-/// One channel's backlog of drafted-but-unpublished posts.
+/// One channel's backlog of drafted-but-unpublished posts — the human half
+/// of the post queue. `channel` is the post table's channel name
+/// (`reddit`, `telegram`, `discord`) or the social platform itself
+/// (`instagram`, `facebook`, `x`) so Meta entries are not lumped under a
+/// generic "social" label.
 export type UnpublishedDraftChannel = {
   channel: string
   drafts: number
   oldest_drafted_at: string | null
+}
+
+/// One channel's backlog inside the machine's own lane — the automatic
+/// half of the post queue. `in_flight` rows are being worked (`pending`,
+/// `posting`, `rate_limited` mid-backoff); `failed` resolved in the
+/// machine's lane. Neither needs a person.
+export type AutomaticQueueChannel = {
+  channel: string
+  in_flight: number
+  failed: number
+  oldest_queued_at: string | null
 }
 
 /// One read answering "is the brain working, what mode, what found, what
@@ -4850,8 +4870,11 @@ export type IntelligenceBrief = {
   awaiting_approval: number
   /// Communities the brain wants but cannot reach.
   blocked_communities: BlockedCommunity[]
-  /// Finished work nobody published.
+  /// Finished work nobody published — the human half of the post queue.
   unpublished_drafts: UnpublishedDraftChannel[]
+  /// The post queue's machine half — in-flight and failed sends the system
+  /// owns. Optional: an API that predates the field does not publish it.
+  automatic_queue?: AutomaticQueueChannel[]
   /// What the weekly join-ask needs from a person before it can run at all.
   ///
   /// Optional: a CrowdRelay that predates the field does not publish it, and

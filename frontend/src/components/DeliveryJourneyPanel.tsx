@@ -167,6 +167,7 @@ export function DeliveryJourneyPanel(props: {
       <Show when={attention() !== null}>
         <UnpublishedDraftsPanel
           drafts={drafts()}
+          automatic={attention()?.automatic_queue}
           notReported={attention()?.not_reported ?? []}
         />
       </Show>

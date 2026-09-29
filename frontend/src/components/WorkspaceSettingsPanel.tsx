@@ -28,6 +28,7 @@ const LABELS: Record<string, string> = {
   act_style: 'What the act sounds like',
   act_home_city: 'Where the act is from',
   social_auto_post: 'Social auto-posting',
+  social_autopost_platforms: 'Auto-posting platforms',
   ticketing_enabled: 'Ticket sales',
   growth_cadence_moments_per_month: 'Serious moments per month',
   growth_cadence_fillers_enabled: 'Filler calendar',
@@ -67,7 +68,7 @@ const GROUPS: { title: string; description: string; bandDescription?: string; ke
     title: 'Social & join-ask',
     description: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
     bandDescription: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
-    keys: ['social_auto_post', 'join_ask_platforms', 'join_ask_cadence_days', 'join_ask_variants', 'join_ask_image_url'],
+    keys: ['social_auto_post', 'social_autopost_platforms', 'join_ask_platforms', 'join_ask_cadence_days', 'join_ask_variants', 'join_ask_image_url'],
   },
   {
     title: 'Crew',
@@ -80,6 +81,14 @@ const GROUPS: { title: string; description: string; bandDescription?: string; ke
 const BOOLEAN_KEYS = new Set(['signal_enabled', 'synesthesia_enabled', 'social_auto_post', 'growth_cadence_fillers_enabled', 'ticketing_enabled'])
 const NUMBER_KEYS = new Set(['growth_cadence_moments_per_month', 'join_ask_cadence_days', 'team_weekly_ask_ceiling'])
 const PLATFORM_OPTIONS = ['facebook', 'instagram', 'telegram', 'discord']
+// The autopost lane is narrower than the join-ask channels: it lists only
+// platforms with a working publish path — X's write API is paid-tier and
+// Discord has no social executor, so neither can be offered.
+const AUTOPOST_PLATFORM_OPTIONS = ['facebook', 'instagram', 'telegram']
+const PLATFORM_PICKER_OPTIONS: Record<string, string[]> = {
+  join_ask_platforms: PLATFORM_OPTIONS,
+  social_autopost_platforms: AUTOPOST_PLATFORM_OPTIONS,
+}
 const JOIN_ASK_VARIANT_MAX_CHARS = 500
 const JOIN_ASK_VARIANT_MAX_ROWS = 5
 
@@ -184,6 +193,11 @@ const HINTS: Record<string, { hint: string; example: string; band?: string }> = 
     hint: 'Channels the join-ask goes to. Facebook, Instagram and Telegram publish today; discord is accepted but held until its executor is wired. Absent means facebook,instagram.',
     band: 'Channels the join-ask goes to. Facebook, Instagram and Telegram publish today; discord waits until its sender exists. Absent means facebook,instagram.',
     example: 'facebook,instagram,telegram',
+  },
+  social_autopost_platforms: {
+    hint: "Which platforms auto-post when Social auto-posting is on — the rest queue for a person instead of publishing, so removing Meta moves those drafts to the human queue. X always queues: its write API is paid-tier. To stop all auto-posting, switch Social auto-posting off. Absent means facebook,instagram,telegram.",
+    band: 'Which platforms post themselves when Social auto-posting is on — the rest wait as drafts for you to publish. X always waits: we cannot post to X for you. To stop all auto-posting, switch Social auto-posting off.',
+    example: 'telegram',
   },
   join_ask_image_url: {
     hint: 'The picture every join-ask post carries — an app screenshot works best. Uploaded here, served from the tenant over https so Facebook, Instagram and Telegram can fetch it. Telegram needs it for a photo post; Instagram always needs an image.',
@@ -313,6 +327,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
       if (long) return `Each post is ${JOIN_ASK_VARIANT_MAX_CHARS} characters at most.`
     }
     if (key === 'join_ask_platforms' && !draft.trim()) return 'Pick at least one channel, or the ask has nowhere to go.'
+    if (key === 'social_autopost_platforms' && !draft.trim()) return 'Pick at least one platform — to stop all auto-posting, switch Social auto-posting off.'
     if (key === 'join_ask_cadence_days') {
       const n = Number(draft)
       if (!Number.isInteger(n) || n < 3 || n > 30) return 'Whole days between 3 and 30.'
@@ -342,7 +357,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                 when={key === 'join_ask_variants'}
                 fallback={
                   <Show
-                    when={key === 'join_ask_platforms'}
+                    when={PLATFORM_PICKER_OPTIONS[key]}
                     fallback={
                       <Show
                         when={key === 'join_ask_image_url'}
@@ -397,21 +412,21 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                       </Show>
                     }
                   >
-                    {/* One chip per channel the executor knows — the stored
-                        value is the comma list the evaluator parses. */}
+                    {/* One chip per channel the field accepts — the stored
+                        value is the comma list the reader parses. */}
                     <div class="flex flex-wrap gap-1.5">
-                      <For each={PLATFORM_OPTIONS}>{platform => {
-                        const selected = () => (value('join_ask_platforms')).split(',').map(s => s.trim()).includes(platform)
+                      <For each={PLATFORM_PICKER_OPTIONS[key] ?? []}>{platform => {
+                        const selected = () => (value(key)).split(',').map(s => s.trim()).includes(platform)
                         return <Button
                           variant={selected() ? 'secondary' : 'outline'}
                           size="sm"
                           writes
                           onClick={() => {
-                            const current = value('join_ask_platforms').split(',').map(s => s.trim()).filter(Boolean)
+                            const current = value(key).split(',').map(s => s.trim()).filter(Boolean)
                             const next = current.includes(platform)
                               ? current.filter(p => p !== platform)
                               : [...current, platform]
-                            setDrafts(d => ({ ...d, join_ask_platforms: next.join(',') }))
+                            setDrafts(d => ({ ...d, [key]: next.join(',') }))
                           }}
                         >{platform}</Button>
                       }}</For>
@@ -448,7 +463,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
           <option value="false">Disabled</option>
         </NativeSelect>
       </Show>
-      <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_image_url' && key !== 'join_ask_platforms'}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
+      <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_image_url' && !PLATFORM_PICKER_OPTIONS[key]}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
       <Show when={key === 'tenant_intent'}>
         {(() => {
           const current = () => value(key)
