@@ -55,7 +55,10 @@ PAGE_SOURCES = sorted((FRONTEND / "pages").glob("*.tsx"))
 # - content, tenants: the dashboard header's back link on Content › Material
 #   and on the new-tenant wizard, each pointing at the very nav destination
 #   of the same name — the same pattern as places.
-ALLOWED_DUPLICATES: set[str] = {"shows", "places", "content", "tenants"}
+# - overview: the work-area strip's first tab on every page names that page's
+#   own landing dashboard — one concept ("what this surface opens on")
+#   repeated per page, matching the fleet-home nav item of the same name.
+ALLOWED_DUPLICATES: set[str] = {"shows", "places", "content", "tenants", "overview"}
 
 
 def labels(text: str) -> list[str]:
