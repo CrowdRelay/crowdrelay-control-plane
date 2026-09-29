@@ -355,7 +355,7 @@ export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onT
           tabIndex={props.active === area.id || (i() === 0 && !props.areas.some(a => a.id === props.active)) ? 0 : -1}
           onKeyDown={onTabListKeyDown}
           class={cn('rounded-md border px-2.5 py-1 text-xs transition-colors',
-            props.active === area.id ? 'border-foreground bg-foreground text-background' : 'border-border text-foreground hover:bg-muted')}
+            props.active === area.id ? 'border-foreground bg-foreground text-background' : 'border-border bg-muted/55 text-foreground hover:bg-muted')}
           onClick={() => props.onToggle(area.id)}
         >
           {area.label}{area.count != null ? ` · ${area.count}` : ''}
