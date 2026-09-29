@@ -1,4 +1,5 @@
 import { For, Match, Show, Suspense, Switch, createEffect, createSignal, onCleanup, onMount, untrack, type Component, type JSX } from 'solid-js'
+import { onTabListKeyDown } from '../lib/roving-tabs'
 import { useNavigate, useRouterState } from '@tanstack/solid-router'
 import { Card } from './app/card'
 import { Metric, MetricRow, type MetricTone } from './ui/metric'
@@ -183,7 +184,7 @@ export function TabBar(props: {
 }) {
   return (
     <div class={cn('flex items-center gap-1 border-b border-border overflow-x-auto scrollbar-none mb-4', props.class)} role="tablist">
-      <For each={props.tabs}>{tab => (
+      <For each={props.tabs}>{(tab, i) => (
         <Button
           type="button"
           variant="ghost"
@@ -200,6 +201,8 @@ export function TabBar(props: {
           id={`tab-${tab.id}`}
           aria-selected={props.active === tab.id}
           aria-controls={`tabpanel-${tab.id}`}
+          tabIndex={props.active === tab.id || (i() === 0 && !props.tabs.some(t => t.id === props.active)) ? 0 : -1}
+          onKeyDown={onTabListKeyDown}
         >
           <Show when={tab.icon}>{icon => icon()({})}</Show>
           {tab.label}
@@ -334,10 +337,16 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
 // ─── ErrorCard ─────────────────────────────────────────────────────────
 // Replaces the hand-rolled `.error-card` CSS class.
 
-export function ErrorCard(props: { children: JSX.Element; class?: string }) {
+/** An error names a way out. Most failures here are a read or a write that
+ *  works on the next attempt, so that is the default line; pass `recovery`
+ *  when the fix is something else, or `false` when the message already says. */
+export function ErrorCard(props: { children: JSX.Element; class?: string; recovery?: JSX.Element | false }) {
   return (
     <div class={cn('error-card rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive break-words', props.class)} role="alert">
       {props.children}
+      <Show when={props.recovery !== false}>
+        <p class="m-0 mt-1 text-xs text-muted-foreground">{props.recovery ?? 'Try again in a moment. If it keeps failing, refresh the page.'}</p>
+      </Show>
     </div>
   )
 }

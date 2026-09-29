@@ -392,7 +392,7 @@ export function DriveContactsPanel(props: { slug: string }) {
 
       <Show when={error()}><ErrorCard>{error()}</ErrorCard></Show>
       <Show when={notice()}>
-        <div class="mt-3 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">{notice()}</div>
+        <div class="mt-3 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-xs text-success-foreground">{notice()}</div>
       </Show>
 
       <Show when={contacts.error}>
@@ -698,7 +698,7 @@ function DriveContactRow(props: {
             {' — '}{props.contact.source_file_name}, seen {formatSeen(props.contact.last_seen_at)}
           </p>
           <Show when={props.contact.notes}>
-            <p class="m-0 mt-1 text-xs text-muted-foreground/80 italic">{props.contact.notes}</p>
+            <p class="m-0 mt-1 text-xs text-muted-foreground italic">{props.contact.notes}</p>
           </Show>
           </div>
         </div>

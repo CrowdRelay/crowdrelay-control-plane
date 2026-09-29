@@ -59,6 +59,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
+  /* Overlays float: a 1px ring plus lift, per theme (see :root / .dark). */
+  --shadow-overlay: var(--elevation-overlay);
+
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
   --animate-content-show: content-show 0.2s ease-out;
@@ -93,7 +96,9 @@
     --foreground: 240 10% 3.9%;
 
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    /* Darker than the preset's 46.1% so secondary text clears 4.5:1 on the
+       muted fill and on the tinted error card, not just on white. */
+    --muted-foreground: 240 3.8% 42%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
@@ -113,24 +118,33 @@
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Destructive is both a fill (white label, 5.2:1) and a text colour
+       (4.6:1 on its own 10% tint). The preset's 60% failed both. */
+    --destructive: 0 84% 45%;
     --destructive-foreground: 0 0% 98%;
 
     --info: 204 94% 94%;
-    --info-foreground: 199 89% 48%;
+    /* Status foregrounds are text colours too: each clears 4.5:1 as 12px
+       text on its own 15% pill tint and on the muted tiles. */
+    --info-foreground: 199 89% 32%;
 
     --success: 149 80% 90%;
-    --success-foreground: 160 84% 39%;
+    --success-foreground: 160 84% 25%;
 
     --warning: 48 96% 89%;
-    --warning-foreground: 25 95% 53%;
+    --warning-foreground: 25 95% 34%;
 
     --error: 0 93% 94%;
-    --error-foreground: 0 84% 60%;
+    --error-foreground: 0 84% 42%;
 
     --ring: 240 5.9% 10%;
 
     --radius: 0.5rem;
+
+    --elevation-overlay:
+      0px 0px 0px 1px oklch(0 0 0 / 0.06),
+      0px 4px 6px -1px oklch(0 0 0 / 0.1),
+      0px 2px 4px -2px oklch(0 0 0 / 0.1);
 
     /* Chart series — the shadcn/ui chart palette, unchanged. */
     --chart-1: 12 76% 61%;
@@ -176,24 +190,33 @@
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    /* A 30% red is unreadable as text on a near-black page (1.9:1). Lighter
+       red reads as text (4.8:1 on its tint) and carries a dark label as a fill. */
+    --destructive: 0 72% 62%;
+    --destructive-foreground: 0 0% 9%;
 
-    --info: 204 94% 94%;
+    /* Status fills are dark tints here — the light theme's pastels under
+       a bright label measured 2.3:1. Each label clears 4.6:1 on its fill. */
+    --info: 199 50% 12%;
     --info-foreground: 199 89% 48%;
 
-    --success: 149 80% 90%;
+    --success: 160 50% 12%;
     --success-foreground: 160 84% 39%;
 
-    --warning: 48 96% 89%;
+    --warning: 25 50% 12%;
     --warning-foreground: 25 95% 53%;
 
-    --error: 0 93% 94%;
+    --error: 0 50% 12%;
     --error-foreground: 0 84% 60%;
 
     --ring: 240 4.9% 83.9%;
 
     --radius: 0.5rem;
+
+    --elevation-overlay:
+      0 0 0 1px oklch(1 0 0 / 0.08),
+      0px 4px 6px -1px oklch(0 0 0 / 0.4),
+      0px 2px 4px -2px oklch(0 0 0 / 0.4);
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -217,7 +240,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings:
       "rlig" 1,
       "calt" 1;
@@ -252,6 +275,12 @@
   #app { height: 100%; overflow: hidden; }
   /* Tailwind's `bg-*` hover on a pressed Kobalte button needs a pointer. */
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+
+  /* Focus rings here are box-shadows (`ring-*`), which forced-colors mode
+     drops. Give every focused control a system-coloured outline instead. */
+  @media (forced-colors: active) {
+    :focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+  }
 }
 
 @layer components {
@@ -339,5 +368,13 @@
   @media (prefers-reduced-motion: reduce) {
     .spin, .btn-spinner, [data-fresh] { animation: none !important; }
     [data-refreshing="true"] { transition: none; }
+    /* Sheets, dialogs, menus, toasts and press feedback. 0.01ms, not none,
+       so animationend / transitionend still fire for Kobalte's presence. */
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

@@ -72,7 +72,7 @@ export function TenantCapabilitiesPage() {
         </Show>
         <div class="mt-6 flex items-center justify-between gap-3">
           <p class="text-sm text-muted-foreground">Find a feature — each links to the page and section where it is used.</p>
-          <Input class="w-64" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />
+          <Input class="w-64" aria-label="Filter features" placeholder="Filter…" value={filter()} onInput={(event) => setFilter(event.currentTarget.value)} />
         </div>
         <For each={PILLARS}>{(pillar) => {
           const list = entries(pillar.id)

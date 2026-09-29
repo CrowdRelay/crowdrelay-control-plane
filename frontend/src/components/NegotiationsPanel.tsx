@@ -183,6 +183,7 @@ function LiveRow(props: { entry: NegotiationEntry; slug: string }) {
           <Input
             type="text"
             inputmode="decimal"
+            aria-label={`Counter-offer fee in ${e().currency}`}
             placeholder={`fee in ${e().currency}`}
             value={offer()}
             onInput={ev => setOffer(ev.currentTarget.value)}

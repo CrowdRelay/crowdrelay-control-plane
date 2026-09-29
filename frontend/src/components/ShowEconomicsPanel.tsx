@@ -64,7 +64,7 @@ export function ShowEconomicsPanel(props: {
     }>{e => (
       <div class="rounded-lg border border-border bg-background px-4 py-3">
         <div class="flex items-baseline justify-between gap-2">
-          <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The money</p>
+          <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">The money</p>
           <Badge variant={settled() ? 'success' : 'muted'}>{settled() ? `settled ${formatTimestamp(e().settled_at)}` : 'predicted'}</Badge>
         </div>
         <div class="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-sm">

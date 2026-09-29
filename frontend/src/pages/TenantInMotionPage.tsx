@@ -110,7 +110,7 @@ export function TenantInMotionPage() {
           <Card title="Your posts, carried further" icon={<Share2 />} aside={`${runs().length} this week`}>
             <Show when={model.data?.relays} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">The relay runs could not be read — they come back on the next refresh.</p>}>
               <Show when={runs().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No relays yet — a post worth spreading lands here.</p>}>
-                <div class="flex items-center gap-2.5 pb-1 text-xs text-muted-foreground/70">
+                <div class="flex items-center gap-2.5 pb-1 text-xs text-muted-foreground">
                   <span class="flex-1" />
                   <span class="flex w-44 justify-between">
                     <span>seen</span><span>fans</span><span>forums</span><span>you</span><span>out</span>
@@ -150,7 +150,7 @@ export function TenantInMotionPage() {
               <For each={finished()}>{([kind, count]) => (
                 <div>
                   <p class="m-0 text-lg font-medium tabular-nums text-foreground">{count}</p>
-                  <p class="m-0 text-xs text-muted-foreground/70">{ACTION_LABEL[kind] ?? labelOr(DECISION_KIND_LABELS, kind)}</p>
+                  <p class="m-0 text-xs text-muted-foreground">{ACTION_LABEL[kind] ?? labelOr(DECISION_KIND_LABELS, kind)}</p>
                 </div>
               )}</For>
             </div>
@@ -194,7 +194,7 @@ function RelayRow(props: { run: RelayProcessRun; slug: string }) {
       <Row>
         <div class="min-w-0 flex-1">
           <p class="m-0 truncate text-sm text-foreground">{platform()} · {day()}</p>
-          <p class="m-0 truncate text-xs text-muted-foreground/70">{run().title ?? run().source_url ?? 'a post'}</p>
+          <p class="m-0 truncate text-xs text-muted-foreground">{run().title ?? run().source_url ?? 'a post'}</p>
         </div>
         <span class="flex w-44 shrink-0 justify-between">
           {dot('done', '✓')}

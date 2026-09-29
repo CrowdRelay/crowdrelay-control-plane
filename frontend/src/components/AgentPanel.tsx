@@ -4,7 +4,7 @@ import { api, request, ApiError } from '../lib/api'
 import { confidencePercent, errorMessage, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
-import { Dialog } from './Dialog'
+import { Dialog, confirmAction } from './Dialog'
 import { TabBar, TabPanel, useTabPanels, ErrorCard, Section } from './layout'
 import { Alert } from './app/alert'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
@@ -248,8 +248,15 @@ export function AgentPanel(props: { slug: string }) {
     }
   }
 
-  const deleteSchedule = async (id: string) => {
+  const deleteSchedule = async (id: string, name: string) => {
     if (scheduleBusy()) return
+    const ok = await confirmAction({
+      title: `Delete the “${name}” schedule?`,
+      body: 'It stops running on its interval. Past runs stay in the history.',
+      confirmLabel: 'Delete schedule',
+      destructive: true,
+    })
+    if (!ok) return
     setScheduleBusy(id)
     try {
       await api.agentDeleteSchedule(props.slug, id)
@@ -344,7 +351,7 @@ export function AgentPanel(props: { slug: string }) {
       <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <div class="space-y-8">
-      <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+      <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard recovery={false}>Agent suggestions unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
       <Show when={suggestions().length > 0}>
         <Section flush title="Suggested by the autopilot" icon={<IntelligenceIcon size={18} />} count={suggestions().length} description="Built from your events and campaign performance. Pick one to run it.">
           <div class="grid gap-2.5 grid-cols-1 md:grid-cols-2">
@@ -373,8 +380,8 @@ export function AgentPanel(props: { slug: string }) {
 
       {/* Task templates and execution */}
       <Section flush={suggestions().length === 0} title="Run a task" count={templates().length} description="Pick a template, choose a model, and describe the work.">
-        <Show when={sectionError(templatesSectionError())}>{msg => <ErrorCard>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
-        <Show when={sectionError(modelsSectionError())}>{msg => <ErrorCard>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(templatesSectionError())}>{msg => <ErrorCard recovery={false}>Task templates unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(modelsSectionError())}>{msg => <ErrorCard recovery={false}>Model list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={tasksOverview.data && !templatesSectionError()} fallback={
           <Show when={!tasksOverview.data} fallback={<EmptyState label="Templates unavailable" hint="The agent service did not return its templates. They appear here once it does." />}>
             <SkeletonGrid count={4} minCardHeight='120px' />
@@ -479,7 +486,7 @@ export function AgentPanel(props: { slug: string }) {
             </div>
           </div>
         </Show>
-        <Show when={sectionError(schedulesSectionError())}>{msg => <ErrorCard>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(schedulesSectionError())}>{msg => <ErrorCard recovery={false}>Agent schedules unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={schedules().length > 0}>
           <Table class="mt-4">
             <TableHeader><TableRow><TableHead>Template</TableHead><TableHead>Interval</TableHead><TableHead>Enabled</TableHead><TableHead>Last run</TableHead><TableHead>Next run</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -496,7 +503,7 @@ export function AgentPanel(props: { slug: string }) {
                     </TableCell>
                     <TableCell class="text-muted-foreground">{sched.last_run_at ? formatIsoAge(sched.last_run_at) : 'never'}</TableCell>
                     <TableCell class="text-muted-foreground">{sched.next_run_at ? formatIsoAge(sched.next_run_at) : '—'}</TableCell>
-                    <TableCell><Button writes variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id)}>Delete</Button></TableCell>
+                    <TableCell><Button writes variant="destructive-ghost" size="sm" disabled={scheduleBusy() === sched.id} onClick={() => deleteSchedule(sched.id, templateName(sched.template_id))}>Delete</Button></TableCell>
                   </TableRow>
                 )}
               </For>
@@ -509,7 +516,7 @@ export function AgentPanel(props: { slug: string }) {
       </Section>
 
       <Section title="Recent tasks" count={tasks().length} description="Every run, started here or by a schedule. Completed tasks show full output.">
-        <Show when={sectionError(tasksSectionError())}>{msg => <ErrorCard>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
+        <Show when={sectionError(tasksSectionError())}>{msg => <ErrorCard recovery={false}>Task list unavailable: {msg()} Retrying automatically.</ErrorCard>}</Show>
         <Show when={tasksOverview.data && !tasksSectionError()} fallback={
           <Show when={!tasksOverview.data} fallback={<EmptyState label="Tasks unavailable" hint="The agent service did not return the task list. It appears here once it does." />}>
             <SkeletonRows count={4} />

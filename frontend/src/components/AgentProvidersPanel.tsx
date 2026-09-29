@@ -13,6 +13,7 @@ import { credentialHealth } from '../lib/credential-health'
 import { ProviderCard, type ProviderCardContext } from './ProviderCard'
 import { UsageKpiStrip, PremiumModelsSection, PremiumTasksSection } from './PremiumUsageSections'
 import { KeyIcon, SparkIcon } from './provider-icons'
+import { confirmAction } from './Dialog'
 import type { AgentProvider, AgentCredential, AgentModel, PremiumUsage } from '../lib/types'
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -293,6 +294,14 @@ export function AgentProvidersPanel(props: {
   }
 
   const handleDisconnect = async (providerId: string) => {
+    const name = apiKeyProviders().find(p => p.id === providerId)?.name ?? humanizeToken(providerId)
+    const ok = await confirmAction({
+      title: `Disconnect ${name}?`,
+      body: 'The saved key is deleted. Anything using this provider stops until a key is added again.',
+      confirmLabel: `Disconnect ${name}`,
+      destructive: true,
+    })
+    if (!ok) return
     try {
       await api.agentDeleteCredential(props.slug, providerId)
       const provider = apiKeyProviders().find(p => p.id === providerId)
@@ -354,8 +363,8 @@ export function AgentProvidersPanel(props: {
 
       {/* A failed read-model section is a degraded surface, not an empty
           one — name it, and let whileIncomplete refill it. */}
-      <Show when={props.providersError}>{msg => <ErrorCard>Provider list unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
-      <Show when={props.credentialsError}>{msg => <ErrorCard>Credential status unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
+      <Show when={props.providersError}>{msg => <ErrorCard recovery={false}>Provider list unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
+      <Show when={props.credentialsError}>{msg => <ErrorCard recovery={false}>Credential status unavailable: {msg()}. Retrying automatically.</ErrorCard>}</Show>
 
       {/* The spend strip describes what this tenant is doing. It gates only
           itself — a failed usage read must not hide the provider controls. */}
@@ -458,7 +467,7 @@ export function AgentProvidersPanel(props: {
             What the health checker last saw per model — the card grid says
             what is connected, this says whether it answers. */}
         <Show when={props.mode !== 'library' && health.error}>
-          <ErrorCard>Provider health unavailable: {errorMessage(health.error, 'The probe results could not be read.')} Retrying automatically.</ErrorCard>
+          <ErrorCard recovery={false}>Provider health unavailable: {errorMessage(health.error, 'The probe results could not be read.')} Retrying automatically.</ErrorCard>
         </Show>
         <Show when={props.mode !== 'library' && healthRows().length > 0}>
           <section>

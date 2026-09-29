@@ -37,9 +37,11 @@ const Alert = <T extends ValidComponent = "div">(props: PolymorphicProps<T, Aler
   )
 }
 
-const AlertTitle: Component<ComponentProps<"h5">> = (props) => {
+// A div, not the preset's h5: an alert's title names the alert and does not
+// open an outline level — a fixed h5 skipped heading levels wherever it landed.
+const AlertTitle: Component<ComponentProps<"div">> = (props) => {
   const [local, others] = splitProps(props, ["class"])
-  return <h5 class={cn("mb-1 font-medium leading-none tracking-tight", local.class)} {...others} />
+  return <div class={cn("mb-1 font-medium leading-none tracking-tight", local.class)} {...others} />
 }
 
 const AlertDescription: Component<ComponentProps<"div">> = (props) => {

@@ -75,7 +75,7 @@ export function Ring(props: {
           <circle
             cx="18" cy="18" r={R} fill="none" stroke-width="3.5" stroke-linecap="round"
             stroke-dasharray={`${pct()} ${100 - pct()}`}
-            class={cn('stroke-chart-2 transition-all duration-500', props.arcClass)}
+            class={cn('stroke-chart-2 transition-[stroke-dasharray] duration-500 ease-out', props.arcClass)}
           />
         </Show>
       </svg>
@@ -137,7 +137,7 @@ export function StackBar(props: { segments: Segment[]; label: string; class?: st
     >
       <For each={props.segments.filter(s => s.value > 0 && Number.isFinite(s.value))}>{s => (
         <div
-          class={cn('h-full transition-all duration-500', s.class)}
+          class={cn('h-full transition-[width] duration-500 ease-out', s.class)}
           style={{ width: `${total() > 0 && Number.isFinite(total()) ? (s.value / total()) * 100 : 0}%` }}
           title={`${s.label}: ${s.value.toLocaleString()}`}
         />
@@ -184,7 +184,7 @@ export function BarList(props: {
           </div>
           <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
-              class={cn('h-full rounded-full transition-all duration-500', row.class ?? 'bg-chart-2')}
+              class={cn('h-full rounded-full transition-[width] duration-500 ease-out', row.class ?? 'bg-chart-2')}
               style={{ width: `${((row.value ?? 0) / max()) * 100}%` }}
             />
           </div>

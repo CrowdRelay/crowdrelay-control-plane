@@ -59,7 +59,7 @@ const CommandInput: Component<VoidProps<CommandPrimitive.CommandInputProps>> = (
 
   return (
     <div class="p-1 pb-0" cmdk-input-wrapper="">
-      <div class="flex h-9 items-center gap-2 rounded-lg bg-muted/60 px-2.5">
+      <div class="flex h-9 items-center gap-2 rounded-lg bg-muted/60 px-2.5 focus-within:ring-2 focus-within:ring-ring">
         <Search class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <CommandPrimitive.CommandInput
           class={cn(
@@ -122,7 +122,7 @@ const CommandItem: Component<ParentProps<CommandPrimitive.CommandItemProps>> = (
     <CommandPrimitive.CommandItem
       cmdk-item=""
       class={cn(
-        "relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        "relative flex cursor-default select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground",
         local.class
       )}
       {...others}

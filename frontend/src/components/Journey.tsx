@@ -78,7 +78,7 @@ export function JourneyRail(props: { stages: JourneyStageSpec[] }) {
                   stage().stuck ? 'border-destructive/50' : (stage().waiting ?? 0) > 0 && 'border-warning/50',
                 )}
               >
-                <span class="flex w-full items-center justify-between gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span class="flex w-full items-center justify-between gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {stage().label}
                   <Show when={stage().stuck}>
                     <AlertTriangle class="size-3.5 text-destructive" aria-hidden="true" />

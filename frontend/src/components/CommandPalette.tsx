@@ -324,6 +324,7 @@ export const CommandPalette: Component = () => {
       footer={footer}
     >
       <CommandInput
+        aria-label="Search"
         placeholder={isPlatformLevel() ? 'Search pages, tenants or actions…' : 'Search pages or actions…'}
         value={query()}
         onValueChange={value => { setQuery(value); setArmed(null) }}

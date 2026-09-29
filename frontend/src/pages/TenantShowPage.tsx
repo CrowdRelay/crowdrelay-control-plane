@@ -123,7 +123,7 @@ export function TenantShowPage() {
               <Tiles>
                 <Tile
                   label="Tickets"
-                  value={sold() == null ? null : <>{sold()}<Show when={cap() != null}><span class="text-sm font-normal text-muted-foreground/70"> / {cap()}</span></Show></>}
+                  value={sold() == null ? null : <>{sold()}<Show when={cap() != null}><span class="text-sm font-normal text-muted-foreground"> / {cap()}</span></Show></>}
                   sub={sold() == null ? 'no ticket sale' : `${pace().paid_tickets_last_7d ?? 0} this week`}
                 />
                 <Tile label="Interested" value={event().interested} sub="asked to be told" />
@@ -268,7 +268,7 @@ function StageStepper(props: { steps: ShowTimelineStep[] }) {
             : state() === 'active' ? 'border-info-foreground font-medium text-foreground'
             : 'border-border text-muted-foreground')}>
             {stage.label}
-            <Show when={state() === 'due'}><span class="block text-muted-foreground/70">behind</span></Show>
+            <Show when={state() === 'due'}><span class="block text-muted-foreground">behind</span></Show>
           </li>
         )
       }}</For>
@@ -341,7 +341,7 @@ function NightFacts(props: { data: TenantShowPageModel; slug: string }) {
                 the relationship record, not a lookup. */}
             <Show when={(props.data.timeline.event.venue_knowledge ?? []).length > 0}>
               <div class="mb-3 rounded-lg border border-border bg-background px-4 py-2.5">
-                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">The room</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">The room</p>
                 <For each={props.data.timeline.event.venue_knowledge ?? []}>
                   {v => (
                     <div class="mt-1 text-xs text-muted-foreground">
@@ -350,7 +350,7 @@ function NightFacts(props: { data: TenantShowPageModel; slug: string }) {
                       {v.last_reply !== 'none' ? ` · reply: ${v.last_reply.replaceAll('_', ' ')}` : ''}
                       {v.last_outreach_at ? ` · last contact ${formatTimestamp(v.last_outreach_at)}` : ''}
                       <Show when={v.notes}>
-                        <p class="mt-0.5 truncate text-[11px]">{v.notes}</p>
+                        <p class="mt-0.5 truncate text-xs" title={v.notes ?? undefined}>{v.notes}</p>
                       </Show>
                     </div>
                   )}

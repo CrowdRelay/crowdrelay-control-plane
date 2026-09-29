@@ -108,7 +108,7 @@ export async function runChatAction(
         headers: { 'idempotency-key': crypto.randomUUID() },
         body: '{}',
       })
-      return { reply: 'Dead deliveries replayed!' }
+      return { reply: 'Dead deliveries replayed' }
     }
     case 'run_reconciliation': {
       await request(`/tenants/${tenant}/operations/reconcile`, {
@@ -116,7 +116,7 @@ export async function runChatAction(
         headers: { 'idempotency-key': crypto.randomUUID() },
         body: '{}',
       })
-      return { reply: 'Reconciliation started!' }
+      return { reply: 'Reconciliation started' }
     }
     default:
       return { error: 'Unknown action type' }

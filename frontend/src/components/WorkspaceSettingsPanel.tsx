@@ -362,7 +362,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                             <img
                               src={value('join_ask_image_url')}
                               alt="Join-ask image preview"
-                              class="max-h-40 w-auto rounded-md border border-border object-contain"
+                              class="max-h-40 w-auto rounded-md object-contain outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
                             />
                           </Show>
                           <div class="flex items-center gap-2">

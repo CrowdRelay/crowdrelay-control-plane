@@ -53,7 +53,7 @@ const colorModeStorage = createLocalStorageManager('control-plane-color-mode')
 const WithColorMode = (props: { children: JSX.Element }) => (
   <>
     <ColorModeScript storageType={colorModeStorage.type} storageKey="control-plane-color-mode" />
-    <ColorModeProvider storageManager={colorModeStorage}>{props.children}</ColorModeProvider>
+    <ColorModeProvider storageManager={colorModeStorage} disableTransitionOnChange>{props.children}</ColorModeProvider>
   </>
 )
 

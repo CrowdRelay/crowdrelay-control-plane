@@ -40,7 +40,7 @@ export function Hint(props: {
         aria-label={props.label}
         aria-describedby={open() ? id : undefined}
         aria-expanded={open()}
-        class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] font-bold leading-none text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-xs font-bold leading-none after:absolute after:-inset-1 after:content-[''] text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onClick={() => setOpen(v => !v)}

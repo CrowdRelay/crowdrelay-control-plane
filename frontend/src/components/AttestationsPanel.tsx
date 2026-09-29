@@ -129,6 +129,7 @@ export function AttestationsPanel(props: { slug: string; data?: AttestationSumma
           <div class="mt-3 flex flex-wrap items-center gap-2">
             <Input
               class="min-w-48 flex-1"
+              aria-label="Cities to measure (optional)"
               placeholder="Cities to measure per-city reach, comma separated (optional)"
               value={cities()}
               onInput={event => setCities(event.currentTarget.value)}

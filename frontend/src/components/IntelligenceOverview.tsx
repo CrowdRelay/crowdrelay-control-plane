@@ -88,7 +88,7 @@ export function IntelligenceOverview(props: { slug: string; model: TenantBrainRe
         <Tile label="Time saved" value={chief() ? `${(chief()!.estimated_minutes_saved_24h / 60).toFixed(1)} h` : null} sub="last 24 h · estimate" />
         <Tile
           label="Results, 7 days"
-          value={measured() ? <>{measured()!.improved}<span class="text-sm font-normal text-muted-foreground/70"> / {measured()!.total}</span></> : null}
+          value={measured() ? <>{measured()!.improved}<span class="text-sm font-normal text-muted-foreground"> / {measured()!.total}</span></> : null}
           sub={measured() ? `improved · ${measured()!.worsened} went down` : undefined}
         />
       </Tiles>

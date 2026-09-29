@@ -117,7 +117,7 @@ function DraftField(props: {
         <span class="text-xs font-medium text-muted-foreground">
           {props.label}
           <Show when={props.platform}>
-            <code class="ml-1.5 text-xs text-muted-foreground/70">{props.name}</code>
+            <code class="ml-1.5 text-xs text-muted-foreground">{props.name}</code>
           </Show>
         </span>
         <Show when={props.editing && props.maxLength != null}>

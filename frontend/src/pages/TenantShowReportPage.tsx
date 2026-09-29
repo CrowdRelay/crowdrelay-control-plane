@@ -147,7 +147,7 @@ export function TenantShowReportPage() {
 
                 <Show when={(report().evidence_gaps ?? []).length > 0}>
                   <Card title="What this can’t claim" icon={<AlertTriangle />} tone="warn" class="mb-2.5">
-                    <p class="m-0 text-xs text-muted-foreground/70">{(report().evidence_gaps ?? []).map(gapLabel).join(' · ')}</p>
+                    <p class="m-0 text-xs text-muted-foreground">{(report().evidence_gaps ?? []).map(gapLabel).join(' · ')}</p>
                   </Card>
                 </Show>
 

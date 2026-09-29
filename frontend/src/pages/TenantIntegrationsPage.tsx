@@ -132,7 +132,7 @@ export function TenantIntegrationsPage() {
     <Tiles>
       <Tile
         label="Lanes answering"
-        value={health.data ? <>{ok().length}<span class="text-sm font-normal text-muted-foreground/70"> / {models().length}</span></> : null}
+        value={health.data ? <>{ok().length}<span class="text-sm font-normal text-muted-foreground"> / {models().length}</span></> : null}
         valueTone={health.data && ok().length === 0 ? 'bad' : undefined}
         sub={health.data ? `${degraded().length} degraded · ${off().length} off` : undefined}
       />
@@ -154,7 +154,7 @@ export function TenantIntegrationsPage() {
         <Show when={health.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{health.error ? 'The health probes could not be read.' : ''}</p>}>
           <For each={providers()}>{row => (
             <StatRow
-              label={<>{row.provider} <span class="text-muted-foreground/70">· {row.answering} of {row.total} models</span></>}
+              label={<>{row.provider} <span class="text-muted-foreground">· {row.answering} of {row.total} models</span></>}
               value={<Pill tone={row.tone}>{row.word}</Pill>}
             />
           )}</For>

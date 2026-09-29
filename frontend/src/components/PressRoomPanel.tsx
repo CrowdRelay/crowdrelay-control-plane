@@ -1,4 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
+import { Field } from './ui/field'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -223,37 +224,44 @@ export function PressRoomPanel(props: { slug: string }) {
 
       <Show when={adding()}>
         <form class="mb-4 grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); if (draftIsComplete() && !saving()) saveAsset() }}>
-          <Input
-            placeholder="Key (band_photo_01)"
-            value={draft().assetKey}
-            onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
-          />
-          <NativeSelect
-            value={draft().assetKind}
-            onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
-          >
-            <option value="photo">photo</option>
-            <option value="logo">logo</option>
-            <option value="epk">epk</option>
-            <option value="bio">bio</option>
-            <option value="video">video</option>
-          </NativeSelect>
-          <Input
-            placeholder="Label"
-            value={draft().labelEn}
-            onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
-          />
+          <Field label="Key">
+            <Input
+              placeholder="band_photo_01"
+              value={draft().assetKey}
+              onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
+            />
+          </Field>
+          <Field label="Kind">
+            <NativeSelect
+              value={draft().assetKind}
+              onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
+            >
+              <option value="photo">photo</option>
+              <option value="logo">logo</option>
+              <option value="epk">epk</option>
+              <option value="bio">bio</option>
+              <option value="video">video</option>
+            </NativeSelect>
+          </Field>
+          <Field label="Label">
+            <Input
+              value={draft().labelEn}
+              onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
+            />
+          </Field>
           <Input
             placeholder="Label (PL, optional)"
             value={draft().labelPl}
             onInput={(e) => setDraft(d => ({ ...d, labelPl: e.currentTarget.value }))}
           />
-          <Input
-            class="sm:col-span-2"
-            placeholder="https://… (must be public — Meta fetches it)"
-            value={draft().url}
-            onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
-          />
+          <Field label="URL" hint="Must be public — Meta fetches it." class="sm:col-span-2">
+            <Input
+              type="url"
+              placeholder="https://…"
+              value={draft().url}
+              onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
+            />
+          </Field>
           <div class="sm:col-span-2">
             <Button writes type="submit" size="sm" disabled={!draftIsComplete() || saving()}>
               {saving() ? 'Saving…' : 'Save asset'}

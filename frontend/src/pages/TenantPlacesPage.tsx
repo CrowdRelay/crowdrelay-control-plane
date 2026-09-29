@@ -567,7 +567,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
                           </p>
                         </Show>
                         <Show when={row.assessment === 'insufficient_evidence'}>
-                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/80">
+                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground">
                             {row.assessment_sentence}
                           </p>
                         </Show>
@@ -580,7 +580,7 @@ function RoomsCard(props: { slug: string; rows: CityVenueRow[] | null; degraded:
                             read, so the sentence says so rather than claiming
                             a verdict the read could not support. */}
                         <Show when={row.assessment === 'not_assessed'}>
-                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground/60">
+                          <p class="m-0 mt-1 max-w-xs text-xs italic leading-relaxed font-normal text-muted-foreground">
                             {row.assessment_sentence}
                           </p>
                         </Show>
