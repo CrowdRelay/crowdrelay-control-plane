@@ -23,8 +23,8 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
 
     await login(page)
     await page.goto('/tenants/virya/intelligence')
-    // Work areas render as buttons only until one is pressed — no panel and
-    // no tab query on load. Open the first area to mount its panel.
+    // The Overview tab mounts on load — the dashboard is the default tab.
+    // Open the Brief area to switch to its panel.
     await page.waitForSelector('#tab-brief', { timeout: 30000 })
     await page.waitForTimeout(1000)
     await page.click('#tab-brief')
@@ -125,7 +125,7 @@ test.describe('Tab switch DOM stability @e2e @tabs', () => {
   test('operations page: lazy fetch, local skeleton, persistent header @e2e', async ({ page }) => {
     await login(page)
     await page.goto('/tenants/virya/operations')
-    // Nothing is open until an area is pressed — click Replies to mount it.
+    // Overview is the mounted default tab — click Replies to switch.
     await page.waitForSelector('#tab-replies', { timeout: 30000 })
     await page.waitForTimeout(1000)
     await page.click('#tab-replies')

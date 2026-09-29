@@ -37,7 +37,7 @@ const errorWord = (error: string | null) => {
 
 export function TenantIntegrationsPage() {
   const params = useParams({ from: '/tenants/$slug/integrations' })
-  const areas = useWorkAreas(['providers'])
+  const areas = useWorkAreas(['overview', 'providers'], 'tab', 'overview')
 
   // One read for the first screen. Its three sections seed the keys the
   // providers panel observes, so opening that panel costs nothing more.
@@ -129,6 +129,16 @@ export function TenantIntegrationsPage() {
       }
     />
 
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'overview', label: 'Overview' },
+        { id: 'providers', label: 'Providers, tasks and schedules' },
+      ]}
+    />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
     <Tiles>
       <Tile
         label="Lanes answering"
@@ -175,12 +185,8 @@ export function TenantIntegrationsPage() {
         </Show>
       </Card>
     </Split>
+    </WorkAreaPanel>
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[{ id: 'providers', label: 'Providers, tasks and schedules' }]}
-    />
     <WorkAreaPanel id="providers" active={areas.active()}>
       <AgentPanel slug={params().slug} />
     </WorkAreaPanel>

@@ -43,7 +43,7 @@ const DELIVERY_SECTION_LABEL: Record<string, string> = {
 export function TenantHealthPage() {
   const params = useParams({ from: '/tenants/$slug/health' })
   // The id list makes `?tab=` deep links land on the right tab.
-  const areas = useWorkAreas([...TABS])
+  const areas = useWorkAreas([...TABS], 'tab', 'overview')
   const isVisited = (id: string) => areas.active() === id
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
@@ -145,41 +145,6 @@ export function TenantHealthPage() {
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Tenant operations channel unavailable" onRetry={() => void refresh()} />
     </Show>
-    <Show when={!model.error && !model.data}>
-      <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
-    </Show>
-
-    <Show when={model.data && !model.error}>
-      <Tiles>
-        <Tile label="Services" value={operationalLabel(summary())} sub={summary() ? `API p95 ${summary()!.http.p95_ms} ms · ${summary()!.http.errors_5xx} errors` : 'no summary yet'} />
-        <Tile label="Sent, 24 h" value={delivered()} sub={summary() ? `${deadJobs()} dead` : undefined} valueTone={deadJobs() > 0 ? 'warn' : undefined} />
-        <Tile
-          label="Worker"
-          value={summary()?.worker ? (summary()!.worker!.alive ? 'Alive' : 'Down') : null}
-          valueTone={summary()?.worker && !summary()!.worker!.alive ? 'bad' : undefined}
-          sub={summary()?.worker?.cycle_age_seconds != null ? `last cycle ${ago(summary()!.worker!.cycle_age_seconds!)} ago` : undefined}
-        />
-        <Tile
-          label="Database"
-          value={summary() ? 'Fine' : null}
-          sub={summary() ? `pool ${summary()!.database.pool_idle} of ${summary()!.database.pool_size} idle` : undefined}
-        />
-      </Tiles>
-
-      <Card title="What needs a look" icon={<ListChecks />} class="mb-3">
-        <Show when={alerts().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing needs a look.</p>}>
-          <For each={alerts()}>{alert => (
-            <ItemRow
-              pill={{ tone: alert.severity === 'critical' ? 'bad' : 'warn', text: alert.severity }}
-              title={alert.summary}
-              action={<Act to={fixFor(alert.alert_key).to} params={{ slug: params().slug }} search={fixFor(alert.alert_key).search}>Fix</Act>}
-            />
-          )}</For>
-          <Note>Each Fix opens the one page or setting that clears it. Delivery, policies and switches stay below.</Note>
-        </Show>
-      </Card>
-    </Show>
-
     {/* The tabs render regardless of the today model — every tab's content
         answers from its own channel except the two panels that take today's
         summary as a prop, and those gate on it alone. A dead today read
@@ -188,7 +153,7 @@ export function TenantHealthPage() {
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
-        { id: 'overview', label: 'Status' },
+        { id: 'overview', label: 'Overview' },
         { id: 'delivery', label: 'Delivery' },
         { id: 'policies', label: 'Policies' },
         { id: 'runtime', label: 'Switches' },
@@ -196,6 +161,41 @@ export function TenantHealthPage() {
     />
 
       <WorkAreaPanel id="overview" active={areas.active()}>
+        <Show when={!model.error && !model.data}>
+          <SkeletonSection titleWidth="180px" lines={4} minHeight="200px" />
+        </Show>
+
+        <Show when={model.data && !model.error}>
+          <Tiles>
+            <Tile label="Services" value={operationalLabel(summary())} sub={summary() ? `API p95 ${summary()!.http.p95_ms} ms · ${summary()!.http.errors_5xx} errors` : 'no summary yet'} />
+            <Tile label="Sent, 24 h" value={delivered()} sub={summary() ? `${deadJobs()} dead` : undefined} valueTone={deadJobs() > 0 ? 'warn' : undefined} />
+            <Tile
+              label="Worker"
+              value={summary()?.worker ? (summary()!.worker!.alive ? 'Alive' : 'Down') : null}
+              valueTone={summary()?.worker && !summary()!.worker!.alive ? 'bad' : undefined}
+              sub={summary()?.worker?.cycle_age_seconds != null ? `last cycle ${ago(summary()!.worker!.cycle_age_seconds!)} ago` : undefined}
+            />
+            <Tile
+              label="Database"
+              value={summary() ? 'Fine' : null}
+              sub={summary() ? `pool ${summary()!.database.pool_idle} of ${summary()!.database.pool_size} idle` : undefined}
+            />
+          </Tiles>
+
+          <Card title="What needs a look" icon={<ListChecks />} class="mb-3">
+            <Show when={alerts().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing needs a look.</p>}>
+              <For each={alerts()}>{alert => (
+                <ItemRow
+                  pill={{ tone: alert.severity === 'critical' ? 'bad' : 'warn', text: alert.severity }}
+                  title={alert.summary}
+                  action={<Act to={fixFor(alert.alert_key).to} params={{ slug: params().slug }} search={fixFor(alert.alert_key).search}>Fix</Act>}
+                />
+              )}</For>
+              <Note>Each Fix opens the one page or setting that clears it. Delivery, policies and switches stay below.</Note>
+            </Show>
+          </Card>
+        </Show>
+
         {/* The tenant-pushed heartbeat first, then what needs a hand, then the
             autopilot's own report. */}
         <TenantRuntimePanel slug={params().slug} />

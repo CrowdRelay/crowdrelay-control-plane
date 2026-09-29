@@ -127,7 +127,7 @@ export function TenantPlacesPage() {
   // The valid list follows the visibility: 'area' is not a tab for band
   // sessions, so `?tab=area` (the legacy /area redirect) cannot activate a
   // work area this session can never see.
-  const areas = useWorkAreas(areaVisible() ? ['cities', 'rooms', 'online', 'area'] : ['cities', 'rooms', 'online'])
+  const areas = useWorkAreas(areaVisible() ? ['overview', 'cities', 'rooms', 'online', 'area'] : ['overview', 'cities', 'rooms', 'online'], 'tab', 'overview')
   const activeTab = () => areas.active()
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
@@ -219,18 +219,21 @@ export function TenantPlacesPage() {
       }
     />
 
-    <Show when={cities.data}>{data => <PlacesFirstScreen slug={params().slug} model={data()} onOpenTab={switchTab} />}</Show>
-
     <WorkAreas
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
+        { id: 'overview', label: 'Overview' },
         { id: 'cities', label: 'Cities', count: cities.data?.city_funnel?.length ?? null },
         { id: 'rooms', label: 'Rooms', count: cities.data?.rooms_summary?.total ?? null },
         { id: 'online', label: 'Online', count: cities.data?.online_summary?.total ?? null },
         ...(areaVisible() ? [{ id: 'area', label: 'AREA' }] : []),
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Show when={cities.data}>{data => <PlacesFirstScreen slug={params().slug} model={data()} onOpenTab={switchTab} />}</Show>
+    </WorkAreaPanel>
 
     <WorkAreaPanel id="cities" active={areas.active()}>
       <Show when={cities.error}>

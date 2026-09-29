@@ -151,7 +151,7 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
 export function TenantAttentionPage() {
   const params = useParams({ from: '/tenants/$slug/attention' })
   // Decisions is the default tab: a queue of decisions is what a person has.
-  const areas = useWorkAreas(['decisions', 'inbox', 'queues', 'runtime', 'trace'])
+  const areas = useWorkAreas(['overview', 'decisions', 'inbox', 'queues', 'runtime', 'trace'], 'tab', 'overview')
   // Open a work area, then scroll to something inside it once it mounts.
   // A lazy panel can take several hundred ms to render — retry for ~1s like
   // the layout system's revealAnchor does, then give up rather than spin.
@@ -321,34 +321,16 @@ export function TenantAttentionPage() {
       }
     />
 
-    {/* The answer to "is anything mine" before any tab: every figure here
-        is a queue on one of the tabs below. The header used to carry one
-        badge summarising all of them as healthy, watch or attention required,
-        and the counts were only visible after opening the right tab. */}
     <Show when={operations.error}>
       <SectionFailureCard error={operations.error} fallback="What needs you" onRetry={() => void operations.refetch()} />
-    </Show>
-    <Show when={!operations.error && !operations.data}>
-      <SkeletonKpiStrip count={4} />
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
-    </Show>
-    <Show when={operations.data}>
-      {data => (
-        <NeedsYouOverview
-          slug={params().slug}
-          model={data()}
-          onOpenDecisions={() => areas.open('decisions')}
-          refresh={() => void operations.refetch()}
-        />
-      )}
     </Show>
 
     <div class="mt-3">
       <WorkAreas
-        label="Also here"
         active={areas.active()}
         onToggle={areas.toggle}
         areas={[
+          { id: 'overview', label: 'Overview' },
           { id: 'decisions', label: 'Decision history', count: decideCount() || null },
           { id: 'inbox', label: 'Inbox' },
           // Delivery machinery and decision tracing are operator surfaces —
@@ -362,6 +344,25 @@ export function TenantAttentionPage() {
         ]}
       />
     </div>
+
+    {/* The answer to "is anything mine" is the Overview tab's body: every
+        figure here is a queue on one of the tabs to its right. */}
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Show when={!operations.error && !operations.data}>
+        <SkeletonKpiStrip count={4} />
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
+      </Show>
+      <Show when={operations.data}>
+        {data => (
+          <NeedsYouOverview
+            slug={params().slug}
+            model={data()}
+            onOpenDecisions={() => areas.open('decisions')}
+            refresh={() => void operations.refetch()}
+          />
+        )}
+      </Show>
+    </WorkAreaPanel>
 
     {/* ─── Decisions ─────────────────────────────────────────────── */}
     <WorkAreaPanel id="decisions" active={areas.active()}>

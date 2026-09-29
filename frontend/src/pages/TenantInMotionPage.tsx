@@ -71,7 +71,7 @@ export function TenantInMotionPage() {
     return { tone: 'good', text: 'Quiet · nothing waiting to run' }
   }
 
-  const areas = useWorkAreas(['relays'])
+  const areas = useWorkAreas(['overview', 'relays'], 'tab', 'overview')
 
   return (
     <PageShell>
@@ -89,6 +89,17 @@ export function TenantInMotionPage() {
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="What the machine is doing did not load" onRetry={() => void model.refetch()} />
       </Show>
+
+      <WorkAreas
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'relays', label: 'Post relays', count: runs().length || null },
+        ]}
+      />
+
+      <WorkAreaPanel id="overview" active={areas.active()}>
       <Show when={!model.error && !model.data}>
         <SkeletonBlock style={{ 'min-height': '84px' }} />
         <SkeletonBlock style={{ 'min-height': '200px' }} />
@@ -157,13 +168,8 @@ export function TenantInMotionPage() {
           </Show>
         </Card>
       </Show>
+      </WorkAreaPanel>
 
-      <WorkAreas
-        label="Processes"
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[{ id: 'relays', label: 'Post relays', count: runs().length || null }]}
-      />
       <WorkAreaPanel id="relays" active={areas.active()}>
         <div class="flex flex-col gap-3">
           <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>

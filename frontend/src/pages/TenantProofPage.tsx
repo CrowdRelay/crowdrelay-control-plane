@@ -66,7 +66,7 @@ export function TenantProofPage() {
     return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
   })
 
-  const areas = useWorkAreas(['listing', 'cards', 'reports', 'story'])
+  const areas = useWorkAreas(['overview', 'listing', 'cards', 'reports', 'story'], 'tab', 'overview')
 
   return <PageShell>
     <DashHeader
@@ -83,35 +83,40 @@ export function TenantProofPage() {
     <Show when={model.error}>
       <SectionFailureCard error={model.error} fallback="Proof channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
-    <Show when={!model.error && !model.data}>
-      <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
-    </Show>
-
-    <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => <>
+    <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => (
       <For each={data().degraded}>{section => (
         <Alert tone="warning" role="status" class="mb-3">
           <strong>{SECTION_LABEL[section] ?? humanize(section)}</strong> couldn't be checked right now.
           The rest of the page keeps working — it comes back on its own.
         </Alert>
       )}</For>
-      <ProofFirstScreen
-        data={data()}
-        reports={reports().length}
-        measuredReports={reports().filter(show => show.scan_count > 0).length}
-        onOpen={areas.open}
-      />
-    </>}</Show>
+    )}</Show>
 
     <WorkAreas
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
+        { id: 'overview', label: 'Overview' },
         { id: 'listing', label: 'Listing and who to approach' },
         { id: 'cards', label: 'Signed proof cards', count: model.data?.attestations?.length ?? null },
         { id: 'reports', label: 'Show reports', count: reports().length || null },
         { id: 'story', label: 'The roster story' },
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Show when={!model.error && !model.data}>
+        <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
+      </Show>
+      <Show when={!model.error && model.data}>{(data: () => TenantProofReadModel) => (
+        <ProofFirstScreen
+          data={data()}
+          reports={reports().length}
+          measuredReports={reports().filter(show => show.scan_count > 0).length}
+          onOpen={areas.open}
+        />
+      )}</Show>
+    </WorkAreaPanel>
     <Show when={model.data}>{data => <>
       <WorkAreaPanel id="listing" active={areas.active()}>
         <ListingPanel slug={params().slug} data={data().listing ?? undefined} targets={data().representation ?? undefined} />

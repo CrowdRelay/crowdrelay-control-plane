@@ -97,7 +97,7 @@ export function TenantCityPage() {
   const params = useParams({ from: '/tenants/$slug/cities/$cityId' })
   const slug = () => params().slug
   const citySlug = () => params().cityId
-  const tabs = useWorkAreas([...TABS])
+  const tabs = useWorkAreas(['overview', ...TABS], 'tab', 'overview')
 
   const view = useQuery(() => ({
     queryKey: ['city-view', slug(), citySlug()],
@@ -161,12 +161,26 @@ export function TenantCityPage() {
           onRetry={() => void view.refetch()}
         />
       </Show>
-      <Show when={!view.error && !model()}>
-        <SkeletonKpiStrip count={4} />
-        <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
-      </Show>
+      <WorkAreas
+        active={tabs.active()}
+        onToggle={tabs.toggle}
+        areas={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'rooms', label: 'Rooms here', count: model() ? rooms().length : null },
+          { id: 'fans', label: 'Fans here', count: funnelRow()?.fans ?? null },
+          { id: 'shows', label: 'Shows here', count: model()?.shows.length ?? null },
+          { id: 'contacts', label: 'Contacts here' },
+          { id: 'plan', label: 'The plan' },
+        ]}
+      />
 
-      <Show when={model()}>
+      <WorkAreaPanel id="overview" active={tabs.active()}>
+        <Show when={!view.error && !model()}>
+          <SkeletonKpiStrip count={4} />
+          <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
+        </Show>
+
+        <Show when={model()}>
         <Tiles>
           <Tile
             label="Fans here"
@@ -255,19 +269,11 @@ export function TenantCityPage() {
             </Show>
           </Card>
         </Split>
+        </Show>
+      </WorkAreaPanel>
 
+      <Show when={model()}>
         <div>
-          <WorkAreas
-            active={tabs.active()}
-            onToggle={tabs.toggle}
-            areas={[
-              { id: 'rooms', label: 'Rooms here', count: rooms().length },
-              { id: 'fans', label: 'Fans here', count: funnelRow()?.fans ?? null },
-              { id: 'shows', label: 'Shows here', count: model()?.shows.length ?? null },
-              { id: 'contacts', label: 'Contacts here' },
-              { id: 'plan', label: 'The plan' },
-            ]}
-          />
           <WorkAreaPanel id="rooms" active={tabs.active()}>
             <Show when={rooms().length > 0} fallback={<EmptyState label="No rooms on record here" hint="A room lands here once a show marks it or research finds it." />}>
             <Table>

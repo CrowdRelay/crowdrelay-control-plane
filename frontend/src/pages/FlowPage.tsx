@@ -90,7 +90,7 @@ export function FlowPage() {
     return label ? (platform() ? label.platform : label.band) : s
   })
 
-  const areas = useWorkAreas(['map'])
+  const areas = useWorkAreas(['overview', 'map'], 'tab', 'overview')
   const stages = createMemo(() => (brain.data ? brainCycleStages(brain.data, true, now()) : []))
   const stuck = () => stages().find(stage => stage.stuck) ?? null
 
@@ -159,29 +159,33 @@ export function FlowPage() {
           </Alert>
         </Show>
 
-        <Show when={stages().length > 0}>
-          <div class="mb-2 flex flex-wrap items-stretch gap-1.5">
-            <For each={stages()}>{(stage, index) => (
-              <>
-                <Show when={index() > 0}><span class="flex items-center text-muted-foreground" aria-hidden="true">›</span></Show>
-                <Link
-                  to={STAGE_PAGE[stage.key] ?? '/tenants/$slug/intelligence'}
-                  params={{ slug: slug() }}
-                  class={cn('min-w-0 flex-1 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30',
-                    stage.key === stuck()?.key ? 'border-warning-foreground/70 bg-warning-foreground/10' : 'border-border bg-muted/55')}
-                >
-                  <p class="m-0 text-sm font-medium text-foreground">{STAGE_NAME[stage.key] ?? stage.label}</p>
-                  <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground')}>
-                    {[stage.count != null ? String(stage.count) : null, typeof stage.detail === 'string' ? stage.detail : null].filter(Boolean).join(' · ') || '—'}
-                  </p>
-                </Link>
-              </>
-            )}</For>
-          </div>
-          <p class="m-0 mb-3 text-xs text-muted-foreground">Each block opens the page that owns it. The stuck block is where the loop loses the most.</p>
-        </Show>
-
-        <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[{ id: 'map', label: 'The full map' }]} />
+        <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'map', label: 'The full map' },
+        ]} />
+        <WorkAreaPanel id="overview" active={areas.active()}>
+          <Show when={stages().length > 0}>
+            <div class="mb-2 flex flex-wrap items-stretch gap-1.5">
+              <For each={stages()}>{(stage, index) => (
+                <>
+                  <Show when={index() > 0}><span class="flex items-center text-muted-foreground" aria-hidden="true">›</span></Show>
+                  <Link
+                    to={STAGE_PAGE[stage.key] ?? '/tenants/$slug/intelligence'}
+                    params={{ slug: slug() }}
+                    class={cn('min-w-0 flex-1 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30',
+                      stage.key === stuck()?.key ? 'border-warning-foreground/70 bg-warning-foreground/10' : 'border-border bg-muted/55')}
+                  >
+                    <p class="m-0 text-sm font-medium text-foreground">{STAGE_NAME[stage.key] ?? stage.label}</p>
+                    <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground')}>
+                      {[stage.count != null ? String(stage.count) : null, typeof stage.detail === 'string' ? stage.detail : null].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                  </Link>
+                </>
+              )}</For>
+            </div>
+            <p class="m-0 mb-3 text-xs text-muted-foreground">Each block opens the page that owns it. The stuck block is where the loop loses the most.</p>
+          </Show>
+        </WorkAreaPanel>
         <WorkAreaPanel id="map" active={areas.active()}>
         <div class="process-map-legend">
           <span><i class="legend-swatch legend-inputs" />Sources</span>

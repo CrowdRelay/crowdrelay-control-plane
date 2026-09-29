@@ -88,7 +88,7 @@ export function TenantIntelligencePage() {
   const params = useParams({ from: '/tenants/$slug/intelligence' })
   const navigate = useNavigate()
   // The id list makes `?tab=` deep links land on the right tab.
-  const areas = useWorkAreas([...TABS])
+  const areas = useWorkAreas(['overview', ...TABS], 'tab', 'overview')
   const switchTab = (id: string) => areas.open(id)
   const activeTab = () => areas.active()
   // A retired `?tab=` id remaps onto the tab its evidence moved to — the hook
@@ -164,10 +164,9 @@ export function TenantIntelligencePage() {
       <SectionFailureCard error={model.error} fallback="Intelligence channel unavailable" onRetry={() => void model.refetch()} />
     </Show>
 
-    {/* Degraded sections and the live cycle rail sit above the tabs — they
-        describe the whole model, not one tab. The rail renders only once
-        the model answers; a missing number is '—', never 0. */}
-    <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) => <>
+    {/* Degraded sections sit above the tabs — they describe the whole
+        model, not one tab. */}
+    <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) => (
       <For each={data().degraded}>{section => (
         <Alert tone="warning" role="status" class="mb-4">
           <Show when={authState.isPlatformLevel()} fallback={
@@ -181,23 +180,29 @@ export function TenantIntelligencePage() {
           </Show>
         </Alert>
       )}</For>
-
-      <IntelligenceOverview slug={params().slug} model={data()} />
-    </>}</Show>
+    )}</Show>
 
     {/* The tabs say what each one holds, in the order the loop runs. The
         first tab is the story — the other seven are the evidence. */}
     <WorkAreas
-      label="Details"
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
+        { id: 'overview', label: 'Overview' },
         { id: 'brief', label: 'Are we getting anywhere' },
         { id: 'standing', label: 'Where it stands' },
         { id: 'decisions', label: 'What it decided' },
         { id: 'learning', label: 'What it learned' },
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      {/* The rail renders only once the model answers; a missing number is
+          '—', never 0. */}
+      <Show when={!model.error && model.data}>{(data: () => TenantBrainReadModel) =>
+        <IntelligenceOverview slug={params().slug} model={data()} />
+      }</Show>
+    </WorkAreaPanel>
 
     {/* The brief is the default tab and answers from its own read model —
         it must not wait on the brain model, an unrelated channel whose

@@ -71,7 +71,7 @@ export function TenantContentMaterialPage() {
     return { tone: fresh ? 'good' : 'warn', text: `${m.usable} usable · ${fresh ? 'newest this week' : 'nothing new this week'}` }
   }
 
-  const areas = useWorkAreas(['all'])
+  const areas = useWorkAreas(['overview', 'all'], 'tab', 'overview')
 
   return <PageShell>
     <DashHeader
@@ -84,6 +84,17 @@ export function TenantContentMaterialPage() {
     <Show when={view.error}>
       <SectionFailureCard error={view.error} fallback="Material unavailable" onRetry={() => void view.refetch()} />
     </Show>
+
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'overview', label: 'Overview' },
+        { id: 'all', label: 'All material, stories and each source\'s spread', count: model()?.total ?? null },
+      ]}
+    />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
     <Show when={!view.error && !model()}>
       <SkeletonKpiStrip count={4} />
       <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
@@ -157,12 +168,8 @@ export function TenantContentMaterialPage() {
         </>
       )}
     </Show>
+    </WorkAreaPanel>
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[{ id: 'all', label: 'All material, stories and each source\'s spread', count: model()?.total ?? null }]}
-    />
     <WorkAreaPanel id="all" active={areas.active()}>
       <ContentSourcesPanel slug={params().slug} />
     </WorkAreaPanel>

@@ -59,7 +59,7 @@ export function TenantOperationsPage() {
   // The valid list is what makes `?tab=` work both ways — without it a
   // deep link or a Booking-journey drill-through lands on Replies and
   // `switchTab` never writes the param back.
-  const areas = useWorkAreas(['replies', 'negotiations', 'outreach', 'press', 'releases', 'plays', 'growth'])
+  const areas = useWorkAreas(['overview', 'replies', 'negotiations', 'outreach', 'press', 'releases', 'plays', 'growth'], 'tab', 'overview')
   // The listing tab dissolved into /proof — a pre-dissolve deep link keeps
   // its intent instead of snapping back to Replies.
   const navigate = useNavigate()
@@ -292,6 +292,24 @@ export function TenantOperationsPage() {
       <TenantStatusLine slug={params().slug} operations={model.data} />
     </Show>
 
+    <div class="mt-3">
+      <WorkAreas
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'replies', label: 'Replies', count: d()?.derived?.work_area_counts?.replies ?? d()?.reply_triage?.summary?.waiting_on_you_count ?? null },
+          { id: 'outreach', label: 'Outreach', count: (d()?.derived?.approval_batches ?? []).filter(b => b.context === 'outreach').reduce((n, b) => n + b.count, 0) || null },
+          { id: 'negotiations', label: 'Negotiations' },
+          { id: 'press', label: 'Press' },
+          { id: 'releases', label: 'Releases' },
+          { id: 'plays', label: 'Play ledger' },
+          { id: 'growth', label: 'Fan growth' },
+        ]}
+      />
+    </div>
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
     <Show when={!model.error && !model.data}>
       <div class="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <For each={[0, 1, 2, 3]}>{() => <SkeletonBlock style={{ 'min-height': '84px' }} />}</For>
@@ -363,22 +381,7 @@ export function TenantOperationsPage() {
           end. Silent when nothing is owed. */}
       <PrizesToSendPanel slug={params().slug} rows={d()?.reward_fulfillments} />
     </Show>
-
-    <div class="mt-3">
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          { id: 'replies', label: 'Replies', count: d()?.derived?.work_area_counts?.replies ?? d()?.reply_triage?.summary?.waiting_on_you_count ?? null },
-          { id: 'outreach', label: 'Outreach', count: (d()?.derived?.approval_batches ?? []).filter(b => b.context === 'outreach').reduce((n, b) => n + b.count, 0) || null },
-          { id: 'negotiations', label: 'Negotiations' },
-          { id: 'press', label: 'Press' },
-          { id: 'releases', label: 'Releases' },
-          { id: 'plays', label: 'Play ledger' },
-          { id: 'growth', label: 'Fan growth' },
-        ]}
-      />
-    </div>
+    </WorkAreaPanel>
 
     <WorkAreaPanel id="replies" active={areas.active()}>
       <ReplyTriagePanel />

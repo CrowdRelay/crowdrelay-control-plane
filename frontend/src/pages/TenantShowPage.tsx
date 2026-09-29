@@ -118,45 +118,45 @@ export function TenantShowPage() {
                 }
               />
 
-              <StageStepper steps={steps()} />
+              <ShowWorkAreas data={data()} slug={params().slug} eventSlug={params().eventSlug}>
+                <StageStepper steps={steps()} />
 
-              <Tiles>
-                <Tile
-                  label="Tickets"
-                  value={sold() == null ? null : <>{sold()}<Show when={cap() != null}><span class="text-sm font-normal text-muted-foreground"> / {cap()}</span></Show></>}
-                  sub={sold() == null ? 'no ticket sale' : `${pace().paid_tickets_last_7d ?? 0} this week`}
-                />
-                <Tile label="Interested" value={event().interested} sub="asked to be told" />
-                <Tile label={event().city ? `Fans near ${event().city}` : 'Fans nearby'} value={notified()} sub="told about it" />
-                <Tile label="Days left" value={daysLeft(event().starts_at)} sub={longDate(event().starts_at)} />
-              </Tiles>
+                <Tiles>
+                  <Tile
+                    label="Tickets"
+                    value={sold() == null ? null : <>{sold()}<Show when={cap() != null}><span class="text-sm font-normal text-muted-foreground"> / {cap()}</span></Show></>}
+                    sub={sold() == null ? 'no ticket sale' : `${pace().paid_tickets_last_7d ?? 0} this week`}
+                  />
+                  <Tile label="Interested" value={event().interested} sub="asked to be told" />
+                  <Tile label={event().city ? `Fans near ${event().city}` : 'Fans nearby'} value={notified()} sub="told about it" />
+                  <Tile label="Days left" value={daysLeft(event().starts_at)} sub={longDate(event().starts_at)} />
+                </Tiles>
 
-              <Split>
-                <Card title="Promotion">
-                  <For each={promotion()}>{row => (
-                    <StatRow label={row.label} value={<span class={toneText(row.tone)}>{row.note}</span>} />
-                  )}</For>
-                  <For each={leftToDo(steps()).filter(item => item.why === 'The bill posts about the night')}>{item => (
-                    <StatRow label={item.title} value={<span class={item.due ? 'text-warning-foreground' : 'text-muted-foreground'}>{item.due ? 'due · you' : item.when ?? ''}</span>} />
-                  )}</For>
-                </Card>
-                <Card title="Sales pace">
-                  <Show when={sold() != null} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No ticket sale for this night — nothing to pace.</p>}>
-                    <Bar label="Sold" value={sold()} max={Math.max(1, cap() ?? sold() ?? 1)} display={cap() != null ? `${sold()} / ${cap()}` : String(sold())} />
-                    <Bar label="This week" value={pace().paid_tickets_last_7d ?? 0} max={Math.max(1, cap() ?? sold() ?? 1)} />
-                  </Show>
-                  <Show when={leftToDo(steps()).filter(item => item.action).length > 0}>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      <For each={leftToDo(steps()).filter(item => item.action)}>{item => (
-                        <StepAction action={item.action!} slug={params().slug} eventSlug={params().eventSlug} />
-                      )}</For>
-                    </div>
-                  </Show>
-                  <Note>A per-day pace line needs a sales series the console does not carry yet; tickets are the number to move.</Note>
-                </Card>
-              </Split>
-
-              <ShowWorkAreas data={data()} slug={params().slug} eventSlug={params().eventSlug} />
+                <Split>
+                  <Card title="Promotion">
+                    <For each={promotion()}>{row => (
+                      <StatRow label={row.label} value={<span class={toneText(row.tone)}>{row.note}</span>} />
+                    )}</For>
+                    <For each={leftToDo(steps()).filter(item => item.why === 'The bill posts about the night')}>{item => (
+                      <StatRow label={item.title} value={<span class={item.due ? 'text-warning-foreground' : 'text-muted-foreground'}>{item.due ? 'due · you' : item.when ?? ''}</span>} />
+                    )}</For>
+                  </Card>
+                  <Card title="Sales pace">
+                    <Show when={sold() != null} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No ticket sale for this night — nothing to pace.</p>}>
+                      <Bar label="Sold" value={sold()} max={Math.max(1, cap() ?? sold() ?? 1)} display={cap() != null ? `${sold()} / ${cap()}` : String(sold())} />
+                      <Bar label="This week" value={pace().paid_tickets_last_7d ?? 0} max={Math.max(1, cap() ?? sold() ?? 1)} />
+                    </Show>
+                    <Show when={leftToDo(steps()).filter(item => item.action).length > 0}>
+                      <div class="mt-3 flex flex-wrap gap-2">
+                        <For each={leftToDo(steps()).filter(item => item.action)}>{item => (
+                          <StepAction action={item.action!} slug={params().slug} eventSlug={params().eventSlug} />
+                        )}</For>
+                      </div>
+                    </Show>
+                    <Note>A per-day pace line needs a sales series the console does not carry yet; tickets are the number to move.</Note>
+                  </Card>
+                </Split>
+              </ShowWorkAreas>
             </>
           )
         }}
@@ -278,13 +278,14 @@ function StageStepper(props: { steps: ShowTimelineStep[] }) {
 
 /** Everything below the first screen, as work areas. Each tab mounts — and
  *  fetches, for tickets and the door — only when opened. */
-function ShowWorkAreas(props: { data: TenantShowPageModel; slug: string; eventSlug: string }) {
-  const tabs = useWorkAreas(['timeline', 'setup', 'sales', 'door', 'ladder', 'helpers', 'money'])
+function ShowWorkAreas(props: { data: TenantShowPageModel; slug: string; eventSlug: string; children: JSX.Element }) {
+  const tabs = useWorkAreas(['overview', 'timeline', 'setup', 'sales', 'door', 'ladder', 'helpers', 'money'], 'tab', 'overview')
   const data = () => props.data
   return (
     <div class="mt-3">
       <WorkAreas
         areas={[
+          { id: 'overview', label: 'Overview' },
           { id: 'timeline', label: 'Every step' },
           { id: 'setup', label: 'Set up the night' },
           { id: 'sales', label: 'Tickets and merch' },
@@ -296,6 +297,9 @@ function ShowWorkAreas(props: { data: TenantShowPageModel; slug: string; eventSl
         active={tabs.active()}
         onToggle={tabs.toggle}
       />
+      <WorkAreaPanel id="overview" active={tabs.active()}>
+        {props.children}
+      </WorkAreaPanel>
       <WorkAreaPanel id="timeline" active={tabs.active()}>
         <div class="flex flex-col gap-2">
           <For each={data().timeline.steps}>{s => <StepRow step={s} slug={props.slug} eventSlug={props.eventSlug} />}</For>

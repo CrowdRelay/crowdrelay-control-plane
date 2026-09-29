@@ -42,7 +42,7 @@ export function TenantsPage() {
     return items().filter(t => t.displayName.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
   })
   const open = (slug: string) => navigate({ to: '/tenants/$slug', params: { slug } })
-  const areas = useWorkAreas(['details'])
+  const areas = useWorkAreas(['overview', 'details'], 'tab', 'overview')
 
   return <PageShell>
     <DashHeader
@@ -55,11 +55,15 @@ export function TenantsPage() {
         : null}
     />
 
-    <Show when={!tenants.isError && tenants.data}>
-      <FleetList rows={items()} canCreate={isAdmin()} />
-    </Show>
-
-    <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[{ id: 'details', label: 'Status, runtime and region', count: items().length || null }]} />
+    <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[
+      { id: 'overview', label: 'Overview' },
+      { id: 'details', label: 'Status, runtime and region', count: items().length || null },
+    ]} />
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Show when={!tenants.isError && tenants.data}>
+        <FleetList rows={items()} canCreate={isAdmin()} />
+      </Show>
+    </WorkAreaPanel>
     <WorkAreaPanel id="details" active={areas.active()}>
     <Show when={tenants.isError}>
       <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>

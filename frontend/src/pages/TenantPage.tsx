@@ -97,7 +97,7 @@ export function TenantPage() {
   // link cannot mount a platform-only panel in a band session.
   // `?tab=profile` is what the sidebar links to: it lands on the first
   // screen, which is the profile now. The full profile editor is `about`.
-  const areas = useWorkAreas(['about', 'workspace', 'deployment', 'access', 'destinations'])
+  const areas = useWorkAreas(['overview', 'about', 'workspace', 'deployment', 'access', 'destinations'], 'tab', 'overview')
   const isVisited = (id: string) => areas.active() === id
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
@@ -526,15 +526,13 @@ export function TenantPage() {
         </Alert>
       </Show>
 
-      <SettingsFirstScreen slug={t.slug} tenant={t} onOpen={areas.open} />
-
       <WorkAreas
-        label="Details"
         active={areas.active()}
         onToggle={areas.toggle}
         // One declaration per label — the collision gate counts literal
         // `label:` occurrences.
         areas={[
+          { id: 'overview', label: 'Overview' },
           { id: 'about', label: 'Profile' },
           { id: 'workspace', label: 'Workspace' },
           ...(platformView()
@@ -546,6 +544,10 @@ export function TenantPage() {
             : []),
         ]}
       />
+
+      <WorkAreaPanel id="overview" active={areas.active()}>
+        <SettingsFirstScreen slug={t.slug} tenant={t} onOpen={areas.open} />
+      </WorkAreaPanel>
 
       {/* Each tab body is one vertical rhythm. Sections draw a hairline and
           24px above their heading, but nothing below their content, so

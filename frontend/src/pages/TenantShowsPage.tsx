@@ -35,7 +35,7 @@ export function TenantShowsPage() {
   // fan-out — it only fires once the tab mounts (visit, prefetch, or a
   // ?tab=booking deep link), so the default page costs the shows list only.
   // `nights` was the old default tab; it is the page itself now.
-  const areas = useWorkAreas(['booking', 'merch'])
+  const areas = useWorkAreas(['overview', 'booking', 'merch'], 'tab', 'overview')
   const [adding, setAdding] = createSignal(false)
 
   const upcoming = createMemo(() =>
@@ -88,6 +88,22 @@ export function TenantShowsPage() {
       <Show when={model.error}>
         <SectionFailureCard error={model.error} fallback="Shows unavailable" onRetry={() => void model.refetch()} />
       </Show>
+
+      <WorkAreas
+        active={areas.active()}
+        onToggle={areas.toggle}
+        areas={[
+          { id: 'overview', label: 'Overview' },
+          // "Booking" is taken — the tenant wizard's crew-skill option is
+          // parity-locked to TeamSkill upstream. The journey's own words.
+          { id: 'booking', label: 'Get booked' },
+          // The merch table travels with the nights: stock is counted
+          // before a run of shows and sold at the door.
+          { id: 'merch', label: 'Merch table' },
+        ]}
+      />
+
+      <WorkAreaPanel id="overview" active={areas.active()}>
       <Show when={!model.error && !model.data}>
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
       </Show>
@@ -154,19 +170,8 @@ export function TenantShowsPage() {
           </Show>
         </Card>
       </Show>
+      </WorkAreaPanel>
 
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          // "Booking" is taken — the tenant wizard's crew-skill option is
-          // parity-locked to TeamSkill upstream. The journey's own words.
-          { id: 'booking', label: 'Get booked' },
-          // The merch table travels with the nights: stock is counted
-          // before a run of shows and sold at the door.
-          { id: 'merch', label: 'Merch table' },
-        ]}
-      />
       <WorkAreaPanel id="merch" active={areas.active()}>
         <MerchTablePanel slug={params().slug} />
       </WorkAreaPanel>

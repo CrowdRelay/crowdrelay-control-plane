@@ -190,7 +190,7 @@ export function TenantContentPage() {
     if (failed().length > 0) return { tone: 'bad', text: `${failed().length} didn't land` }
     return { tone: 'good', text: 'Nothing waits on you' }
   }
-  const areas = useWorkAreas(['links', 'material', 'hooks'])
+  const areas = useWorkAreas(['overview', 'links', 'material', 'hooks'], 'tab', 'overview')
   // "Material" is its own page; the button goes there. `on`: track only the
   // active value — navigate's own router reads must not subscribe this effect.
   createEffect(on(areas.active, active => {
@@ -282,6 +282,18 @@ export function TenantContentPage() {
       <SectionFailureCard error={results.error} fallback="Published list unavailable" onRetry={() => void results.refetch()} />
     </Show>
 
+    <WorkAreas
+      active={areas.active()}
+      onToggle={areas.toggle}
+      areas={[
+        { id: 'overview', label: 'Overview' },
+        { id: 'material', label: 'Material' },
+        { id: 'hooks', label: 'What held attention' },
+        { id: 'links', label: 'Tracked links' },
+      ]}
+    />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
     <Show when={model.data} fallback={<SkeletonKpiStrip count={4} />}>
       <Tiles>
         <Tile label="Ready to post" value={results.data ? ready().length : null} sub={results.data ? `${readyForums()} forums · ${ready().length - readyForums()} social` : undefined} />
@@ -437,16 +449,8 @@ export function TenantContentPage() {
         </Show>
       </Card>
     </Split>
+    </WorkAreaPanel>
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'material', label: 'Material' },
-        { id: 'hooks', label: 'What held attention' },
-        { id: 'links', label: 'Tracked links' },
-      ]}
-    />
     <WorkAreaPanel id="hooks" active={areas.active()}>
       <HookScorecardPanel slug={params().slug} />
     </WorkAreaPanel>

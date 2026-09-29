@@ -275,15 +275,23 @@ export type WorkArea = { id: string; label: string; count?: number | null }
 
 /** The page's deeper surfaces, as the mockups end: "Work areas" and a row
  *  of buttons. Nothing is open until one is pressed; `?tab=` opens one from
- *  a link and stays in the URL, so every old deep link still lands. */
-export function useWorkAreas(ids: string[], param = 'tab') {
+ *  a link and stays in the URL, so every old deep link still lands.
+ *
+ *  `defaultId` turns the row into a real tab strip: the named area (the
+ *  dashboard itself, passed as `overview`) is the landing view, a bare URL
+ *  selects it, and the strip stops collapsing — pressing the active tab
+ *  keeps it open instead of blanking the page. Pages without a default keep
+ *  the button-row contract: nothing open until pressed, toggle closes. */
+export function useWorkAreas(ids: string[], param = 'tab', defaultId?: string) {
   const navigate = useNavigate()
   const search = useRouterState({ select: s => s.location.search as Record<string, unknown> })
   const initial = new URLSearchParams(window.location.search).get(param)
   // A page whose only content sits inside a single work area opens it by
   // default — otherwise the page renders nothing until the toggle is found.
-  // Toggling still closes it for the session (explicit choice wins).
-  const fallback = ids.length === 1 ? ids[0] ?? null : null
+  // Toggling still closes it for the session (explicit choice wins). A
+  // declared default outranks the single-area fallback: `overview` is the
+  // landing on every page that names one.
+  const fallback = defaultId ?? (ids.length === 1 ? ids[0] ?? null : null)
   // Only a *valid* `?tab=` counts as an explicit choice — a stale or mistyped
   // value must fall through to the default, not pin every area shut (a
   // `?tab=junk` link used to render the single-area pages completely empty).
@@ -291,7 +299,11 @@ export function useWorkAreas(ids: string[], param = 'tab') {
   const [active, setActive] = createSignal<string | null>(initial && ids.includes(initial) ? initial : fallback)
   createEffect(() => {
     const t = search()?.[param]
-    const next = typeof t === 'string' && ids.includes(t) ? t : explicit() ? null : fallback
+    const next = typeof t === 'string' && ids.includes(t) ? t
+      // A missing or invalid param lands on the default when one exists —
+      // the tab strip always has a live tab. Only the legacy collapsible
+      // pages can sit closed after an explicit press.
+      : defaultId ?? (explicit() ? null : fallback)
     untrack(() => { if (next !== active()) setActive(next) })
   })
   const open = (id: string | null) => {
@@ -310,13 +322,22 @@ export function useWorkAreas(ids: string[], param = 'tab') {
     untrack(() => {
       void navigate({ to: '.', hash: true, resetScroll: false, hashScrollIntoView: false, search: (prev: Record<string, unknown>) => {
         const out = { ...prev }
-        if (id) out[param] = id
+        // The default tab is what a bare URL already means — writing
+        // `?tab=overview` would pin the same view behind an ugly param and
+        // make every shared link noisier for no benefit.
+        if (id && id !== defaultId) out[param] = id
         else delete out[param]
         return out
       }, replace: true } as never)
     })
   }
-  return { active, open, toggle: (id: string) => open(active() === id ? null : id) }
+  // Tab mode (default declared): the strip never collapses — pressing the
+  // open tab is a no-op rather than blanking the page. Button mode keeps
+  // toggle-to-close for pages that still have no dashboard tab.
+  const toggle = defaultId != null
+    ? (id: string) => { if (active() !== id) open(id) }
+    : (id: string) => open(active() === id ? null : id)
+  return { active, open, toggle }
 }
 
 export function WorkAreas(props: { areas: WorkArea[]; active: string | null; onToggle: (id: string) => void; label?: string }) {

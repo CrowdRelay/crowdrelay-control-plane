@@ -51,7 +51,7 @@ export function OverviewPage() {
     void qc.invalidateQueries({ queryKey: ['command-center'] })
   }
 
-  const areas = useWorkAreas(['needs', 'northstar', 'autopilot', 'table'])
+  const areas = useWorkAreas(['overview', 'needs', 'northstar', 'autopilot', 'table'], 'tab', 'overview')
   const t = () => ov.cc()?.tenants ?? null
   const notReporting = () => ov.silentTenants() + (t()?.unknown ?? 0) + (t()?.stale ?? 0)
   const pill = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
@@ -86,29 +86,32 @@ export function OverviewPage() {
       <ErrorCard>{errorMessage(tenants.error, 'We couldn\'t reach the tenant registry. Try refreshing.')}</ErrorCard>
     </Show>
 
-    <Tiles>
-      <Tile label="Tenants" value={t()?.total ?? tenants.data?.items.length} sub={t() ? `${t()!.healthy} healthy · ${t()!.unknown + t()!.stale} unknown` : undefined} />
-      <Tile
-        label="Services"
-        value={ov.platformServices().length ? <>{ov.healthyServices()}<span class="text-sm font-normal text-muted-foreground"> / {ov.platformServices().length}</span></> : null}
-        sub={ov.platformServices().map(s => s.label).join(' · ') || undefined}
-      />
-      <Tile label="North star, all tenants" value={northStar()} sub="each tenant's own measure, added" />
-      <Tile label="Waiting on people" value={ov.cc()?.attention.needsYou} sub={waitingTenants().length === 1 ? `all in ${waitingTenants()[0]!.displayName}` : `in ${waitingTenants().length} tenants`} />
-    </Tiles>
-
-    <FleetList rows={ov.rows()} canCreate={authState.isAdmin()} />
-
     <WorkAreas
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
+        { id: 'overview', label: 'Overview' },
         { id: 'needs', label: 'What needs a person', count: ov.needsYou().length || null },
         { id: 'northstar', label: 'North star' },
         { id: 'autopilot', label: 'Autopilot' },
         { id: 'table', label: 'Tenant table' },
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Tiles>
+        <Tile label="Tenants" value={t()?.total ?? tenants.data?.items.length} sub={t() ? `${t()!.healthy} healthy · ${t()!.unknown + t()!.stale} unknown` : undefined} />
+        <Tile
+          label="Services"
+          value={ov.platformServices().length ? <>{ov.healthyServices()}<span class="text-sm font-normal text-muted-foreground"> / {ov.platformServices().length}</span></> : null}
+          sub={ov.platformServices().map(s => s.label).join(' · ') || undefined}
+        />
+        <Tile label="North star, all tenants" value={northStar()} sub="each tenant's own measure, added" />
+        <Tile label="Waiting on people" value={ov.cc()?.attention.needsYou} sub={waitingTenants().length === 1 ? `all in ${waitingTenants()[0]!.displayName}` : `in ${waitingTenants().length} tenants`} />
+      </Tiles>
+
+      <FleetList rows={ov.rows()} canCreate={authState.isAdmin()} />
+    </WorkAreaPanel>
     <WorkAreaPanel id="needs" active={areas.active()}>
       <NeedsYouCard ov={ov} loading={ccLoading()} />
     </WorkAreaPanel>

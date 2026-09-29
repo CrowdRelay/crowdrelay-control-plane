@@ -23,7 +23,7 @@ import { cn } from '../lib/cn'
 import { NativeSelect } from '../components/ui/native-select'
 import { writeGuard } from '../lib/read-only'
 
-const TABS = ['events', 'routing'] as const
+const TABS = ['overview', 'routing', 'events'] as const
 
 const severityTone = (s: string) => s === 'error' ? 'bad' : s === 'warn' ? 'warn' : 'muted'
 const statusTone = (s: string) => s === 'new' ? 'bad' : s === 'acknowledged' || s === 'retried' ? 'warn' : s === 'resolved' ? 'good' : 'muted'
@@ -46,8 +46,9 @@ export function AutomationPage() {
   const params = useParams({ from: '/tenants/$slug/automation' })
   const slug = () => params().slug
   const queryClient = useQueryClient()
-  // The id list makes `?tab=` deep links land on the right tab.
-  const areas = useWorkAreas([...TABS])
+  // The id list makes `?tab=` deep links land on the right tab; `overview`
+  // is the landing tab — the dashboard body is its panel.
+  const areas = useWorkAreas([...TABS], 'tab', 'overview')
   const [statusFilter, setStatusFilter] = createSignal<string>('')
 
   // One read for the first screen: the newest events and every workflow's
@@ -184,42 +185,45 @@ export function AutomationPage() {
       }
     />
 
-    <Tiles>
-      <Tile label="Workflows" value={configsReady() ? configMap().size : null} sub={configsReady() ? `${byCategory('real_work')} do real work` : undefined} />
-      <Tile label="Muted" value={configsReady() ? mutedCount() : null} sub="send no alerts" />
-      <Tile label="Open events" value={eventsReady() ? newCount() : null} valueTone={newCount() > 0 ? 'warn' : undefined} sub="need an ack" />
-      <Tile label="Errors" value={eventsReady() ? errorCount() : null} valueTone={errorCount() > 0 ? 'bad' : undefined} sub="in the last 100 events" />
-    </Tiles>
-
-    <Split mid>
-      <Card title="Latest events" icon={<Activity />}>
-        <Show when={(events.data?.items ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{events.error ? 'The events could not be read.' : 'No events yet.'}</p>}>
-          <For each={(events.data?.items ?? []).slice(0, 5)}>{event => (
-            <ItemRow
-              pill={{ tone: event.severity === 'error' ? 'bad' : event.severity === 'warn' ? 'warn' : 'muted', text: event.status }}
-              title={`${event.workflowName} · ${event.message}`}
-              sub={formatIsoAge(event.occurredAt)}
-            />
-          )}</For>
-          <MoreRow text="Every event, with ack, retry and resolve" link={<Act onClick={() => areas.open('events')}>Open</Act>} />
-        </Show>
-      </Card>
-      <Card title="Workflows by kind" icon={<Workflow />}>
-        <StatRow label="Real work · routes to Discord" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('real_work') : '—'}</span>} />
-        <StatRow label="Status" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('status') : '—'}</span>} />
-        <StatRow label="System" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('system') : '—'}</span>} />
-        <div class="mt-3"><Act onClick={() => areas.open('routing')}>Workflow routing</Act></div>
-      </Card>
-    </Split>
-
     <WorkAreas
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
-        { id: 'events', label: 'Events', count: newCount() || null },
+        { id: 'overview', label: 'Overview' },
         { id: 'routing', label: 'Workflow routing' },
+        { id: 'events', label: 'Events', count: newCount() || null },
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Tiles>
+        <Tile label="Workflows" value={configsReady() ? configMap().size : null} sub={configsReady() ? `${byCategory('real_work')} do real work` : undefined} />
+        <Tile label="Muted" value={configsReady() ? mutedCount() : null} sub="send no alerts" />
+        <Tile label="Open events" value={eventsReady() ? newCount() : null} valueTone={newCount() > 0 ? 'warn' : undefined} sub="need an ack" />
+        <Tile label="Errors" value={eventsReady() ? errorCount() : null} valueTone={errorCount() > 0 ? 'bad' : undefined} sub="in the last 100 events" />
+      </Tiles>
+
+      <Split mid>
+        <Card title="Latest events" icon={<Activity />}>
+          <Show when={(events.data?.items ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{events.error ? 'The events could not be read.' : 'No events yet.'}</p>}>
+            <For each={(events.data?.items ?? []).slice(0, 5)}>{event => (
+              <ItemRow
+                pill={{ tone: event.severity === 'error' ? 'bad' : event.severity === 'warn' ? 'warn' : 'muted', text: event.status }}
+                title={`${event.workflowName} · ${event.message}`}
+                sub={formatIsoAge(event.occurredAt)}
+              />
+            )}</For>
+            <MoreRow text="Every event, with ack, retry and resolve" link={<Act onClick={() => areas.open('events')}>Open</Act>} />
+          </Show>
+        </Card>
+        <Card title="Workflows by kind" icon={<Workflow />}>
+          <StatRow label="Real work · routes to Discord" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('real_work') : '—'}</span>} />
+          <StatRow label="Status" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('status') : '—'}</span>} />
+          <StatRow label="System" value={<span class="tabular-nums text-foreground">{configsReady() ? byCategory('system') : '—'}</span>} />
+          <div class="mt-3"><Act onClick={() => areas.open('routing')}>Workflow routing</Act></div>
+        </Card>
+      </Split>
+    </WorkAreaPanel>
 
     {/* ─── Events ─────────────────────────────────────────────────── */}
     <WorkAreaPanel id="events" active={areas.active()}>

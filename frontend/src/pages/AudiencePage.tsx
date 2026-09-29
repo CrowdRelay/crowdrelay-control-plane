@@ -86,7 +86,7 @@ function DegradedSections(props: { degraded: string[]; labels: Record<string, st
 
 export function AudiencePage() {
   const params = useParams({ from: '/tenants/$slug/audience' })
-  const areas = useWorkAreas(['fans', 'sources', 'contacts', 'communities', 'portfolio'])
+  const areas = useWorkAreas(['overview', 'fans', 'sources', 'contacts', 'communities', 'portfolio'], 'tab', 'overview')
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
   const model = useQuery(() => ({
@@ -146,12 +146,11 @@ export function AudiencePage() {
       }
     />
 
-    <Show when={model.data}>{data => <AudienceFirstScreen slug={params().slug} model={data()} />}</Show>
-
     <WorkAreas
       active={areas.active()}
       onToggle={areas.toggle}
       areas={[
+        { id: 'overview', label: 'Overview' },
         { id: 'fans', label: 'Fans', count: model.data?.overview?.active_fans ?? null },
         { id: 'sources', label: 'Sources' },
         { id: 'contacts', label: 'Contacts' },
@@ -159,6 +158,10 @@ export function AudiencePage() {
         { id: 'portfolio', label: authState.isPlatformLevel() ? 'Label portfolio' : 'Portfolio' },
       ]}
     />
+
+    <WorkAreaPanel id="overview" active={areas.active()}>
+      <Show when={model.data}>{data => <AudienceFirstScreen slug={params().slug} model={data()} />}</Show>
+    </WorkAreaPanel>
 
     {/* ── Fans tab — the funnel (sources → captured → activated →
           retained → converted), then the people and their segments ── */}
