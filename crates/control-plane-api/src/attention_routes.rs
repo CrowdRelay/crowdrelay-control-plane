@@ -154,6 +154,15 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
             not_reported.push("unpublished_drafts");
             json!([])
         });
+    // The post queue's machine half — sends the system is carrying or gave
+    // up on, per channel. Optional for the same reason as the sections
+    // above: a CrowdRelay that predates it serves a valid snapshot, and an
+    // empty list here would claim the machine holds nothing when the tenant
+    // never reported the lane.
+    let automatic_queue = snapshot.get("automatic_queue").cloned().unwrap_or_else(|| {
+        not_reported.push("automatic_queue");
+        json!([])
+    });
     // The brain's self-assessment — verdict, quiet-cycle streak, and the
     // reason the last quiet cycle stayed quiet. Optional: an older CrowdRelay
     // does not publish it, and null-not-placeholder keeps "does not report"
@@ -223,6 +232,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
     expect_array(findings, "findings")?;
     expect_array(&needs_you, "needs_you")?;
     expect_array(&unpublished_drafts, "unpublished_drafts")?;
+    expect_array(&automatic_queue, "automatic_queue")?;
     if !awaiting_approval.is_u64() {
         return Err(ApiError::Unavailable(
             "tenant attention awaiting_approval returned an invalid JSON shape".into(),
@@ -255,6 +265,7 @@ pub(crate) fn project(slug: &str, snapshot: &Value) -> Result<Value, ApiError> {
         "needs_you": needs_you,
         "awaiting_approval": awaiting_approval,
         "unpublished_drafts": unpublished_drafts,
+        "automatic_queue": automatic_queue,
         "brain": brain,
         "lapsed_approvals": lapsed_approvals,
         "failed_sends": failed_sends,
@@ -290,6 +301,9 @@ mod tests {
             "awaiting_approval": 0,
             "unpublished_drafts": [
                 {"channel": "reddit", "drafts": 2, "oldest_drafted_at": "2026-09-01T10:00:00Z"}
+            ],
+            "automatic_queue": [
+                {"channel": "telegram", "in_flight": 1, "failed": 0, "oldest_queued_at": "2026-09-01T09:00:00Z"}
             ],
             "brain": {
                 "state": "improving",
@@ -391,6 +405,29 @@ mod tests {
             json!(["needs_you", "awaiting_approval"]),
             "the placeholders must be distinguishable from measurements"
         );
+    }
+
+    #[test]
+    fn unreported_automatic_queue_is_named_not_measured_as_empty() {
+        // A CrowdRelay that predates the two-lane post queue reports no
+        // automatic_queue. Substituting an empty list is the panel claiming
+        // the machine holds nothing when the tenant never reported the lane.
+        let mut older = snapshot();
+        older
+            .as_object_mut()
+            .expect("object")
+            .remove("automatic_queue");
+        let projected =
+            project("virya", &older).expect("a snapshot without automatic_queue still projects");
+        assert_eq!(projected["automatic_queue"], json!([]));
+        assert_eq!(projected["not_reported"], json!(["automatic_queue"]));
+    }
+
+    #[test]
+    fn rejects_automatic_queue_of_the_wrong_json_type() {
+        let mut wrong = snapshot();
+        wrong["automatic_queue"] = json!({"telegram": 1});
+        assert!(project("virya", &wrong).is_err());
     }
 
     #[test]
