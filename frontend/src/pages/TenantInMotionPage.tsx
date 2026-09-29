@@ -7,7 +7,7 @@ import { cn } from '../lib/cn'
 import { timestampMillis } from '../lib/format'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { PageShell, SkeletonBlock } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Note, Row, Split, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Note, Row, Split, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
 import type { RelayProcessRun } from '../lib/types'
 import { RelayRunCard } from '../components/RelayRunCard'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -31,8 +31,18 @@ const ACTION_LABEL: Record<string, string> = {
   'visual.render.request': 'Visuals',
 }
 
-export function TenantInMotionPage() {
-  const params = useParams({ from: '/tenants/$slug/in-motion' })
+export type InMotionSection = 'overview' | 'relays'
+
+const SECTION_TITLE: Record<InMotionSection, string> = {
+  overview: 'In motion',
+  relays: 'Post relays',
+}
+
+export const InMotionOverviewPage = () => <TenantInMotionPage section="overview" />
+export const InMotionRelaysPage = () => <TenantInMotionPage section="relays" />
+
+export function TenantInMotionPage(props: { section: InMotionSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   const model = useQuery(() => ({
     queryKey: ['in-motion-model', params().slug],
     queryFn: () => api.inMotionModel(params().slug),
@@ -71,12 +81,12 @@ export function TenantInMotionPage() {
     return { tone: 'good', text: 'Quiet · nothing waiting to run' }
   }
 
-  const areas = useWorkAreas(['overview', 'relays'], 'tab', 'overview')
+  const areas = useSubPage(() => props.section, '/tenants/$slug/in-motion')
 
   return (
     <PageShell>
       <DashHeader
-        title="In motion"
+        title={SECTION_TITLE[props.section]}
         subtitle="What the machine is doing on its own"
         pill={status()}
         actions={
@@ -90,16 +100,8 @@ export function TenantInMotionPage() {
         <SectionFailureCard error={model.error} title="Couldn't load what's in motion" onRetry={() => void model.refetch()} />
       </Show>
 
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'relays', label: 'Post relays', count: runs().length || null },
-        ]}
-      />
 
-      <WorkAreaPanel id="overview" active={areas.active()}>
+      <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={!model.error && !model.data}>
         <SkeletonBlock style={{ 'min-height': '84px' }} />
         <SkeletonBlock style={{ 'min-height': '200px' }} />
@@ -147,8 +149,8 @@ export function TenantInMotionPage() {
               <Show when={stuck() > 0}>
                 <Note>They cancel themselves after 24 h. Connect the tool, or turn the step off.</Note>
                 <div class="mt-3 flex gap-2">
-                  <Act to="/tenants/$slug/intelligence" params={{ slug: params().slug }} search={{ tab: 'standing' }}>Connect</Act>
-                  <Act to="/tenants/$slug" params={{ slug: params().slug }} search={{ tab: 'profile' }}>Turn off</Act>
+                  <Act to="/tenants/$slug/intelligence/standing" params={{ slug: params().slug }}>Connect</Act>
+                  <Act to="/tenants/$slug/settings/profile" params={{ slug: params().slug }}>Turn off</Act>
                 </div>
               </Show>
             </Show>
@@ -168,13 +170,13 @@ export function TenantInMotionPage() {
           </Show>
         </Card>
       </Show>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="relays" active={areas.active()}>
+      <SubPagePanel when={areas.active() === 'relays'}>
         <div class="flex flex-col gap-3">
           <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>
         </div>
-      </WorkAreaPanel>
+      </SubPagePanel>
     </PageShell>
   )
 }

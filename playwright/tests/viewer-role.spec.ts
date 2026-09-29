@@ -42,9 +42,9 @@ test('the session says it is read-only @viewer', async ({ page }) => {
 
 test('the attention page offers no write @viewer', async ({ page }) => {
   await assertViewerSession(page)
-  // The reconcile button lives on the inbox tab — `?tab=` is honored, and
+  // The reconcile button lives on the Inbox sub-page, and
   // asking for it directly avoids clicking through the default Decisions tab.
-  await page.goto(`/tenants/${SLUG}/attention?tab=inbox`)
+  await page.goto(`/tenants/${SLUG}/attention/inbox`)
   await page.waitForLoadState('networkidle')
   // Reconciliation is a POST, so a viewer cannot run it even though it only
   // reads on the far side. The method is what decides.
@@ -65,15 +65,15 @@ test('the notifiers page offers no write @viewer', async ({ page }) => {
 
 test('the tenant settings page offers no write @viewer', async ({ page }) => {
   await assertViewerSession(page)
-  // The bare tenant URL is Today now — the settings surface is `?tab=`,
+  // The bare tenant URL is Today now — settings are sub-pages of /settings,
   // Profile for the Play URLs and Access for Suspend/Park.
-  await page.goto(`/tenants/${SLUG}?tab=access`)
+  await page.goto(`/tenants/${SLUG}/settings/access`)
   await page.waitForLoadState('networkidle')
   for (const name of ['Suspend', 'Park']) {
     const button = page.getByRole('button', { name, exact: true })
     if (await button.count() > 0) await expect(button.first()).toBeDisabled()
   }
-  await page.goto(`/tenants/${SLUG}?tab=profile`)
+  await page.goto(`/tenants/${SLUG}/settings/profile`)
   await page.waitForLoadState('networkidle')
   const edit = page.getByRole('button', { name: 'Edit Play Store URLs', exact: true })
   if (await edit.count() > 0) await expect(edit.first()).toBeDisabled()
@@ -84,7 +84,7 @@ test('the workspace tab offers no write @viewer', async ({ page }) => {
   // Workspace holds the editable settings that moved out of Audience — every
   // control on it is a write, so a viewer's inputs, selects and buttons are
   // all disabled.
-  await page.goto(`/tenants/${SLUG}?tab=workspace`)
+  await page.goto(`/tenants/${SLUG}/settings/workspace`)
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(1000)
   // Scoped to the route's own content (`data-key` wraps the router Outlet) —

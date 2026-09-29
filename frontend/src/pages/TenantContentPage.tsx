@@ -1,7 +1,7 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { failureLine, unavailableError } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Link, useNavigate, useParams } from '@tanstack/solid-router'
+import { Link, useParams } from '@tanstack/solid-router'
 import { Bell, CircleCheck, History, Layers, RefreshCw, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -22,7 +22,7 @@ import { TrackedLinksPanel } from '../components/TrackedLinksPanel'
 import { HookScorecardPanel } from '../components/HookScorecardPanel'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, Note, Pill, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { Act, Card, DashHeader, IconAct, Note, Pill, Split, StatRow, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { DraftEditor, changedFields, emptiedField } from '../components/DraftEditor'
 import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
@@ -101,12 +101,23 @@ const draftTitle = (a: PendingAutopilotAction): string => {
 }
 
 
+export type ContentSection = 'overview' | 'hooks' | 'links'
+
+const SECTION_TITLE: Record<ContentSection, string> = {
+  overview: 'Content',
+  hooks: 'What held attention',
+  links: 'Tracked links',
+}
+
+export const ContentOverviewPage = () => <TenantContentPage section="overview" />
+export const ContentHooksPage = () => <TenantContentPage section="hooks" />
+export const ContentLinksPage = () => <TenantContentPage section="links" />
+
 // Material in → the brain drafts → a person says yes → it goes out. The page
 // is those three stages in order: the queue that waits for a person first,
 // the material it draws from, then what went out.
-export function TenantContentPage() {
-  const params = useParams({ from: '/tenants/$slug/content' })
-  const navigate = useNavigate()
+export function TenantContentPage(props: { section: ContentSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   // Per-item, on purpose: a refusal on one draft must not grey out or
   // shadow the rest of the queue, and one item's error used to float to the
   // top of the page far from the button that earned it.
@@ -191,12 +202,9 @@ export function TenantContentPage() {
     if (failed().length > 0) return { tone: 'bad', text: `${failed().length} didn't land` }
     return { tone: 'good', text: 'Nothing waits on you' }
   }
-  const areas = useWorkAreas(['overview', 'links', 'material', 'hooks'], 'tab', 'overview')
-  // "Material" is its own page; the button goes there. `on`: track only the
-  // active value — navigate's own router reads must not subscribe this effect.
-  createEffect(on(areas.active, active => {
-    if (active === 'material') void navigate({ to: '/tenants/$slug/content/material', params: { slug: params().slug } })
-  }))
+  // "Material" is its own page (/content/material) and sits beside these
+  // sub-pages in the sidebar; `?tab=material` redirects there.
+  const areas = useSubPage(() => props.section, '/tenants/$slug/content')
   // "Material it works from": the material page's own one-statement view,
   // carried inside the content model. Seeding the material page's key with it
   // means opening that page costs no second read.
@@ -266,7 +274,7 @@ export function TenantContentPage() {
 
   return <PageShell>
     <DashHeader
-      title="Content"
+      title={SECTION_TITLE[props.section]}
       subtitle="What is ready to post, and what went out"
       pill={status()}
       actions={
@@ -283,18 +291,8 @@ export function TenantContentPage() {
       <SectionFailureCard error={results.error} title="Couldn't load the published list" onRetry={() => void results.refetch()} />
     </Show>
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'material', label: 'Material' },
-        { id: 'hooks', label: 'What held attention' },
-        { id: 'links', label: 'Tracked links' },
-      ]}
-    />
 
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
     <Show when={model.data} fallback={<SkeletonKpiStrip count={4} />}>
       <Tiles>
         <Tile label="Ready to post" value={results.data ? ready().length : null} sub={results.data ? `${readyForums()} forums · ${ready().length - readyForums()} social` : undefined} />
@@ -450,14 +448,14 @@ export function TenantContentPage() {
         </Show>
       </Card>
     </Split>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="hooks" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'hooks'}>
       <HookScorecardPanel slug={params().slug} />
-    </WorkAreaPanel>
-    <WorkAreaPanel id="links" active={areas.active()}>
+    </SubPagePanel>
+    <SubPagePanel when={areas.active() === 'links'}>
       <TrackedLinksPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }
 

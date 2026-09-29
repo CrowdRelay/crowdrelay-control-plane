@@ -20,7 +20,7 @@ import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { ErrorCard, PageShell, Section } from '../components/layout'
-import { Act, DashHeader, IconAct, Pill, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { Act, DashHeader, IconAct, Pill, SubPagePanel, type Tone } from '../components/ui/dash'
 import { SettingsFirstScreen, settingsStatus } from '../components/SettingsFirstScreen'
 import { Alert } from '../components/app/alert'
 import { Spinner } from '../components/Spinner'
@@ -77,31 +77,39 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
   invalid_plan: { title: 'Deployment plan was rejected', guidance: 'The agent refused the plan as unsafe or malformed. This is a Control Plane defect; the plan must be corrected before retrying.', retryable: false },
 }
 
-export function TenantPage() {
-  const params = useParams({ from: '/tenants/$slug' })
+export type SettingsSection = 'overview' | 'profile' | 'workspace' | 'deployment' | 'access' | 'destinations'
+
+// Sub-pages only a platform session gets — the band's sidebar does not list
+// them, and a pasted URL sends a band session back to the overview rather
+// than mounting a platform-only panel.
+const PLATFORM_ONLY: SettingsSection[] = ['deployment', 'access', 'destinations']
+const SECTION_TITLE: Record<SettingsSection, string> = {
+  overview: 'Settings', profile: 'Profile', workspace: 'Workspace', deployment: 'Deployment', access: 'Access', destinations: 'Destinations',
+}
+
+export const SettingsOverviewPage = () => <TenantPage section="overview" />
+export const SettingsProfilePage = () => <TenantPage section="profile" />
+export const SettingsWorkspacePage = () => <TenantPage section="workspace" />
+export const SettingsDeploymentPage = () => <TenantPage section="deployment" />
+export const SettingsAccessPage = () => <TenantPage section="access" />
+export const SettingsDestinationsPage = () => <TenantPage section="destinations" />
+
+export function TenantPage(props: { section: SettingsSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   const queryClient = useQueryClient()
-  // This page is the tenant's Settings surface — products, region, brand,
-  // deployment and access. The daily read (fans, the next night, this week's
-  // moves) used to live here as a second copy of Today on the bare tenant
-  // URL; Today has one home now — `/operations`, which the bare URL and
-  // `?tab=today` redirect to in the router. The sidebar's Settings item
-  // points at `?tab=profile`.
+  // This page is the tenant's Settings section — products, region, brand,
+  // deployment and access. The daily read lives on Today (`/operations`),
+  // where the bare tenant URL redirects. The sidebar's Settings item lands
+  // on the overview at `/settings`; each settings area is its own sub-page
+  // (`/settings/profile`, `/settings/workspace`, …) nested under it.
   // Accessor, not a snapshot — profile() hydrates async, so freezing the
-  // level at setup would nail a platform session's tabs to the band list.
+  // level at setup would nail a platform session's sections to the band list.
   const platformView = () => authState.isPlatformLevel()
-  // The band used to get no tab bar — a second sidebar entry it did not have
-  // meant Deployment and Access were platform-only in practice. Workspace
-  // (the editable settings, moved out of Audience) is exactly the surface a
-  // band operator drives themselves, so the bar now shows for both roles.
-  // The valid list is scoped by role too, so a pasted `?tab=deployment`
-  // link cannot mount a platform-only panel in a band session.
-  // `?tab=profile` is what the sidebar links to: it lands on the first
-  // screen, which is the profile now. The full profile editor is `about`.
-  const areas = useWorkAreas(['overview', 'about', 'workspace', 'deployment', 'access', 'destinations'], 'tab', 'overview')
-  const isVisited = (id: string) => areas.active() === id
+  const section = () => props.section
+  const isVisited = (id: SettingsSection) => section() === id
 
   // Base read model — tenant identity, provisioning, audit, platform caps.
-  // This is all the Profile and Access tabs need. The Deployment tab has
+  // This is all the Profile and Access pages need. The Deployment page has
   // its own lazy query below so opening Settings doesn't pay for the
   // operations read model unless the operator actually visits it.
   const model = useQuery(() => ({
@@ -128,7 +136,7 @@ export function TenantPage() {
     staleTime: 10_000,
   }))
 
-  // Operations read model — the Deployment tab is its only consumer here
+  // Operations read model — the Deployment page is its only consumer here
   // (release ledger, instance state). Today reads it on /operations, which
   // is a different page with its own copy of the query.
   const operations = useQuery(() => ({
@@ -143,7 +151,7 @@ export function TenantPage() {
     // stays empty for the life of the tab. Keep asking until it fills.
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-  // The ninety-day guarantee is a Deployment-tab read — the promise attached
+  // The ninety-day guarantee is a Deployment-page read — the promise attached
   // to the instance, next to the switch that deploys it.
   const guarantee = useQuery(() => ({
     queryKey: ['tenant-guarantee', params().slug],
@@ -196,6 +204,12 @@ export function TenantPage() {
   // the confirmation is the slug typed out rather than a second button.
   const [removalConfirm, setRemovalConfirm] = createSignal('')
   const navigate = useNavigate()
+  // Waits for the profile: before it hydrates every session reads as band.
+  createEffect(() => {
+    if (authState.profile() && !platformView() && PLATFORM_ONLY.includes(section())) {
+      void navigate({ to: '/tenants/$slug/settings', params: { slug: params().slug }, replace: true })
+    }
+  })
   const remove = useMutation(() => ({
     mutationFn: () => api.removeTenant(params().slug),
     onSuccess: async () => {
@@ -270,7 +284,7 @@ export function TenantPage() {
                 <TableRow>
                   <TableCell><strong>AREA</strong></TableCell>
                   <TableCell><Show when={authState.isPlatformLevel()} fallback={<span class="text-sm text-muted-foreground">—</span>}>
-                    <Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places" params={{ slug: t.slug }} search={{ tab: 'area' }}>Manage rewards</Link>
+                    <Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places/area" params={{ slug: t.slug }}>Manage rewards</Link>
                   </Show></TableCell>
                   <TableCell class="text-right"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></TableCell>
                 </TableRow>
@@ -486,7 +500,7 @@ export function TenantPage() {
 
     return <>
       <DashHeader
-        title="Settings"
+        title={SECTION_TITLE[section()]}
         subtitle={platformView()
           ? `Who you are, and what the machine may do · ${t.slug} · ${t.defaultCountryCode}`
           : 'Who you are, and what the machine may do'}
@@ -506,7 +520,7 @@ export function TenantPage() {
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>
         <ErrorCard title="Couldn't save that change" error={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error} />
       </Show>
-      {/* A tenant that is not running says so above every tab, with the one
+      {/* A tenant that is not running says so above every sub-page, with the one
           action that changes it. The parked notice painted its text on the
           strong warning colour and read as a blank bar. */}
       <Show when={t.status === 'parked'}>
@@ -526,50 +540,31 @@ export function TenantPage() {
         </Alert>
       </Show>
 
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        // One declaration per label — the collision gate counts literal
-        // `label:` occurrences.
-        areas={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'about', label: 'Profile' },
-          { id: 'workspace', label: 'Workspace' },
-          ...(platformView()
-            ? [
-                { id: 'deployment', label: 'Deployment' },
-                { id: 'access', label: 'Access' },
-                { id: 'destinations', label: 'Destinations' },
-              ]
-            : []),
-        ]}
-      />
+      <SubPagePanel when={section() === 'overview'}>
+        <SettingsFirstScreen slug={t.slug} tenant={t} />
+      </SubPagePanel>
 
-      <WorkAreaPanel id="overview" active={areas.active()}>
-        <SettingsFirstScreen slug={t.slug} tenant={t} onOpen={areas.open} />
-      </WorkAreaPanel>
-
-      {/* Each tab body is one vertical rhythm. Sections draw a hairline and
+      {/* Each sub-page body is one vertical rhythm. Sections draw a hairline and
           24px above their heading, but nothing below their content, so
           without the gap each section's last line sat on the next one's rule. */}
-      <WorkAreaPanel id="about" active={areas.active()}>
+      <SubPagePanel when={section() === 'profile'}>
         <div class="space-y-8"><Settings /></div>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="workspace" active={areas.active()}>
+      <SubPagePanel when={section() === 'workspace'}>
         <div class="space-y-8">
           <WorkspaceSettingsPanel slug={t.slug} />
           {/* The band keeps its API keys here because Access is a
-              platform-only tab — moving secrets there would take the write
+              platform-only page — moving secrets there would take the write
               away from the people who own the accounts. Platform sessions
               see the same panel under Access. */}
           <Show when={!platformView()}>
             <TenantSecretsPanel slug={t.slug} />
           </Show>
         </div>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="deployment" active={areas.active()}>
+      <SubPagePanel when={section() === 'deployment'}>
         <div class="space-y-8">
           {/* The tenant as one process instance — how far this deploy got
               and where it is stuck. Reads the overview model only, so it
@@ -691,28 +686,28 @@ export function TenantPage() {
             title="Runtime and switches"
             icon={<SectionIcon name="activity" />}
             description="Live health, feature flags and redeploy for this tenant live on the Health page."
-            action={<Link to="/tenants/$slug/health" params={{ slug: t.slug }} search={{ tab: 'runtime' } as never} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open Health</Link>}
+            action={<Link to="/tenants/$slug/health/switches" params={{ slug: t.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open Health</Link>}
           >{null}</Section>
 
           <ReleaseConvergencePanel releaseLedger={operations.data?.autopilot?.release_ledger ?? null} />
         </div>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="access" active={areas.active()}>
+      <SubPagePanel when={section() === 'access'}>
         <div class="space-y-8">
           <TenantOperatorsPanel slug={t.slug} />
           {/* Tenant-held credentials moved here from Audience: the keys are
               access material, not audience data. The band's copy lives on the
-              Workspace tab because this tab is platform-only. */}
+              Workspace page because this page is platform-only. */}
           <Show when={platformView()}>
             <TenantSecretsPanel slug={t.slug} />
           </Show>
           <TenantAuditPanel items={model.data?.audit.items ?? []} />
 
           {/* Park, suspend and resume sat in the page header as one-click
-              buttons beside the tenant's name, on every tab. They change what
+              buttons beside the tenant's name, on every page. They change what
               the tenant is allowed to do, so they live with the other access
-              decisions — and the banner above the tabs offers Resume when it
+              decisions — and the banner above the page offers Resume when it
               matters. */}
           <Show when={capabilities()?.canPark || capabilities()?.canUnpark || (capabilities()?.canSuspend !== false && t.status !== 'parked')}>
             <Section
@@ -765,14 +760,14 @@ export function TenantPage() {
             </Section>
           </Show>
         </div>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
       {/* Where the tenant's alerts go — the notifier channels, platform
           config and automation routing that used to be a top-level nav
-          item. Its own queries; nothing here loads until the tab does. */}
-      <WorkAreaPanel id="destinations" active={areas.active()}>
+          item. Its own queries; nothing here loads until the page does. */}
+      <SubPagePanel when={section() === 'destinations'}>
         <NotifiersPanel slug={t.slug} />
-      </WorkAreaPanel>
+      </SubPagePanel>
     </>
   }}</Show></PageShell>
 }

@@ -1,6 +1,6 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
-import { Link, useNavigate, useParams, useRouterState } from '@tanstack/solid-router'
+import { Link, useParams } from '@tanstack/solid-router'
 import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -19,7 +19,7 @@ import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { BarList, DeltaBadge, Donut, Legend, Ring, Widget, type Segment } from '../components/charts'
 import { PageShell, Section, SkeletonBlock } from '../components/layout'
-import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Ring as DashRing, IconAct, Split, StatRow, Steps, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Ring as DashRing, IconAct, Split, StatRow, Steps, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { SectionIcon } from '../components/SectionIcon'
 import { TenantStatusLine } from '../components/TenantStatusLine'
 import { buttonVariants } from '../components/app/button'
@@ -51,26 +51,37 @@ const OPS_SECTION_LABEL: Record<string, string> = {
 }
 const sectionLabel = (key: string) => OPS_SECTION_LABEL[key] ?? humanize(key)
 
+export type TodaySection = 'overview' | 'replies' | 'outreach' | 'negotiations' | 'press' | 'releases' | 'plays' | 'growth'
+
+const SECTION_TITLE: Record<TodaySection, string> = {
+  overview: 'Today',
+  replies: 'Replies',
+  outreach: 'Outreach',
+  negotiations: 'Negotiations',
+  press: 'Press',
+  releases: 'Releases',
+  plays: 'Play ledger',
+  growth: 'Fan growth',
+}
+
+export const TodayOverviewPage = () => <TenantOperationsPage section="overview" />
+export const TodayRepliesPage = () => <TenantOperationsPage section="replies" />
+export const TodayOutreachPage = () => <TenantOperationsPage section="outreach" />
+export const TodayNegotiationsPage = () => <TenantOperationsPage section="negotiations" />
+export const TodayPressPage = () => <TenantOperationsPage section="press" />
+export const TodayReleasesPage = () => <TenantOperationsPage section="releases" />
+export const TodayPlaysPage = () => <TenantOperationsPage section="plays" />
+export const TodayGrowthPage = () => <TenantOperationsPage section="growth" />
+
 // The machine's surfaces for one tenant: replies, outreach, press, releases
 // and the play ledger, each on its own tab. Decisions live on Needs you; the
 // first figure here says how many are waiting and points there.
-export function TenantOperationsPage() {
-  const params = useParams({ from: '/tenants/$slug/operations' })
-  // The valid list is what makes `?tab=` work both ways — without it a
-  // deep link or a Booking-journey drill-through lands on Replies and
-  // `switchTab` never writes the param back.
-  const areas = useWorkAreas(['overview', 'replies', 'negotiations', 'outreach', 'press', 'releases', 'plays', 'growth'], 'tab', 'overview')
-  // The listing tab dissolved into /proof — a pre-dissolve deep link keeps
-  // its intent instead of snapping back to Replies.
-  const navigate = useNavigate()
-  const locationSearch = useRouterState({ select: s => s.location.search })
-  // `on`: track only the search value — navigate's own router reads must not
-  // subscribe this effect to router updates.
-  createEffect(on(locationSearch, search => {
-    if ((search as Record<string, unknown>)?.tab === 'listing') {
-      void navigate({ to: '/tenants/$slug/proof', params: { slug: params().slug }, replace: true })
-    }
-  }))
+export function TenantOperationsPage(props: { section: TodaySection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
+  // Each work area is a sub-page (`/operations/replies`, …). The old
+  // `?tab=` links — including the dissolved listing tab, now /proof — are
+  // redirected by the route.
+  const areas = useSubPage(() => props.section, '/tenants/$slug/operations')
   const model = useQuery(() => ({
     queryKey: ['tenant-today', params().slug],
     queryFn: () => api.tenantToday(params().slug),
@@ -272,7 +283,7 @@ export function TenantOperationsPage() {
 
   return <PageShell>
     <DashHeader
-      title="Today"
+      title={SECTION_TITLE[props.section]}
       subtitle={new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(now()))}
       pill={model.data && !model.error ? statusPill() : null}
       actions={
@@ -292,24 +303,8 @@ export function TenantOperationsPage() {
       <TenantStatusLine slug={params().slug} operations={model.data} />
     </Show>
 
-    <div class="mt-3">
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'replies', label: 'Replies', count: d()?.derived?.work_area_counts?.replies ?? d()?.reply_triage?.summary?.waiting_on_you_count ?? null },
-          { id: 'outreach', label: 'Outreach', count: (d()?.derived?.approval_batches ?? []).filter(b => b.context === 'outreach').reduce((n, b) => n + b.count, 0) || null },
-          { id: 'negotiations', label: 'Negotiations' },
-          { id: 'press', label: 'Press' },
-          { id: 'releases', label: 'Releases' },
-          { id: 'plays', label: 'Play ledger' },
-          { id: 'growth', label: 'Fan growth' },
-        ]}
-      />
-    </div>
 
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
     <Show when={!model.error && !model.data}>
       <div class="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <For each={[0, 1, 2, 3]}>{() => <SkeletonBlock style={{ 'min-height': '84px' }} />}</For>
@@ -381,35 +376,35 @@ export function TenantOperationsPage() {
           end. Silent when nothing is owed. */}
       <PrizesToSendPanel slug={params().slug} rows={d()?.reward_fulfillments} />
     </Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="replies" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'replies'}>
       <ReplyTriagePanel />
-    </WorkAreaPanel>
+    </SubPagePanel>
     {/* P.7: the negotiation table — live terms conversations with the
         ladder and the parked move, plus the record of settled ones. */}
-    <WorkAreaPanel id="negotiations" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'negotiations'}>
       <NegotiationsPanel />
-    </WorkAreaPanel>
-    <WorkAreaPanel id="outreach" active={areas.active()}>
+    </SubPagePanel>
+    <SubPagePanel when={areas.active() === 'outreach'}>
       <OutreachConversationsPanel slug={params().slug} />
       <OutreachWavesPanel slug={params().slug} />
       <OutreachPipelinePanel slug={params().slug} />
       <OpportunityShortlistPanel />
-    </WorkAreaPanel>
-    <WorkAreaPanel id="press" active={areas.active()}>
+    </SubPagePanel>
+    <SubPagePanel when={areas.active() === 'press'}>
       <PressRoomPanel slug={params().slug} />
-    </WorkAreaPanel>
-    <WorkAreaPanel id="releases" active={areas.active()}>
+    </SubPagePanel>
+    <SubPagePanel when={areas.active() === 'releases'}>
       <ReleasePlanPanel slug={params().slug} />
       <ReleaseCampaignsPanel slug={params().slug} />
-    </WorkAreaPanel>
-    <WorkAreaPanel id="plays" active={areas.active()}>
+    </SubPagePanel>
+    <SubPagePanel when={areas.active() === 'plays'}>
       <PlayLedgerPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
 
-    <WorkAreaPanel id="growth" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'growth'}>
     {/* Fan growth — the north star, moved off the tenant landing so this
         daily page opens on recent progress. Degrades silently per field:
         an unanswered section simply does not render. */}
@@ -561,7 +556,7 @@ export function TenantOperationsPage() {
       </Section>
     </Show>
 
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }
 

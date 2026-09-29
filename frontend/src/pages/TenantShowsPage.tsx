@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { TenantShow } from '../lib/types'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Row, Split, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Act, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Row, Split, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { BookingJourneyPanel } from '../components/BookingJourneyPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -17,11 +17,23 @@ import { FormDrawer } from '../components/app/form-drawer'
 import { toast } from '../components/app/toast'
 import { compareTimestamps } from '../lib/format'
 
+export type ShowsSection = 'overview' | 'booking' | 'merch'
+
+const SECTION_TITLE: Record<ShowsSection, string> = {
+  overview: 'Shows',
+  booking: 'Get booked',
+  merch: 'Merch table',
+}
+
+export const ShowsOverviewPage = () => <TenantShowsPage section="overview" />
+export const ShowsBookingPage = () => <TenantShowsPage section="booking" />
+export const ShowsMerchPage = () => <TenantShowsPage section="merch" />
+
 /** `/tenants/$slug/shows` — the gig list: next up first, then past shows,
  * newest first. The noun every show-day capability hangs off; the night
  * itself opens at `/tenants/$slug/shows/$eventSlug` (UX-2.2). */
-export function TenantShowsPage() {
-  const params = useParams({ from: '/tenants/$slug/shows' })
+export function TenantShowsPage(props: { section: ShowsSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   const model = useQuery(() => ({
     queryKey: ['tenant-shows', params().slug],
     queryFn: () => api.shows(params().slug),
@@ -33,7 +45,7 @@ export function TenantShowsPage() {
   // fan-out — it only fires once the tab mounts (visit, prefetch, or a
   // ?tab=booking deep link), so the default page costs the shows list only.
   // `nights` was the old default tab; it is the page itself now.
-  const areas = useWorkAreas(['overview', 'booking', 'merch'], 'tab', 'overview')
+  const areas = useSubPage(() => props.section, '/tenants/$slug/shows')
   const [adding, setAdding] = createSignal(false)
 
   const upcoming = createMemo(() =>
@@ -76,7 +88,7 @@ export function TenantShowsPage() {
   return (
     <PageShell>
       <DashHeader
-        title="Shows"
+        title={SECTION_TITLE[props.section]}
         subtitle="Nights on the books and gigs to get"
         pill={status()}
         actions={<Act onClick={() => setAdding(true)}>Add show</Act>}
@@ -87,21 +99,8 @@ export function TenantShowsPage() {
         <SectionFailureCard error={model.error} title="Couldn't load shows" onRetry={() => void model.refetch()} />
       </Show>
 
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          { id: 'overview', label: 'Overview' },
-          // "Booking" is taken — the tenant wizard's crew-skill option is
-          // parity-locked to TeamSkill upstream. The journey's own words.
-          { id: 'booking', label: 'Get booked' },
-          // The merch table travels with the nights: stock is counted
-          // before a run of shows and sold at the door.
-          { id: 'merch', label: 'Merch table' },
-        ]}
-      />
 
-      <WorkAreaPanel id="overview" active={areas.active()}>
+      <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={!model.error && !model.data}>
         <SkeletonSection titleWidth="140px" lines={3} minHeight="120px" />
       </Show>
@@ -149,11 +148,11 @@ export function TenantShowsPage() {
                 <ItemRow
                   pill={reply.disposition === 'positive' ? { tone: 'good', text: 'said yes' } : { tone: 'muted', text: 'answered' }}
                   title={reply.display_name}
-                  action={<Act to="/tenants/$slug/operations" params={{ slug: params().slug }} search={{ tab: 'replies' }}>Reply</Act>}
+                  action={<Act to="/tenants/$slug/operations/replies" params={{ slug: params().slug }}>Reply</Act>}
                 />
               )}</For>
               <Show when={answered().length > 4}>
-                <MoreRow text={`${answered().length - 4} more`} link={<Link to="/tenants/$slug/operations" params={{ slug: params().slug }} search={{ tab: 'replies' }}>All replies</Link>} />
+                <MoreRow text={`${answered().length - 4} more`} link={<Link to="/tenants/$slug/operations/replies" params={{ slug: params().slug }}>All replies</Link>} />
               </Show>
             </Show>
           </Card>
@@ -168,14 +167,14 @@ export function TenantShowsPage() {
           </Show>
         </Card>
       </Show>
-      </WorkAreaPanel>
+      </SubPagePanel>
 
-      <WorkAreaPanel id="merch" active={areas.active()}>
+      <SubPagePanel when={areas.active() === 'merch'}>
         <MerchTablePanel slug={params().slug} />
-      </WorkAreaPanel>
-      <WorkAreaPanel id="booking" active={areas.active()}>
+      </SubPagePanel>
+      <SubPagePanel when={areas.active() === 'booking'}>
         <BookingJourneyPanel slug={params().slug} />
-      </WorkAreaPanel>
+      </SubPagePanel>
     </PageShell>
   )
 }

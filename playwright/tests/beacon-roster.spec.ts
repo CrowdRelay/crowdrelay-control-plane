@@ -97,7 +97,7 @@ test.describe('beacon roster @e2e', () => {
       })
     })
 
-    await page.goto('/tenants/virya/audience?tab=contacts')
+    await page.goto('/tenants/virya/audience/contacts')
 
     // The roster shows a screenful; the select-all reaches the whole
     // filtered set, rendered or not.
@@ -117,7 +117,7 @@ test.describe('beacon roster @e2e', () => {
     profiles[0] = profile(1, { beaconKind: 'community · creator', contactEmail: null })
     profiles[1] = profile(2, { beaconKind: 'local_press' })
 
-    await page.goto('/tenants/virya/audience?tab=contacts')
+    await page.goto('/tenants/virya/audience/contacts')
 
     const roster = page.locator('table', { has: page.getByRole('columnheader', { name: 'Amplifier' }) })
     await expect(roster.locator('tbody tr')).toHaveCount(15)

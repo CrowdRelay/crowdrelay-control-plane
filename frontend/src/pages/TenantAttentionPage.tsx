@@ -19,7 +19,7 @@ import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { NeedsYouOverview, needsYouStatus } from '../components/NeedsYouOverview'
-import { DashHeader, IconAct, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
@@ -148,10 +148,28 @@ function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notR
   )
 }
 
-export function TenantAttentionPage() {
-  const params = useParams({ from: '/tenants/$slug/attention' })
+export type AttentionSection = 'overview' | 'decisions' | 'inbox' | 'queues' | 'runtime' | 'trace'
+
+const SECTION_TITLE: Record<AttentionSection, string> = {
+  overview: 'Needs you',
+  decisions: 'Decision history',
+  inbox: 'Inbox',
+  queues: 'Queues',
+  runtime: 'Runtime',
+  trace: 'Trace',
+}
+
+export const AttentionOverviewPage = () => <TenantAttentionPage section="overview" />
+export const AttentionDecisionsPage = () => <TenantAttentionPage section="decisions" />
+export const AttentionInboxPage = () => <TenantAttentionPage section="inbox" />
+export const AttentionQueuesPage = () => <TenantAttentionPage section="queues" />
+export const AttentionRuntimePage = () => <TenantAttentionPage section="runtime" />
+export const AttentionTracePage = () => <TenantAttentionPage section="trace" />
+
+export function TenantAttentionPage(props: { section: AttentionSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   // Decisions is the default tab: a queue of decisions is what a person has.
-  const areas = useWorkAreas(['overview', 'decisions', 'inbox', 'queues', 'runtime', 'trace'], 'tab', 'overview')
+  const areas = useSubPage(() => props.section, '/tenants/$slug/attention')
   // Open a work area, then scroll to something inside it once it mounts.
   // A lazy panel can take several hundred ms to render — retry for ~1s like
   // the layout system's revealAnchor does, then give up rather than spin.
@@ -195,14 +213,6 @@ export function TenantAttentionPage() {
     staleTime: 10_000,
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
-
-  // Mirror the board's own approvability test — an awaiting_approval entry
-  // with no action_id is filed under "Noted, no action taken", not Needs you.
-  const decideCount = () => {
-    if ((operations.data?.degraded ?? []).includes('opportunities')) return null
-    const ops = operations.data?.opportunities
-    return ops ? ops.filter(o => o.authority === 'awaiting_approval' && o.action_id !== null).length : null
-  }
 
   // `#…&action=<id>` links point at inbox rows, but the inbox panel does not
   // mount until its tab is visited, so the parse lives here where it always
@@ -296,7 +306,6 @@ export function TenantAttentionPage() {
     }
   }
 
-  const deadCount = () => summary.data ? totalDead(summary.data) : null
   const findingsCount = () => attention.data?.findings?.length ?? 0
   // Editable draft text by action id. The attention snapshot's needs_you
   // summaries carry no `revisable`; the full PendingAutopilotAction rows do,
@@ -311,7 +320,7 @@ export function TenantAttentionPage() {
 
   return <PageShell>
     <DashHeader
-      title="Needs you"
+      title={SECTION_TITLE[props.section]}
       subtitle="What waits for your yes"
       pill={needsYouStatus(operations.data)}
       actions={
@@ -325,29 +334,10 @@ export function TenantAttentionPage() {
       <SectionFailureCard error={operations.error} title="Couldn't load what needs you" onRetry={() => void operations.refetch()} />
     </Show>
 
-    <div class="mt-3">
-      <WorkAreas
-        active={areas.active()}
-        onToggle={areas.toggle}
-        areas={[
-          { id: 'overview', label: 'Overview' },
-          { id: 'decisions', label: 'Decision history', count: decideCount() || null },
-          { id: 'inbox', label: 'Inbox' },
-          // Delivery machinery and decision tracing are operator surfaces —
-          // the band gets the queue and the alerts, not the plumbing.
-          // Deep links (?tab=queues) still resolve.
-          ...(authState.isPlatformLevel() ? [
-            { id: 'queues', label: 'Queues', count: deadCount() || null },
-            { id: 'runtime', label: 'Runtime' },
-            { id: 'trace', label: 'Trace' },
-          ] : []),
-        ]}
-      />
-    </div>
 
     {/* The answer to "is anything mine" is the Overview tab's body: every
         figure here is a queue on one of the tabs to its right. */}
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={!operations.error && !operations.data}>
         <SkeletonKpiStrip count={4} />
         <SkeletonSection titleWidth="160px" lines={4} minHeight="200px" />
@@ -362,10 +352,10 @@ export function TenantAttentionPage() {
           />
         )}
       </Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Decisions ─────────────────────────────────────────────── */}
-    <WorkAreaPanel id="decisions" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'decisions'}>
       <Show when={operations.error}>
         <SectionFailureCard error={operations.error} title="Couldn't load decisions" onRetry={() => void operations.refetch()} />
       </Show>
@@ -380,10 +370,10 @@ export function TenantAttentionPage() {
           refresh={() => operations.refetch()}
         />
       )}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Inbox ─────────────────────────────────────────────────── */}
-    <WorkAreaPanel id="inbox" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'inbox'}>
       <Show when={summary.error}>
         <ErrorCard title="Couldn't load the Needs you list" error={summary.error} />
       </Show>
@@ -499,10 +489,10 @@ export function TenantAttentionPage() {
           </Show>
         </div>
       </Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Queues ────────────────────────────────────────────────── */}
-    <WorkAreaPanel id="queues" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'queues'}>
       <DeadQueuesPanel
         slug={params().slug}
         summary={summary.data}
@@ -513,10 +503,10 @@ export function TenantAttentionPage() {
         isLoading={attention.isLoading}
         onRefresh={refreshMaintenance}
       />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Runtime ───────────────────────────────────────────────── */}
-    <WorkAreaPanel id="runtime" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'runtime'}>
       <Show when={summary.error}>
         <ErrorCard title="Couldn't load the runtime summary" error={summary.error} />
       </Show>
@@ -541,10 +531,10 @@ export function TenantAttentionPage() {
       </Show>
 
       <SignalOverviewPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
 
     {/* ─── Trace ─────────────────────────────────────────────────── */}
-    <WorkAreaPanel id="trace" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'trace'}>
       <div class="space-y-4">
         <p class="text-sm text-muted-foreground">Metadata-only trace of one request across audit, outbox, delivery and operator actions. A trace ID from the action ledger works too.</p>
         <form class="flex flex-col gap-2 sm:flex-row" onSubmit={e => { e.preventDefault(); void lookupTimeline() }}>
@@ -600,6 +590,6 @@ export function TenantAttentionPage() {
         </Card>}</Show>
         <ActionLedgerPanel slug={params().slug} />
       </div>
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }

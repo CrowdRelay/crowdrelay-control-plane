@@ -10,7 +10,7 @@ import { cn } from '../lib/cn'
 import type { AgentProviderHealth } from '../lib/types'
 import { AgentPanel } from '../components/AgentPanel'
 import { PageShell } from '../components/layout'
-import { Card, DashHeader, IconAct, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas, type Tone } from '../components/ui/dash'
+import { Card, DashHeader, IconAct, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
 
 // AI integrations (mockup `console-mockups/operator-pages.html`, screen 2):
 // are the AI lanes answering, and at what cost? The first screen reads the
@@ -36,9 +36,19 @@ const errorWord = (error: string | null) => {
   return error.includes('429') ? 'rate limited' : error.replaceAll('_', ' ')
 }
 
-export function TenantIntegrationsPage() {
-  const params = useParams({ from: '/tenants/$slug/integrations' })
-  const areas = useWorkAreas(['overview', 'providers'], 'tab', 'overview')
+export type IntegrationsSection = 'overview' | 'providers'
+
+const SECTION_TITLE: Record<IntegrationsSection, string> = {
+  overview: 'AI integrations',
+  providers: 'Providers, tasks and schedules',
+}
+
+export const IntegrationsOverviewPage = () => <TenantIntegrationsPage section="overview" />
+export const IntegrationsProvidersPage = () => <TenantIntegrationsPage section="providers" />
+
+export function TenantIntegrationsPage(props: { section: IntegrationsSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
+  const section = () => props.section
 
   // One read for the first screen. Its three sections seed the keys the
   // providers panel observes, so opening that panel costs nothing more.
@@ -120,7 +130,7 @@ export function TenantIntegrationsPage() {
 
   return <PageShell>
     <DashHeader
-      title="AI integrations"
+      title={SECTION_TITLE[section()]}
       subtitle="Are the AI lanes answering, and at what cost"
       pill={pill()}
       actions={
@@ -130,16 +140,7 @@ export function TenantIntegrationsPage() {
       }
     />
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'providers', label: 'Providers, tasks and schedules' },
-      ]}
-    />
-
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={section() === 'overview'}>
     <Tiles>
       <Tile
         label="Lanes answering"
@@ -186,10 +187,10 @@ export function TenantIntegrationsPage() {
         </Show>
       </Card>
     </Split>
-    </WorkAreaPanel>
+    </SubPagePanel>
 
-    <WorkAreaPanel id="providers" active={areas.active()}>
+    <SubPagePanel when={section() === 'providers'}>
       <AgentPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }

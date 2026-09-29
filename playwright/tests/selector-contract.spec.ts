@@ -36,10 +36,10 @@ test.describe('Selector contract @e2e', () => {
     await expect(page.locator('[data-slot="tenant-row"]').first()).toBeVisible({ timeout: 30000 })
   })
 
-  test('tenant intelligence page emits tab-panel hooks @e2e', async ({ page }) => {
+  test('tenant intelligence page emits sub-page hooks @e2e', async ({ page }) => {
     await login(page)
-    await page.goto('/tenants/virya/intelligence?tab=brief')
-    await expect(page.locator('[data-slot="tab-panel"]').first()).toBeVisible({ timeout: 30000 })
+    await page.goto('/tenants/virya/intelligence/brief')
+    await expect(page.locator('[data-slot="sub-page"]').first()).toBeVisible({ timeout: 30000 })
   })
 
   test('chat widget emits the message hook @e2e', async ({ page }) => {

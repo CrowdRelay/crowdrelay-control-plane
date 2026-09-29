@@ -281,7 +281,7 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
   let switchTab = rawSwitch
   if (valid) {
     const navigate = useNavigate()
-    const locationSearch = useRouterState({ select: s => s.location.search })
+    const locationSearch = useRouterState({ select: s => s.location.search as unknown as Record<string, unknown> })
     // The effect snaps back to `initial` whenever the param is absent or
     // invalid, and switchTab merges its key into the search object — a second
     // param (the nested `subtab`) survives a tab switch instead of evicting
@@ -304,7 +304,7 @@ export function useTabPanels(initial: string, valid?: string[] | (() => string[]
     // the URL. Reading the selection untracked keeps a click where it landed
     // while links, back and forward still drive the tab.
     createEffect(() => {
-      const t = (locationSearch() as Record<string, unknown>)?.[param]
+      const t = locationSearch()?.[param]
       const target = typeof t === 'string' && validList().includes(t) ? t : initial
       untrack(() => { if (target !== activeTab()) rawSwitch(target) })
     })

@@ -14,7 +14,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { EmptyState } from '../components/ui/empty-state'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { Act, Card, DashHeader, IconAct, ItemRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { BookOpen, Users } from 'lucide-solid'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import type { TenantProofReadModel, TenantShow } from '../lib/types'
@@ -33,13 +33,29 @@ const SECTION_LABEL: Record<string, string> = {
 const reportable = (show: TenantShow) =>
   !show.upcoming && show.status !== 'draft' && show.status !== 'cancelled'
 
+export type ProofSection = 'overview' | 'listing' | 'cards' | 'reports' | 'story'
+
+const SECTION_TITLE: Record<ProofSection, string> = {
+  overview: 'Proof',
+  listing: 'Listing and who to approach',
+  cards: 'Signed proof cards',
+  reports: 'Show reports',
+  story: 'The roster story',
+}
+
+export const ProofOverviewPage = () => <TenantProofPage section="overview" />
+export const ProofListingPage = () => <TenantProofPage section="listing" />
+export const ProofCardsPage = () => <TenantProofPage section="cards" />
+export const ProofReportsPage = () => <TenantProofPage section="reports" />
+export const ProofStoryPage = () => <TenantProofPage section="story" />
+
 /** `/tenants/$slug/proof` — the "send this to a promoter" drawer: the
  * listing link, the signed attestation cards, who an agent may approach,
  * and the reports the shows produced. One read model feeds every section;
  * organiser links stay per-night — minted on the shared-night panel a show
  * links to, never listed here. */
-export function TenantProofPage() {
-  const params = useParams({ from: '/tenants/$slug/proof' })
+export function TenantProofPage(props: { section: ProofSection }) {
+  const params = useParams({ strict: false }) as () => { slug: string }
   const model = useQuery(() => ({
     queryKey: ['tenant-proof', params().slug],
     queryFn: () => api.proofModel(params().slug),
@@ -66,11 +82,11 @@ export function TenantProofPage() {
     return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
   })
 
-  const areas = useWorkAreas(['overview', 'listing', 'cards', 'reports', 'story'], 'tab', 'overview')
+  const areas = useSubPage(() => props.section, '/tenants/$slug/proof')
 
   return <PageShell>
     <DashHeader
-      title="Proof"
+      title={SECTION_TITLE[props.section]}
       subtitle="What you can show a promoter, an agent or a label"
       pill={model.data ? (model.data.listing?.listing ? { tone: 'good', text: 'Listing is live' } : { tone: 'warn', text: 'No listing yet' }) : null}
       actions={
@@ -92,19 +108,8 @@ export function TenantProofPage() {
       )}</For>
     )}</Show>
 
-    <WorkAreas
-      active={areas.active()}
-      onToggle={areas.toggle}
-      areas={[
-        { id: 'overview', label: 'Overview' },
-        { id: 'listing', label: 'Listing and who to approach' },
-        { id: 'cards', label: 'Signed proof cards', count: model.data?.attestations?.length ?? null },
-        { id: 'reports', label: 'Show reports', count: reports().length || null },
-        { id: 'story', label: 'The roster story' },
-      ]}
-    />
 
-    <WorkAreaPanel id="overview" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'overview'}>
       <Show when={!model.error && !model.data}>
         <SkeletonSection titleWidth="160px" lines={4} minHeight="180px" />
       </Show>
@@ -116,17 +121,17 @@ export function TenantProofPage() {
           onOpen={areas.open}
         />
       )}</Show>
-    </WorkAreaPanel>
+    </SubPagePanel>
     <Show when={model.data}>{data => <>
-      <WorkAreaPanel id="listing" active={areas.active()}>
+      <SubPagePanel when={areas.active() === 'listing'}>
         <ListingPanel slug={params().slug} data={data().listing ?? undefined} targets={data().representation ?? undefined} />
-      </WorkAreaPanel>
-      <WorkAreaPanel id="cards" active={areas.active()}>
+      </SubPagePanel>
+      <SubPagePanel when={areas.active() === 'cards'}>
         <Show when={data().attestations !== null}>
           <AttestationsPanel slug={params().slug} data={data().attestations!} />
         </Show>
-      </WorkAreaPanel>
-      <WorkAreaPanel id="reports" active={areas.active()}>
+      </SubPagePanel>
+      <SubPagePanel when={areas.active() === 'reports'}>
         <Show when={reports().length > 0} fallback={<EmptyState icon={<ChartLine />} label="No reports yet" hint="A night that has happened files its report here." />}>
           <For each={reports()}>{show => (
             <Row>
@@ -138,11 +143,11 @@ export function TenantProofPage() {
             </Row>
           )}</For>
         </Show>
-      </WorkAreaPanel>
+      </SubPagePanel>
     </>}</Show>
-    <WorkAreaPanel id="story" active={areas.active()}>
+    <SubPagePanel when={areas.active() === 'story'}>
       <RosterStoryPanel slug={params().slug} />
-    </WorkAreaPanel>
+    </SubPagePanel>
   </PageShell>
 }
 

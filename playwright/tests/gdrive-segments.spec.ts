@@ -51,7 +51,7 @@ test.describe('gdrive segment chips @e2e', () => {
       }),
     )
 
-    await page.goto('/tenants/virya/audience?tab=contacts')
+    await page.goto('/tenants/virya/audience/contacts')
 
     await expect(page.getByRole('button', { name: 'Likely fans · 7' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Organisations · 3' })).toBeVisible()
@@ -82,7 +82,7 @@ test.describe('gdrive segment chips @e2e', () => {
       }),
     )
 
-    await page.goto('/tenants/virya/audience?tab=contacts')
+    await page.goto('/tenants/virya/audience/contacts')
 
     // Without counted segments there are no chips and no bulk path — the
     // per-row promote still works, but nothing offers a number to confirm.

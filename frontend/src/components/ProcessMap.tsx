@@ -44,16 +44,16 @@ type MapNode = {
 
 const NODES: MapNode[] = [
   // ── SOURCES ──
-  { id: 'reddit', x: 30, y: 100, w: 230, h: 52, zone: 'src', title: 'Reddit', desc: 'logged-in browser session', to: '/tenants/{slug}/audience?tab=sources' },
+  { id: 'reddit', x: 30, y: 100, w: 230, h: 52, zone: 'src', title: 'Reddit', desc: 'logged-in browser session', to: '/tenants/{slug}/audience/sources' },
   { id: 'spotify', x: 30, y: 162, w: 230, h: 52, zone: 'src', title: 'Spotify', desc: 'artist + track metrics', to: '/tenants/{slug}/intelligence' },
-  { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/audience?tab=sources' },
-  { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/audience?tab=sources' },
-  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Amplifiers', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/audience?tab=contacts' },
+  { id: 'bandsintown', x: 30, y: 224, w: 230, h: 52, zone: 'src', title: 'Bandsintown', desc: 'show + tour signals', to: '/tenants/{slug}/audience/sources' },
+  { id: 'meta', x: 30, y: 286, w: 230, h: 52, zone: 'src', title: 'Meta · TikTok', desc: 'ad leads + social', to: '/tenants/{slug}/audience/sources' },
+  { id: 'press', x: 30, y: 348, w: 230, h: 52, zone: 'src', title: 'Press · Amplifiers', desc: 'SubmitHub + CSV · Signal', to: '/tenants/{slug}/audience/contacts' },
 
   // ── INTELLIGENCE (deterministic Rust) ──
-  { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention?tab=decisions' },
-  { id: 'scorecard', x: 315, y: 228, w: 270, h: 66, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence?tab=standing' },
-  { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence?tab=decisions' },
+  { id: 'intel', x: 315, y: 120, w: 270, h: 84, zone: 'intel', title: 'Autopilot decision', desc: 'deterministic policy\ncausal model + confidence', to: '/tenants/{slug}/attention/decisions' },
+  { id: 'scorecard', x: 315, y: 228, w: 270, h: 66, zone: 'intel', title: 'Scorecard + Objectives', desc: 'progress tracking', to: '/tenants/{slug}/intelligence/standing' },
+  { id: 'funnel', x: 315, y: 306, w: 270, h: 56, zone: 'intel', title: 'Growth metrics', desc: 'discovery → engagement → conversion', to: '/tenants/{slug}/intelligence/decisions' },
 
   // ── AUTHORITY (what the disposition allows) ──
   { id: 'auto', x: 660, y: 120, w: 220, h: 66, zone: 'auth', title: 'Auto-execute', desc: 'queued immediately' },
@@ -63,15 +63,15 @@ const NODES: MapNode[] = [
   // ── EXECUTION ──
   { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations' },
   { id: 'workers', x: 955, y: 168, w: 290, h: 52, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
-  { id: 'outbox', x: 955, y: 238, w: 290, h: 66, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}?tab=destinations' },
+  { id: 'outbox', x: 955, y: 238, w: 290, h: 66, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}/settings/destinations' },
   { id: 'community', x: 955, y: 308, w: 290, h: 52, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },
-  { id: 'receipt', x: 955, y: 378, w: 290, h: 66, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention?tab=trace' },
+  { id: 'receipt', x: 955, y: 378, w: 290, h: 66, zone: 'exec', title: 'Receipt + action ledger', desc: 'reconciles unknown outcomes', to: '/tenants/{slug}/attention/trace' },
 
   // ── OUTCOMES ──
   { id: 'fans', x: 1320, y: 110, w: 250, h: 58, zone: 'out', title: 'Fanbase', desc: 'aggregated + attributed', to: '/tenants/{slug}/audience' },
   { id: 'engagement', x: 1320, y: 192, w: 250, h: 58, zone: 'out', title: 'Engagement', desc: 'replies · posts · installs', to: '/tenants/{slug}/operations' },
   { id: 'conversion', x: 1320, y: 274, w: 250, h: 58, zone: 'out', title: 'Conversion', desc: 'tickets · merch · attendance', to: '/tenants/{slug}/audience' },
-  { id: 'metrics', x: 1320, y: 356, w: 250, h: 66, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence?tab=decisions' },
+  { id: 'metrics', x: 1320, y: 356, w: 250, h: 66, zone: 'out', title: 'Growth Metrics', desc: 'Spotify · social · live', to: '/tenants/{slug}/intelligence/decisions' },
 ]
 
 /** The live value + detail appended to a mobile node row — the same fact

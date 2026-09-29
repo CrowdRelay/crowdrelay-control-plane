@@ -16,8 +16,6 @@ export function AppSidebar(props: {
   navSlug: string | undefined
   ownTenantSlug: string | undefined
   groups: NavGroup[]
-  isOpen: (group: NavGroup) => boolean
-  onToggle: (group: NavGroup) => void
   onSelectTenant: (slug: string) => void
   badgeFor: (item: NavItem) => number
   user: { name: string; role: string }
@@ -55,8 +53,6 @@ export function AppSidebar(props: {
               <NavMain
                 groups={props.groups}
                 slug={slug()}
-                isOpen={props.isOpen}
-                onToggle={props.onToggle}
                 badgeFor={props.badgeFor}
               />
             )}

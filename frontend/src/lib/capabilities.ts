@@ -105,7 +105,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'place-detail', pillar: 'aggregate', home: { path: '/audience?tab=communities', section: 'House rules and where we stand' }, title: 'A community, opened',
+    id: 'place-detail', pillar: 'aggregate', home: { path: '/audience/communities', section: 'House rules and where we stand' }, title: 'A community, opened',
     purpose: 'One registered place: its rules, the evidence it is real, and where outreach stands.',
     read: { path: 'audience-graph/places/{place_id}', paramSources: { place_id: 'text' } },
     actions: [
@@ -141,7 +141,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'peers', pillar: 'aggregate', home: { path: '/places?tab=rooms', section: 'Comparable acts' }, title: 'Peer acts', platformOnly: true,
+    id: 'peers', pillar: 'aggregate', home: { path: '/places/rooms', section: 'Comparable acts' }, title: 'Peer acts', platformOnly: true,
     purpose: 'Artists whose audiences overlap. The scanner proposes; a person confirms or refuses, and only confirmed peers are watched.',
     read: { path: 'content-engine/peers', query: [{ name: 'status', label: 'Status', kind: 'select', options: ['proposed', 'confirmed', 'rejected'] }] },
     actions: [
@@ -164,7 +164,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'connections', pillar: 'aggregate', home: { path: '/audience?tab=sources', section: 'Which connections work' }, title: 'Which connections actually work',
+    id: 'connections', pillar: 'aggregate', home: { path: '/audience/sources', section: 'Which connections work' }, title: 'Which connections actually work',
     purpose: 'Every fanbase connection and what is known about it — last sync, last failure. Connected is not the same as working.',
     read: { path: 'ops/connections' },
   },
@@ -186,7 +186,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'releases', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'Release plan' }, title: 'Release plan',
+    id: 'releases', pillar: 'grow', home: { path: '/operations/releases', section: 'Release plan' }, title: 'Release plan',
     purpose: 'The releases the brain plans around: date, tier, and whether assets, press and fan messages are ready.',
     read: { path: 'autopilot/releases' },
     actions: [
@@ -209,7 +209,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   { id: 'release-ledger', pillar: 'operate', platformOnly: true, home: { path: '/health', section: 'Software releases' }, title: 'Software releases', purpose: 'Which backend and executor builds are live, and whether they drifted from what was attested.', read: { path: 'autopilot/release-ledger' } },
-  { id: 'release-outcomes', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'What releases returned' }, title: 'Release outcomes', purpose: 'What each release measurably returned.', read: { path: 'autopilot/release-outcomes' } },
+  { id: 'release-outcomes', pillar: 'grow', home: { path: '/operations/releases', section: 'What releases returned' }, title: 'Release outcomes', purpose: 'What each release measurably returned.', read: { path: 'autopilot/release-outcomes' } },
   {
     id: 'playlist-placements', pillar: 'grow', gap: 'A placement is recorded against an outreach opportunity, and no console read lists outreach opportunities with their ids.', title: 'Playlist placements',
     purpose: "Record a curator's claim, or what a public read of the playlist found. A claim counts for nothing until a read confirms it.",
@@ -224,7 +224,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'release-recipient', pillar: 'grow', home: { path: '/operations?tab=releases', section: 'Release campaign recipients' }, title: 'Release campaign recipient',
+    id: 'release-recipient', pillar: 'grow', home: { path: '/operations/releases', section: 'Release campaign recipients' }, title: 'Release campaign recipient',
     purpose: 'Where one physical parcel stands: prepared, sent, delivered or cancelled.',
     actions: [{
       label: 'Update recipient', method: 'POST', path: 'autopilot/beacon-release-campaigns/{campaign_id}/recipients/{beacon_id}',
@@ -233,7 +233,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'outreach-waves', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Waves waiting for one yes' }, title: 'Outreach waves',
+    id: 'outreach-waves', pillar: 'grow', home: { path: '/operations/outreach', section: 'Waves waiting for one yes' }, title: 'Outreach waves',
     purpose: 'Batches of pitches the brain parked for one yes.',
     read: { path: 'autopilot/outreach-waves' },
     actions: [{
@@ -242,7 +242,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'outreach-targets', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' }, title: 'Outreach targets',
+    id: 'outreach-targets', pillar: 'grow', home: { path: '/operations/outreach', section: 'Your outreach conversations' }, title: 'Outreach targets',
     purpose: 'Playlists, press, radio, creators and labels the band pitches — add one you know.',
     actions: [
       {
@@ -279,7 +279,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     // 'Record a reply' already live on outreach-conversations and
     // outreach-replies; "don't contact" needed a route of its own.
     id: 'outreach-conversation', pillar: 'grow',
-    home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' },
+    home: { path: '/operations/outreach', section: 'Your outreach conversations' },
     title: 'A contact’s conversation',
     purpose: 'Every message either way, the letters the machine drafted or sent, and what happens next.',
     read: { path: 'autopilot/outreach-targets/{target_id}/conversation', paramSources: { target_id: 'text' } },
@@ -305,7 +305,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   {
     // The reply half of the outreach contacts: it has a row to attach to
     // now — every contact whose last word is theirs is listed with its id.
-    id: 'outreach-replies', pillar: 'grow', home: { path: '/operations?tab=replies', section: 'Answered you — your turn' }, title: 'Answers from outreach contacts',
+    id: 'outreach-replies', pillar: 'grow', home: { path: '/operations/replies', section: 'Answered you — your turn' }, title: 'Answers from outreach contacts',
     purpose: 'Press, radio, venues and agents who wrote back — log how it went, and a no takes them off the list.',
     actions: [
       {
@@ -322,7 +322,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
   {
     // The whole outreach list, as conversations: the act's press, radio,
     // venue and agent outreach lived in its own sheets, with no list here.
-    id: 'outreach-conversations', pillar: 'grow', home: { path: '/operations?tab=outreach', section: 'Your outreach conversations' }, title: 'Outreach conversations',
+    id: 'outreach-conversations', pillar: 'grow', home: { path: '/operations/outreach', section: 'Your outreach conversations' }, title: 'Outreach conversations',
     purpose: 'Every press, radio, venue and agent contact with where the conversation stands — whose move it is, who never answered, who never heard from you.',
     read: {
       path: 'autopilot/outreach-contacts',
@@ -366,7 +366,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'amplification', pillar: 'grow', home: { path: '/audience?tab=portfolio', section: 'Cross-promotion' }, title: 'Cross-promotion with a labelmate',
+    id: 'amplification', pillar: 'grow', home: { path: '/audience/portfolio', section: 'Cross-promotion' }, title: 'Cross-promotion with a labelmate',
     purpose: "Propose sharing consented audience with another act on the roster, preview who it would reach, and run the campaign once they accept.",
     actions: [
       {
@@ -391,15 +391,15 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       },
     ],
   },
-  { id: 'amplification-preview', pillar: 'grow', home: { path: '/audience?tab=portfolio', section: 'Cross-promotion' }, title: 'Who a cross-promotion reaches', purpose: 'Audience preview for one accepted consent.', read: { path: 'portfolio/amplification/{consent_id}/audience-preview', paramSources: { consent_id: 'text' } } },
+  { id: 'amplification-preview', pillar: 'grow', home: { path: '/audience/portfolio', section: 'Cross-promotion' }, title: 'Who a cross-promotion reaches', purpose: 'Audience preview for one accepted consent.', read: { path: 'portfolio/amplification/{consent_id}/audience-preview', paramSources: { consent_id: 'text' } } },
   { id: 'case-study', pillar: 'grow', home: { path: '/proof', section: 'The roster story' }, title: 'Roster case study', purpose: 'One document to attach to a partner conversation.', read: { path: 'portfolio/case-study' } },
 
   // ── Convert ────────────────────────────────────────────────────────
-  { id: 'funnel', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Fan funnel', purpose: 'Where fans came from and how far they got.', read: { path: 'analytics/funnel' } },
-  { id: 'revenue', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Revenue', purpose: 'Paid orders, gross and refunded, per currency.', read: { path: 'analytics/revenue' } },
-  { id: 'referral-conversion', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Referral conversion', purpose: 'What fans bringing fans actually converted.', read: { path: 'analytics/referral-conversion' } },
-  { id: 'ad-conversion', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Ad conversion', purpose: 'Paid reach against the fans and tickets it produced.', read: { path: 'analytics/ad-conversion' } },
-  { id: 'ad-conversion-breakdown', pillar: 'convert', home: { path: '/audience?tab=sources', section: 'What it turned into' }, title: 'Ad conversion by campaign', purpose: 'The same, per campaign and creative.', read: { path: 'analytics/ad-conversion/breakdown' } },
+  { id: 'funnel', pillar: 'convert', home: { path: '/audience/sources', section: 'What it turned into' }, title: 'Fan funnel', purpose: 'Where fans came from and how far they got.', read: { path: 'analytics/funnel' } },
+  { id: 'revenue', pillar: 'convert', home: { path: '/audience/sources', section: 'What it turned into' }, title: 'Revenue', purpose: 'Paid orders, gross and refunded, per currency.', read: { path: 'analytics/revenue' } },
+  { id: 'referral-conversion', pillar: 'convert', home: { path: '/audience/sources', section: 'What it turned into' }, title: 'Referral conversion', purpose: 'What fans bringing fans actually converted.', read: { path: 'analytics/referral-conversion' } },
+  { id: 'ad-conversion', pillar: 'convert', home: { path: '/audience/sources', section: 'What it turned into' }, title: 'Ad conversion', purpose: 'Paid reach against the fans and tickets it produced.', read: { path: 'analytics/ad-conversion' } },
+  { id: 'ad-conversion-breakdown', pillar: 'convert', home: { path: '/audience/sources', section: 'What it turned into' }, title: 'Ad conversion by campaign', purpose: 'The same, per campaign and creative.', read: { path: 'analytics/ad-conversion/breakdown' } },
   {
     id: 'communications', pillar: 'convert', home: { path: '/audience', section: 'Messages to fans' }, title: 'Fan messages',
     purpose: 'Campaigns to a segment of the fanbase: draft, schedule, cancel.',
@@ -513,13 +513,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'merch', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch catalogue',
+    id: 'merch', pillar: 'convert', home: { path: '/shows/merch', section: 'Merch table' }, title: 'Merch catalogue',
     purpose: 'Products, variants and prices.',
     read: { path: 'merch/catalog' },
     actions: [{ label: 'Upsert products', method: 'POST', path: 'merch/catalog', fields: [{ name: 'products', label: 'Products', kind: 'json', required: true, hint: '[{"slug","name","currency","price_gross_minor","active","public","variants":[…]}]' }] }],
   },
   {
-    id: 'inventory', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch stock',
+    id: 'inventory', pillar: 'convert', home: { path: '/shows/merch', section: 'Merch table' }, title: 'Merch stock',
     purpose: 'What is on hand, whether stock is ready to sell, and every movement.',
     read: { path: 'merch/inventory/overview' },
     actions: [
@@ -536,10 +536,10 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       },
     ],
   },
-  { id: 'inventory-activation', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
-  { id: 'merch-recommendations', pillar: 'convert', home: { path: '/shows?tab=merch', section: 'Merch table' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
+  { id: 'inventory-activation', pillar: 'convert', home: { path: '/shows/merch', section: 'Merch table' }, title: 'Stock activation', purpose: 'What still blocks selling from stock.', read: { path: 'merch/inventory/activation' } },
+  { id: 'merch-recommendations', pillar: 'convert', home: { path: '/shows/merch', section: 'Merch table' }, title: 'Merch to promote', purpose: 'Which products the numbers say to push.', read: { path: 'merch/promotion-recommendations' } },
   {
-    id: 'guardrails', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: 'Ad spend ceiling',
+    id: 'guardrails', pillar: 'convert', home: { path: '/health/policies', section: 'Bounds it moves within' }, title: 'Ad spend ceiling',
     purpose: 'The most the brain may spend on ads per day and per month, per currency.',
     actions: [
       { label: 'Ad spend ceiling', method: 'POST', path: 'autopilot/promotion-budget-guardrails', fields: [{ name: 'currency', label: 'Currency', kind: 'text', required: true, initial: 'EUR' }, { name: 'maximum_total_daily_budget_minor', label: 'Max daily', kind: 'number', required: true, hint: MINOR }, { name: 'maximum_monthly_spend_minor', label: 'Max monthly', kind: 'number', required: true, hint: MINOR }, EXPECTED_VERSION] },
@@ -630,7 +630,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'booking-policy', pillar: 'convert', home: { path: '/health?tab=policies', section: 'Bounds it moves within' }, title: "The manager's booking policy",
+    id: 'booking-policy', pillar: 'convert', home: { path: '/health/policies', section: 'Bounds it moves within' }, title: "The manager's booking policy",
     purpose: 'The rules the brain books under — fees, distances, how many asks.',
     read: { path: 'autopilot/manager-config/booking-policy' },
     actions: [{
@@ -644,7 +644,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     }],
   },
   {
-    id: 'team-opportunities', pillar: 'convert', home: { path: '/shows?tab=booking', section: 'Found and Approached' }, title: 'Opportunities the team found',
+    id: 'team-opportunities', pillar: 'convert', home: { path: '/shows/booking', section: 'Found and Approached' }, title: 'Opportunities the team found',
     purpose: 'File an opening someone spotted — a slot, a grant, a showcase — and move it along as it progresses.',
     actions: [
       {
@@ -677,9 +677,9 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   { id: 'content-hooks', pillar: 'operate', home: { path: '/content', section: 'What held attention' }, title: 'What held attention', purpose: "The band's own posts from the last 60 days, judged against its own median watch time and saves/shares — which openings held attention and which lost people.", read: { path: 'content/hooks' } },
-  { id: 'goal', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Goal scoreboard' }, title: 'Goal scoreboard', purpose: 'Planned vs actual for the live objective, learning progress, approval latency, lanes that produced no fans, and the Reddit account standing.', read: { path: 'ops/goal' } },
+  { id: 'goal', pillar: 'operate', home: { path: '/intelligence/standing', section: 'Goal scoreboard' }, title: 'Goal scoreboard', purpose: 'Planned vs actual for the live objective, learning progress, approval latency, lanes that produced no fans, and the Reddit account standing.', read: { path: 'ops/goal' } },
   {
-    id: 'community-replies', pillar: 'operate', home: { path: '/audience?tab=communities', section: 'Replies waiting' }, title: 'Replies waiting',
+    id: 'community-replies', pillar: 'operate', home: { path: '/audience/communities', section: 'Replies waiting' }, title: 'Replies waiting',
     purpose: 'Drafted answers to people who commented on the band\'s posts — send as written or edited, or skip.',
     read: { path: 'community-replies' },
     actions: [
@@ -688,14 +688,14 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
-    id: 'cycles', pillar: 'operate', home: { path: '/intelligence?tab=standing', section: 'Recent cycles' }, title: "The brain's last cycles",
+    id: 'cycles', pillar: 'operate', home: { path: '/intelligence/standing', section: 'Recent cycles' }, title: "The brain's last cycles",
     purpose: 'Each autopilot cycle, newest first — and which ones ran degraded.',
     read: { path: 'ops/cycles', query: [{ name: 'state', label: 'Outcome', kind: 'text', hint: 'e.g. degraded' }, { name: 'limit', label: 'Limit', kind: 'number' }] },
   },
-  { id: 'action-states', pillar: 'operate', servedBy: 'the brain read model (/tenants/{slug}/brain), which the process map and Intelligence draw', home: { path: '/intelligence?tab=standing', section: 'Where actions wait' }, title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
+  { id: 'action-states', pillar: 'operate', servedBy: 'the brain read model (/tenants/{slug}/brain), which the process map and Intelligence draw', home: { path: '/intelligence/standing', section: 'Where actions wait' }, title: 'Where actions wait', purpose: 'Count and oldest per in-flight action state.', read: { path: 'ops/action-states' } },
   { id: 'ecosystem', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Ecosystem health', purpose: 'The cross-app operating picture: flags, reconciliation, open findings.', read: { path: 'ecosystem/overview' } },
   { id: 'findings', pillar: 'operate', home: { path: '/health', section: 'The apps agree' }, title: 'Reconciliation findings', purpose: 'Where the apps disagree about the same fact.', read: { path: 'ecosystem/findings', query: [{ name: 'open_only', label: 'Open only', kind: 'select', options: ['true', 'false'] }, { name: 'limit', label: 'Limit', kind: 'number' }] } },
-  { id: 'reach', pillar: 'operate', home: { path: '/intelligence?tab=brief', section: 'Who it reached' }, title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
+  { id: 'reach', pillar: 'operate', home: { path: '/intelligence/brief', section: 'Who it reached' }, title: 'Reach, last 30 days', purpose: 'What every channel measurably reached.', read: { path: 'autopilot/reach-metrics' } },
   {
     id: 'approvals', pillar: 'operate', home: { path: '/attention', section: 'Needs you now' }, title: 'Approve and assign actions',
     purpose: 'Approve several parked actions at once, or hand one to a team member.',
@@ -715,15 +715,15 @@ function STAGES(): readonly string[] {
 // tab) a person opens to use them.
 export const PAGE_CAPABILITIES: PageCapability[] = [
   // Aggregate
-  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/audience?tab=sources' },
+  { pillar: 'aggregate', title: 'Fanbase connections', purpose: 'Connect Reddit, Meta, Spotify, Bandcamp, YouTube, Discord, Telegram and the rest, and pull their fans in.', where: '/audience/sources' },
   { pillar: 'aggregate', title: 'Fans', purpose: 'The fan table, one fan’s journey, tags.', where: '/audience' },
   { pillar: 'aggregate', title: 'Segments', purpose: 'Who is in each audience segment.', where: '/audience' },
-  { pillar: 'aggregate', title: 'Contacts from Drive and Gmail', purpose: 'Scanned or uploaded contacts, promoted to fans or amplifiers in bulk.', where: '/audience?tab=contacts' },
-  { pillar: 'aggregate', title: 'Amplifiers', purpose: 'People who carry a release or a show to an audience the band does not own: roster, invites, replies.', where: '/audience?tab=contacts' },
-  { pillar: 'aggregate', title: 'Communities', purpose: 'Where fans already gather, their membership and a drafted intro.', where: '/audience?tab=communities' },
+  { pillar: 'aggregate', title: 'Contacts from Drive and Gmail', purpose: 'Scanned or uploaded contacts, promoted to fans or amplifiers in bulk.', where: '/audience/contacts' },
+  { pillar: 'aggregate', title: 'Amplifiers', purpose: 'People who carry a release or a show to an audience the band does not own: roster, invites, replies.', where: '/audience/contacts' },
+  { pillar: 'aggregate', title: 'Communities', purpose: 'Where fans already gather, their membership and a drafted intro.', where: '/audience/communities' },
   { pillar: 'aggregate', title: 'Fan sources', purpose: 'Which source brought which fans.', where: '/audience' },
   { pillar: 'aggregate', title: 'Places', purpose: 'Cities, rooms and online places — fans, venues and gigs per place.', where: '/places' },
-  { pillar: 'aggregate', title: 'AREA', purpose: 'Location drops fans unlock in a city.', where: '/places?tab=area' },
+  { pillar: 'aggregate', title: 'AREA', purpose: 'Location drops fans unlock in a city.', where: '/places/area' },
   // Grow
   { pillar: 'grow', title: 'Content queue', purpose: 'Drafts the brain wrote, waiting for a yes; what went out and how it did.', where: '/content' },
   { pillar: 'grow', title: 'Content material', purpose: 'The sources the brain drafts from.', where: '/content/material' },
@@ -733,7 +733,7 @@ export const PAGE_CAPABILITIES: PageCapability[] = [
   { pillar: 'grow', title: 'Outreach and booking candidates', purpose: 'What the discovery sweeps found, confirmed one by one.', where: '/operations' },
   { pillar: 'grow', title: 'Booking agents', purpose: 'Screened agents and the season letter.', where: '/operations' },
   { pillar: 'grow', title: 'Growth objectives and posture', purpose: 'What the brain is aiming at and how hard it pushes.', where: '/intelligence' },
-  { pillar: 'grow', title: 'Portfolio', purpose: 'The roster, amplification asks to accept or decline.', where: '/audience?tab=portfolio' },
+  { pillar: 'grow', title: 'Portfolio', purpose: 'The roster, amplification asks to accept or decline.', where: '/audience/portfolio' },
   // Convert
   { pillar: 'convert', title: 'Shows', purpose: 'Every night: create by hand, the bill, the counterparty, the growth ladder.', where: '/shows' },
   { pillar: 'convert', title: 'Door scan and T+7 report', purpose: 'Who came, and the report sent to the promoter.', where: '/shows' },
@@ -748,7 +748,7 @@ export const PAGE_CAPABILITIES: PageCapability[] = [
   { pillar: 'operate', title: 'Health and delivery', purpose: 'Outbox, deliveries, dead letters, retries, request timelines and traces.', where: '/health' },
   { pillar: 'operate', title: 'Agents', purpose: 'Model providers, credentials, schedules, usage.', where: '/integrations' },
   { pillar: 'operate', title: 'Automation', purpose: 'n8n events and workflow settings.', where: '/automation' },
-  { pillar: 'operate', title: 'Settings', purpose: 'Profile, workspace settings, secrets, operators, destinations, deployment.', where: '?tab=profile' },
+  { pillar: 'operate', title: 'Settings', purpose: 'Profile, workspace settings, secrets, operators, destinations, deployment.', where: '/settings' },
 ]
 
 /** A capability's write by label — for the panels that host it. Throws on a

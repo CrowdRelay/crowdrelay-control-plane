@@ -41,17 +41,17 @@ type Cmd = {
 }
 
 // `icon` names a NavIcon, so a page carries the same glyph here as in the
-// sidebar, and labels match the sidebar's — the bare tenant URL redirects to
-// Today, so the Settings entry carries its `?tab=profile` explicitly.
+// sidebar, and labels match the sidebar's. Settings is its own section, so
+// the entry and its Destinations sub-page are plain suffixes.
 const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Record<string, string> }> = [
-  { suffix: '', label: 'Settings', icon: 'settings', search: { tab: 'profile' } },
+  { suffix: '/settings', label: 'Settings', icon: 'settings' },
   { suffix: '/attention', label: 'Needs you', icon: 'attention' },
   { suffix: '/in-motion', label: 'In motion', icon: 'motion' },
   { suffix: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
   { suffix: '/health', label: 'Health', icon: 'sliders' },
   { suffix: '/operations', label: 'Today', icon: 'operations' },
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
-  { suffix: '', label: 'Destinations', icon: 'notifiers', search: { tab: 'destinations' } },
+  { suffix: '/settings/destinations', label: 'Destinations', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
   { suffix: '/places', label: 'Places', icon: 'places' },
   { suffix: '/proof', label: 'Proof', icon: 'proof' },
@@ -59,10 +59,10 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/content', label: 'Content', icon: 'content' },
   // The beacon roster folded into Audience → Contacts; the palette entry
   // names the destination a person sees, not the route it rides.
-  { suffix: '/audience?tab=contacts', label: 'Contacts', icon: 'beacons' },
+  { suffix: '/audience/contacts', label: 'Contacts', icon: 'beacons' },
   // AREA lives under Places now — the palette entry names the destination a
   // person sees and lands on its tab via `search`, not an embedded query.
-  { suffix: '/places', label: 'AREA', icon: 'area', search: { tab: 'area' } },
+  { suffix: '/places/area', label: 'AREA', icon: 'area' },
 ]
 
 // Task-oriented shortcuts. These are navigation, so they are labelled as
@@ -71,16 +71,16 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
 // typing "explain growth drop" finds the funnel.
 const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix: string; platform?: true }> = [
   { id: 'q-approvals', label: 'Open pending approvals', keywords: 'pending approvals review needs you attention show', suffix: '/attention' },
-  { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence?tab=decisions' },
-  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence?tab=standing' },
-  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence?tab=standing' },
+  { id: 'q-decisions', label: 'Open brain decisions', keywords: 'brain decision decisions timeline why reasoning intelligence what did the brain decide today show', suffix: '/intelligence/decisions' },
+  { id: 'q-cycle', label: 'Run a growth cycle (brain)', keywords: 'brain run cycle growth grow fans preview dispatch intelligence', suffix: '/intelligence/standing' },
+  { id: 'q-goal', label: 'Declare a growth objective', keywords: 'brain goal north star metric target objective intelligence declare', suffix: '/intelligence/standing' },
   // Dead deliveries live on Health's delivery tab — operator-only, same as
   // the page it opens.
-  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/health?tab=delivery', platform: true },
+  { id: 'q-failed', label: 'Open failed deliveries', keywords: 'failed deliveries dead outbox webhook push show', suffix: '/health/delivery', platform: true },
   { id: 'q-beacons', label: 'Open Amplifier signals', keywords: 'beacon amplifier signals operations outreach', suffix: '/operations' },
   { id: 'q-content', label: 'Open content', keywords: 'content posts material social approve publish drafts what went out', suffix: '/content' },
-  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence?tab=decisions' },
-  { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence?tab=learning' },
+  { id: 'q-growth', label: 'Open growth intelligence', keywords: 'growth drop decline metrics funnel explain why', suffix: '/intelligence/decisions' },
+  { id: 'q-learning', label: 'Open the learning loop', keywords: 'learning loop outcome decision action intelligence what the brain learned', suffix: '/intelligence/learning' },
   { id: 'q-proof', label: 'Open the proof drawer', keywords: 'proof promoter send attest listing share link show report credentials agent label', suffix: '/proof' },
   { id: 'q-opportunities', label: 'Open the decision queue', keywords: 'opportunities board decision attention approvals show current', suffix: '/attention' },
   // The authority sliders live one level in on Health — the band map does not
@@ -88,7 +88,7 @@ const QUERY_ENTRIES: Array<{ id: string; label: string; keywords: string; suffix
   // The capability map: where every feature lives. Operator-only, like the
   // page — a band finds features where it works, not in an index.
   { id: 'q-capabilities', label: 'Where does each feature live', keywords: 'capabilities everything features all map merch stock inventory rewards draws prizes tickets ticketing releases smart links funnel revenue conversion messages campaigns qr checklist show costs import mailing list cycles connections peers', suffix: '/capabilities', platform: true },
-  { id: 'q-policies', label: 'Open autopilot policies', keywords: 'autopilot policies rules authority autonomy sliders watch suggest ask alone health', suffix: '/health?tab=policies', platform: true },
+  { id: 'q-policies', label: 'Open autopilot policies', keywords: 'autopilot policies rules authority autonomy sliders watch suggest ask alone health', suffix: '/health/policies', platform: true },
 ]
 
 // The band's palette mirrors the band's sidebar — the process destinations
@@ -179,18 +179,15 @@ export const CommandPalette: Component = () => {
       for (const page of subpages) {
         const label = page.label
         list.push({
-          // Two entries share the bare `''` suffix (Settings and
-          // Destinations both ride `/tenants/{slug}`) — the search keeps
-          // their ids distinct.
+          // Entries sharing a suffix (Places and AREA) differ by search —
+          // it keeps their ids distinct.
           id: `nav-${slug}${page.suffix}${page.search?.tab ? `-${page.search.tab}` : ''}`,
           label: `${slug} · ${label}`,
           group: 'Jump',
           keywords: `${slug} ${label.toLowerCase()}`,
           icon: pageIcon(platform ? page.icon : BAND_ICON[page.suffix] ?? page.icon),
           kind: 'navigate',
-          perform: () => page.suffix === ''
-            ? navigate({ to: '/tenants/$slug', params: { slug }, search: page.search })
-            : navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug }, search: page.search }),
+          perform: () => navigate({ to: `/tenants/$slug${page.suffix}`, params: { slug }, search: page.search }),
         })
       }
       // Query-oriented entries — natural-language labels for common operator questions

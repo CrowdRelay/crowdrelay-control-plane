@@ -177,8 +177,8 @@ const SUBPAGES = [
   { path: '/', name: 'overview' },
   { path: '/flow', name: 'flow' },
   { path: '/tenants', name: 'tenants' },
-  { path: '/tenants/virya?tab=profile', name: 'tenant-settings' },
-  { path: '/tenants/virya?tab=workspace', name: 'tenant-workspace' },
+  { path: '/tenants/virya/settings', name: 'tenant-settings' },
+  { path: '/tenants/virya/settings/workspace', name: 'tenant-workspace' },
   { path: '/tenants/virya/operations', name: 'operations' },
   { path: '/tenants/virya/intelligence', name: 'intelligence' },
   { path: '/tenants/virya/attention', name: 'attention' },
@@ -190,7 +190,7 @@ const SUBPAGES = [
   // AREA folded into Places as its fourth tab; the old route exercises the
   // compatibility redirect old links still ride.
   { path: '/tenants/virya/area', name: 'area-redirect' },
-  { path: '/tenants/virya/places?tab=area', name: 'area' },
+  { path: '/tenants/virya/places/area', name: 'area' },
   { path: '/tenants/virya/shows', name: 'shows' },
   { path: '/tenants/virya/integrations', name: 'integrations' },
   { path: '/tenants/virya/funnel', name: 'growth-funnel' },
@@ -199,8 +199,8 @@ const SUBPAGES = [
   { path: '/tenants/virya/proof', name: 'proof' },
   // The capability map — reachable by URL, Settings and the palette.
   { path: '/tenants/virya/capabilities', name: 'capabilities' },
-  { path: '/tenants/virya/health?tab=delivery', name: 'health-delivery' },
-  { path: '/tenants/virya/health?tab=policies', name: 'health-policies' },
+  { path: '/tenants/virya/health/delivery', name: 'health-delivery' },
+  { path: '/tenants/virya/health/policies', name: 'health-policies' },
   // The beacons destination dissolved into Audience → Contacts; this
   // exercises the compatibility redirect old links still ride.
   { path: '/tenants/virya/beacons', name: 'beacons-redirect' },
@@ -254,44 +254,41 @@ test.describe('Control Plane E2E @e2e', () => {
     expect(page.url()).toContain('/tenants/virya/operations')
   })
 
-  test('Tenant ?tab=profile stays on the settings surface @e2e', async ({ page }) => {
+  // The old tab URLs follow their content to the Settings sub-pages.
+  test('Tenant ?tab= settings links redirect to sub-pages @e2e', async ({ page }) => {
     await page.goto('/tenants/virya?tab=profile')
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(1000)
-    expect(page.url()).toContain('/tenants/virya')
-    expect(page.url()).not.toContain('/operations')
+    await page.waitForURL('**/tenants/virya/settings/profile', { timeout: 10000 })
+    await page.goto('/tenants/virya?tab=deployment')
+    await page.waitForURL('**/tenants/virya/settings/deployment', { timeout: 10000 })
   })
 
-  // The Settings link declares ?tab=profile but must stay lit on Deployment
-  // and Access too — strict query matching once made the item go dark the
-  // moment the operator clicked a second tab.
-  test('Settings nav stays active across its tabs @e2e @tabs', async ({ page }) => {
-    await page.goto('/tenants/virya?tab=profile')
-    await page.waitForSelector('#tab-deployment', { timeout: 30000 })
-    const settingsLink = page.getByRole('link', { name: 'Settings' }).first()
+  // Settings is a section: the parent link lands on the overview and stays
+  // lit on every sub-page; the hover flyout lists the sub-pages and marks
+  // the open one.
+  test('Settings sub-pages open from the hover flyout @e2e @tabs', async ({ page }) => {
+    await page.goto('/tenants/virya/settings')
+    const settingsLink = page.getByRole('link', { name: 'Settings', exact: true }).first()
     // `aria-current` is the marker that survives the SidebarMenuButton `as`
     // composition — TanStack sets `data-status` too, but the wrapper drops it.
     await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-    await page.click('#tab-workspace')
-    await expect(page).toHaveURL(/tab=workspace/)
-    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-    await page.click('#tab-deployment')
-    await expect(page).toHaveURL(/tab=deployment/)
-    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-    await page.click('#tab-access')
-    await expect(page).toHaveURL(/tab=access/)
-    await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+    for (const [label, segment] of [['Workspace', 'workspace'], ['Deployment', 'deployment'], ['Access', 'access']]) {
+      await settingsLink.hover()
+      await page.getByRole('menuitem', { name: label, exact: true }).click()
+      await expect(page).toHaveURL(new RegExp(`/settings/${segment}$`))
+      await expect(settingsLink).toHaveAttribute('aria-current', 'page')
+      await settingsLink.hover()
+      await expect(page.getByRole('menuitem', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
+      await page.mouse.move(800, 400)
+    }
   })
 
-  // Operations' tabs write ?tab= so a deep link or refresh keeps the view —
-  // the page once mounted without its valid list and the param did nothing.
-  test('Operations tabs deep-link and write back @e2e @tabs', async ({ page }) => {
+  // Old `?tab=` links follow their content onto the sub-page, keeping the
+  // rest of the query.
+  test('Operations ?tab= links redirect to sub-pages @e2e @tabs', async ({ page }) => {
     await page.goto('/tenants/virya/operations?tab=plays')
-    await page.waitForSelector('#tab-plays', { timeout: 30000 })
-    await expect(page.locator('#tab-plays')).toHaveAttribute('aria-selected', 'true')
-    await page.click('#tab-releases')
-    await expect(page).toHaveURL(/tab=releases/)
-    await expect(page.locator('#tab-releases')).toHaveAttribute('aria-selected', 'true')
+    await page.waitForURL('**/tenants/virya/operations/plays', { timeout: 10000 })
+    await page.goto('/tenants/virya/operations?tab=listing')
+    await page.waitForURL('**/tenants/virya/proof', { timeout: 10000 })
   })
 
   // The process view: the run list loads in one call and renders either run

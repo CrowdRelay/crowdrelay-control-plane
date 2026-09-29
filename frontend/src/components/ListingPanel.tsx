@@ -501,9 +501,8 @@ export function ListingPanel(props: { slug: string; data?: ListingState; targets
                 <p class="text-xs text-muted-foreground">
                   Set this tenant's Member site base URL (
                   <Link
-                    to="/tenants/$slug"
+                    to="/tenants/$slug/settings/workspace"
                     params={{ slug: props.slug }}
-                    search={{ tab: 'workspace' }}
                     class="text-primary underline-offset-2 hover:underline"
                   >
                     Settings → Workspace

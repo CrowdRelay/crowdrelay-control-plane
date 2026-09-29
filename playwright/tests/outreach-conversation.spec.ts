@@ -135,7 +135,7 @@ test.describe('outreach conversation drawer @e2e', () => {
 
   test('the roster is bounded and a row opens the whole thread', async ({ page }) => {
     await stubSurface(page)
-    await page.goto('/tenants/virya/operations?tab=outreach')
+    await page.goto('/tenants/virya/operations/outreach')
 
     // The stage the platform view calls "last message outbound".
     await page.getByRole('tab', { name: /Last message outbound/ }).click()
@@ -174,7 +174,7 @@ test.describe('outreach conversation drawer @e2e', () => {
     })
     await page.route(WRITTEN_URL, route => route.fulfill({ status: 500, body: 'must not fire' }))
 
-    await page.goto('/tenants/virya/operations?tab=outreach')
+    await page.goto('/tenants/virya/operations/outreach')
     await page.getByRole('tab', { name: /Last message outbound/ }).click()
     await row(page, /Contact 3/).click()
 
