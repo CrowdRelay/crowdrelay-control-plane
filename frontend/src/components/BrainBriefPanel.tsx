@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { refreshQueriesSoon } from '../lib/refresh'
 import type { IntelligenceBrief, PendingActionSummary } from '../lib/types'
 import { confidencePercent, formatIsoUntil, humanizeToken, relativeTime } from '../lib/format'
+import { northStarMovement, northStarValueLabel } from '../lib/north-star'
 import { toast } from './app/toast'
 import { Section, SkeletonBlock } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -319,9 +320,7 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
             <StatusBadge status={brief().cycle.strategy.replaceAll('_', ' ')} tone="muted" />
             <Show when={brief().cycle.northStar}>
               <StatusBadge
-                status={brief().cycle.northStar === 'activated_fans_30d'
-                  ? `${brief().cycle.northStar}: ${brief().cycle.northStarCurrent} (rolling 30-day level)`
-                  : `${brief().cycle.northStar}: ${brief().cycle.northStarCurrent} (${brief().cycle.northStarThisMonth >= 0 ? '+' : ''}${brief().cycle.northStarThisMonth} this month)`}
+                status={`${northStarValueLabel(brief().cycle.northStar)}: ${brief().cycle.northStarCurrent.toLocaleString()} (${northStarMovement(brief().cycle.northStar, brief().cycle.northStarThisMonth)})`}
                 tone="muted"
               />
             </Show>
