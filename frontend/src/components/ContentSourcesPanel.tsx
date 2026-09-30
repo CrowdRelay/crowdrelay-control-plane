@@ -1,5 +1,6 @@
 import { SurfaceAction } from './capabilities/SurfaceAction'
 import { FormDrawer } from './app/form-drawer'
+import { PromotionRequestDrawer } from './PromotionRequestDrawer'
 import { Image, Plus } from 'lucide-solid'
 import { failureLine } from '../lib/errors'
 import { capabilityAction } from '../lib/capabilities'
@@ -93,6 +94,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
   const [error, setError] = createSignal<string | null>(null)
   const [adding, setAdding] = createSignal(false)
   const [saving, setSaving] = createSignal(false)
+  const [promoting, setPromoting] = createSignal<ContentSourceView | null>(null)
 
   // When set, the form edits this source instead of creating a new one.
   const [editing, setEditing] = createSignal<ContentSourceView | null>(null)
@@ -194,6 +196,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
 
     <Show when={sources.error}><ErrorCard class="mt-3" title="Couldn't load the material list" error={sources.error} onRetry={() => void sources.refetch()} /></Show>
 
+    <PromotionRequestDrawer slug={props.slug} source={promoting()} onClose={() => setPromoting(null)} />
     <FormDrawer
       open={adding()}
       onOpenChange={open => { setAdding(open); if (!open) setEditing(null) }}
@@ -258,7 +261,7 @@ export function ContentSourcesPanel(props: { slug: string }) {
                 <ul class="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
                   <For each={s.sends}>{(send) => (
                     <li>
-                      {sendLabel(send.artifact)} · {send.emitted_at ? `sent ${fmtDate(send.emitted_at)}` : send.status}
+                      {sendLabel(send.artifact)} · {send.emitted_at ? `artifact confirmed ${fmtDate(send.emitted_at)}` : humanizeToken(send.status)}
                     </li>
                   )}</For>
                 </ul>
@@ -266,6 +269,9 @@ export function ContentSourcesPanel(props: { slug: string }) {
             </div>
             <div class="flex shrink-0 flex-col items-end gap-1">
               <Button variant="ghost" size="sm" writes onClick={() => openEdit(s)}>Edit</Button>
+              <Show when={isLive(s) && s.source_kind === 'video'}>
+                <Button variant="ghost" size="sm" writes onClick={() => setPromoting(s)}>Promote</Button>
+              </Show>
               {/* A synced post's whole spread — the push to our own fans and
                   one relay per admitted community — answered with one yes,
                   or stopped where it has not run. Per-community gates still

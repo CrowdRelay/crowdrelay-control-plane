@@ -153,6 +153,7 @@ pub(crate) const SURFACE: &[Surface] = &[
     read("reward-fulfillments"),
     write("POST", "reward-fulfillments/{winner_id}"),
     // Releases.
+    write("POST", "autopilot/content-sources/{source_id}/promote"),
     read("autopilot/releases"),
     write("POST", "autopilot/releases"),
     read("autopilot/release-ledger"),
@@ -580,11 +581,6 @@ mod tests {
             "POST",
             "/v1/control-plane/content/videos/{source_id}/curator-queue/{candidate_id}/sent",
             "marking a curator candidate sent is worked upstream; no console button calls it",
-        ),
-        (
-            "POST",
-            "/v1/control-plane/autopilot/content-sources/{source_id}/promote",
-            "source promotion is worked upstream; no console button calls it",
         ),
     ];
 
