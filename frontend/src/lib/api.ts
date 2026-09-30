@@ -176,7 +176,20 @@ export const api = {
   // dozens of live workflows, which reads as a broken page rather than an
   // unsynced one.
   syncNotifierAutomationRouting: (slug: string) =>
-    request<{ synced: number; skipped: number }>(
+    request<{
+      synced: number
+      skipped: number
+      ingressInspection: {
+        activeWorkflows: number
+        failed: number
+        issues: Array<{
+          workflowId: string
+          workflowName: string
+          nodeName: string
+          reason: string
+        }>
+      }
+    }>(
       `/tenants/${encodeURIComponent(slug)}/notifiers/automation-routing/sync`,
       { method: 'POST' },
     ),
