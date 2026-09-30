@@ -3,6 +3,7 @@ import { Link } from '@tanstack/solid-router'
 import type { TenantBrainReadModel } from '../lib/types'
 import { authState } from '../lib/auth'
 import { CONTEXT_LABELS, labelOr } from '../lib/opportunity-labels'
+import { northStarMovement, northStarValueLabel } from '../lib/north-star'
 import { Bar, Card, Note, Pill, Row, Split, StatRow, Tile, Tiles, type Tone } from './ui/dash'
 import { Activity, AlertTriangle, Flag, Target } from 'lucide-solid'
 
@@ -83,9 +84,7 @@ export function IntelligenceOverview(props: { slug: string; model: TenantBrainRe
           label="North star"
           value={cycle()?.northStarCurrent.toLocaleString()}
           sub={cycle()
-            ? cycle()!.northStar === 'activated_fans_30d'
-              ? <>activated fans · rolling 30 days</>
-              : <>{cycle()!.northStar.replaceAll('_', ' ')} · <span class={cycle()!.northStarThisMonth > 0 ? 'text-success-foreground' : undefined}>{cycle()!.northStarThisMonth >= 0 ? '+' : ''}{cycle()!.northStarThisMonth}</span> this month</>
+            ? <>{northStarValueLabel(cycle()!.northStar)} · {northStarMovement(cycle()!.northStar, cycle()!.northStarThisMonth)}</>
             : undefined}
         />
         <Tile label="Done on its own" value={chief()?.executed_24h} sub={chief() ? `last 24 h · ${chief()!.failed_24h} failed` : undefined} />

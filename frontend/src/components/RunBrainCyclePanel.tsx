@@ -11,7 +11,7 @@ import { Spinner } from './Spinner'
 import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
 import { NativeSelect } from './ui/native-select'
-import { northStarLabel, northStarMeaning } from '../lib/north-star'
+import { northStarLabel, northStarMeaning, northStarMovement, signedCount } from '../lib/north-star'
 import { writeGuard } from '../lib/read-only'
 import { ArrowRight, RotateCw } from 'lucide-solid'
 
@@ -115,9 +115,9 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().totalFans)}</strong>
               </div>
               <div class="flex flex-col gap-1 border border-border bg-card p-3">
-                <span class="block text-xs text-muted-foreground">Reachable audience</span>
+                <span class="block text-xs text-muted-foreground">Off-platform audience</span>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().offPlatformAudience)}</strong>
-                <small class="block text-xs text-muted-foreground">+{number(data().offPlatformAudienceThisMonth)} this month</small>
+                <small class="block text-xs text-muted-foreground">{signedCount(data().offPlatformAudienceThisMonth)} this month · summed platform counts</small>
               </div>
               {/* The goal is the one number the brain optimises, so it is
                   editable where it is displayed rather than hidden in a
@@ -142,9 +142,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                 </NativeSelect>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
                 <small class="block text-xs text-muted-foreground">
-                  {data().northStar === 'activated_fans_30d'
-                    ? 'rolling 30-day level'
-                    : `${data().northStarThisMonth >= 0 ? '+' : ''}${number(data().northStarThisMonth)} this month`}
+                  {northStarMovement(data().northStar, data().northStarThisMonth)}
                 </small>
                 {/* Which number this is, in a sentence. The picker above names
                     the goal; this says what picking it commits the brain to. */}

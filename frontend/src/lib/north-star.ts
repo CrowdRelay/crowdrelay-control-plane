@@ -24,12 +24,12 @@ type Wording = { label: string; meaning: string }
 const WORDING: Record<string, Wording> = {
   // The three the domain counts itself, and the three that read worst.
   activated_fans_30d: {
-    label: 'Real fans, doing something',
-    meaning: 'People who signed up and have actually done something in the last month. Not a follower count — the ones who are really there.',
+    label: 'Activated fans',
+    meaning: 'People who signed up in the last 30 days, still consent to hear from you, and did something meaningful within 30 days of signing up.',
   },
   signal_installs: {
-    label: 'Fans with the app',
-    meaning: 'People who installed Signal. You can reach them directly, without asking a platform for permission.',
+    label: 'Fans with active Signal push',
+    meaning: 'Distinct fans linked to an active Signal push endpoint. The stored key is legacy: this is not the raw app-download count.',
   },
   total_audience: {
     label: 'Every platform, added up',
@@ -122,3 +122,24 @@ export const northStarMeaning = (value: string): string | undefined => WORDING[v
 /** The server's own name, for where the exact metric matters more than the
  *  plain-language one — a settings row that records what was stored. */
 export const northStarTechnicalName = (option: NorthStarOption): string => option.label
+
+/** A stable plain-language label for a value already returned by a read model. */
+export const northStarValueLabel = (value: string): string =>
+  WORDING[value]?.label ?? value.replaceAll('_', ' ').replace(/^\w/, c => c.toUpperCase())
+
+/** Signed count for movement. A level of zero is "+0", not an absent value. */
+export const signedCount = (value: number): string =>
+  `${value >= 0 ? '+' : ''}${value.toLocaleString()}`
+
+/**
+ * One definition of how a North Star level and its monthly movement are named.
+ *
+ * Activated fans is a rolling 30-day level, but after crowdrelay#363 its
+ * northStarThisMonth is a real change in that level from the month-opening
+ * canonical reading. Both facts matter; neither should be substituted for the
+ * other on one screen and not another.
+ */
+export const northStarMovement = (value: string, thisMonth: number): string =>
+  value === 'activated_fans_30d'
+    ? `rolling 30-day level · ${signedCount(thisMonth)} this month`
+    : `${signedCount(thisMonth)} this month`
