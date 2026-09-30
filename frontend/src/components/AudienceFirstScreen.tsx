@@ -8,9 +8,11 @@ import { Link as LinkIcon, Megaphone, TrendingUp, Users } from 'lucide-solid'
 // the overview counts, the latest point of each growth series (followers per
 // platform), where fans arrived from, and the new-fan activity.
 //
-// Not built, no data yet: join-ask conversion per post (signups carry no
-// campaign until virya#38 lands), and a count of fans interested in upcoming
-// shows (the read has interests, not people).
+// Not built on this surface: a per-post join-ask conversion drill-down.
+// CrowdRelay already measures 7-day join-ask clicks and fans in the daily
+// briefing; this audience read does not expose those per-post rows yet.
+// Also absent: a count of fans interested in upcoming shows (the read has
+// interests, not people).
 
 /** Series that count an audience on a platform — not fan records, tickets
  *  or the subreddit sizes the brain tracks for its own targeting. */
@@ -114,9 +116,9 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
         </Card>
         <Card title="The join ask" icon={<Megaphone />}>
           <p class="m-0 py-2 text-sm text-muted-foreground">
-            Joins from each ask are not measured yet — signups carry no campaign until the tracked join links land.
+            Join asks already use tracked links. The daily briefing reports 7-day clicks and fans per platform.
           </p>
-          <Note>Once they do, each post shows how many people it brought in.</Note>
+          <Note>This overview does not expose the per-post drill-down yet.</Note>
         </Card>
       </Split>
 
