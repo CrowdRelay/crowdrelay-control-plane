@@ -12,8 +12,9 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use serde::Deserialize;
-use serde_json::json;
+use futures_util::{StreamExt, stream};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -537,6 +538,87 @@ fn categorise_workflow(name: &str) -> &'static str {
 /// and mute them. Existing rows keep their `discord_enabled` and `muted`
 /// settings — those are the operator's decisions, and a sync must not
 /// silently re-enable something they turned off.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct WorkflowIngressIssue {
+    workflow_id: String,
+    workflow_name: String,
+    node_name: String,
+    reason: &'static str,
+}
+
+fn verified_ingress_issues(workflow_id: &str, workflow_name: &str, body: &Value) -> Vec<WorkflowIngressIssue> {
+    body.get("nodes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|node| node.get("type").and_then(Value::as_str) == Some("n8n-nodes-base.executeWorkflowTrigger"))
+        .filter_map(|node| {
+            let input_source = node
+                .get("parameters")
+                .and_then(Value::as_object)
+                .and_then(|parameters| parameters.get("inputSource"))
+                .and_then(Value::as_str);
+            (input_source != Some("passthrough")).then(|| WorkflowIngressIssue {
+                workflow_id: workflow_id.to_owned(),
+                workflow_name: workflow_name.to_owned(),
+                node_name: node
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("<unnamed trigger>")
+                    .to_owned(),
+                reason: "executeWorkflowTrigger must use inputSource=passthrough",
+            })
+        })
+        .collect()
+}
+
+async fn inspect_live_verified_ingress(
+    client: reqwest::Client,
+    base_url: String,
+    api_key: String,
+    workflows: Vec<(String, String)>,
+) -> (Vec<WorkflowIngressIssue>, u32) {
+    let results = stream::iter(workflows.into_iter().map(|(id, name)| {
+        let client = client.clone();
+        let base_url = base_url.clone();
+        let api_key = api_key.clone();
+        async move {
+            let url = format!("{}/api/v1/workflows/{}", base_url.trim_end_matches('/'), id);
+            let response = client
+                .get(url)
+                .header("accept", "application/json")
+                .header("X-N8N-API-KEY", api_key)
+                .send()
+                .await
+                .map_err(|_| ())?;
+            if !response.status().is_success() {
+                return Err(());
+            }
+            let body: Value = response.json().await.map_err(|_| ())?;
+            Ok(verified_ingress_issues(&id, &name, &body))
+        }
+    }))
+    .buffer_unordered(8)
+    .collect::<Vec<_>>()
+    .await;
+
+    let mut issues = Vec::new();
+    let mut failed = 0u32;
+    for result in results {
+        match result {
+            Ok(mut found) => issues.append(&mut found),
+            Err(()) => failed = failed.saturating_add(1),
+        }
+    }
+    issues.sort_by(|left, right| {
+        left.workflow_name
+            .cmp(&right.workflow_name)
+            .then(left.node_name.cmp(&right.node_name))
+    });
+    (issues, failed)
+}
+
 async fn sync_automation_routing(
     State(state): State<AppState>,
     Path(slug): Path<String>,
@@ -579,7 +661,7 @@ async fn sync_automation_routing(
         #[serde(default)]
         data: Vec<Workflow>,
     }
-    #[derive(Deserialize)]
+    #[derive(Clone, Deserialize)]
     struct Workflow {
         id: String,
         #[serde(default)]
@@ -591,6 +673,21 @@ async fn sync_automation_routing(
     let listed: WorkflowList = response.json().await.map_err(|error| {
         ApiError::Unavailable(format!("n8n workflow list is not JSON: {error}"))
     })?;
+
+    let active_for_inspection = listed
+        .data
+        .iter()
+        .filter(|workflow| workflow.active)
+        .map(|workflow| (workflow.id.clone(), workflow.name.clone()))
+        .collect::<Vec<_>>();
+    let inspected = u32::try_from(active_for_inspection.len()).unwrap_or(u32::MAX);
+    let (ingress_issues, inspection_failed) = inspect_live_verified_ingress(
+        state.http_client.clone(),
+        base_url.to_owned(),
+        api_key.to_owned(),
+        active_for_inspection,
+    )
+    .await;
 
     let existing: std::collections::HashSet<String> = state
         .store
@@ -645,7 +742,15 @@ async fn sync_automation_routing(
     }
 
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
-    Ok(axum::Json(json!({ "synced": synced, "skipped": skipped })).into_response())
+    Ok(axum::Json(json!({
+        "synced": synced,
+        "skipped": skipped,
+        "ingressInspection": {
+            "activeWorkflows": inspected,
+            "failed": inspection_failed,
+            "issues": ingress_issues,
+        }
+    })).into_response())
 }
 
 async fn automation_routing(
@@ -728,6 +833,44 @@ mod tests {
         // noise, but real work shown as status invites muting it.
         assert_eq!(categorise_workflow("VIRYA 42 — something new"), "real_work");
         assert_eq!(categorise_workflow(""), "real_work");
+    }
+
+    #[test]
+    fn verified_ingress_accepts_only_explicit_passthrough() {
+        let good = json!({
+            "nodes": [{
+                "name": "Called by verified ingress",
+                "type": "n8n-nodes-base.executeWorkflowTrigger",
+                "parameters": { "inputSource": "passthrough" }
+            }]
+        });
+        assert!(verified_ingress_issues("wf-1", "good", &good).is_empty());
+
+        for parameters in [json!({}), json!({ "inputSource": "jsonExample" })] {
+            let bad = json!({
+                "nodes": [{
+                    "name": "Called by verified ingress",
+                    "type": "n8n-nodes-base.executeWorkflowTrigger",
+                    "parameters": parameters
+                }]
+            });
+            let issues = verified_ingress_issues("wf-2", "bad", &bad);
+            assert_eq!(issues.len(), 1);
+            assert_eq!(issues[0].workflow_id, "wf-2");
+            assert_eq!(issues[0].node_name, "Called by verified ingress");
+        }
+    }
+
+    #[test]
+    fn ordinary_workflows_have_no_verified_ingress_issue() {
+        let body = json!({
+            "nodes": [{
+                "name": "Schedule Trigger",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "parameters": {}
+            }]
+        });
+        assert!(verified_ingress_issues("wf-3", "scheduled", &body).is_empty());
     }
 
     #[test]
