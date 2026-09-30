@@ -152,13 +152,25 @@ export function AutomationPage(props: { section: AutomationSection }) {
   // sync. It lives here — routing is this sub-page's surface — not on
   // Destinations, where it used to sit beside the channels it is not one of.
   const [syncing, setSyncing] = createSignal(false)
+  const [ingressInspection, setIngressInspection] = createSignal<{
+    activeWorkflows: number
+    failed: number
+    issues: Array<{ workflowId: string; workflowName: string; nodeName: string; reason: string }>
+  } | null>(null)
   const syncRouting = async () => {
     if (syncing()) return
     setSyncing(true)
     try {
       const result = await api.syncNotifierAutomationRouting(slug())
+      setIngressInspection(result.ingressInspection)
       invalidate(slug())
-      toast.success(`Synced ${result.synced} workflow${result.synced === 1 ? '' : 's'}${result.skipped ? ` · ${result.skipped} skipped` : ''}.`)
+      if (result.ingressInspection.issues.length > 0 || result.ingressInspection.failed > 0) {
+        toast.warning(
+          `Synced ${result.synced} workflows · ${result.ingressInspection.issues.length} live ingress issue${result.ingressInspection.issues.length === 1 ? '' : 's'}${result.ingressInspection.failed ? ` · ${result.ingressInspection.failed} could not be inspected` : ''}.`,
+        )
+      } else {
+        toast.success(`Synced ${result.synced} workflow${result.synced === 1 ? '' : 's'} · all ${result.ingressInspection.activeWorkflows} active workflows passed ingress inspection.`)
+      }
     } catch (e) {
       toast.error("Couldn't sync the routing", e)
     } finally {
@@ -307,6 +319,33 @@ export function AutomationPage(props: { section: AutomationSection }) {
         description="One row per workflow. Category sorts its events, and only real work is worth waking someone for. Discord forwards them to the crew channel. Muted keeps them recorded without counting as new. Changes save as you make them."
         action={<Button writes variant="outline" size="sm" disabled={syncing()} onClick={() => void syncRouting()}>{syncing() && <Spinner />} {syncing() ? 'Syncing…' : 'Sync from n8n'}</Button>}
       >
+        <Show when={ingressInspection()}>
+          {inspection => (
+            <div class={cn(
+              'mb-3 rounded-lg border px-4 py-3 text-sm',
+              inspection().issues.length > 0 || inspection().failed > 0
+                ? 'border-warning-foreground/40 bg-warning-foreground/5'
+                : 'border-success-foreground/30 bg-success-foreground/5',
+            )}>
+              <strong class="text-foreground">
+                Live n8n ingress: {inspection().issues.length === 0 && inspection().failed === 0 ? 'ready' : 'needs attention'}
+              </strong>
+              <p class="mt-1 text-xs text-muted-foreground">
+                Inspected {inspection().activeWorkflows} active workflow{inspection().activeWorkflows === 1 ? '' : 's'}.
+                <Show when={inspection().failed > 0}> {inspection().failed} could not be inspected, so readiness is incomplete.</Show>
+              </p>
+              <Show when={inspection().issues.length > 0}>
+                <ul class="mt-2 space-y-1 text-xs text-foreground">
+                  <For each={inspection().issues}>{issue => (
+                    <li>
+                      <strong>{issue.workflowName}</strong> · {issue.nodeName} · {issue.reason}
+                    </li>
+                  )}</For>
+                </ul>
+              </Show>
+            </div>
+          )}
+        </Show>
         <Show when={configs.error}><ErrorCard title="Couldn't load automation routing" error={configs.error} onRetry={() => void configs.refetch()} /></Show>
         <Show when={configsReady()} fallback={!configs.error ? <SkeletonRows count={3} /> : null}>
           <Show when={configs.data!.items.length > 0} fallback={
