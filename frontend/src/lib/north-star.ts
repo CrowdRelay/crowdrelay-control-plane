@@ -33,13 +33,10 @@ const WORDING: Record<string, Wording> = {
   },
   total_audience: {
     label: 'Every platform, added up',
-    // Not "everyone": the sum is `off_platform_audience`, which by its own
-    // definition is "audience that is not already ours" — so the fans in
-    // Signal, the ones you can actually reach, are the one group it leaves
-    // out. Saying "everyone, everywhere" over a number that excludes your own
-    // audience is the kind of label that makes a goal look like the safe
-    // choice when it is not.
-    meaning: 'Follower counts across every connected platform, added together. The same person may be counted on more than one platform; it leaves out your own Signal fans, and most of what it counts you cannot contact.',
+    // Whole means whole: CrowdRelay resolves this from `platform_growth`,
+    // which includes Signal as well as off-platform feeds. It is still a sum
+    // of platform audience slots, not a deduplicated count of people.
+    meaning: 'Audience counts across every connected platform, including Signal, added together. The same person may be counted on more than one platform, and most off-platform followers are not directly contactable.',
   },
 
   // Not offered by every tenant build yet. Wording waits here so the goal
