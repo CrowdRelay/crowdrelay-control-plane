@@ -39,7 +39,7 @@ const WORDING: Record<string, Wording> = {
     // out. Saying "everyone, everywhere" over a number that excludes your own
     // audience is the kind of label that makes a goal look like the safe
     // choice when it is not.
-    meaning: 'Followers across every connected platform, added together. It leaves out your own Signal fans, and most of what it counts you cannot contact.',
+    meaning: 'Follower counts across every connected platform, added together. The same person may be counted on more than one platform; it leaves out your own Signal fans, and most of what it counts you cannot contact.',
   },
 
   // Not offered by every tenant build yet. Wording waits here so the goal
@@ -47,7 +47,7 @@ const WORDING: Record<string, Wording> = {
   // this map covers values the server may or may not send.
   weighted_audience: {
     label: 'Everything, by what it is worth',
-    meaning: 'Every platform counted, but not equally: a Signal fan you can reach outweighs a follower you cannot, and a paying supporter outweighs a passing view.',
+    meaning: 'Every platform counted, but not equally: a Signal fan you can reach outweighs a follower you cannot, and a paying supporter outweighs a passing view. It is still a cross-platform total, not a unique-person count.',
   },
 
   // Platform goals. The nouns are the platforms' own, so they stay; what they
