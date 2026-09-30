@@ -498,6 +498,14 @@ mod tests {
         // The allowlist rejects what the table does not name, so a surface
         // entry cannot widen anything beyond itself.
         assert!(!allows("GET", "/v1/control-plane/roster-plan"));
+        assert!(allows(
+            "GET",
+            "/v1/control-plane/content/videos/scorecards?limit=10"
+        ));
+        assert!(!allows(
+            "GET",
+            "/v1/control-plane/content/videos/scorecards?workspace=other"
+        ));
     }
 
     #[test]
