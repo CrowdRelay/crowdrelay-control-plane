@@ -5011,10 +5011,9 @@ export type VideoScorecard = {
     social: number
     total: number
   }
-  /** Distinct people converted from tracked video traffic into owned fans. */
-  acquired_fans: number
-  /** Acquired fans per 10,000 tracked clicks; null with no tracked traffic. */
-  fan_conversion_basis_points: number | null
+  /** Distinct fans captured within seven days of a tracked click. Null means
+   *  the video has no tracked links at all, not zero conversion. */
+  fans_captured: number | null
 }
 
 export type TenantInMotionModel = {
