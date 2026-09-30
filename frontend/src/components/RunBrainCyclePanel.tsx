@@ -141,7 +141,11 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                   </For>
                 </NativeSelect>
                 <strong class="block text-xl font-bold tabular-nums text-foreground">{number(data().northStarCurrent)}</strong>
-                <small class="block text-xs text-muted-foreground">+{number(data().northStarThisMonth)} this month</small>
+                <small class="block text-xs text-muted-foreground">
+                  {data().northStar === 'activated_fans_30d'
+                    ? 'rolling 30-day level'
+                    : `${data().northStarThisMonth >= 0 ? '+' : ''}${number(data().northStarThisMonth)} this month`}
+                </small>
                 {/* Which number this is, in a sentence. The picker above names
                     the goal; this says what picking it commits the brain to. */}
                 <Show when={northStarMeaning(data().northStar)}>
