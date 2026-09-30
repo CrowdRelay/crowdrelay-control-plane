@@ -84,7 +84,7 @@ fn mask(row: &NotifierChannelRow) -> serde_json::Value {
                 .get("url")
                 .and_then(serde_json::Value::as_str)
                 .and_then(|url| url::Url::parse(url).ok())
-                .map(|url| format!("{}://{}/&", url.scheme(), url.host_str().unwrap_or_default())),
+                .map(|url| format!("{}://{}/…", url.scheme(), url.host_str().unwrap_or_default())),
         }),
     };
     json!({
@@ -234,7 +234,7 @@ async fn delete_channel(
 }
 
 /// Synchronous round-trip so the operator sees the outcome immediately.
-/// The test event is not enqueued  it is delivered (or fails) right here.
+/// The test event is not enqueued — it is delivered (or fails) right here.
 async fn test_channel(
     State(state): State<AppState>,
     Path((slug, channel_id)): Path<(String, Uuid)>,
@@ -304,7 +304,7 @@ async fn test_channel(
 }
 
 // ---------------------------------------------------------------------------
-// Notification Topology  read-only observability endpoints
+// Notification Topology — read-only observability endpoints
 //
 // These endpoints show the routing topology: where each notification config
 // lives (source), who owns it (owner), and how it reaches its destination
@@ -321,11 +321,11 @@ fn url_host(url_str: &str) -> String {
 }
 
 /// Returns platform-level notification config (from environment variables).
-/// Read-only  no mutation of platform-level config in this iteration.
+/// Read-only — no mutation of platform-level config in this iteration.
 /// The whole Notifications page in one request.
 ///
-/// The page reads four independent endpoints  channels, discovered
-/// endpoints, platform config, automation routing  and renders them as one
+/// The page reads four independent endpoints — channels, discovered
+/// endpoints, platform config, automation routing — and renders them as one
 /// picture of where alerts go. Four round trips for one screen, each with its
 /// own loading and error state, so the page assembles itself in front of the
 /// operator and any one of them failing leaves a hole in a topology that is
@@ -376,7 +376,7 @@ async fn notifier_outbox(
 ///
 /// A section that cannot be read reports its error inline instead of failing
 /// the request. Three working layers and one broken one is a more useful
-/// answer than nothing, and it is the honest one  the page's whole job is
+/// answer than nothing, and it is the honest one — the page's whole job is
 /// saying which parts of the topology are healthy.
 async fn overview(
     State(state): State<AppState>,
@@ -451,7 +451,7 @@ async fn platform_config(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Response, ApiError> {
-    // Validate the tenant exists  these are platform-wide configs but
+    // Validate the tenant exists — these are platform-wide configs but
     // they are served under a tenant-scoped path, so a bogus slug must
     // fail closed rather than leak platform state to an invalid tenant.
     state.store.tenant_by_slug(&slug).await?;
@@ -493,13 +493,13 @@ async fn platform_config(
 }
 
 /// Returns automation routing configs (from database).
-/// Read-only  no mutation of automation routing in this iteration.
+/// Read-only — no mutation of automation routing in this iteration.
 /// Categorises an n8n workflow by what it does, from its name.
 ///
 /// The three categories the config table accepts mean: `real_work` changes
 /// something outside the system (mail, posts, submissions), `status` reports
 /// on it, `system` keeps the machinery running. An operator muting "status"
-/// wants to stop being told things, not to stop the band's outreach  so
+/// wants to stop being told things, not to stop the band's outreach — so
 /// putting a mail executor in the wrong bucket would silence real work.
 ///
 /// Defaults to `real_work` on an unrecognised name. That errs toward showing
@@ -529,14 +529,14 @@ fn categorise_workflow(name: &str) -> &'static str {
 /// Pulls the live workflow list from n8n into the routing table.
 ///
 /// The Notifications page renders three panels and production had every one
-/// of them empty  zero notifier channels, zero platform config, zero
-/// automation routing  while n8n ran 69 active workflows that send the
+/// of them empty — zero notifier channels, zero platform config, zero
+/// automation routing — while n8n ran 69 active workflows that send the
 /// band's mail, post its content and report to Discord. The page was
 /// structurally right and factually blank, which reads as broken.
 ///
 /// n8n owns the workflows; this mirrors them so the control plane can show
 /// and mute them. Existing rows keep their `discord_enabled` and `muted`
-/// settings  those are the operator's decisions, and a sync must not
+/// settings — those are the operator's decisions, and a sync must not
 /// silently re-enable something they turned off.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -708,7 +708,7 @@ async fn sync_automation_routing(
     let mut skipped = 0u32;
     for workflow in listed.data {
         // An id the config table would reject is skipped rather than failing
-        // the whole sync  one odd workflow must not block the other 68.
+        // the whole sync — one odd workflow must not block the other 68.
         if existing.contains(&workflow.id) {
             // Already known: refresh only the label, so a rename shows up
             // without discarding the operator's mute or Discord choice.
@@ -801,10 +801,10 @@ mod tests {
         // safe to silence; if a workflow that sends the band's mail lands
         // there, muting the noise stops the outreach too.
         for name in [
-            "CrowdRelay  CrowdRelayOS mail executor + daily Gemini polish",
-            "VIRYA 08  Playlist Pitching Engine",
-            "CrowdRelay  CrowdRelayOS beacon invite batch executor",
-            "CrowdRelay  CrowdRelayOS opportunity application executor",
+            "CrowdRelay — CrowdRelayOS mail executor + daily Gemini polish",
+            "VIRYA 08 — Playlist Pitching Engine",
+            "CrowdRelay — CrowdRelayOS beacon invite batch executor",
+            "CrowdRelay — CrowdRelayOS opportunity application executor",
         ] {
             assert_eq!(categorise_workflow(name), "real_work", "{name}");
         }
@@ -813,10 +813,10 @@ mod tests {
     #[test]
     fn a_reporter_is_status() {
         for name in [
-            "VIRYA 19  META Opportunity Router + Daily Digest",
-            "VIRYA 02  Reply monitor � CRM + Discord Bot",
-            "VIRYA 18  META Instagram Hashtag Radar",
-            "CrowdRelay  CrowdRelayOS operator brief",
+            "VIRYA 19 — META Opportunity Router + Daily Digest",
+            "VIRYA 02 — Reply monitor → CRM + Discord Bot",
+            "VIRYA 18 — META Instagram Hashtag Radar",
+            "CrowdRelay — CrowdRelayOS operator brief",
         ] {
             assert_eq!(categorise_workflow(name), "status", "{name}");
         }
@@ -825,12 +825,12 @@ mod tests {
     #[test]
     fn plumbing_is_system() {
         for name in [
-            "CrowdRelay  CrowdRelayOS executor heartbeat",
-            "VIRYA 99  Central Automation Error Handler",
-            "VIRYA 20  META OAuth Health Check",
-            "VIRYA 98  CrowdRelay Queue Watchdog",
-            "CrowdRelay  CrowdRelayOS execution receipt spooler",
-            "VIRYA 00  Cockpit Rebuilder",
+            "CrowdRelay — CrowdRelayOS executor heartbeat",
+            "VIRYA 99 — Central Automation Error Handler",
+            "VIRYA 20 — META OAuth Health Check",
+            "VIRYA 98 — CrowdRelay Queue Watchdog",
+            "CrowdRelay — CrowdRelayOS execution receipt spooler",
+            "VIRYA 00 — Cockpit Rebuilder",
         ] {
             assert_eq!(categorise_workflow(name), "system", "{name}");
         }
@@ -840,7 +840,7 @@ mod tests {
     fn an_unrecognised_name_errs_toward_real_work() {
         // Wrong in the safe direction: a status job shown as real work is
         // noise, but real work shown as status invites muting it.
-        assert_eq!(categorise_workflow("VIRYA 42  something new"), "real_work");
+        assert_eq!(categorise_workflow("VIRYA 42 — something new"), "real_work");
         assert_eq!(categorise_workflow(""), "real_work");
     }
 
