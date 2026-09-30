@@ -134,7 +134,7 @@ export const signedCount = (value: number): string =>
 /**
  * One definition of how a North Star level and its monthly movement are named.
  *
- * Activated fans is a rolling 30-day level, but after crowdrelay#363 its
+ * Activated fans is a rolling 30-day level, but after CrowdRelay PR 363 its
  * northStarThisMonth is a real change in that level from the month-opening
  * canonical reading. Both facts matter; neither should be substituted for the
  * other on one screen and not another.
