@@ -86,7 +86,7 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
     <>
       <Tiles>
         <Tile
-          label="Followers, all platforms"
+          label="Follower counts, all platforms"
           value={followers().length ? totalFollowers().toLocaleString() : null}
           sub={growth28() != null ? <><span class="text-success-foreground">{growth28()! >= 0 ? '+' : ''}{growth28()}</span> this month</> : `${followers().length} platforms`}
         />
@@ -104,13 +104,13 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
       </Tiles>
 
       <Split mid>
-        <Card title="Followers you can turn into fans" icon={<Users />} aside="per platform">
+        <Card title="Platform followers to turn into fans" icon={<Users />} aside="per platform">
           <Show when={followers().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('growth_metrics') ? unreported('follower counts') : 'No follower counts synced yet.'}</p>}>
             <For each={top()}>{([platform, count]) => <Bar label={PLATFORM_LABEL[platform] ?? platform} value={count} max={maxBar()} />}</For>
             <Show when={others() > 0}><Bar label="Others" value={others()} max={maxBar()} /></Show>
             <Show when={fans() != null}><Bar label="Signal fans" value={fans()!} max={maxBar()} tone="good" /></Show>
             <Show when={ratio()}>
-              <Note>Fewer than 1 in {ratio()!.toLocaleString()} followers is a fan you can message. The join ask is how the rest cross over.</Note>
+              <Note>Platform follower counts overlap: the same person can follow you in more than one place. Across those counts, you have roughly 1 Signal fan you can message for every {ratio()!.toLocaleString()} counted followers. The join ask is how more of them cross over.</Note>
             </Show>
           </Show>
         </Card>
