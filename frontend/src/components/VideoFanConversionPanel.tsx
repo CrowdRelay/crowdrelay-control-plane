@@ -2,11 +2,17 @@ import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Users } from 'lucide-solid'
 import { api } from '../lib/api'
+import type { VideoScorecard } from '../lib/types'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { SkeletonRows } from './Skeleton'
 import { EmptyState } from './ui/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './app/table'
+
+const conversionBasisPoints = (card: VideoScorecard) =>
+  card.fans_captured == null || card.tracked_clicks.total === 0
+    ? null
+    : Math.round((card.fans_captured * 10_000) / card.tracked_clicks.total)
 
 const pct = (basisPoints: number | null) =>
   basisPoints == null ? '—' : `${(basisPoints / 100).toFixed(1)}%`
@@ -25,8 +31,8 @@ export function VideoFanConversionPanel(props: { slug: string }) {
   }))
 
   const ranked = () => (scorecards.data ?? []).slice().sort((a, b) =>
-    b.acquired_fans - a.acquired_fans
-      || (b.fan_conversion_basis_points ?? -1) - (a.fan_conversion_basis_points ?? -1)
+    (b.fans_captured ?? -1) - (a.fans_captured ?? -1)
+      || (conversionBasisPoints(b) ?? -1) - (conversionBasisPoints(a) ?? -1)
       || b.tracked_clicks.total - a.tracked_clicks.total
   )
 
@@ -69,9 +75,9 @@ export function VideoFanConversionPanel(props: { slug: string }) {
                     {card.age_days}d old · {card.pace.replace(/_/g, ' ')}
                   </small>
                 </TableCell>
-                <TableCell numeric class="font-semibold">{card.acquired_fans.toLocaleString()}</TableCell>
+                <TableCell numeric class="font-semibold">{card.fans_captured == null ? '—' : card.fans_captured.toLocaleString()}</TableCell>
                 <TableCell numeric>{card.tracked_clicks.total.toLocaleString()}</TableCell>
-                <TableCell numeric>{pct(card.fan_conversion_basis_points)}</TableCell>
+                <TableCell numeric>{pct(conversionBasisPoints(card))}</TableCell>
                 <TableCell numeric>{card.attributed_views == null ? '—' : card.attributed_views.toLocaleString()}</TableCell>
               </TableRow>
             )}</For>
