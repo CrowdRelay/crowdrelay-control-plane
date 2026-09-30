@@ -319,7 +319,9 @@ function BriefStory(props: { slug: string; brief: IntelligenceBrief }) {
             <StatusBadge status={brief().cycle.strategy.replaceAll('_', ' ')} tone="muted" />
             <Show when={brief().cycle.northStar}>
               <StatusBadge
-                status={`${brief().cycle.northStar}: ${brief().cycle.northStarCurrent} (+${brief().cycle.northStarThisMonth} this month)`}
+                status={brief().cycle.northStar === 'activated_fans_30d'
+                  ? `${brief().cycle.northStar}: ${brief().cycle.northStarCurrent} (rolling 30-day level)`
+                  : `${brief().cycle.northStar}: ${brief().cycle.northStarCurrent} (${brief().cycle.northStarThisMonth >= 0 ? '+' : ''}${brief().cycle.northStarThisMonth} this month)`}
                 tone="muted"
               />
             </Show>
