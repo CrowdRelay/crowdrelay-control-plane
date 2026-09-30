@@ -70,6 +70,11 @@ pub enum Identity {
         role: &'static str,
         tenant_id: Option<Uuid>,
         via_session: bool,
+        /// The session row recorded a mobile client at issue time. The
+        /// console gates destructive mutations behind a password step-up on
+        /// these — a lost phone with a live session should not silently
+        /// approve outreach or tear a tenant down.
+        mobile_session: bool,
     },
 }
 
@@ -199,6 +204,7 @@ pub async fn resolve_identity(state: &AppState, headers: &HeaderMap) -> Result<I
         },
         tenant_id: account.tenant_id,
         via_session: true,
+        mobile_session: account.is_mobile,
     })
 }
 
@@ -360,6 +366,7 @@ pub async fn new_session_token(
     account_id: Uuid,
     store: &crate::store::Store,
     ttl_seconds: i64,
+    is_mobile: bool,
 ) -> Result<IssuedSession, ApiError> {
     let mut bytes = [0u8; 32];
     OsRng.fill_bytes(&mut bytes);
@@ -369,7 +376,12 @@ pub async fn new_session_token(
     }
     let expires_at = Utc::now() + Duration::seconds(ttl_seconds);
     store
-        .create_session(account_id, hash_token(&token).as_slice(), expires_at)
+        .create_session(
+            account_id,
+            hash_token(&token).as_slice(),
+            expires_at,
+            is_mobile,
+        )
         .await?;
     Ok(IssuedSession { token })
 }

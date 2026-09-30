@@ -155,6 +155,7 @@ export function DeliveryJourneyPanel(props: {
           deadOutbox={attention()?.dead_outbox}
           deadDeliveries={attention()?.dead_deliveries}
           deadPush={attention()?.dead_push}
+          notReported={attention()?.not_reported ?? []}
           error={null}
           isLoading={false}
           onRefresh={props.onRefresh}

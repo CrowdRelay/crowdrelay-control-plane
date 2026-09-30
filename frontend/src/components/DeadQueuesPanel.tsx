@@ -13,6 +13,7 @@ import { Card } from './app/card'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { ErrorCard, PanelTitle } from './layout'
+import { authState } from '../lib/auth'
 
 // Confirmations used to name the row by its UUID — "Outbox 3f2a19c8…7be104 is
 // back in the pending queue". An operator cannot match that against anything on
@@ -66,6 +67,9 @@ export function DeadQueuesPanel(props: {
   deadOutbox: OutboxItem[] | null | undefined
   deadDeliveries: DeliveryItem[] | null | undefined
   deadPush: PushDeliveryItem[] | null | undefined
+  /// Sections the tenant snapshot could not produce — a dead queue listed
+  /// here means "didn't report", which must never render as a clean queue.
+  notReported: readonly string[]
   error: unknown
   isLoading: boolean
   onRefresh: () => void
@@ -76,9 +80,21 @@ export function DeadQueuesPanel(props: {
   const [confirming, setConfirming] = createSignal(false)
   const [busy, setBusy] = createSignal('')
   const [deliveryDetails, setDeliveryDetails] = createSignal<DeliveryDetails | null>(null)
+  const platform = () => authState.isPlatformLevel()
+
+  // A section counts as reported only when the snapshot named it nowhere in
+  // `not_reported` and the caller actually has its rows. Both failure modes
+  // render "Not reported", never the clean-queue empty state.
+  const reported = (name: string, rows: readonly unknown[] | null | undefined) =>
+    !props.notReported.includes(name) && rows != null
+
+  const outboxReported = () => reported('dead_outbox', props.deadOutbox)
+  const deliveriesReported = () => reported('dead_deliveries', props.deadDeliveries)
+  const pushReported = () => reported('dead_push', props.deadPush)
 
   /// Says what these failures mean before the operator reads twenty rows.
   const pushFailureSummary = () => {
+    if (!pushReported()) return 'The tenant is not reporting push delivery failures.'
     const items = props.deadPush ?? []
     if (items.length === 0) return 'Retry is idempotent.'
     const retryable = items.filter(item => pushIsRetryable(item.error_code)).length
@@ -191,7 +207,8 @@ export function DeadQueuesPanel(props: {
         {expandOutbox() ? 'Show fewer' : `Show all ${props.deadOutbox?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed events" hint="Messages that failed delivery after all retries — a clean queue means everything is flowing." /></div></Show>
+    <Show when={outboxReported() && !props.isLoading && (props.deadOutbox?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed events" hint="Messages that failed delivery after all retries — a clean queue means everything is flowing." /></div></Show>
+    <Show when={!outboxReported() && !props.isLoading && !props.error}><div class="p-4 mt-2.5"><EmptyState label="Not reported" hint={platform() ? 'This tenant did not publish its failed-event queue — the console cannot show what it was never told.' : 'Nothing is reported yet — this space stays empty until there is something to show.'} /></div></Show>
 
     {/* ─── Dead Webhook Deliveries ─────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3 mt-6" id="dead-deliveries">
@@ -220,7 +237,8 @@ export function DeadQueuesPanel(props: {
         {expandDeliveries() ? 'Show fewer' : `Show all ${props.deadDeliveries?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed webhook deliveries" hint="Deliveries that failed after all retries — a clean list means webhooks are reaching their destinations." /></div></Show>
+    <Show when={deliveriesReported() && !props.isLoading && (props.deadDeliveries?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed webhook deliveries" hint="Deliveries that failed after all retries — a clean list means webhooks are reaching their destinations." /></div></Show>
+    <Show when={!deliveriesReported() && !props.isLoading && !props.error}><div class="p-4 mt-2.5"><EmptyState label="Not reported" hint={platform() ? 'This tenant did not publish its delivery-failure queue — the console cannot show what it was never told.' : 'Nothing is reported yet — this space stays empty until there is something to show.'} /></div></Show>
 
     <Show when={deliveryDetails()}>{details => <Card class="p-4">
       <div class="flex items-start justify-between gap-4 mb-3"><div><PanelTitle as="h3" icon={<SectionIcon name="mail" />}>{details().delivery.endpoint_name}</PanelTitle><div class="flex items-center gap-2 flex-wrap mt-1"><Badge variant="warning">{details().delivery.event_type.replace(/_/g, ' ')}</Badge><Badge variant="muted">delivery</Badge></div></div><Button variant="ghost" size="sm" onClick={() => setDeliveryDetails(null)}>Close</Button></div>
@@ -231,7 +249,11 @@ export function DeadQueuesPanel(props: {
     {/* ─── Dead Push ───────────────────────────────────────────── */}
     <div class="flex items-start justify-between gap-4 mb-3 mt-6" id="dead-push">
       <div><PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Failed push deliveries</PanelTitle><p class="mt-1 text-sm text-muted-foreground leading-relaxed">{pushFailureSummary()}</p></div>
-      <StatusBadge status={(props.summary?.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary?.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
+      {/* `summary` absent is unknown, not clean — the badge only asserts
+          dead/clean when the operations summary actually reported. */}
+      <Show when={props.summary != null} fallback={<StatusBadge status="not reported" tone="muted" />}>
+        <StatusBadge status={(props.summary!.push.dead ?? 0) > 0 ? 'dead' : 'clean'} tone={(props.summary!.push.dead ?? 0) > 0 ? 'bad' : 'good'} />
+      </Show>
     </div>
     <Show when={props.error}><ErrorCard title="Couldn't load failed push deliveries" error={props.error} /></Show>
     <Show when={props.isLoading}><SkeletonRows count={2} /></Show>
@@ -259,6 +281,7 @@ export function DeadQueuesPanel(props: {
         {expandPush() ? 'Show fewer' : `Show all ${props.deadPush?.length ?? 0} (showing ${DEAD_PREVIEW})`}
       </Button>
     </Show>
-    <Show when={!props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed push deliveries" hint="Pushes that failed after all retries — a clean list means pushes are reaching devices." /></div></Show>
+    <Show when={pushReported() && !props.isLoading && (props.deadPush?.length ?? 0) === 0}><div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No failed push deliveries" hint="Pushes that failed after all retries — a clean list means pushes are reaching devices." /></div></Show>
+    <Show when={!pushReported() && !props.isLoading && !props.error}><div class="p-4 mt-2.5"><EmptyState label="Not reported" hint={platform() ? 'This tenant did not publish its push-failure queue — the console cannot show what it was never told.' : 'Nothing is reported yet — this space stays empty until there is something to show.'} /></div></Show>
   </>
 }

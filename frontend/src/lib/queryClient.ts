@@ -24,7 +24,11 @@ export const queryClient = new QueryClient({
       // intentional refetches.
       refetchOnReconnect: false,
       refetchIntervalInBackground: false,
-      placeholderData: (prev: unknown) => prev,
+      // NO global placeholderData: with `prev => prev` a tenant switch paints
+      // the *previous* tenant's model under the new slug until the fetch
+      // lands — a real cross-tenant confusion window. Pages that want
+      // keep-previous on a same-tenant param change (e.g. GrowthFunnelPanel's
+      // range picker) opt in per-query with a same-slug guard.
       // Default every query to a structural merge, so a refetch that returns
       // the same data touches no DOM at all. Queries that opt into
       // `reconcile: 'id'` override this and additionally handle reordering.

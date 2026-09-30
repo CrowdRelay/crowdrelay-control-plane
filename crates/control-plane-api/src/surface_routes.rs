@@ -394,7 +394,7 @@ async fn proxy(
             .store
             .audit_control_command(ControlCommandAudit {
                 tenant_id: tenant.tenant.id,
-                actor: &state.admin_actor,
+                actor: &identity.audit_actor(),
                 action: "tenant.surface.write",
                 target_kind: "surface",
                 target_id: format!("{method} {}", surface.path),
@@ -550,6 +550,41 @@ mod tests {
             "GET",
             "/v1/control-plane/autopilot/community-relays",
             "In motion reads relay runs through processes/relays, which is the process view of the same rows",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/autopilot/outreach/import-proposals",
+            "the console has no import-proposals surface; outreach review lives upstream",
+        ),
+        (
+            "POST",
+            "/v1/control-plane/autopilot/outreach/import-proposals/approve",
+            "import-proposal approval is worked upstream; no console button calls it",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/content/videos/scorecards",
+            "no console panel lists per-video scorecards",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/content/videos/{source_id}/scorecard",
+            "no console panel renders a single video scorecard",
+        ),
+        (
+            "GET",
+            "/v1/control-plane/content/videos/{source_id}/curator-queue",
+            "the curator queue has no console surface",
+        ),
+        (
+            "POST",
+            "/v1/control-plane/content/videos/{source_id}/curator-queue/{candidate_id}/sent",
+            "marking a curator candidate sent is worked upstream; no console button calls it",
+        ),
+        (
+            "POST",
+            "/v1/control-plane/autopilot/content-sources/{source_id}/promote",
+            "source promotion is worked upstream; no console button calls it",
         ),
     ];
 

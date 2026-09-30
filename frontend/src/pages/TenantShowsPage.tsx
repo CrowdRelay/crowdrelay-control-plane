@@ -122,7 +122,7 @@ export function TenantShowsPage(props: { section: ShowsSection }) {
           <Tile
             label="Venues talking"
             value={today.data?.reply_triage ? answered().length : null}
-            sub={`${saidYes()} said yes · reply waiting`}
+            sub={today.data?.reply_triage ? `${saidYes()} said yes · reply waiting` : "couldn't load replies"}
           />
           <Tile
             label="Played this year"
@@ -143,7 +143,7 @@ export function TenantShowsPage(props: { section: ShowsSection }) {
             </Show>
           </Card>
           <Card title="Get booked">
-            <Show when={answered().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No venue or promoter is waiting on an answer.</p>}>
+            <Show when={answered().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{(today.data?.degraded ?? []).includes('reply_triage') ? "Couldn't load replies — the console keeps asking and fills it in when the tenant answers." : 'No venue or promoter is waiting on an answer.'}</p>}>
               <For each={answered().slice(0, 4)}>{reply => (
                 <ItemRow
                   pill={reply.disposition === 'positive' ? { tone: 'good', text: 'said yes' } : { tone: 'muted', text: 'answered' }}

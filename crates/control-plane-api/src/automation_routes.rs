@@ -19,7 +19,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -223,14 +222,16 @@ async fn ingest_event(
     State(state): State<AppState>,
     Json(input): Json<CreateAutomationEventRequest>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let (event, config) = state.store.insert_automation_event(&input).await?;
+    let (event, config, created) = state.store.insert_automation_event(&input).await?;
 
     // Forward to Discord only for real_work workflows with discord_enabled
     // and not muted. Status/system noise stays in the control plane UI.
     // Fire-and-forget: n8n's webhook timeout (10s) is shorter than our
     // reqwest timeout (15s), so blocking on Discord would cause n8n to
     // retry and duplicate events. The event is already durably stored.
-    if config.category == "real_work" && config.discord_enabled && !config.muted {
+    // `created` keeps a redelivered event from re-forwarding — the row is
+    // already stored, the notification already went (or was suppressed).
+    if created && config.category == "real_work" && config.discord_enabled && !config.muted {
         let discord_state = state.clone();
         let message = event.message.clone();
         let workflow_id = event.workflow_id.clone();
@@ -264,7 +265,7 @@ async fn ingest_event(
     }
     Ok((
         StatusCode::CREATED,
-        Json(json!({ "id": event.id, "status": event.status })),
+        Json(json!({ "id": event.id, "status": event.status, "duplicate": !created })),
     ))
 }
 
@@ -374,16 +375,19 @@ async fn retry_event(
             "event has no executionId — cannot retry via n8n API".to_owned(),
         ));
     };
-    // Idempotency guard: if this event was retried within the last 30 seconds,
-    // reject the duplicate. This prevents double-clicks and n8n webhook
-    // retries from triggering duplicate workflow runs.
-    if let Some(last) = event.last_retried_at {
-        if Utc::now().signed_duration_since(last).num_seconds() < 30 {
-            return Err(ApiError::Conflict(
-                "this event was retried recently — wait 30 seconds before retrying again"
-                    .to_owned(),
-            ));
-        }
+    // Idempotency guard: one dispatch per event per 30 seconds, claimed
+    // atomically before the upstream call — a read-then-check here would let
+    // a double-click or concurrent webhook retry both pass and double-fire
+    // the n8n execution. The claim holds through a failed dispatch; the
+    // window protects the upstream call itself.
+    if !state
+        .store
+        .claim_automation_event_retry(id, tenant.tenant.id)
+        .await?
+    {
+        return Err(ApiError::Conflict(
+            "this event was retried recently — wait 30 seconds before retrying again".to_owned(),
+        ));
     }
     let (base_url, api_key) = match (state.n8n_base_url.as_deref(), state.n8n_api_key.as_deref()) {
         (Some(url), Some(key)) => (url, key),

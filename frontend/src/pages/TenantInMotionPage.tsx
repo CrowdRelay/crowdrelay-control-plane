@@ -57,6 +57,10 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
   const chief = () => model.data?.intelligence?.chief_of_staff ?? null
   const runs = () => model.data?.relays?.runs ?? []
   const stuck = () => autopilot()?.awaiting_executor ?? 0
+  // A section the tenant could not answer is `null` + named in `degraded`.
+  // The poll keeps asking — the copy below names it instead of "nothing".
+  const degraded = (name: 'relays' | 'autopilot' | 'intelligence') => (model.data?.degraded ?? []).includes(name)
+  const stuckReported = () => !degraded('autopilot') && !degraded('intelligence')
 
   const finished = createMemo(() => {
     const since = Date.now() - 86_400_000
@@ -120,7 +124,7 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
         </Tiles>
 
         <Split>
-          <Card title="Your posts, carried further" icon={<Share2 />} aside={`${runs().length} this week`}>
+          <Card title="Your posts, carried further" icon={<Share2 />} aside={degraded('relays') ? undefined : `${runs().length} this week`}>
             <Show when={model.data?.relays} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Couldn't load relay runs. They come back on the next refresh.</p>}>
               <Show when={runs().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No relays yet — a post worth spreading lands here.</p>}>
                 <div class="flex items-center gap-2.5 pb-1 text-xs text-muted-foreground">
@@ -139,7 +143,7 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
           </Card>
 
           <Card title="Stuck" icon={<AlertTriangle />}>
-            <Show when={stuck() > 0 || (chief()?.stopped ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing is stuck.</p>}>
+            <Show when={stuck() > 0 || (chief()?.stopped ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{stuckReported() ? 'Nothing is stuck.' : "Couldn't fully load the queue — the console keeps asking and fills it in when the tenant answers."}</p>}>
               <Show when={stuck() > 0}>
                 <ItemRow pill={{ tone: 'bad', text: String(stuck()) }} title="Waiting for a tool nobody runs" sub="no tool can do them" />
               </Show>
@@ -157,8 +161,8 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
           </Card>
         </Split>
 
-        <Card title="Finished today" icon={<CircleCheck />} aside={`${finished().reduce((sum, [, n]) => sum + n, 0)} things`} class="mb-3">
-          <Show when={finished().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing finished in the last day.</p>}>
+        <Card title="Finished today" icon={<CircleCheck />} aside={degraded('autopilot') ? undefined : `${finished().reduce((sum, [, n]) => sum + n, 0)} things`} class="mb-3">
+          <Show when={finished().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('autopilot') ? "Couldn't load recent actions — the console keeps asking and fills it in when the tenant answers." : 'Nothing finished in the last day.'}</p>}>
             <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
               <For each={finished()}>{([kind, count]) => (
                 <div>
@@ -173,9 +177,13 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
       </SubPagePanel>
 
       <SubPagePanel when={areas.active() === 'relays'}>
-        <div class="flex flex-col gap-3">
-          <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>
-        </div>
+        <Show when={runs().length > 0 || model.data} fallback={<SkeletonBlock style={{ 'min-height': '120px' }} />}>
+          <Show when={runs().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('relays') ? 'Couldn\'t load relay runs — the console keeps asking and fills it in when the tenant answers.' : 'No relays yet — a post worth spreading lands here.'}</p>}>
+            <div class="flex flex-col gap-3">
+              <For each={runs()}>{run => <RelayRunCard slug={params().slug} run={run} />}</For>
+            </div>
+          </Show>
+        </Show>
       </SubPagePanel>
     </PageShell>
   )

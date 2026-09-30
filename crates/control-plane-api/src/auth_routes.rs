@@ -153,7 +153,7 @@ async fn create_session(
     } else {
         auth::SESSION_TTL_SECONDS
     };
-    let issued = auth::new_session_token(account.id, &state.store, ttl).await?;
+    let issued = auth::new_session_token(account.id, &state.store, ttl, is_mobile).await?;
     let tenant_slug = match account.tenant_id {
         Some(tenant_id) => state.store.tenant_slug_by_id(tenant_id).await?,
         None => None,
@@ -193,11 +193,13 @@ async fn current_session(
             "username": "platform-admin",
             "role": "platform_admin",
             "tenantSlug": null,
+            "isMobile": false,
         }))),
         Ok(Identity::Account {
             username,
             role,
             tenant_id,
+            mobile_session,
             ..
         }) => {
             let tenant_slug = match tenant_id {
@@ -208,6 +210,7 @@ async fn current_session(
                 "username": username,
                 "role": role,
                 "tenantSlug": tenant_slug,
+                "isMobile": mobile_session,
             })))
         }
         Err(_) => Ok(axum::Json(json!(null))),

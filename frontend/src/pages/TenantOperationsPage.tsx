@@ -26,7 +26,7 @@ import { buttonVariants } from '../components/app/button'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, labelOr, humanize } from '../lib/opportunity-labels'
-import type { OpportunityBoardEntry, OutcomeGroup, TenantTodayReadModel } from '../lib/types'
+import type { OpportunityBoardEntry, OutcomeGroup, TenantTodayReadModel, TenantTodaySection } from '../lib/types'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 const metric = (value: number | undefined | null, suffix = '') =>
@@ -693,6 +693,12 @@ function DoThisNext(props: {
   const failedSends = () => (attention()?.not_reported ?? []).includes('failed_sends')
     ? null : (attention()?.failed_sends?.total ?? null)
   const totalWaiting = () => props.model()?.attention?.awaiting_approval
+  // A section the tenant could not answer is named in `degraded` — then an
+  // empty move list is "not reported", never "nothing is waiting".
+  const queueMissing = () => {
+    const feeding: TenantTodaySection[] = ['reply_triage', 'opportunities', 'shows', 'next_show_timeline', 'attention']
+    return feeding.some(s => (props.model()?.degraded ?? []).includes(s))
+  }
 
   return (
     <Card title="Do this next" icon={<Target />} aside="Most urgent first">
@@ -705,7 +711,11 @@ function DoThisNext(props: {
         />
       )}</For>
       <Show when={moves().length === 0}>
-        <p class="m-0 py-2 text-sm text-muted-foreground">Nothing is waiting on you — the first thing that needs a say lands here.</p>
+        <p class="m-0 py-2 text-sm text-muted-foreground">
+          {queueMissing()
+            ? 'Couldn\'t load the whole queue — the console keeps asking and fills it in when the tenant answers.'
+            : 'Nothing is waiting on you — the first thing that needs a say lands here.'}
+        </p>
       </Show>
       <Show when={(totalWaiting() ?? 0) > moves().length}>
         <MoreRow

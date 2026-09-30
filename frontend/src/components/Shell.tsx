@@ -247,7 +247,10 @@ export const Shell: Component = () => {
         <ConfirmHost />
       </SidebarInset>
       <ReauthModal />
-      <Show when={slug()}>{(s) => <ChatWidget slug={s()} />}</Show>
+      {/* `keyed` remounts the widget on tenant switch — without it the same
+          instance keeps its message history and streams tenant A's
+          conversation inside tenant B's page. */}
+      <Show when={slug()} keyed>{(s) => <ChatWidget slug={s} />}</Show>
     </SidebarProvider>
   </>
 }

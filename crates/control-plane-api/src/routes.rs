@@ -351,7 +351,7 @@ async fn remove_tenant(
         .delete_tenant(
             &slug,
             body.confirm_slug.trim(),
-            state.admin_actor.as_ref(),
+            identity.audit_actor().as_str(),
             request_id(&headers),
         )
         .await?;
@@ -505,7 +505,7 @@ async fn create_tenant(
             palette,
             deployment.as_ref(),
             initial_operator.as_ref(),
-            state.admin_actor.as_ref(),
+            identity.audit_actor().as_str(),
             request_id,
         )
         .await?;
@@ -529,7 +529,7 @@ async fn update_branding(
             .update_branding(
                 &slug,
                 palette,
-                state.admin_actor.as_ref(),
+                identity.audit_actor().as_str(),
                 request_id(&headers)
             )
             .await?
@@ -554,7 +554,7 @@ async fn update_regional_profile(
             .update_regional_profile(
                 &slug,
                 profile,
-                state.admin_actor.as_ref(),
+                identity.audit_actor().as_str(),
                 request_id(&headers),
             )
             .await?
@@ -581,7 +581,7 @@ async fn update_mobile_apps(
                 &slug,
                 signal_url,
                 synesthesia_url,
-                state.admin_actor.as_ref(),
+                identity.audit_actor().as_str(),
                 request_id(&headers),
             )
             .await?
@@ -604,7 +604,7 @@ async fn suspend_tenant(
             .set_status(
                 &slug,
                 "suspended",
-                state.admin_actor.as_ref(),
+                identity.audit_actor().as_str(),
                 request_id(&headers)
             )
             .await?
@@ -627,7 +627,7 @@ async fn resume_tenant(
             .set_status(
                 &slug,
                 "active",
-                state.admin_actor.as_ref(),
+                identity.audit_actor().as_str(),
                 request_id(&headers)
             )
             .await?
@@ -671,7 +671,8 @@ async fn park_tenant(
     // active — `target` rejects parked/suspended tenants.
     let (tenant, target_url) = crate::area_routes::target(&state, &slug).await?;
     let tenant_id = tenant.tenant.id;
-    let actor = state.admin_actor.as_ref();
+    let actor_storage = identity.audit_actor();
+    let actor = actor_storage.as_str();
     let reason = input
         .reason
         .as_deref()
@@ -755,6 +756,14 @@ async fn park_tenant(
         .get("expected_version")
         .and_then(Value::as_i64)
         .unwrap_or(1);
+    // An envelope already parked upstream carries parked-state values — an
+    // interrupted unpark leaves exactly that shape behind. Saving it over an
+    // unconsumed snapshot would replace the real restore point with the
+    // parked envelope; `already_parked` tells the store to keep the original.
+    let already_parked = envelope_value
+        .get("parked")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     // 2. Save the snapshot with the full envelope state.
     state
@@ -772,6 +781,7 @@ async fn park_tenant(
             max_recipients,
             posture_version,
             reason.as_deref(),
+            already_parked,
         )
         .await?;
 
@@ -813,6 +823,143 @@ async fn park_tenant(
     Ok(Json(json!(result)))
 }
 
+/// Restores a parked (or wedged mid-unpark) tenant's autopilot envelope and
+/// posture from its park snapshot, then converges the control-plane status
+/// to `active`.
+///
+/// Ordering is upstream-first: the live envelope is read before anything is
+/// written, and the local `active` commit happens only after a successful
+/// restore. Every interruption lands on a state a plain retry heals:
+///
+/// - restore POST landed but its response was lost: the GET shows
+///   `parked=false`, so the retry just consumes the snapshot and flips
+///   status — no second POST for a stale `expected_version` to conflict;
+/// - the process died between a status flip and the restore POST (the
+///   previous ordering's wedge): CP says `active`, an unconsumed snapshot
+///   remains, the GET shows upstream still `parked`, and the retry sends
+///   the restore;
+/// - the restore genuinely failed: CP stays `parked`, the snapshot stays.
+///
+/// `expected_version` is the version the GET just observed — parking already
+/// advanced the upstream envelope past the snapshot's version, so anchoring
+/// to `snapshot.envelope_version` would conflict after a re-park.
+#[allow(clippy::too_many_arguments)]
+async fn restore_tenant_from_snapshot(
+    state: &AppState,
+    slug: &str,
+    tenant_id: Uuid,
+    target_url: &str,
+    snapshot: &store::ParkSnapshotRow,
+    tenant_status: &str,
+    actor: &str,
+    req_id: Option<&str>,
+    idempotency_prefix: &str,
+) -> Result<(), ApiError> {
+    let envelope_value = state
+        .area_client
+        .request_management(
+            tenant_id,
+            target_url,
+            ManagementRequest {
+                method: "GET",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: None,
+                correlation_id: req_id,
+                idempotency_key: None,
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to read growth envelope: {e}")))?;
+    let live_parked = envelope_value
+        .get("parked")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let live_version = envelope_value
+        .get("version")
+        .and_then(Value::as_i64)
+        .unwrap_or(snapshot.envelope_version);
+
+    if !live_parked {
+        // A previous attempt's restore already landed upstream (its response
+        // was lost) or the tenant was never parked there — converge the
+        // local status and retire the snapshot without sending anything.
+        if tenant_status != "active" {
+            state
+                .store
+                .set_status(slug, "active", actor, req_id)
+                .await?;
+        }
+        state.store.consume_park_snapshot(tenant_id, actor).await?;
+        return Ok(());
+    }
+
+    // Upstream is still parked — apply the snapshot. CrowdRelay's
+    // GrowthEnvelopeRequest uses snake_case with deny_unknown_fields.
+    let restore_body = json!({
+        "agent_enabled": snapshot.agent_enabled,
+        "dry_run": snapshot.dry_run,
+        "weekly_owned_audience_touches": snapshot.weekly_owned_audience_touches,
+        "weekly_third_party_touches": snapshot.weekly_third_party_touches,
+        "subject_cooldown_hours": snapshot.subject_cooldown_hours,
+        "max_recipients_per_step": snapshot.max_recipients_per_step,
+        "parked": false,
+        "expected_version": live_version,
+    });
+    let idempotency = format!("{idempotency_prefix}-{}", Uuid::new_v4());
+    state
+        .area_client
+        .request_management(
+            tenant_id,
+            target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/growth-envelope",
+                body: Some(&restore_body),
+                correlation_id: req_id,
+                idempotency_key: Some(&idempotency),
+            },
+        )
+        .await
+        .map_err(|e| ApiError::Unavailable(format!("failed to restore growth envelope: {e}")))?;
+
+    // The posture was not changed by parking, so this is a belt-and-suspenders
+    // restore. Use the captured posture_version.
+    let posture_body = json!({
+        "posture": snapshot.posture,
+        "expected_version": snapshot.posture_version,
+    });
+    let posture_idempotency = format!("{idempotency_prefix}-posture-{}", Uuid::new_v4());
+    if let Err(e) = state
+        .area_client
+        .request_management(
+            tenant_id,
+            target_url,
+            ManagementRequest {
+                method: "POST",
+                path: "/v1/control-plane/autopilot/posture",
+                body: Some(&posture_body),
+                correlation_id: req_id,
+                idempotency_key: Some(&posture_idempotency),
+            },
+        )
+        .await
+    {
+        tracing::warn!(error = %e, slug = %slug, "posture restore failed during unpark — envelope was restored");
+    }
+
+    // The restore is durable upstream; only now does the local status move.
+    // A crash here is still safe: the next attempt's GET observes
+    // `parked=false` and finishes the convergence.
+    if tenant_status != "active" {
+        state
+            .store
+            .set_status(slug, "active", actor, req_id)
+            .await?;
+    }
+    state.store.consume_park_snapshot(tenant_id, actor).await?;
+    Ok(())
+}
+
 /// Unparks a tenant: restores the autopilot envelope and posture from the
 /// snapshot and sets status back to active. A single button — no
 /// confirmation, no extra steps.
@@ -830,25 +977,25 @@ async fn unpark_tenant(
             "this tenant's lifecycle is externally owned and cannot be unparked".to_owned(),
         ));
     }
-    if tenant.tenant.status != "parked" {
-        return Err(ApiError::Conflict("tenant is not parked".to_owned()));
-    }
     let tenant_id = tenant.tenant.id;
-    let actor = state.admin_actor.as_ref();
+    let actor_storage = identity.audit_actor();
+    let actor = actor_storage.as_str();
 
-    // Load the snapshot before changing status.
-    let snapshot = state
-        .store
-        .load_park_snapshot(tenant_id)
-        .await?
-        .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
+    let snapshot = state.store.load_park_snapshot(tenant_id).await?;
+    match (tenant.tenant.status.as_str(), snapshot.is_some()) {
+        ("parked", true) => {}
+        // `active` with an unconsumed snapshot is the wedge an interrupted
+        // unpark can leave — this call is the repair, not a conflict.
+        ("active", true) => {}
+        ("parked", false) => {
+            return Err(ApiError::Conflict("no park snapshot found".to_owned()));
+        }
+        _ => return Err(ApiError::Conflict("tenant is not parked".to_owned())),
+    }
+    let snapshot = snapshot.expect("the guard above rejects a missing snapshot");
 
-    // Resolve the management URL before the status flip. `target()` refuses
-    // parked tenants — calling it after committing `active` means a missing
-    // URL row or transient DB error leaves the tenant active in CP but
-    // parked upstream, and every recovery path (unpark retry → not parked →
-    // conflict; re-park → snapshot overwritten with the parked envelope)
-    // closes behind it. The URL read itself does not need active status.
+    // Resolve the management URL before any writes — a failed lookup must not
+    // leave partial state, and `target()` refuses parked tenants.
     let target_url = state
         .store
         .latest_management_url(tenant_id)
@@ -859,78 +1006,18 @@ async fn unpark_tenant(
             )
         })?;
 
-    state
-        .store
-        .set_status(&slug, "active", actor, request_id(&headers))
-        .await?;
-
-    // Restore the envelope from the snapshot. CrowdRelay's
-    // GrowthEnvelopeRequest uses snake_case with deny_unknown_fields.
-    let restore_body = json!({
-        "agent_enabled": snapshot.agent_enabled,
-        "dry_run": snapshot.dry_run,
-        "weekly_owned_audience_touches": snapshot.weekly_owned_audience_touches,
-        "weekly_third_party_touches": snapshot.weekly_third_party_touches,
-        "subject_cooldown_hours": snapshot.subject_cooldown_hours,
-        "max_recipients_per_step": snapshot.max_recipients_per_step,
-        "parked": false,
-        "expected_version": snapshot.envelope_version + 1,
-    });
-    let idempotency = format!("unpark-{}", Uuid::new_v4());
-    if let Err(e) = state
-        .area_client
-        .request_management(
-            tenant_id,
-            &target_url,
-            ManagementRequest {
-                method: "POST",
-                path: "/v1/control-plane/autopilot/growth-envelope",
-                body: Some(&restore_body),
-                correlation_id: request_id(&headers),
-                idempotency_key: Some(&idempotency),
-            },
-        )
-        .await
-    {
-        // Restore failed — roll back the CP status to parked so the
-        // snapshot is not lost and the operator can retry. Await the
-        // rollback inline so the tenant is never left in an inconsistent
-        // state if the rollback itself fails.
-        if let Err(rb) = state.store.set_status(&slug, "parked", actor, None).await {
-            tracing::error!(error = %rb, slug = %slug, "failed to roll back to parked after restore failure");
-        }
-        return Err(ApiError::Unavailable(format!(
-            "failed to restore growth envelope: {e}"
-        )));
-    }
-
-    // Restore the posture. The posture was not changed by parking, so this
-    // is a belt-and-suspenders restore. Use the captured posture_version.
-    let posture_body = json!({
-        "posture": snapshot.posture,
-        "expected_version": snapshot.posture_version,
-    });
-    let posture_idempotency = format!("unpark-posture-{}", Uuid::new_v4());
-    let posture_result = state
-        .area_client
-        .request_management(
-            tenant_id,
-            &target_url,
-            ManagementRequest {
-                method: "POST",
-                path: "/v1/control-plane/autopilot/posture",
-                body: Some(&posture_body),
-                correlation_id: request_id(&headers),
-                idempotency_key: Some(&posture_idempotency),
-            },
-        )
-        .await;
-    if let Err(e) = &posture_result {
-        tracing::warn!(error = %e, slug = %slug, "posture restore failed during unpark — envelope was restored");
-    }
-
-    // Consume the snapshot only after a successful envelope restore.
-    state.store.consume_park_snapshot(tenant_id, actor).await?;
+    restore_tenant_from_snapshot(
+        &state,
+        &slug,
+        tenant_id,
+        &target_url,
+        &snapshot,
+        &tenant.tenant.status,
+        actor,
+        request_id(&headers),
+        "unpark",
+    )
+    .await?;
 
     let result = state.store.tenant_by_slug(&slug).await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
@@ -1012,7 +1099,7 @@ async fn billing_webhook(
     // The subscription machine records every recognized event — including
     // ones that then no-op — so "what does billing think this tenant is" is
     // always a row, never a log line.
-    state
+    let (_, _, recorded_started_at) = state
         .store
         .apply_billing_event(
             tenant.tenant.id,
@@ -1034,9 +1121,16 @@ async fn billing_webhook(
         .await?;
 
     if input.event == "subscription_started" {
+        // The anchor keys on the instant the billing row recorded — replays of
+        // the same subscription's event see the identical value and skip.
         state
             .store
-            .anchor_guarantee_to_subscription(tenant.tenant.id, actor, req_id)
+            .anchor_guarantee_to_subscription(
+                tenant.tenant.id,
+                recorded_started_at.unwrap_or_else(Utc::now),
+                actor,
+                req_id,
+            )
             .await?;
         // Payment before a workspace: a tenant sitting in `provisioning`
         // with nothing running gets its provisioning intent from the money
@@ -1079,19 +1173,18 @@ async fn billing_webhook(
     if input.event != "payment_succeeded" {
         return Ok(StatusCode::NO_CONTENT);
     }
-    // Idempotent: already active is a no-op.
-    if tenant.tenant.status != "parked" {
+    let tenant_id = tenant.tenant.id;
+    let snapshot = state.store.load_park_snapshot(tenant_id).await?;
+    // Idempotent: an active tenant with nothing left to restore is a no-op.
+    // `active` *with* an unconsumed snapshot is the mid-unpark crash wedge —
+    // a payment arriving is exactly when it should finish healing. Any other
+    // status (suspended, provisioning) is deliberately untouched.
+    let wedged = tenant.tenant.status == "active" && snapshot.is_some();
+    if tenant.tenant.status != "parked" && !wedged {
         return Ok(StatusCode::NO_CONTENT);
     }
-    let tenant_id = tenant.tenant.id;
-    let snapshot = state
-        .store
-        .load_park_snapshot(tenant_id)
-        .await?
-        .ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
-    // Same ordering as unpark_tenant: resolve the management URL before
-    // committing `active` — a failed lookup after the flip wedges the tenant
-    // (webhook retries no-op on non-parked status).
+    let snapshot =
+        snapshot.ok_or_else(|| ApiError::Conflict("no park snapshot found".to_owned()))?;
     let target_url = state
         .store
         .latest_management_url(tenant_id)
@@ -1101,76 +1194,18 @@ async fn billing_webhook(
                 "tenant has no successful local CrowdRelay management target".to_owned(),
             )
         })?;
-    state
-        .store
-        .set_status(&slug, "active", actor, request_id(&headers))
-        .await?;
-    let restore_body = json!({
-        "agent_enabled": snapshot.agent_enabled,
-        "dry_run": snapshot.dry_run,
-        "weekly_owned_audience_touches": snapshot.weekly_owned_audience_touches,
-        "weekly_third_party_touches": snapshot.weekly_third_party_touches,
-        "subject_cooldown_hours": snapshot.subject_cooldown_hours,
-        "max_recipients_per_step": snapshot.max_recipients_per_step,
-        "parked": false,
-        "expected_version": snapshot.envelope_version + 1,
-    });
-    let idempotency = format!("billing-unpark-{}", Uuid::new_v4());
-    let envelope_result = state
-        .area_client
-        .request_management(
-            tenant_id,
-            &target_url,
-            ManagementRequest {
-                method: "POST",
-                path: "/v1/control-plane/autopilot/growth-envelope",
-                body: Some(&restore_body),
-                correlation_id: request_id(&headers),
-                idempotency_key: Some(&idempotency),
-            },
-        )
-        .await;
-    if let Err(e) = envelope_result {
-        // Restore failed — roll back to parked so the snapshot survives.
-        // Await the rollback inline so the tenant is never left in an
-        // inconsistent state if the rollback itself fails (matching the
-        // unpark_tenant path's approach).
-        if let Err(rb) = state
-            .store
-            .set_status(&slug, "parked", "billing-webhook", None)
-            .await
-        {
-            tracing::error!(error = %rb, slug = %slug, "failed to roll back to parked after billing restore failure");
-        }
-        return Err(ApiError::Unavailable(format!(
-            "failed to restore growth envelope: {e}"
-        )));
-    }
-    // Restore the posture (belt-and-suspenders; parking does not change it).
-    let posture_body = json!({
-        "posture": snapshot.posture,
-        "expected_version": snapshot.posture_version,
-    });
-    let posture_idempotency = format!("billing-unpark-posture-{}", Uuid::new_v4());
-    let posture_result = state
-        .area_client
-        .request_management(
-            tenant_id,
-            &target_url,
-            ManagementRequest {
-                method: "POST",
-                path: "/v1/control-plane/autopilot/posture",
-                body: Some(&posture_body),
-                correlation_id: request_id(&headers),
-                idempotency_key: Some(&posture_idempotency),
-            },
-        )
-        .await;
-    if let Err(e) = &posture_result {
-        tracing::warn!(error = %e, slug = %slug, "posture restore failed during billing unpark — envelope was restored");
-    }
-    // Consume the snapshot only after a successful envelope restore.
-    state.store.consume_park_snapshot(tenant_id, actor).await?;
+    restore_tenant_from_snapshot(
+        &state,
+        &slug,
+        tenant_id,
+        &target_url,
+        &snapshot,
+        &tenant.tenant.status,
+        actor,
+        request_id(&headers),
+        "billing-unpark",
+    )
+    .await?;
     crate::read_models::invalidate_tenant(&state.read_model_cache, &slug).await;
     Ok(StatusCode::OK)
 }
@@ -1850,6 +1885,7 @@ struct CreateOperatorRequest {
 
 async fn create_operator(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(raw_slug): Path<String>,
     headers: HeaderMap,
     Json(input): Json<CreateOperatorRequest>,
@@ -1865,7 +1901,7 @@ async fn create_operator(
             tenant.tenant.id,
             &username,
             &password_hash,
-            state.admin_actor.as_ref(),
+            identity.audit_actor().as_str(),
             request_id(&headers),
         )
         .await?;
@@ -1875,6 +1911,7 @@ async fn create_operator(
 
 async fn delete_operator(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((raw_slug, account_id)): Path<(String, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
@@ -1885,7 +1922,7 @@ async fn delete_operator(
         .delete_operator_account(
             tenant.tenant.id,
             account_id,
-            state.admin_actor.as_ref(),
+            identity.audit_actor().as_str(),
             request_id(&headers),
         )
         .await?;

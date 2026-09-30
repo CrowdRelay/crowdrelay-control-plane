@@ -4479,6 +4479,12 @@ export type CommandCenterReadModel = {
     ticketBuyers: number | null
     attendees: number | null
     paidTicketOrders: number | null
+    /** Symmetric measured set for the conversion ratio — tenants that
+     *  reported BOTH active_fans and ticket_buyers, so buyers/fans never
+     *  divides a full denominator by a partial numerator. Absent on an
+     *  older control plane. */
+    conversionFans?: number | null
+    conversionBuyers?: number | null
     reportingTenants: number
   }
   // Direction behind the magnitudes. conversionDelta* sums non-stale

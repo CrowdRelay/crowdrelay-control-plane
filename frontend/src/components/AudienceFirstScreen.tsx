@@ -33,6 +33,10 @@ const SOURCE_LABEL: Record<string, string> = {
 export function AudienceFirstScreen(props: { slug: string; model: AudienceReadModel }) {
   const overview = () => props.model.overview ?? null
   const activity = () => props.model.signal?.activity ?? null
+  // A section the tenant could not answer is `null` + named in `degraded`
+  // — "not reported", never an empty list.
+  const degraded = (name: string) => (props.model.degraded ?? []).includes(name)
+  const unreported = (what: string) => `Couldn't load ${what} — the console keeps asking and fills it in when the tenant answers.`
   // One figure per platform: the largest un-scoped audience series.
   const followers = createMemo(() => {
     const best = new Map<string, number>()
@@ -99,7 +103,7 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
 
       <Split mid>
         <Card title="Followers you can turn into fans" icon={<Users />} aside="per platform">
-          <Show when={followers().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No follower counts synced yet.</p>}>
+          <Show when={followers().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('growth_metrics') ? unreported('follower counts') : 'No follower counts synced yet.'}</p>}>
             <For each={top()}>{([platform, count]) => <Bar label={PLATFORM_LABEL[platform] ?? platform} value={count} max={maxBar()} />}</For>
             <Show when={others() > 0}><Bar label="Others" value={others()} max={maxBar()} /></Show>
             <Show when={fans() != null}><Bar label="Signal fans" value={fans()!} max={maxBar()} tone="good" /></Show>
@@ -126,7 +130,7 @@ export function AudienceFirstScreen(props: { slug: string; model: AudienceReadMo
           </Show>
         </Card>
         <Card title="How fans arrived" icon={<LinkIcon />}>
-          <Show when={sources().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No tracked arrivals yet.</p>}>
+          <Show when={sources().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('acquisition_sources') ? unreported('arrival sources') : 'No tracked arrivals yet.'}</p>}>
             <Show when={topSource() && topSource()!.fans === tracked()}>
               <p class="m-0 text-sm text-foreground">All {tracked()} tracked fans came through {(SOURCE_LABEL[topSource()!.source] ?? topSource()!.source).toLowerCase()}</p>
             </Show>

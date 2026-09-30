@@ -1,7 +1,7 @@
 //! Platform-superadmin AREA Designer proxy. Tenant CrowdRelay remains canonical.
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
@@ -10,7 +10,9 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{AppState, error::ApiError, tenant_area_client::valid_idempotency_key};
+use std::sync::Arc;
+
+use crate::{AppState, auth::Identity, error::ApiError, tenant_area_client::valid_idempotency_key};
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
 const MAX_AREA_BODY_BYTES: usize = 16 * 1024;
@@ -139,6 +141,7 @@ async fn call(
 
 async fn audit_outcome(
     state: &AppState,
+    actor: &str,
     tenant_id: uuid::Uuid,
     action: &'static str,
     drop_id: Option<&str>,
@@ -149,7 +152,7 @@ async fn audit_outcome(
         .store
         .audit_area_command(
             tenant_id,
-            &state.admin_actor,
+            actor,
             action,
             drop_id,
             correlation(headers),
@@ -163,6 +166,7 @@ async fn audit_outcome(
 
 async fn audit_result(
     state: &AppState,
+    actor: &str,
     tenant_id: uuid::Uuid,
     action: &'static str,
     drop_id: Option<&str>,
@@ -173,6 +177,7 @@ async fn audit_result(
     // accepted the request, not that the external side effect was observed.
     audit_outcome(
         state,
+        actor,
         tenant_id,
         action,
         drop_id,
@@ -208,6 +213,7 @@ async fn overview(
 
 async fn settings(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -234,6 +240,7 @@ async fn settings(
     if let Err(error) = upstream {
         audit_outcome(
             &state,
+            &identity.audit_actor(),
             tenant.tenant.id,
             "tenant.area.settings.updated",
             None,
@@ -246,7 +253,12 @@ async fn settings(
 
     let updated = match state
         .store
-        .set_area_enabled(&slug, enabled, &state.admin_actor, correlation(&headers))
+        .set_area_enabled(
+            &slug,
+            enabled,
+            &identity.audit_actor(),
+            correlation(&headers),
+        )
         .await
     {
         Ok(updated) => updated,
@@ -276,6 +288,7 @@ async fn settings(
             }
             audit_outcome(
                 &state,
+                &identity.audit_actor(),
                 tenant.tenant.id,
                 "tenant.area.settings.updated",
                 None,
@@ -288,6 +301,7 @@ async fn settings(
     };
     audit_outcome(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.area.settings.updated",
         None,
@@ -351,6 +365,7 @@ async fn cities(
 }
 async fn create_city(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -366,6 +381,7 @@ async fn create_city(
             drop_id: None,
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
@@ -387,6 +403,7 @@ async fn drops(
 }
 async fn create_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -407,6 +424,7 @@ async fn create_drop(
             drop_id: id.as_deref(),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
@@ -421,6 +439,7 @@ async fn drop_detail(
 }
 async fn save_draft(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -437,11 +456,13 @@ async fn save_draft(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn discard_draft(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -457,6 +478,7 @@ async fn discard_draft(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
@@ -471,6 +493,7 @@ async fn validate_drop(
 }
 async fn publish_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -487,11 +510,13 @@ async fn publish_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn pause_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -507,11 +532,13 @@ async fn pause_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn resume_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -527,11 +554,13 @@ async fn resume_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn archive_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -547,11 +576,13 @@ async fn archive_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn duplicate_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -568,11 +599,13 @@ async fn duplicate_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
 async fn delete_drop(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, drop_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -588,6 +621,7 @@ async fn delete_drop(
             drop_id: Some(&drop_id),
         },
         &headers,
+        &identity.audit_actor(),
     )
     .await
 }
@@ -607,6 +641,7 @@ struct AuditTag<'a> {
 /// CrowdRelay, not here. The Control Plane's job is authentication, audit,
 /// and the entitlement gate. A stale-tab conflict surfaces as a 409 from
 /// CrowdRelay, which this proxy passes through unchanged.
+#[allow(clippy::too_many_arguments)]
 async fn mutation(
     state: &AppState,
     slug: &str,
@@ -615,6 +650,7 @@ async fn mutation(
     body: Option<Value>,
     audit: AuditTag<'_>,
     headers: &HeaderMap,
+    actor: &str,
 ) -> Result<Response, ApiError> {
     let (tenant, target) = target(state, slug).await?;
     if !tenant.tenant.area_enabled && audit.action != "tenant.area.settings.updated" {
@@ -650,6 +686,7 @@ async fn mutation(
         .await;
     audit_result(
         state,
+        actor,
         tenant.tenant.id,
         audit.action,
         audit.drop_id,
