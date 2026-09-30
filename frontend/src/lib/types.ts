@@ -4986,6 +4986,37 @@ export type ContentMaterialView = {
 /** `GET /tenants/{slug}/in-motion/model` — the In motion page in one read:
  *  relay runs, the autopilot overview and the intelligence brief, each a
  *  section that degrades on its own. */
+/** The recent-video growth card. CrowdRelay owns the score and attribution;
+ *  the console renders it without recomputing causality. */
+export type VideoScorecard = {
+  source_id: string
+  source_key: string
+  video_id: string
+  title: string
+  url: string | null
+  published_at: string
+  age_days: number
+  view_target: number
+  window_days: number
+  expected_by_now: number
+  attributed_views: number | null
+  total_views: number | null
+  ads_views: number | null
+  analytics_through: string | null
+  pace: 'ahead' | 'on_track' | 'behind' | 'unmeasured' | string
+  tracked_clicks: {
+    community: number
+    telegram: number
+    discord: number
+    social: number
+    total: number
+  }
+  /** Distinct people converted from tracked video traffic into owned fans. */
+  acquired_fans: number
+  /** Acquired fans per 10,000 tracked clicks; null with no tracked traffic. */
+  fan_conversion_basis_points: number | null
+}
+
 export type TenantInMotionModel = {
   id: string
   relays: RelayProcessRuns | null

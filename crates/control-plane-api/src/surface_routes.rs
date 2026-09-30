@@ -101,6 +101,8 @@ pub(crate) const SURFACE: &[Surface] = &[
     read("ops/goal"),
     // Which of the band's own posts held attention, against its medians.
     read("content/hooks"),
+    // Recent videos ranked by what their distribution actually produced.
+    read_q("content/videos/scorecards", &["limit"]),
     read("ops/connections"),
     read("ops/action-states"),
     read("ecosystem/overview"),
@@ -496,6 +498,14 @@ mod tests {
         // The allowlist rejects what the table does not name, so a surface
         // entry cannot widen anything beyond itself.
         assert!(!allows("GET", "/v1/control-plane/roster-plan"));
+        assert!(allows(
+            "GET",
+            "/v1/control-plane/content/videos/scorecards?limit=10"
+        ));
+        assert!(!allows(
+            "GET",
+            "/v1/control-plane/content/videos/scorecards?workspace=other"
+        ));
     }
 
     #[test]
@@ -561,11 +571,6 @@ mod tests {
             "POST",
             "/v1/control-plane/autopilot/outreach/import-proposals/approve",
             "import-proposal approval is worked upstream; no console button calls it",
-        ),
-        (
-            "GET",
-            "/v1/control-plane/content/videos/scorecards",
-            "no console panel lists per-video scorecards",
         ),
         (
             "GET",

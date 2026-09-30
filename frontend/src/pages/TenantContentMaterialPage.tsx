@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ContentMaterialView, ContentSourceKind } from '../lib/types'
 import { ContentSourcesPanel } from '../components/ContentSourcesPanel'
+import { VideoFanConversionPanel } from '../components/VideoFanConversionPanel'
 import { PageShell } from '../components/layout'
 import { Act, Bar, Card, DashHeader, MoreRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { ChartBar, Database, Layers } from 'lucide-solid'
@@ -153,6 +154,8 @@ export function TenantContentMaterialPage() {
               </Show>
             </Card>
           </Split>
+
+          <VideoFanConversionPanel slug={params().slug} />
 
           <Card title="Is it being used" icon={<ChartBar />} class="mb-3">
             <For each={m().by_kind.slice().sort((a, b) => (b.total - b.used) - (a.total - a.used))}>{row => {
