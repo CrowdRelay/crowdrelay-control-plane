@@ -79,10 +79,10 @@ const archetypes: { value: Archetype; label: string; description: string }[] = [
 ]
 
 const northStars: { value: NorthStar; label: string; description: string; requiresSignal?: boolean }[] = [
-  { value: 'activated_fans_30d', label: 'Activated fans', description: 'Optimize real fans — people who signed up, consented, and did something meaningful within 30 days. The honest default: counted from your own fanbase, not a platform counter.' },
+  { value: 'activated_fans_30d', label: 'Activated fans', description: 'Optimize the canonical activation cohort — people who signed up in the last 30 days, still consent, and did something meaningful within 30 days of signup.' },
   { value: 'total_audience', label: 'Every platform, added up', description: 'Optimize the whole connected portfolio — every platform audience summed, including Signal. Cross-platform identities are not deduplicated, so one person may contribute on more than one platform.' },
   { value: 'weighted_audience', label: 'Everything, by what it is worth', description: 'Optimize the same cross-platform audience, but not equally: a fan you can reach counts for more than a follower you cannot, and a paying supporter more than a passing view. Reported in Signal-fan equivalents; it is still not a unique-person count.' },
-  { value: 'signal_installs', label: 'Fans reachable in Signal', description: 'Optimize distinct fans with an active Signal push endpoint — people the band can actually reach in Signal, not raw app downloads.', requiresSignal: true },
+  { value: 'signal_installs', label: 'Fans with active Signal push', description: 'Optimize distinct fans linked to an active Signal push endpoint. This is the legacy signal_installs metric, not the raw app-download count.', requiresSignal: true },
   { value: 'spotify_followers', label: 'Spotify followers', description: 'Optimize Spotify artist follower growth. The brain prioritizes playlist outreach and release content.' },
   { value: 'youtube_subscribers', label: 'YouTube subscribers', description: 'Optimize YouTube channel subscriber growth. The brain prioritizes video-led posts and community engagement.' },
   { value: 'bandsintown_trackers', label: 'Bandsintown trackers', description: 'Optimize Bandsintown tracker count. The brain prioritizes event-driven promotion and tour marketing.' },
