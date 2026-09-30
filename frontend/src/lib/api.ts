@@ -956,6 +956,13 @@ export const api = {
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ target_id: targetId, note: note ?? null }),
     }),
+  promoteContentSource: (slug: string, sourceId: string, excludedPlatforms: string[]) =>
+    request<{ status: string; title: string; lanes: string[]; excludedPlatforms: string[] }>(
+      `/tenants/${encodeURIComponent(slug)}/surface/autopilot/content-sources/${encodeURIComponent(sourceId)}/promote`, {
+        method: 'POST',
+        headers: { 'idempotency-key': crypto.randomUUID() },
+        body: JSON.stringify({ excluded_platforms: excludedPlatforms }),
+      }),
   upsertContentSource: (slug: string, input: ContentSourceUpsertInput) =>
     request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/content-sources`, {
       method: 'POST',

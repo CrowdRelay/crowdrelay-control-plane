@@ -346,6 +346,13 @@ export const SURFACE_CAPABILITIES: Capability[] = [
     ],
   },
   {
+    id: 'content-promotion', pillar: 'grow', home: { path: '/content/material', section: 'Each source' }, title: 'Guarded source promotion',
+    purpose: 'Request the existing promotion cycle with source-owned platform exclusions; this is not evidence of publication.',
+    actions: [{ label: 'Request promotion', method: 'POST', path: 'autopilot/content-sources/{source_id}/promote', paramSources: { source_id: 'text' }, fields: [
+      { name: 'excluded_platforms', label: 'Excluded platforms', kind: 'json', hint: 'A JSON list of platform names. Videos exclude Facebook and Instagram when omitted.' },
+    ] }],
+  },
+  {
     id: 'manual-posts', pillar: 'grow', home: { path: '/content', section: 'Went out' }, title: 'Telegram and Discord, posted by hand',
     purpose: 'Every outbound channel drafts and waits for a person. After posting a draft yourself, register the message so the row closes and measurement starts.',
     actions: [
