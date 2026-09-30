@@ -28,8 +28,8 @@ const WORDING: Record<string, Wording> = {
     meaning: 'People who signed up in the last 30 days, still consent to hear from you, and did something meaningful within 30 days of signing up.',
   },
   signal_installs: {
-    label: 'Fans reachable in Signal',
-    meaning: 'Distinct fans with an active Signal push endpoint. The stored key is legacy: this is reachable fans, not raw app-download count.',
+    label: 'Fans with active Signal push',
+    meaning: 'Distinct fans linked to an active Signal push endpoint. The stored key is legacy: this is not the raw app-download count.',
   },
   total_audience: {
     label: 'Every platform, added up',
@@ -122,7 +122,6 @@ export const northStarMeaning = (value: string): string | undefined => WORDING[v
 /** The server's own name, for where the exact metric matters more than the
  *  plain-language one — a settings row that records what was stored. */
 export const northStarTechnicalName = (option: NorthStarOption): string => option.label
-
 
 /** A stable plain-language label for a value already returned by a read model. */
 export const northStarValueLabel = (value: string): string =>
