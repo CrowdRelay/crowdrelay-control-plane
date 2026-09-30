@@ -165,7 +165,7 @@ export function AutomationPage(props: { section: AutomationSection }) {
       setIngressInspection(result.ingressInspection)
       invalidate(slug())
       if (result.ingressInspection.issues.length > 0 || result.ingressInspection.failed > 0) {
-        toast.warning(
+        toast.info(
           `Synced ${result.synced} workflows · ${result.ingressInspection.issues.length} live ingress issue${result.ingressInspection.issues.length === 1 ? '' : 's'}${result.ingressInspection.failed ? ` · ${result.ingressInspection.failed} could not be inspected` : ''}.`,
         )
       } else {
