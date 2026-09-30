@@ -501,6 +501,7 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
         deadOutbox={attention.data?.dead_outbox}
         deadDeliveries={attention.data?.dead_deliveries}
         deadPush={attention.data?.dead_push}
+        notReported={attention.data?.not_reported ?? []}
         error={attention.error}
         isLoading={attention.isLoading}
         onRefresh={refreshMaintenance}

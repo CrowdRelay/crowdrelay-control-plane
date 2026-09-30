@@ -107,8 +107,8 @@ export function NeedsYouOverview(props: {
           value={batchesWithheld() ? null : waiting()}
           sub={batchesWithheld() ? 'couldn\'t load' : waiting() === 0 ? 'nothing to decide' : `${waves()} ${waves() === 1 ? 'batch' : 'batches'} · ${singles()} single`}
         />
-        <Tile label="Expire in 24 h" value={lapsed()?.expiring_within_24h} sub={soonest() ? `next: ${expiresShort(soonest()!)}` : 'none pending'} />
-        <Tile label="Your turn to reply" value={props.model.reply_triage ? replies().length : null} sub={`${saidYes()} said yes`} />
+        <Tile label="Expire in 24 h" value={lapsed()?.expiring_within_24h} sub={lapsed() == null ? "couldn't load" : soonest() ? `next: ${expiresShort(soonest()!)}` : 'none pending'} />
+        <Tile label="Your turn to reply" value={props.model.reply_triage ? replies().length : null} sub={props.model.reply_triage == null ? "couldn't load" : `${saidYes()} said yes`} />
         <Tile
           label="Lost this week"
           value={lapsed()?.total}
@@ -119,7 +119,7 @@ export function NeedsYouOverview(props: {
 
       <Split>
         <Card title="Waiting for your yes">
-          <Show when={batches().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nothing waits for your yes.</p>}>
+          <Show when={batches().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{batchesWithheld() ? "Couldn't load the queue — the tenant didn't report it." : 'Nothing waits for your yes.'}</p>}>
             <For each={batches()}>{batch => (
               <RowButton selected={selected()?.key === batch.key} onClick={() => setSelectedKey(batch.key)}>
                 <Pill tone={batch.count > 1 ? 'accent' : 'muted'}>{batch.count > 1 ? `${batch.count} ${kindWord(batch)}` : kindWord(batch)}</Pill>
@@ -179,7 +179,7 @@ export function NeedsYouOverview(props: {
       </Split>
 
       <Card title="Your turn to reply" aside="from your Gmail, updates itself" class="mb-3">
-        <Show when={replies().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">Nobody is waiting on an answer from you.</p>}>
+        <Show when={replies().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{props.model.reply_triage == null ? "Couldn't load replies — the tenant didn't report them." : 'Nobody is waiting on an answer from you.'}</p>}>
           <For each={replies().slice(0, 3)}>{reply => (
             <Row>
               <Pill tone={reply.disposition === 'positive' ? 'good' : 'muted'}>{reply.disposition === 'positive' ? 'said yes' : 'answered'}</Pill>

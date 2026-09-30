@@ -67,6 +67,11 @@ export function GrowthFunnelPanel(props: { slug: string }) {
     },
     refetchOnWindowFocus: false,
     staleTime: 10_000,
+    // Keep the previous range on screen while a new one loads — but only when
+    // it belongs to *this* tenant. A tenant switch must never paint the last
+    // tenant's funnel under the new slug.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey?.[1] === props.slug ? prev : undefined,
   }))
 
   // Build funnel stages from the data we have.

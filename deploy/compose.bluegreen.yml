@@ -30,7 +30,6 @@ services:
       # setting it changed nothing and the panel kept asking for it. Both
       # colours need it or a cutover silently drops the relay.
       CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL: ${CONTROL_PLANE_NOTIFY_EMAIL_RELAY_URL:-}
-      CONTROL_PLANE_ADMIN_ACTOR: ${CONTROL_PLANE_ADMIN_ACTOR:-wojciechbator}
       CONTROL_PLANE_FRONTEND_DIST: /app/frontend/dist
       CONTROL_PLANE_VIRYA_CROWDRELAY_URL: ${CONTROL_PLANE_VIRYA_CROWDRELAY_URL:-http://crowdrelay-api-active:8080}
       CONTROL_PLANE_VIRYA_SIGNAL_URL: ${CONTROL_PLANE_VIRYA_SIGNAL_URL:-https://virya.music/signal}

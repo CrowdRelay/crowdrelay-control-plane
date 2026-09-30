@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createSignal, type JSX } from 'solid-js'
 import { FormDrawer } from './app/form-drawer'
 import { failureLine } from '../lib/errors'
 import { Field } from './ui/field'
@@ -17,7 +17,8 @@ import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
-import { Check, Newspaper, Users, Plus } from 'lucide-solid'
+import type { PressOverviewSection } from '../lib/types'
+import { Check, CloudOff, Newspaper, Users, Plus } from 'lucide-solid'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -79,6 +80,15 @@ export function PressRoomPanel(props: { slug: string }) {
   const assets = () => model.data?.assets?.assets ?? []
   const engagements = () => model.data?.engagements?.engagements ?? []
   const coverage = () => model.data?.coverage?.coverage ?? []
+  // A section the tenant could not answer arrives as `null` + a name in
+  // `degraded` — that is "not reported", never an empty list. whileIncomplete
+  // keeps refetching; the copy below says what is actually happening.
+  const degraded = (name: PressOverviewSection) => (model.data?.degraded ?? []).includes(name)
+  const sectionCount = (name: PressOverviewSection, rows: unknown[]) => degraded(name) ? null : rows.length
+  const sectionFallback = (name: PressOverviewSection, icon: JSX.Element, label: string, hint: string) =>
+    degraded(name)
+      ? <EmptyState icon={<CloudOff />} label="Couldn't load this section" hint="The tenant did not report it — the console keeps asking and fills it in when it answers." />
+      : <EmptyState icon={icon} label={label} hint={hint} />
 
   const recordReply = async (beaconId: string, eventId: string, disposition: string) => {
     setReplying(`${beaconId}:${eventId}`)
@@ -145,10 +155,10 @@ export function PressRoomPanel(props: { slug: string }) {
       active={tab()}
       onChange={setTab}
       tabs={[
-        { id: 'requests', label: 'Requests', count: () => requests().length },
-        { id: 'assets', label: 'Assets', count: () => assets().length },
-        { id: 'engagements', label: 'Engagements', count: () => engagements().length },
-        { id: 'coverage', label: 'Coverage', count: () => coverage().length },
+        { id: 'requests', label: 'Requests', count: () => sectionCount('requests', requests()) },
+        { id: 'assets', label: 'Assets', count: () => sectionCount('assets', assets()) },
+        { id: 'engagements', label: 'Engagements', count: () => sectionCount('engagements', engagements()) },
+        { id: 'coverage', label: 'Coverage', count: () => sectionCount('coverage', coverage()) },
       ]}
     />
 
@@ -159,7 +169,7 @@ export function PressRoomPanel(props: { slug: string }) {
     <Show when={tab() === 'requests'}>
       <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={requests().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No press requests" hint={authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.'} />}>
+        <Show when={requests().length > 0} fallback={sectionFallback('requests', <Newspaper />, 'No press requests', authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.')}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -270,7 +280,7 @@ export function PressRoomPanel(props: { slug: string }) {
       </FormDrawer>
 
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={assets().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No press assets" hint="Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there." />}>
+        <Show when={assets().length > 0} fallback={sectionFallback('assets', <Newspaper />, 'No press assets', 'Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there.')}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -307,7 +317,7 @@ export function PressRoomPanel(props: { slug: string }) {
     <Show when={tab() === 'engagements'}>
       <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={engagements().length > 0} fallback={<EmptyState icon={<Users />} label="No event engagements" hint="Event engagements track press interactions for specific shows and releases." />}>
+        <Show when={engagements().length > 0} fallback={sectionFallback('engagements', <Users />, 'No event engagements', 'Event engagements track press interactions for specific shows and releases.')}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -370,7 +380,7 @@ export function PressRoomPanel(props: { slug: string }) {
     <Show when={tab() === 'coverage'}>
       <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
       <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={coverage().length > 0} fallback={<EmptyState icon={<Newspaper />} label="No earned media coverage" hint={authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.'} />}>
+        <Show when={coverage().length > 0} fallback={sectionFallback('coverage', <Newspaper />, 'No earned media coverage', authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.')}>
           <Table>
             <TableHeader>
               <TableRow>

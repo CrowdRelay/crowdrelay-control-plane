@@ -323,6 +323,12 @@ fn aggregate_command_center_totals(
     let mut fans_attendees: Option<u64> = None;
     let mut fans_paid_orders: Option<u64> = None;
     let mut fans_reporting = 0u64;
+    // The conversion ratio needs the same measured set on both sides:
+    // a tenant reporting one of the pair but not the other is excluded
+    // from both, or buyers-over-fans silently understates.
+    let mut conversion_fans = 0u64;
+    let mut conversion_buyers = 0u64;
+    let mut conversion_reported = false;
 
     // Momentum — direction behind the magnitudes. Conversion deltas sum
     // only downstream-tier series (see the per-tenant projection for why
@@ -441,6 +447,14 @@ fn aggregate_command_center_totals(
             if let Some(v) = t["fans"]["paidTicketOrders"].as_u64() {
                 fans_paid_orders = Some(fans_paid_orders.unwrap_or(0) + v);
             }
+            if let (Some(a), Some(b)) = (
+                t["fans"]["activeFans"].as_u64(),
+                t["fans"]["ticketBuyers"].as_u64(),
+            ) {
+                conversion_fans += a;
+                conversion_buyers += b;
+                conversion_reported = true;
+            }
         }
     }
 
@@ -492,6 +506,11 @@ fn aggregate_command_center_totals(
             "ticketBuyers": fans_ticket_buyers,
             "attendees": fans_attendees,
             "paidTicketOrders": fans_paid_orders,
+            // Symmetric measured set for the conversion ratio: only tenants
+            // that reported BOTH active_fans and ticket_buyers count in
+            // either number.
+            "conversionFans": if conversion_reported { json!(conversion_fans) } else { Value::Null },
+            "conversionBuyers": if conversion_reported { json!(conversion_buyers) } else { Value::Null },
             "reportingTenants": fans_reporting,
         },
         "momentum": {
@@ -759,9 +778,16 @@ fn build_per_tenant_summary(
         // does not publish the queue; the placeholder must stay null here or
         // "does not report" would read as "zero drafts".
         "unpublishedDrafts": if not_reported("unpublished_drafts") { Value::Null } else {
-            att.and_then(|a| a.get("unpublished_drafts")).and_then(|v| v.as_array()).map(|channels| {
-                json!(channels.iter().map(|c| c.get("drafts").and_then(|d| d.as_u64()).unwrap_or(0)).sum::<u64>())
-            }).unwrap_or(Value::Null)
+            att.and_then(|a| a.get("unpublished_drafts"))
+                .and_then(Value::as_array)
+                .and_then(|channels| {
+                    channels
+                        .iter()
+                        .map(|c| c.get("drafts").and_then(Value::as_u64))
+                        .collect::<Option<Vec<u64>>>()
+                })
+                .map(|counts| json!(counts.iter().sum::<u64>()))
+                .unwrap_or(Value::Null)
         },
         "unpublishedDraftChannels": if not_reported("unpublished_drafts") { Value::Null } else {
             att.and_then(|a| a.get("unpublished_drafts")).cloned().unwrap_or(Value::Null)
@@ -5172,6 +5198,51 @@ mod tests {
         assert_eq!(rolled["outcomes"]["reportingTenants"], json!(0));
         assert_eq!(rolled["learning"]["totalOutcomes"], json!(0));
         assert_eq!(rolled["learning"]["reportingTenants"], json!(0));
+    }
+
+    /// buyers/fans over the fleet must divide one measured set by itself.
+    /// A tenant that reports `active_fans` but no `ticket_buyers` belongs
+    /// in the headline sums and nowhere in the conversion pair — otherwise
+    /// its fans inflate the denominator and the rate silently understates.
+    #[test]
+    fn rollup_conversion_pair_uses_only_tenants_reporting_both_sides() {
+        let both = TenantCommandData {
+            audience: Some(
+                json!({"active_fans": 100, "ticket_buyers": 10})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+            ..Default::default()
+        };
+        let fans_only = TenantCommandData {
+            audience: Some(json!({"active_fans": 500}).as_object().unwrap().clone()),
+            ..Default::default()
+        };
+        let buyers_only = TenantCommandData {
+            audience: Some(json!({"ticket_buyers": 5}).as_object().unwrap().clone()),
+            ..Default::default()
+        };
+        let per_tenant = vec![
+            build_per_tenant_summary(&mock_tenant(), &both),
+            build_per_tenant_summary(&mock_tenant(), &fans_only),
+            build_per_tenant_summary(&mock_tenant(), &buyers_only),
+        ];
+        let rolled = aggregate_command_center_totals(
+            &per_tenant,
+            chrono::Utc::now(),
+            &[],
+            &crate::store::NotificationOutboxHealth {
+                dead_7d: 0,
+                overdue_pending: 0,
+            },
+        );
+        // Headline sums keep every reported field…
+        assert_eq!(rolled["fans"]["activeFans"], json!(600));
+        assert_eq!(rolled["fans"]["ticketBuyers"], json!(15));
+        // …but the ratio's set is only the tenant that reported both sides.
+        assert_eq!(rolled["fans"]["conversionFans"], json!(100));
+        assert_eq!(rolled["fans"]["conversionBuyers"], json!(10));
     }
 
     // ── The show page model ────────────────────────────────────────────

@@ -1,4 +1,4 @@
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Postgres, Row, Transaction};
@@ -83,6 +83,10 @@ pub struct OperatorAccountRow {
     pub role: String,
     pub tenant_id: Option<Uuid>,
     pub active: bool,
+    /// Only `resolve_session` can answer this — it joins the session row.
+    /// Account lookups that never saw a session default to false.
+    #[sqlx(default)]
+    pub is_mobile: bool,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
@@ -806,6 +810,12 @@ impl Store {
     /// and posture from CrowdRelay. The snapshot is the state restore on
     /// resume — without it, unpark would have to guess what the tenant was
     /// doing before it was parked.
+    ///
+    /// `upstream_already_parked` preserves an unconsumed snapshot: when the
+    /// observed envelope is already the parked one (an interrupted unpark
+    /// leaves exactly that), overwriting would replace the real restore point
+    /// with parked-state values. A snapshot of a *running* envelope — or
+    /// filling an already-consumed row — always replaces.
     #[allow(clippy::too_many_arguments)]
     pub async fn save_park_snapshot(
         &self,
@@ -821,6 +831,7 @@ impl Store {
         max_recipients_per_step: i32,
         posture_version: i64,
         reason: Option<&str>,
+        upstream_already_parked: bool,
     ) -> Result<(), ApiError> {
         sqlx::query(
             r#"INSERT INTO control_plane_tenant_park_snapshot
@@ -842,7 +853,9 @@ impl Store {
                    posture_version = EXCLUDED.posture_version,
                    reason = EXCLUDED.reason,
                    unparked_at = NULL,
-                   unparked_by = NULL"#,
+                   unparked_by = NULL
+               WHERE control_plane_tenant_park_snapshot.unparked_at IS NOT NULL
+                  OR NOT $13::bool"#,
         )
         .bind(tenant_id)
         .bind(actor)
@@ -856,6 +869,7 @@ impl Store {
         .bind(max_recipients_per_step)
         .bind(posture_version)
         .bind(reason)
+        .bind(upstream_already_parked)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -1860,14 +1874,24 @@ impl Store {
     /// guaranteed) still creates a row, anchored to receipt time rather than
     /// invented.
     ///
-    /// Returns `(previous, current)` so the caller can audit the transition.
+    /// Returns `(previous, current, recorded_subscription_started_at)` so the
+    /// caller can audit the transition and — for `subscription_started` —
+    /// anchor the guarantee to the same instant the row recorded. The third
+    /// element is `None` when the event did not move the machine at all.
     pub async fn apply_billing_event(
         &self,
         tenant_id: Uuid,
         input: &BillingEventInput,
         actor: &str,
         request_id: Option<&str>,
-    ) -> Result<(Option<BillingState>, Option<BillingState>), ApiError> {
+    ) -> Result<
+        (
+            Option<BillingState>,
+            Option<BillingState>,
+            Option<DateTime<Utc>>,
+        ),
+        ApiError,
+    > {
         let now = Utc::now();
         let mut tx = self.pool.begin().await?;
         let current_raw = sqlx::query_scalar::<_, String>(
@@ -1881,14 +1905,20 @@ impl Store {
         let next = BillingState::apply(previous, &input.event, in_trial);
         let Some(state) = next else {
             tx.commit().await?;
-            return Ok((previous, previous));
+            return Ok((previous, previous, None));
         };
         let started_at = if input.event == "subscription_started" {
             input.subscription_started_at.unwrap_or(now)
         } else {
             now
         };
-        sqlx::query(
+        // The recorded start belongs to one subscription, so a replayed
+        // `subscription_started` for that same subscription must not move it:
+        // providers resend events at-least-once and a drifted start would let
+        // a duplicated webhook re-anchor the guarantee window downstream.
+        // Only an event that actually names a *different* provider
+        // subscription — a genuinely new contract — replaces the start.
+        let stored_started_at = sqlx::query_scalar::<_, DateTime<Utc>>(
             r#"INSERT INTO control_plane_tenant_billing
                (tenant_id, provider, provider_customer_id, provider_subscription_id,
                 state, subscription_started_at, trial_ends_at, current_period_ends_at)
@@ -1901,13 +1931,20 @@ impl Store {
                                                      control_plane_tenant_billing.provider_subscription_id),
                  state = EXCLUDED.state,
                  subscription_started_at = CASE WHEN $9::bool
-                     THEN EXCLUDED.subscription_started_at
+                     THEN CASE WHEN EXCLUDED.provider_subscription_id IS NOT NULL
+                            AND control_plane_tenant_billing.provider_subscription_id
+                                IS DISTINCT FROM EXCLUDED.provider_subscription_id
+                          THEN EXCLUDED.subscription_started_at
+                          ELSE COALESCE(control_plane_tenant_billing.subscription_started_at,
+                                        EXCLUDED.subscription_started_at)
+                     END
                      ELSE control_plane_tenant_billing.subscription_started_at END,
                  trial_ends_at = COALESCE(EXCLUDED.trial_ends_at,
                                           control_plane_tenant_billing.trial_ends_at),
                  current_period_ends_at = COALESCE(EXCLUDED.current_period_ends_at,
                                                    control_plane_tenant_billing.current_period_ends_at),
-                 updated_at = now()"#,
+                 updated_at = now()
+               RETURNING subscription_started_at"#,
         )
         .bind(tenant_id)
         .bind(&input.provider)
@@ -1918,7 +1955,7 @@ impl Store {
         .bind(input.trial_ends_at)
         .bind(input.current_period_ends_at)
         .bind(input.event == "subscription_started")
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
         self.audit_tx(
             &mut tx,
@@ -1940,21 +1977,31 @@ impl Store {
         )
         .await?;
         tx.commit().await?;
-        Ok((previous, next))
+        Ok((previous, next, Some(stored_started_at)))
     }
 
     /// The paid ninety-day window starts when money changes hands. A pilot
     /// that measured before payment froze a baseline against free days; on
     /// `subscription_started` the contract re-anchors — baseline becomes the
     /// level the graph stood at when the customer started paying (the latest
-    /// heartbeat value), and the deadline becomes ninety days from now.
-    /// Growth delivered for free before the contract does not count toward
-    /// it, and a decline during the paid window cannot hide behind it.
+    /// heartbeat value), and the deadline becomes ninety days from that
+    /// start. Growth delivered for free before the contract does not count
+    /// toward it, and a decline during the paid window cannot hide behind it.
+    ///
+    /// `started_at` is the instant the billing row recorded for this
+    /// subscription. Anchoring to it — not to `now()` — keeps the window
+    /// pinned to the contract even when the webhook arrives late, and the
+    /// `anchored_started_at` guard makes delivery at-least-once safe: a
+    /// replayed `subscription_started` for the same start is a no-op, so a
+    /// duplicate webhook cannot slide the deadline or re-freeze the baseline
+    /// against drifted numbers. A genuinely new subscription (new recorded
+    /// start) re-anchors as before.
     ///
     /// Returns true when a guarantee row was re-anchored.
     pub async fn anchor_guarantee_to_subscription(
         &self,
         tenant_id: Uuid,
+        started_at: DateTime<Utc>,
         actor: &str,
         request_id: Option<&str>,
     ) -> Result<bool, ApiError> {
@@ -1965,12 +2012,15 @@ impl Store {
                        (SELECT north_star_fans FROM control_plane_runtime_status
                         WHERE tenant_id = $1),
                        baseline_value),
-                   baseline_captured_at = now(),
-                   deadline = now() + INTERVAL '90 days'
+                   baseline_captured_at = $2,
+                   deadline = $2 + INTERVAL '90 days',
+                   anchored_started_at = $2
                WHERE tenant_id = $1
+                 AND anchored_started_at IS DISTINCT FROM $2
                RETURNING baseline_value"#,
         )
         .bind(tenant_id)
+        .bind(started_at)
         .fetch_optional(&mut *tx)
         .await?;
         if let Some(baseline) = anchored {
@@ -2076,12 +2126,17 @@ impl Store {
         tenant_id: Uuid,
         cooldown_seconds: i64,
     ) -> Result<Option<chrono::DateTime<chrono::Utc>>, ApiError> {
+        // 'requested' is deliberately counted: it is written before the
+        // dispatch leaves, so a crash between it and the terminal audit
+        // would otherwise reopen the window while GitHub may already be
+        // running the workflow. 'transport_failed'/'rejected' stay out —
+        // those proved the dispatch never landed.
         let row = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
             "SELECT MAX(created_at) FROM control_plane_audit_log
              WHERE tenant_id = $1
                AND action = 'tenant.deploy.dispatched'
                AND target_kind = 'external_deploy'
-               AND (detail->>'outcome') IN ('accepted', 'unknown')
+               AND (detail->>'outcome') IN ('requested', 'accepted', 'unknown')
                AND created_at > now() - ($2 || ' seconds')::interval",
         )
         .bind(tenant_id)
@@ -2401,11 +2456,13 @@ impl Store {
         account_id: Uuid,
         token_hash: &[u8],
         expires_at: chrono::DateTime<Utc>,
+        is_mobile: bool,
     ) -> Result<(), ApiError> {
-        sqlx::query("INSERT INTO control_plane_operator_sessions (token_hash, account_id, expires_at) VALUES ($1, $2, $3)")
+        sqlx::query("INSERT INTO control_plane_operator_sessions (token_hash, account_id, expires_at, is_mobile) VALUES ($1, $2, $3, $4)")
             .bind(token_hash)
             .bind(account_id)
             .bind(expires_at)
+            .bind(is_mobile)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -2426,7 +2483,7 @@ impl Store {
                  AND a.id = s.account_id
                  AND a.active
                  AND s.expires_at > now()
-               RETURNING a.id, a.username, a.role, a.tenant_id, a.active"#,
+               RETURNING a.id, a.username, a.role, a.tenant_id, a.active, s.is_mobile"#,
         )
         .bind(token_hash)
         .fetch_optional(&self.pool)
@@ -2858,10 +2915,18 @@ impl Store {
 
     // --- Automation events -------------------------------------------
 
+    /// Inserts one n8n outcome event. n8n delivers at-least-once, so the same
+    /// `(tenant, execution_id, event_kind)` can arrive more than once —
+    /// deduped by a partial unique index; a redelivery returns the stored row
+    /// with `created=false` so the caller stores idempotently and does not
+    /// re-notify. `execution_id` NULLs never conflict (distinct per Postgres
+    /// NULL semantics) — events without one stay undeduped.
+    ///
+    /// Returns `(event, workflow_config, created)`.
     pub async fn insert_automation_event(
         &self,
         input: &CreateAutomationEventRequest,
-    ) -> Result<(AutomationEventRow, AutomationWorkflowConfigRow), ApiError> {
+    ) -> Result<(AutomationEventRow, AutomationWorkflowConfigRow, bool), ApiError> {
         // Validate enum-like fields before hitting the DB so a bad payload
         // gets a 400, not a 23514 check violation.
         if !(1..=160).contains(&input.workflow_id.len())
@@ -2938,6 +3003,9 @@ impl Store {
             r#"INSERT INTO control_plane_automation_events
                    (tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity, node_name, message, payload)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (tenant_id, execution_id, event_kind)
+                   WHERE execution_id IS NOT NULL
+               DO NOTHING
                RETURNING id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
                          node_name, message, payload, occurred_at, status, retry_count,
                          last_retried_at, created_at"#,
@@ -2951,10 +3019,30 @@ impl Store {
         .bind(input.node_name.as_deref().map(str::trim).filter(|s| !s.is_empty()))
         .bind(input.message.trim())
         .bind(&input.payload)
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
+        let (event, created) = match event {
+            Some(row) => (row, true),
+            // Redelivery: hand back the stored row so the response is the
+            // same id — the caller skips re-notifying on `created=false`.
+            None => {
+                let existing = sqlx::query_as::<_, AutomationEventRow>(
+                    r#"SELECT id, tenant_id, workflow_id, workflow_name, execution_id, event_kind, severity,
+                              node_name, message, payload, occurred_at, status, retry_count,
+                              last_retried_at, created_at
+                       FROM control_plane_automation_events
+                       WHERE tenant_id = $1 AND execution_id = $2 AND event_kind = $3"#,
+                )
+                .bind(tenant.tenant.id)
+                .bind(input.execution_id.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+                .bind(&input.event_kind)
+                .fetch_one(&mut *tx)
+                .await?;
+                (existing, false)
+            }
+        };
         tx.commit().await?;
-        Ok((event, config))
+        Ok((event, config, created))
     }
 
     pub async fn list_automation_events(
@@ -3024,6 +3112,32 @@ impl Store {
             return Err(ApiError::NotFound);
         }
         Ok(())
+    }
+
+    /// Atomically claims the right to dispatch one retry for this event.
+    /// Read-check-dispatch would let two concurrent requests both pass the
+    /// 30-second window and double-fire the n8n execution; the conditional
+    /// UPDATE makes the claim itself the lock — only one caller gets `true`.
+    /// The claim holds even when the dispatch goes on to fail: the window
+    /// exists to protect the upstream call, not just successful retries.
+    pub async fn claim_automation_event_retry(
+        &self,
+        id: Uuid,
+        tenant_id: Uuid,
+    ) -> Result<bool, ApiError> {
+        let claimed = sqlx::query_scalar::<_, Uuid>(
+            r#"UPDATE control_plane_automation_events
+               SET last_retried_at = now()
+               WHERE id = $1 AND tenant_id = $2
+                 AND (last_retried_at IS NULL
+                      OR last_retried_at < now() - INTERVAL '30 seconds')
+               RETURNING id"#,
+        )
+        .bind(id)
+        .bind(tenant_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(claimed.is_some())
     }
 
     pub async fn mark_automation_event_retried(

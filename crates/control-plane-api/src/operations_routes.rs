@@ -5,7 +5,7 @@
 //! per-tenant credential server-side, and records a redacted platform audit.
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header::CACHE_CONTROL},
     response::{IntoResponse, Response},
@@ -13,11 +13,13 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::sync::Arc;
 use url::Url;
 use uuid::Uuid;
 
 use crate::{
-    AppState, error::ApiError, store::ControlCommandAudit, tenant_area_client::ManagementRequest,
+    AppState, auth::Identity, error::ApiError, store::ControlCommandAudit,
+    tenant_area_client::ManagementRequest,
 };
 
 const PRIVATE_NO_STORE: &str = "private, no-store";
@@ -870,6 +872,7 @@ async fn call(
 #[allow(clippy::too_many_arguments)]
 async fn audit_result(
     state: &AppState,
+    actor: &str,
     tenant_id: uuid::Uuid,
     action: &'static str,
     target_kind: &'static str,
@@ -893,7 +896,7 @@ async fn audit_result(
         .store
         .audit_control_command(ControlCommandAudit {
             tenant_id,
-            actor: &state.admin_actor,
+            actor,
             action,
             target_kind,
             target_id: target_id.to_owned(),
@@ -1060,6 +1063,7 @@ async fn process_relay_run(
 /// audit trail, nothing else.
 async fn approve_community_relay(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, source_id)): Path<(String, String)>,
     headers: HeaderMap,
     body: axum::body::Bytes,
@@ -1067,6 +1071,7 @@ async fn approve_community_relay(
     let source_id = uuid_segment(&source_id)?.to_owned();
     community_relay_mutation(
         &state,
+        &identity.audit_actor(),
         &slug,
         &source_id,
         "approve",
@@ -1079,12 +1084,14 @@ async fn approve_community_relay(
 
 async fn revoke_community_relay(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, source_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let source_id = uuid_segment(&source_id)?.to_owned();
     community_relay_mutation(
         &state,
+        &identity.audit_actor(),
         &slug,
         &source_id,
         "revoke",
@@ -1095,8 +1102,10 @@ async fn revoke_community_relay(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn community_relay_mutation(
     state: &AppState,
+    actor: &str,
     slug: &str,
     source_id: &str,
     verb: &str,
@@ -1135,6 +1144,7 @@ async fn community_relay_mutation(
         .await;
     audit_result(
         state,
+        actor,
         tenant.tenant.id,
         audit_action,
         "community_relay",
@@ -1161,6 +1171,7 @@ struct ManualPostRegistration {
 /// Upstream owns the real URL check — this bounds the envelope only.
 async fn register_manual_community_post(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, post_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(input): Json<ManualPostRegistration>,
@@ -1191,6 +1202,7 @@ async fn register_manual_community_post(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.community_post.registered_manual",
         "community_post",
@@ -1220,6 +1232,7 @@ struct ManualSocialPostRegistration {
 /// Upstream owns the real URL check — this bounds the envelope only.
 async fn register_manual_social_post(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, post_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(input): Json<ManualSocialPostRegistration>,
@@ -1250,6 +1263,7 @@ async fn register_manual_social_post(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.social_post.registered_manual",
         "social_post",
@@ -1282,6 +1296,7 @@ async fn action_sent_record(
 
 async fn retry_outbox(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, event_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -1304,6 +1319,7 @@ async fn retry_outbox(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.dead_outbox.retried",
         "outbox_event",
@@ -1320,6 +1336,7 @@ async fn retry_outbox(
 
 async fn retry_delivery(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, delivery_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -1342,6 +1359,7 @@ async fn retry_delivery(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.dead_delivery.retried",
         "webhook_delivery",
@@ -1358,6 +1376,7 @@ async fn retry_delivery(
 
 async fn clear_dead_deliveries(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -1379,6 +1398,7 @@ async fn clear_dead_deliveries(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.dead_deliveries.cleared",
         "delivery_queue",
@@ -1395,6 +1415,7 @@ async fn clear_dead_deliveries(
 
 async fn run_reconciliation(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -1417,6 +1438,7 @@ async fn run_reconciliation(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.ecosystem.reconciled",
         "ecosystem",
@@ -1459,6 +1481,7 @@ struct FlagMutation {
 
 async fn update_flag(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, key)): Path<(String, String)>,
     headers: HeaderMap,
     Json(input): Json<FlagMutation>,
@@ -1503,6 +1526,7 @@ async fn update_flag(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.feature_flag.updated",
         "feature_flag",
@@ -1648,6 +1672,7 @@ async fn autopilot_cycle_preview(
 /// so a double-click cannot queue two cycles.
 async fn autopilot_cycle_run(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -1669,6 +1694,7 @@ async fn autopilot_cycle_run(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot.cycle_requested",
         "workspace",
@@ -2041,6 +2067,7 @@ struct AutopilotMutation {
 
 async fn update_autopilot(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, context)): Path<(String, String)>,
     headers: HeaderMap,
     Json(input): Json<AutopilotMutation>,
@@ -2083,6 +2110,7 @@ async fn update_autopilot(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot_policy.updated",
         "autopilot_policy",
@@ -2105,6 +2133,7 @@ async fn update_autopilot(
 /// per-policy instead of failing silently or inventing a second authority.
 async fn bulk_autopilot(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(input): Json<BulkAutopilotMutation>,
@@ -2229,6 +2258,7 @@ async fn bulk_autopilot(
     };
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot_policy.bulk_updated",
         "autopilot_policy",
@@ -2286,6 +2316,7 @@ struct RememberGrantBody {
 /// surface's edit) or `{"remember": {...}}` — the standing grant opt-in.
 async fn approve_opportunity(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, action_id)): Path<(String, String)>,
     headers: HeaderMap,
     payload: Option<Json<ApproveOpportunityBody>>,
@@ -2316,6 +2347,7 @@ async fn approve_opportunity(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot_action.approved",
         "autopilot_action",
@@ -2372,6 +2404,7 @@ fn grant_segment(value: &str) -> Result<&str, ApiError> {
 /// answerable — and answers 204.
 async fn revoke_standing_approval(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, action_kind, target_key)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -2396,6 +2429,7 @@ async fn revoke_standing_approval(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.standing_approval.revoked",
         "standing_approval",
@@ -2444,6 +2478,7 @@ struct BookingAgentApproachInput {
 
 async fn request_booking_agent_approach(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<BookingAgentApproachInput>,
@@ -2467,6 +2502,7 @@ async fn request_booking_agent_approach(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.booking_agent.approach_requested",
         "booking_agent",
@@ -2496,6 +2532,7 @@ struct BookingAgentApproachWaveInput {
 
 async fn request_booking_agent_approach_wave(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<BookingAgentApproachWaveInput>,
@@ -2524,6 +2561,7 @@ async fn request_booking_agent_approach_wave(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.booking_agent.approach_wave_requested",
         "booking_agent_wave",
@@ -2550,6 +2588,7 @@ struct BookingAgentReplyInput {
 
 async fn record_booking_agent_reply(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, agent_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<BookingAgentReplyInput>,
@@ -2585,6 +2624,7 @@ async fn record_booking_agent_reply(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.booking_agent.reply_recorded",
         "booking_agent",
@@ -2604,6 +2644,7 @@ async fn record_booking_agent_reply(
 /// queues the awaiting-approval card; a retried click is the same ask.
 async fn request_booking_agent_reply_draft(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, agent_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -2626,6 +2667,7 @@ async fn request_booking_agent_reply_draft(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.booking_agent.reply_draft_requested",
         "booking_agent",
@@ -2665,6 +2707,7 @@ async fn attestations(
 /// upstream — nothing in the request can write a number.
 async fn issue_attestation(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     body: Option<Json<Value>>,
@@ -2688,6 +2731,7 @@ async fn issue_attestation(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.attestation.issued",
         "attestation",
@@ -2707,6 +2751,7 @@ async fn issue_attestation(
 /// carrying it because the panel never sees the URL shape.
 async fn revoke_attestation(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -2730,6 +2775,7 @@ async fn revoke_attestation(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.attestation.revoked",
         "attestation",
@@ -2747,6 +2793,7 @@ async fn revoke_attestation(
 /// Mint a fresh share token, killing every link already sent.
 async fn rotate_attestation(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -2770,6 +2817,7 @@ async fn rotate_attestation(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.attestation.rotated",
         "attestation",
@@ -2804,6 +2852,7 @@ fn attestation_digest(body: &Value) -> Result<String, ApiError> {
 /// approval queue. The brain treats this as a first-class "no" outcome.
 async fn cancel_opportunity(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, action_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -2826,6 +2875,7 @@ async fn cancel_opportunity(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot_action.cancelled",
         "autopilot_action",
@@ -2844,6 +2894,7 @@ async fn cancel_opportunity(
 /// system — a first-class outcome, not a dismissal.
 async fn handle_opportunity_externally(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, decision_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -2868,6 +2919,7 @@ async fn handle_opportunity_externally(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.autopilot_decision.handled_externally",
         "autopilot_decision",
@@ -2886,6 +2938,7 @@ async fn handle_opportunity_externally(
 /// transition policy; this proxy only carries the operator's decision.
 async fn decide_portfolio_amplification(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, consent_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -2911,6 +2964,7 @@ async fn decide_portfolio_amplification(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.portfolio_edge.decided",
         "amplification_consent",
@@ -2928,6 +2982,7 @@ async fn decide_portfolio_amplification(
 /// invalidates its read cache.
 async fn update_portfolio_setting(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, setting_key)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -2997,6 +3052,7 @@ async fn update_portfolio_setting(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.portfolio_setting.updated",
         "tenant_setting",
@@ -3038,6 +3094,7 @@ async fn tenant_settings(
 /// is transport, not validation.
 async fn upload_media(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     body: axum::body::Bytes,
@@ -3071,6 +3128,7 @@ async fn upload_media(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.media.uploaded",
         "media",
@@ -3166,6 +3224,7 @@ struct SetTenantSecretBody {
 /// and the masked view upstream returns is what the client sees.
 async fn set_tenant_secret(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, secret_name)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<SetTenantSecretBody>,
@@ -3194,6 +3253,7 @@ async fn set_tenant_secret(
     // Audited by name — the value never enters the audit row.
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.secret.set",
         "tenant_secret",
@@ -3210,6 +3270,7 @@ async fn set_tenant_secret(
 /// `DELETE /tenants/{slug}/secrets/{name}` — unsets the credential.
 async fn delete_tenant_secret(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, secret_name)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -3231,6 +3292,7 @@ async fn delete_tenant_secret(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.secret.removed",
         "tenant_secret",
@@ -3302,6 +3364,7 @@ async fn list_audience_places(
 /// Registers one community, or refreshes the mutable facts of an existing one.
 async fn upsert_audience_place(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -3320,6 +3383,7 @@ async fn upsert_audience_place(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.audience_place.upserted",
         "audience_place",
@@ -3339,6 +3403,7 @@ async fn upsert_audience_place(
 /// psql against the tenant's database, with no audit entry and no validation.
 async fn import_audience_places(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -3361,6 +3426,7 @@ async fn import_audience_places(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.audience_places.imported",
         "audience_place_import",
@@ -3429,6 +3495,7 @@ struct ApproveGigPlanBody {
 
 async fn approve_gig_plan(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<ApproveGigPlanBody>,
@@ -3470,7 +3537,7 @@ async fn approve_gig_plan(
         .store
         .audit_control_command(crate::store::ControlCommandAudit {
             tenant_id: tenant.tenant.id,
-            actor: &state.admin_actor,
+            actor: &identity.audit_actor(),
             action: "tenant.gig_proposal.approved",
             target_kind: "gig_proposal",
             target_id: city_id.to_owned(),
@@ -3489,6 +3556,7 @@ async fn approve_gig_plan(
 
 async fn create_portfolio_fanbase(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -3507,6 +3575,7 @@ async fn create_portfolio_fanbase(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.fanbase.created",
         "fanbase",
@@ -3526,6 +3595,7 @@ async fn create_portfolio_fanbase(
 /// Pushes one provider batch through admission on the upstream tenant.
 async fn ingest_portfolio_fanbase(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, fanbase_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -3554,6 +3624,7 @@ async fn ingest_portfolio_fanbase(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.fanbase.ingested",
         "fanbase",
@@ -3667,6 +3738,7 @@ async fn list_delivery_results(
 /// gate and the row-level transition.
 async fn retry_push(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, delivery_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -3689,6 +3761,7 @@ async fn retry_push(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.dead_push.retried",
         "push_delivery",
@@ -3707,6 +3780,7 @@ async fn retry_push(
 /// ingestions and members; fans themselves stay (they belong to the workspace).
 async fn delete_portfolio_fanbase(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, fanbase_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -3728,6 +3802,7 @@ async fn delete_portfolio_fanbase(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.fanbase.deleted",
         "fanbase",
@@ -4195,6 +4270,7 @@ struct FanTagInput {
 /// POST — adds an operator tag to a fan. Upstream stores source='operator'.
 async fn add_fan_tag(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, fan_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<FanTagInput>,
@@ -4220,6 +4296,7 @@ async fn add_fan_tag(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.fan.tag_added",
         "fan",
@@ -4236,6 +4313,7 @@ async fn add_fan_tag(
 /// POST — removes an operator tag from a fan.
 async fn remove_fan_tag(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, fan_id, tag)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -4260,6 +4338,7 @@ async fn remove_fan_tag(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.fan.tag_removed",
         "fan",
@@ -4368,6 +4447,7 @@ async fn growth_objectives(
 
 async fn declare_growth_objective(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -4391,6 +4471,7 @@ async fn declare_growth_objective(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.growth_objective.declared",
         "growth_objective",
@@ -4406,6 +4487,7 @@ async fn declare_growth_objective(
 
 async fn retire_growth_objective(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, objective_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -4425,6 +4507,7 @@ async fn retire_growth_objective(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.growth_objective.retired",
         "growth_objective",
@@ -4481,6 +4564,7 @@ struct ContentSourceUpsert {
 
 async fn upsert_content_source(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(input): Json<ContentSourceUpsert>,
@@ -4518,6 +4602,7 @@ async fn upsert_content_source(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.content_source.upserted",
         "content_source",
@@ -4640,6 +4725,7 @@ struct DriveContactUpload {
 
 async fn gdrive_upload(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(input): Json<DriveContactUpload>,
@@ -4662,6 +4748,7 @@ async fn gdrive_upload(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.contacts.uploaded",
         "drive_contacts",
@@ -4703,6 +4790,7 @@ struct DriveContactsBatchPromote {
 
 async fn promote_drive_contacts_batch(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(input): Json<DriveContactsBatchPromote>,
@@ -4756,6 +4844,7 @@ async fn promote_drive_contacts_batch(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.drive_contacts.batch_promoted",
         "drive_contacts",
@@ -4771,24 +4860,45 @@ async fn promote_drive_contacts_batch(
 
 async fn promote_drive_contact(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, contact_id)): Path<(String, uuid::Uuid)>,
     headers: HeaderMap,
     Json(input): Json<DriveContactOutcome>,
 ) -> Result<Response, ApiError> {
-    drive_contact_outcome(&state, &slug, contact_id, "promote", &input, &headers).await
+    drive_contact_outcome(
+        &state,
+        &identity.audit_actor(),
+        &slug,
+        contact_id,
+        "promote",
+        &input,
+        &headers,
+    )
+    .await
 }
 
 async fn dismiss_drive_contact(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, contact_id)): Path<(String, uuid::Uuid)>,
     headers: HeaderMap,
     Json(input): Json<DriveContactOutcome>,
 ) -> Result<Response, ApiError> {
-    drive_contact_outcome(&state, &slug, contact_id, "dismiss", &input, &headers).await
+    drive_contact_outcome(
+        &state,
+        &identity.audit_actor(),
+        &slug,
+        contact_id,
+        "dismiss",
+        &input,
+        &headers,
+    )
+    .await
 }
 
 async fn drive_contact_outcome(
     state: &AppState,
+    actor: &str,
     slug: &str,
     contact_id: uuid::Uuid,
     verb: &str,
@@ -4849,6 +4959,7 @@ async fn drive_contact_outcome(
     };
     audit_result(
         state,
+        actor,
         tenant.tenant.id,
         action,
         "drive_contact",
@@ -4886,20 +4997,32 @@ async fn listing_state(
 /// audit trail.
 async fn save_listing(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    listing_write(&state, &slug, "", &body, &headers, "tenant.listing.saved").await
+    listing_write(
+        &state,
+        &identity.audit_actor(),
+        &slug,
+        "",
+        &body,
+        &headers,
+        "tenant.listing.saved",
+    )
+    .await
 }
 
 async fn publish_listing(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     listing_write(
         &state,
+        &identity.audit_actor(),
         &slug,
         "/publish",
         &Value::Null,
@@ -4911,11 +5034,13 @@ async fn publish_listing(
 
 async fn unlist_listing(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     listing_write(
         &state,
+        &identity.audit_actor(),
         &slug,
         "/unlist",
         &Value::Null,
@@ -4927,11 +5052,13 @@ async fn unlist_listing(
 
 async fn rotate_listing_token(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     listing_write(
         &state,
+        &identity.audit_actor(),
         &slug,
         "/rotate-token",
         &Value::Null,
@@ -4943,6 +5070,7 @@ async fn rotate_listing_token(
 
 async fn listing_write(
     state: &AppState,
+    actor: &str,
     slug: &str,
     suffix: &str,
     body: &Value,
@@ -4975,6 +5103,7 @@ async fn listing_write(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         state,
+        actor,
         tenant.tenant.id,
         action,
         "band_listing",
@@ -5009,6 +5138,7 @@ async fn representation_targets(
 /// agent/label upstream; the idempotent write is audited here.
 async fn upsert_representation_target(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -5032,6 +5162,7 @@ async fn upsert_representation_target(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.representation_target.upserted",
         "representation_target",
@@ -5050,6 +5181,7 @@ async fn upsert_representation_target(
 /// queues for approval upstream and dispatch re-runs every gate.
 async fn request_representation_approach(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -5078,6 +5210,7 @@ async fn request_representation_approach(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.representation.approach_requested",
         "representation_target",
@@ -5094,6 +5227,7 @@ async fn request_representation_approach(
 
 async fn set_growth_posture(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -5117,6 +5251,7 @@ async fn set_growth_posture(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.growth_posture.updated",
         "growth_posture",
@@ -5407,6 +5542,7 @@ fn show_create_payload(body: &CreateShowBody) -> Result<Value, ApiError> {
 
 async fn tenant_show_create(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<CreateShowBody>,
@@ -5442,6 +5578,7 @@ async fn tenant_show_create(
         .to_owned();
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.show.created",
         "event",
@@ -5611,6 +5748,7 @@ fn valid_show_act(act: &ShowActInput) -> bool {
 /// it the operator needs a raw API call against a credential they don't hold.
 async fn tenant_show_acts_replace(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, event_slug)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<ReplaceShowActsBody>,
@@ -5643,6 +5781,7 @@ async fn tenant_show_acts_replace(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.show_bill.replaced",
         "event",
@@ -5673,6 +5812,7 @@ struct ShowCounterpartyBody {
 /// post-show report goes to besides the band. Null clears, same as upstream.
 async fn tenant_show_counterparty(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, event_slug)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<ShowCounterpartyBody>,
@@ -5715,6 +5855,7 @@ async fn tenant_show_counterparty(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.show_counterparty.set",
         "event",
@@ -5769,6 +5910,7 @@ struct NightContributionBody {
 /// replace one contributed kind for the tenant's workspace.
 async fn tenant_night_contribution(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, place_event_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<NightContributionBody>,
@@ -5799,6 +5941,7 @@ async fn tenant_night_contribution(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.night.contribution",
         "place_event",
@@ -5816,6 +5959,7 @@ async fn tenant_night_contribution(
 /// row as `revoked`: the audit that the workspace once chose to share.
 async fn tenant_night_contribution_revoke(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, place_event_id, kind)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -5841,6 +5985,7 @@ async fn tenant_night_contribution_revoke(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.night.contribution_revoked",
         "place_event",
@@ -5859,6 +6004,7 @@ async fn tenant_night_contribution_revoke(
 /// returns here, once.
 async fn tenant_night_organiser_link(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, place_event_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -5877,6 +6023,7 @@ async fn tenant_night_organiser_link(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.night.organiser_link_minted",
         "place_event",
@@ -5894,6 +6041,7 @@ async fn tenant_night_organiser_link(
 /// to the link's minter or an event owner on the night.
 async fn tenant_night_organiser_link_revoke(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, place_event_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -5911,6 +6059,7 @@ async fn tenant_night_organiser_link_revoke(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.night.organiser_link_revoked",
         "place_event",
@@ -5929,6 +6078,7 @@ async fn tenant_night_organiser_link_revoke(
 /// `act_workspace_id = caller`; anyone else gets the same 404.
 async fn tenant_night_act_confirm(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, place_event_id, act_slug)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -5950,6 +6100,7 @@ async fn tenant_night_act_confirm(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.night.act_confirmed",
         "place_event",
@@ -6042,6 +6193,7 @@ async fn outreach_candidates(
 
 async fn confirm_outreach_candidate(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, candidate_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6061,6 +6213,7 @@ async fn confirm_outreach_candidate(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.outreach_candidate.confirmed",
         "outreach_candidate",
@@ -6090,6 +6243,7 @@ async fn booking_candidates(
 
 async fn confirm_booking_candidate(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, candidate_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6110,6 +6264,7 @@ async fn confirm_booking_candidate(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.booking_candidate.confirmed",
         "booking_candidate",
@@ -6184,6 +6339,7 @@ async fn beacon_press_requests(
 
 async fn resolve_beacon_press_request(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, press_request_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6205,6 +6361,7 @@ async fn resolve_beacon_press_request(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon_press_request.resolved",
         "beacon_press_request",
@@ -6244,6 +6401,7 @@ async fn beacon_press_assets(
 /// has every Instagram post held for want of something to post.
 async fn upsert_beacon_press_asset(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
@@ -6269,6 +6427,7 @@ async fn upsert_beacon_press_asset(
         .await;
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.press_asset.upserted",
         "workspace",
@@ -6372,6 +6531,7 @@ async fn beacon_release_campaigns(
 /// in it, so every beacon had to be created against `/v1/admin` by hand.
 async fn upsert_beacon(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6390,6 +6550,7 @@ async fn upsert_beacon(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon.upserted",
         "beacon",
@@ -6413,6 +6574,7 @@ async fn upsert_beacon(
 /// sent — the filtering happens here so CrowdRelay receives a clean set.
 async fn import_submithub_csv(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     body: String,
@@ -6493,6 +6655,7 @@ async fn import_submithub_csv(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon_network.import_submithub",
         "beacon_network",
@@ -6515,6 +6678,7 @@ async fn import_submithub_csv(
 /// research sat in tables nobody could reach from here.
 async fn beacon_network_action(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6538,6 +6702,7 @@ async fn beacon_network_action(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon_network.action",
         "beacon_network",
@@ -6557,6 +6722,7 @@ async fn beacon_network_action(
 /// time is how it does not get done.
 async fn batch_invite_beacons(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6580,6 +6746,7 @@ async fn batch_invite_beacons(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon.invited_batch",
         "beacon_invite_batch",
@@ -6595,6 +6762,7 @@ async fn batch_invite_beacons(
 
 async fn invite_beacon(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, beacon_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6615,6 +6783,7 @@ async fn invite_beacon(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon.invited",
         "beacon",
@@ -6631,6 +6800,7 @@ async fn invite_beacon(
 /// Pauses, revokes or restores a beacon's Signal profile.
 async fn set_beacon_state(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, beacon_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6651,6 +6821,7 @@ async fn set_beacon_state(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon.state_changed",
         "beacon",
@@ -6670,6 +6841,7 @@ async fn set_beacon_state(
 /// to keep inviting, and nothing could write that down.
 async fn record_beacon_reply(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, beacon_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6690,6 +6862,7 @@ async fn record_beacon_reply(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon.reply_recorded",
         "beacon",
@@ -6729,6 +6902,7 @@ async fn dual_role_contacts(
 /// sentence — the panel renders the answer rather than a toast.
 async fn invite_to_latarnik(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, beacon_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6748,6 +6922,7 @@ async fn invite_to_latarnik(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.contact.latarnik_invited",
         "beacon",
@@ -6778,6 +6953,7 @@ async fn show_growth_ladder(
 /// upstream one; the proxy only carries it with its idempotency key.
 async fn approve_show_growth_ladder(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, event_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6797,6 +6973,7 @@ async fn approve_show_growth_ladder(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.show_growth_ladder.approved",
         "event",
@@ -6814,6 +6991,7 @@ async fn approve_show_growth_ladder(
 /// already running or finished keep their record.
 async fn revoke_show_growth_ladder(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, event_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6833,6 +7011,7 @@ async fn revoke_show_growth_ladder(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.show_growth_ladder.revoked",
         "event",
@@ -6871,6 +7050,7 @@ async fn negotiations(
 /// the proxy only carries it with its idempotency key (P.7).
 async fn record_opportunity_terms(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, opportunity_id)): Path<(String, String)>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6891,6 +7071,7 @@ async fn record_opportunity_terms(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.opportunity.terms_recorded",
         "team_opportunity",
@@ -6906,6 +7087,7 @@ async fn record_opportunity_terms(
 
 async fn create_beacon_release_campaign(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path(slug): Path<String>,
     headers: HeaderMap,
     Json(body): Json<Value>,
@@ -6924,6 +7106,7 @@ async fn create_beacon_release_campaign(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.release_campaign.created",
         "release_campaign",
@@ -6941,6 +7124,7 @@ async fn create_beacon_release_campaign(
 
 async fn launch_beacon_release_campaign(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, campaign_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6960,6 +7144,7 @@ async fn launch_beacon_release_campaign(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon_release_campaign.launched",
         "beacon_release_campaign",
@@ -6975,6 +7160,7 @@ async fn launch_beacon_release_campaign(
 
 async fn close_beacon_release_campaign(
     State(state): State<AppState>,
+    Extension(identity): Extension<Arc<Identity>>,
     Path((slug, campaign_id)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
@@ -6994,6 +7180,7 @@ async fn close_beacon_release_campaign(
     let result: Result<Value, ApiError> = Ok(value.clone());
     audit_result(
         &state,
+        &identity.audit_actor(),
         tenant.tenant.id,
         "tenant.beacon_release_campaign.closed",
         "beacon_release_campaign",

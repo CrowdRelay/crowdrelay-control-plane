@@ -73,4 +73,14 @@ export function cancelReauth() {
 }
 
 // Import api lazily to avoid a circular dependency at module load time.
-import { api } from './api'
+import { api, setMobileStepUp } from './api'
+import { authState } from './auth'
+
+// The gate itself: `api.ts` calls the registered function before any
+// destructive mutation. Only a session issued to a mobile client pays the
+// step-up — the flag rides the session row, so it survives a page refresh.
+setMobileStepUp(async (description: string) => {
+  if (authState.profile()?.isMobile === true) {
+    await requireReauth(description)
+  }
+})

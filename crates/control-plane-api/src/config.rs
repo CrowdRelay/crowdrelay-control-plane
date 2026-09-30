@@ -19,7 +19,6 @@ pub struct Config {
     pub automation_token_hash: Option<[u8; 32]>,
     pub area_management_master_key: Option<String>,
     pub management_master_key: Option<String>,
-    pub admin_actor: String,
     pub telemetry_actor: String,
     pub provisioner_actor: String,
     pub provisioner_default_image_tag: Option<String>,
@@ -216,8 +215,6 @@ impl Config {
                 .map(|token| Sha256::digest(token.as_bytes()).into()),
             area_management_master_key,
             management_master_key,
-            admin_actor: env::var("CONTROL_PLANE_ADMIN_ACTOR")
-                .unwrap_or_else(|_| "platform-admin".to_owned()),
             telemetry_actor: env::var("CONTROL_PLANE_TELEMETRY_ACTOR")
                 .unwrap_or_else(|_| "runtime-reporter".to_owned()),
             provisioner_actor: env::var("CONTROL_PLANE_PROVISIONER_ACTOR")

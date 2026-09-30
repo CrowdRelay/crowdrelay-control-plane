@@ -39,6 +39,17 @@ export const setReadOnlyCheck = (check: () => boolean) => {
   readOnlyCheck = check
 }
 
+// Registered by lib/reauth.ts, the same way: a session issued to a mobile
+// client proves the operator still holds the password before a destructive
+// mutation leaves the browser. Desktop sessions and the platform bearer
+// resolve immediately; a missing gate fails open to keep api.ts loadable
+// before the shell mounts.
+let mobileStepUp: ((description: string) => Promise<void>) | null = null
+export const setMobileStepUp = (gate: (description: string) => Promise<void>) => {
+  mobileStepUp = gate
+}
+const stepUp = (description: string) => mobileStepUp?.(description) ?? Promise.resolve()
+
 /** Methods the backend lets a read-only account send. */
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -144,16 +155,20 @@ export const api = {
     request<{ status: string }>('/auth/reauth', { method: 'POST', body: JSON.stringify({ password }) }),
   operators: (slug: string) => request<{ items: OperatorAccount[] }>(`/tenants/${encodeURIComponent(slug)}/operators`),
   createOperator: (slug: string, username: string, password: string) =>
-    request<OperatorAccount>(`/tenants/${encodeURIComponent(slug)}/operators`, { method: 'POST', body: JSON.stringify({ username, password }) }),
+    stepUp('Create an operator account').then(() =>
+      request<OperatorAccount>(`/tenants/${encodeURIComponent(slug)}/operators`, { method: 'POST', body: JSON.stringify({ username, password }) })),
   deleteOperator: (slug: string, id: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/operators/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    stepUp('Delete this operator account').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/operators/${encodeURIComponent(id)}`, { method: 'DELETE' })),
   notifiers: (slug: string) => request<{ items: NotifierChannel[] }>(`/tenants/${encodeURIComponent(slug)}/notifiers`),
   createNotifier: (slug: string, input: { kind: NotifierChannel['kind']; label: string; url?: string; events: string[]; enabled: boolean }) =>
-    request<NotifierChannel>(`/tenants/${encodeURIComponent(slug)}/notifiers`, { method: 'POST', body: JSON.stringify(input) }),
+    stepUp('Create a notification channel').then(() =>
+      request<NotifierChannel>(`/tenants/${encodeURIComponent(slug)}/notifiers`, { method: 'POST', body: JSON.stringify(input) })),
   updateNotifier: (slug: string, id: string, input: { label?: string; events?: string[]; enabled?: boolean }) =>
     request<NotifierChannel>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   deleteNotifier: (slug: string, id: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    stepUp('Delete this notification channel').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}`, { method: 'DELETE' })),
   testNotifier: (slug: string, id: string) =>
     request<{ ok: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/notifiers/${encodeURIComponent(id)}/test`, { method: 'POST', body: '{}' }),
   // n8n owns the workflows; the control plane mirrors them so they can be
@@ -266,30 +281,43 @@ export const api = {
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/regional-profile`, { method: 'PATCH', body: JSON.stringify({ regionalProfile }) }),
   mobileApps: (slug: string, input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) =>
     request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/mobile-apps`, { method: 'PATCH', body: JSON.stringify(input) }),
-  suspend: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' }),
-  resume: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' }),
+  suspend: (slug: string) =>
+    stepUp('Suspend this tenant — it stops answering').then(() =>
+      request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/suspend`, { method: 'POST', body: '{}' })),
+  resume: (slug: string) =>
+    stepUp('Resume this tenant').then(() =>
+      request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/resume`, { method: 'POST', body: '{}' })),
   park: (slug: string, reason?: string) =>
-    request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/park`, { method: 'POST', body: JSON.stringify({ reason }) }),
-  unpark: (slug: string) => request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/unpark`, { method: 'POST', body: '{}' }),
+    stepUp('Park this tenant — its runtime stops').then(() =>
+      request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/park`, { method: 'POST', body: JSON.stringify({ reason }) })),
+  unpark: (slug: string) =>
+    stepUp('Unpark this tenant').then(() =>
+      request<TenantSummary>(`/tenants/${encodeURIComponent(slug)}/unpark`, { method: 'POST', body: '{}' })),
   // Unregisters the tenant from the control plane. The slug is repeated in the
   // body because the server requires the caller to name the tenant they mean;
   // the tenant's own CrowdRelay data is not touched by this.
   removeTenant: (slug: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}`, { method: 'DELETE', body: JSON.stringify({ confirmSlug: slug }) }),
+    stepUp('Remove this tenant — this cannot be undone').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}`, { method: 'DELETE', body: JSON.stringify({ confirmSlug: slug }) })),
   // Tenant-initiated opt-out request. Records the intent in the audit trail
   // so the crew knows to act on it. Does NOT remove the tenant — removal
   // stays admin-only. Not available for externally-owned tenants (Virya).
   optOut: (slug: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/opt-out`, { method: 'POST', body: '{}' }),
+    stepUp('Record an opt-out for this tenant').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/opt-out`, { method: 'POST', body: '{}' })),
   planProvisioning: (slug: string, desiredVersion?: string) =>
     request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/plan`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
   deployTenant: (slug: string, desiredVersion?: string) =>
-    request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/deploy`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
-  cancelProvisioning: (slug: string) => request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' }),
+    stepUp('Deploy this tenant').then(() =>
+      request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/deploy`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) })),
+  cancelProvisioning: (slug: string) =>
+    stepUp('Cancel the running provisioning job').then(() =>
+      request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/cancel`, { method: 'POST', body: '{}' })),
   // Platform-admin only: re-plans and re-provisions a managed tenant. The
   // shared→dedicated promotion runbook uses this after flipping placement.
   reprovisionTenant: (slug: string, desiredVersion?: string) =>
-    request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/reprovision`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) }),
+    stepUp('Re-provision this tenant').then(() =>
+      request<ProvisioningJob>(`/tenants/${encodeURIComponent(slug)}/provisioning/reprovision`, { method: 'POST', body: JSON.stringify({ desiredVersion: desiredVersion || undefined }) })),
   actionSentRecord: (slug: string, actionId: string) => request<SentRecord>(`/tenants/${encodeURIComponent(slug)}/operations/actions/${encodeURIComponent(actionId)}/sent`),
   retryOutbox: (slug: string, id: string) => request<RetryResult>(`/tenants/${encodeURIComponent(slug)}/operations/outbox/${encodeURIComponent(id)}/retry`, {
     method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() }, body: '{}',
@@ -331,19 +359,21 @@ export const api = {
   // community. Approve releases every parked delivery to the drip; revoke
   // cancels what has not landed.
   approveCommunityRelay: (slug: string, sourceId: string, revisions?: Record<string, { title?: string; body?: string }>) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/approve`, {
+    stepUp('Approve this relay — parked sends release').then(() =>
+      request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/approve`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       // `revisions` maps action_id → edited title/body — a refused edit
       // refuses the whole approval upstream. Sent only when non-empty, so
       // the plain approve stays bodiless as before.
       ...(revisions && Object.keys(revisions).length > 0 ? { body: JSON.stringify({ revisions }) } : {}),
-    }),
+    })),
   revokeCommunityRelay: (slug: string, sourceId: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/revoke`, {
+    stepUp('Revoke this relay — undispatched sends cancel').then(() =>
+      request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/community-relays/${encodeURIComponent(sourceId)}/revoke`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
-    }),
+    })),
   // The manual leg: the operator published the drafted post by hand —
   // registering its URL turns the metrics poller on for it.
   registerManualCommunityPost: (slug: string, postId: string, redditPostUrl: string) =>
@@ -393,7 +423,9 @@ export const api = {
   // a grant changes authority and must be a typed choice, not the usual
   // button's side effect. The idempotency key makes a lost response safe to
   // retry as the same intent.
-  approveOpportunityAction: (slug: string, actionId: string, opts?: { remember?: { days?: number; note?: string }; revision?: Record<string, string> }) => request<{ mutation: { operation_id: string; target_id: string; status: string; replayed: boolean }; remembered: { granted: boolean; reason?: string } | null }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
+  approveOpportunityAction: (slug: string, actionId: string, opts?: { remember?: { days?: number; note?: string }; revision?: Record<string, string> }) =>
+    stepUp('Approve this action').then(() =>
+      request<{ mutation: { operation_id: string; target_id: string; status: string; replayed: boolean }; remembered: { granted: boolean; reason?: string } | null }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/approve`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
     // `revision` carries the operator's edits to the draft's revisable
@@ -401,12 +433,14 @@ export const api = {
     // the allowlist. Absent keys stay absent: a plain approve sends the
     // same `{}` it always did.
     body: JSON.stringify({ ...(opts?.revision ? { revision: opts.revision } : {}), ...(opts?.remember ? { remember: opts.remember } : {}) }),
-  }),
+  })),
   // Standing approvals — what may run without asking. The grant itself is
   // only ever written through the approve flow's `remember`; this pair lists
   // and revokes. Revoke keeps the row stamped upstream.
   standingApprovals: (slug: string) => request<{ items: StandingApproval[] }>(`/tenants/${encodeURIComponent(slug)}/operations/standing-approvals`),
-  revokeStandingApproval: (slug: string, actionKind: string, targetKey: string) => request<void>(`/tenants/${encodeURIComponent(slug)}/operations/standing-approvals/${encodeURIComponent(actionKind)}/${encodeURIComponent(targetKey)}`, { method: 'DELETE' }),
+  revokeStandingApproval: (slug: string, actionKind: string, targetKey: string) =>
+    stepUp('Revoke this standing approval').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/operations/standing-approvals/${encodeURIComponent(actionKind)}/${encodeURIComponent(targetKey)}`, { method: 'DELETE' })),
   // The screened booking-agent registry. `approach` asks the agent for a
   // season (queues an awaiting-approval action upstream); `recordReply`
   // files what the agent answered — `occurred_at` is the operator's own
@@ -419,11 +453,13 @@ export const api = {
   }),
   // The batch form — one approval card covering every selected agent, and
   // the response names whoever the season gate refused upstream.
-  approachBookingAgentWave: (slug: string, agentIds: string[], note?: string) => request<{ action_id: string; wave_id: string; status: string; queued: number; refused: Array<{ agent_id: string; name: string; reason: string }> }>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/approach-wave`, {
+  approachBookingAgentWave: (slug: string, agentIds: string[], note?: string) =>
+    stepUp('Send this booking wave').then(() =>
+      request<{ action_id: string; wave_id: string; status: string; queued: number; refused: Array<{ agent_id: string; name: string; reason: string }> }>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/approach-wave`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ agent_ids: agentIds, note: note ?? null }),
-  }),
+  })),
   recordBookingAgentReply: (slug: string, agentId: string, disposition: string, occurredAt: string) => request<Record<string, unknown>>(`/tenants/${encodeURIComponent(slug)}/operations/booking-agents/${encodeURIComponent(agentId)}/reply`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
@@ -434,11 +470,13 @@ export const api = {
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: '{}',
   }),
-  cancelOpportunityAction: (slug: string, actionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/cancel`, {
+  cancelOpportunityAction: (slug: string, actionId: string) =>
+    stepUp('Cancel this action').then(() =>
+      request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/actions/${encodeURIComponent(actionId)}/cancel`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
     body: '{}',
-  }),
+  })),
   markOpportunityHandledExternally: (slug: string, decisionId: string) => request<{ operation_id: string; target_id: string; status: string; replayed: boolean }>(`/tenants/${encodeURIComponent(slug)}/operations/opportunities/decisions/${encodeURIComponent(decisionId)}/handled-externally`, {
     method: 'POST',
     headers: { 'idempotency-key': crypto.randomUUID() },
@@ -522,9 +560,10 @@ export const api = {
       body: JSON.stringify({ value }),
     }),
   deleteTenantSecret: (slug: string, name: string) =>
-    request<{ name: string; removed: boolean }>(`/tenants/${encodeURIComponent(slug)}/secrets/${encodeURIComponent(name)}`, {
+    stepUp('Delete this secret').then(() =>
+      request<{ name: string; removed: boolean }>(`/tenants/${encodeURIComponent(slug)}/secrets/${encodeURIComponent(name)}`, {
       method: 'DELETE',
-    }),
+    })),
   createFanbase: (slug: string, input: { name: string; sourceKind: string; fetchUrl?: string; consentAttestedBy?: string }) =>
     request<{ fanbaseId: string }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases`, {
       method: 'POST',
@@ -532,9 +571,10 @@ export const api = {
       body: JSON.stringify(input),
     }),
   deleteFanbase: (slug: string, id: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/${encodeURIComponent(id)}`, {
+    stepUp('Delete this fanbase').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/${encodeURIComponent(id)}`, {
       method: 'DELETE',
-    }),
+    })),
   ingestFanbase: (slug: string, id: string, entries: { external_id: string; email?: string; display_name?: string; locale?: string }[]) =>
     request<Record<string, number>>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/${encodeURIComponent(id)}/ingest`, {
       method: 'POST',
@@ -549,14 +589,26 @@ export const api = {
   areaDrop: (slug:string,id:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}`),
   areaCreateDrop: (slug:string,dropId:string,draft:AreaDropDraft) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops`, {method:'POST',body:JSON.stringify({dropId,draft})}),
   areaSaveDraft: (slug:string,id:string,baseRevision:number,draft:AreaDropDraft) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/draft`, {method:'PATCH',body:JSON.stringify({baseRevision,draft})}),
-  areaDiscardDraft: (slug:string,id:string) => request<void>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/draft`, {method:'DELETE'}),
+  areaDiscardDraft: (slug:string,id:string) =>
+    stepUp('Discard this draft').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/draft`, {method:'DELETE'})),
   areaValidate: (slug:string,id:string) => request<AreaValidationResult>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/validate`, {method:'POST',body:'{}'}),
-  areaPublish: (slug:string,id:string,confirmations:string[] = []) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/publish`, {method:'POST',body:JSON.stringify({confirmations})}),
-  areaPause: (slug:string,id:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/pause`, {method:'POST',body:'{}'}),
-  areaResume: (slug:string,id:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/resume`, {method:'POST',body:'{}'}),
-  areaArchive: (slug:string,id:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/archive`, {method:'POST',body:'{}'}),
+  areaPublish: (slug:string,id:string,confirmations:string[] = []) =>
+    stepUp('Publish this drop').then(() =>
+      request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/publish`, {method:'POST',body:JSON.stringify({confirmations})})),
+  areaPause: (slug:string,id:string) =>
+    stepUp('Pause this drop').then(() =>
+      request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/pause`, {method:'POST',body:'{}'})),
+  areaResume: (slug:string,id:string) =>
+    stepUp('Resume this drop').then(() =>
+      request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/resume`, {method:'POST',body:'{}'})),
+  areaArchive: (slug:string,id:string) =>
+    stepUp('Archive this drop').then(() =>
+      request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/archive`, {method:'POST',body:'{}'})),
   areaDuplicate: (slug:string,id:string,newDropId:string,cityId:string) => request<AreaDropDetail>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}/duplicate`, {method:'POST',body:JSON.stringify({newDropId,cityId})}),
-  areaDelete: (slug:string,id:string) => request<void>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}`, {method:'DELETE'}),
+  areaDelete: (slug:string,id:string) =>
+    stepUp('Delete this drop').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/area/drops/${encodeURIComponent(id)}`, {method:'DELETE'})),
   automationModel: (slug: string) =>
     request<{ events: { items: AutomationEvent[] }; workflows: { items: AutomationWorkflowConfig[] } }>(`/tenants/${encodeURIComponent(slug)}/automation/model`),
   automationEvents: (slug: string, params?: { limit?: number; status?: string; workflowId?: string }) =>
@@ -578,9 +630,11 @@ export const api = {
   agentCredentials: (slug: string) =>
     request<{ credentials: AgentCredential[] }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`),
   agentPasteCredential: (slug: string, input: { provider: string; api_key: string; label?: string; provider_account?: string }) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`, { method: 'POST', body: JSON.stringify(input) }),
+    stepUp('Store a provider credential').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials`, { method: 'POST', body: JSON.stringify(input) })),
   agentDeleteCredential: (slug: string, provider: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' }),
+    stepUp('Remove this provider credential').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}`, { method: 'DELETE' })),
   agentValidateCredential: (slug: string, provider: string) =>
     request<{ valid: boolean; error?: string }>(`/tenants/${encodeURIComponent(slug)}/agents/credentials/${encodeURIComponent(provider)}/validate`, { method: 'POST', body: '{}' }),
   redditCookieStatus: (slug: string) =>
@@ -634,7 +688,8 @@ export const api = {
   agentCreateSchedule: (slug: string, input: { template_id: string; model_id: string; prompt: string; interval_minutes: number }) =>
     request<{ schedule: AgentSchedule }>(`/tenants/${encodeURIComponent(slug)}/agents/schedules`, { method: 'POST', body: JSON.stringify(input) }),
   agentDeleteSchedule: (slug: string, id: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    stepUp('Delete this agent schedule').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}`, { method: 'DELETE' })),
   agentToggleSchedule: (slug: string, id: string, enabled: boolean) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/agents/schedules/${encodeURIComponent(id)}/enabled`, { method: 'POST', body: JSON.stringify({ enabled }) }),
 
@@ -642,7 +697,8 @@ export const api = {
   fanbaseConnections: (slug: string) =>
     request<{ connections: FanbaseConnection[] }>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections`),
   deleteFanbaseConnection: (slug: string, id: string) =>
-    request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    stepUp('Disconnect this fan source').then(() =>
+      request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}`, { method: 'DELETE' })),
   updateFanbaseConnectionScanScope: (slug: string, id: string, scope: ScanScope | null) =>
     request<void>(`/tenants/${encodeURIComponent(slug)}/portfolio/fanbases/connections/${encodeURIComponent(id)}/scan-scope`, { method: 'PATCH', body: JSON.stringify({ scope }) }),
   createDiscordConnection: (slug: string, inviteCode: string, label?: string) =>
@@ -874,11 +930,12 @@ export const api = {
       body: JSON.stringify(cities.length ? { cities } : {}),
     }),
   revokeAttestation: (slug: string, digest: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/attestations/revoke`, {
+    stepUp('Revoke this attestation').then(() =>
+      request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/attestations/revoke`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: JSON.stringify({ digest }),
-    }),
+    })),
   rotateAttestationToken: (slug: string, digest: string) =>
     request<{ share_token: string }>(`/tenants/${encodeURIComponent(slug)}/operations/attestations/rotate`, {
       method: 'POST',
@@ -957,16 +1014,18 @@ export const api = {
     request<TenantShowPageModel>(`/tenants/${encodeURIComponent(slug)}/shows/${encodeURIComponent(eventSlug)}/model`),
   /** P.4 — one yes over the whole ladder. */
   approveShowGrowthLadder: (slug: string, eventId: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/approve`, {
+    stepUp('Approve this growth ladder').then(() =>
+      request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/approve`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
-    }),
+    })),
   /** P.4 — stop the rungs the ladder approval would still release. */
   revokeShowGrowthLadder: (slug: string, eventId: string) =>
-    request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/revoke`, {
+    stepUp('Revoke this growth ladder').then(() =>
+      request<unknown>(`/tenants/${encodeURIComponent(slug)}/operations/autopilot/events/${encodeURIComponent(eventId)}/growth-ladder/revoke`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
-    }),
+    })),
   /** Add a show by hand — the path for a label that never ran Bandsintown or
    * another sync source. Idempotent on the generated key; the answer's slug
    * is the show's durable link. */
@@ -1006,21 +1065,24 @@ export const api = {
       body: JSON.stringify({ kind, value }),
     }),
   nightRevokeContribution: (slug: string, placeEventId: string, kind: NightContributionKind) =>
-    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/contributions/${encodeURIComponent(kind)}`, {
+    stepUp('Remove this contribution').then(() =>
+      request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/contributions/${encodeURIComponent(kind)}`, {
       method: 'DELETE',
-    }),
+    })),
   /** Mint the night's organiser link — every link already sent dies on
    *  this call; the token returns once, here. */
   nightMintOrganiserLink: (slug: string, placeEventId: string) =>
-    request<{ token: string; expires_at: string }>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
+    stepUp('Mint a new organiser link — every link already sent dies').then(() =>
+      request<{ token: string; expires_at: string }>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
       method: 'POST',
       headers: { 'idempotency-key': crypto.randomUUID() },
       body: '{}',
-    }),
+    })),
   nightRevokeOrganiserLink: (slug: string, placeEventId: string) =>
-    request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
+    stepUp('Revoke the organiser link').then(() =>
+      request<SharedNight>(`/tenants/${encodeURIComponent(slug)}/nights/${encodeURIComponent(placeEventId)}/organiser-link`, {
       method: 'DELETE',
-    }),
+    })),
   /** The billed act's own workspace confirms it is on the bill — upstream
    *  refuses anyone else with the same 404 as a nonexistent night. */
   nightConfirmAct: (slug: string, placeEventId: string, actSlug: string) =>

@@ -181,8 +181,13 @@ export const useOverviewModel = (tenants: TenantsQuery, commandCenter: CommandCe
       ? `${subject} not answered yet — still asking`
       : `${subject} not answered — refresh to ask again`
   }
-  const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element =>
-    value == null && silentTenants() > 0 ? waitingNote() : settled
+  // A partial sum is still a sum: name the gap next to it rather than
+  // letting "across N tenants" imply N was everyone.
+  const fanSub = (value: number | null | undefined, settled: JSX.Element): JSX.Element => {
+    if (value == null && silentTenants() > 0) return waitingNote()
+    if (silentTenants() > 0) return <>{settled}{' · '}<span class="text-warning-foreground">{silentTenants()} silent</span></>
+    return settled
+  }
 
   // A figure that lands after the strip was first read fades in once.
   const [wasWaiting, setWasWaiting] = createSignal(false)
@@ -225,9 +230,14 @@ export function NeedsYouCard(props: { ov: OverviewModel; loading: boolean }) {
           </div>
         </Show>
         <Show when={!props.loading && props.ov.needsYou().length === 0}>
+          {/* A silent tenant contributes no items — "nothing waiting" is only
+              true for the tenants that answered. When any are unreported the
+              note names that instead of the clean check. */}
           <p class="flex items-center gap-2 px-4 pb-4 pt-1 text-sm text-muted-foreground">
             <CircleCheck class="size-4 text-success-foreground" aria-hidden="true" />
-            Nothing is waiting on a person right now.
+            {props.ov.silentTenants() > 0
+              ? `Reporting tenants are clear — ${props.ov.waitingNote()}.`
+              : 'Nothing is waiting on a person right now.'}
           </p>
         </Show>
         <Show when={!props.loading && props.ov.needsYou().length > 0}>
@@ -270,8 +280,12 @@ export function NeedsYouCard(props: { ov: OverviewModel; loading: boolean }) {
 export function NorthStarStrip(props: { ov: OverviewModel }) {
   const cc = () => props.ov.cc()!
   const rate = createMemo(() => {
-    const fans = cc().fans.activeFans
-    const buyers = cc().fans.ticketBuyers
+    // buyers/fans only means something over the same measured set: the
+    // backend's conversion pair counts just the tenants that reported
+    // both sides. Older control planes lack it — fall back to the fleet
+    // sums rather than show nothing.
+    const fans = cc().fans.conversionFans ?? cc().fans.activeFans
+    const buyers = cc().fans.conversionBuyers ?? cc().fans.ticketBuyers
     if (fans == null || buyers == null || fans === 0) return null
     return Math.round((buyers / fans) * 100)
   })

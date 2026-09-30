@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
-import type { TenantPlacesCitiesModel } from '../lib/types'
+import type { TenantPlacesCitiesModel, TenantPlacesCitiesSection } from '../lib/types'
 import { Act, Card, MoreRow, Note, Row, Split, StatRow, Tile, Tiles } from './ui/dash'
 import { Globe, MapPin, Users } from 'lucide-solid'
 
@@ -26,6 +26,10 @@ export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCiti
   const plan = () => props.model.gig_plan ?? null
   const rooms = () => props.model.rooms_summary ?? null
   const online = () => props.model.online_summary ?? null
+  // A section the tenant could not answer is `null` + named in `degraded`
+  // — "not reported", never an empty city list.
+  const degraded = (name: TenantPlacesCitiesSection) => props.model.degraded.includes(name)
+  const unreported = (what: string) => `Couldn't load ${what} — the console keeps asking and fills it in when the tenant answers.`
   const platforms = () => Object.entries(online()?.by_platform ?? {}).sort((a, b) => b[1] - a[1])
   const shortDate = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(iso))
   // The planner's audience bar, when its sentence names one ("below about 50").
@@ -53,7 +57,7 @@ export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCiti
 
       <Split mid>
         <Card title="Fans by city" icon={<Users />} aside={floor() ? `toward a show: ${floor()} who asked` : undefined}>
-          <Show when={funnel().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No fan has said where they live yet.</p>}>
+          <Show when={funnel().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('city_funnel') ? unreported('the city funnel') : 'No fan has said where they live yet.'}</p>}>
             <For each={funnel().slice(0, 3)}>{row => (
               <Row>
                 <Link to="/tenants/$slug/cities/$cityId" params={{ slug: props.slug, cityId: row.city_slug }} class="w-28 shrink-0 truncate text-sm text-foreground hover:underline">{row.city_name}</Link>
@@ -75,7 +79,7 @@ export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCiti
         </Card>
 
         <Card title="Rooms to call" icon={<MapPin />}>
-          <Show when={(rooms()?.by_city ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No rooms on record yet.</p>}>
+          <Show when={(rooms()?.by_city ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('rooms_summary') ? unreported('the room registry') : 'No rooms on record yet.'}</p>}>
             <For each={rooms()!.by_city.slice(0, 4)}>{city => (
               <StatRow
                 label={<Link to="/tenants/$slug/cities/$cityId" params={{ slug: props.slug, cityId: city.city_slug }} class="hover:underline">{city.city_name}</Link>}
@@ -90,7 +94,7 @@ export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCiti
       </Split>
 
       <Card title="Online places" icon={<Globe />} class="mb-3">
-        <Show when={platforms().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">No online places known yet.</p>}>
+        <Show when={platforms().length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{degraded('online_summary') ? unreported('the online places') : 'No online places known yet.'}</p>}>
           <For each={platforms()}>{([platform, count]) => (
             <StatRow label={PLATFORM_LABEL[platform] ?? platform} value={<span class="tabular-nums text-foreground">{count}</span>} />
           )}</For>
