@@ -24,6 +24,10 @@ type HookPost = {
   avg_watch_ms: number | null
   saves: number | null
   shares: number | null
+  fans_acquired: number
+  fans_activated_within_30d: number
+  fan_conversion_per_1000_reach: number | null
+  fan_activation_bps: number | null
   verdict: 'held_attention' | 'lost_early' | 'typical' | 'unmeasured'
   watch_index_bps: number | null
   keep_index_bps: number | null
@@ -62,6 +66,15 @@ function HookRow(props: { post: HookPost }) {
         {(props.post.saves ?? 0) + (props.post.shares ?? 0)} saves and shares{versusMedian(props.post.keep_index_bps) ? ` (${versusMedian(props.post.keep_index_bps)})` : ''}
         {props.post.reach != null ? ` · reached ${props.post.reach}` : ''}
       </p>
+      <Show when={props.post.fans_acquired > 0}>
+        <p class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="success">{props.post.fans_acquired} fan{props.post.fans_acquired === 1 ? '' : 's'} acquired</Badge>
+          <span class="text-muted-foreground">
+            {props.post.fans_activated_within_30d} activated within 30d
+            {props.post.fan_conversion_per_1000_reach != null ? ` · ${props.post.fan_conversion_per_1000_reach} per 1k reach` : ''}
+          </span>
+        </p>
+      </Show>
     </li>
   )
 }
@@ -77,15 +90,34 @@ export function HookScorecardPanel(props: { slug: string }) {
   const held = () => posts().filter(post => post.verdict === 'held_attention')
   const lost = () => posts().filter(post => post.verdict === 'lost_early')
   const links = () => hooks.data?.links ?? []
+  const fanCreators = () => posts()
+    .filter(post => post.fans_acquired > 0)
+    .slice()
+    .sort((a, b) =>
+      b.fans_acquired - a.fans_acquired
+        || b.fans_activated_within_30d - a.fans_activated_within_30d
+        || (b.fan_conversion_per_1000_reach ?? -1) - (a.fan_conversion_per_1000_reach ?? -1)
+    )
+    .slice(0, 5)
 
   return (
     <Section
       title="What held attention"
       icon={<SectionIcon name="trending-up" />}
-      description="Your own posts from the last 60 days, judged against your own usual: how long people watched, and how often they saved or shared. Open the next one the way the winners opened."
+      description="Your own posts from the last 60 days: attention and actual fan acquisition kept separate. Repeat the patterns that create fans, not just the ones that look busy."
     >
       <Show when={!hooks.error} fallback={<p class="text-sm text-muted-foreground">Couldn't read how your posts did.</p>}>
         <Show when={hooks.data} fallback={<p class="text-sm text-muted-foreground">Checking…</p>}>
+          <Show when={fanCreators().length > 0}>
+            <div class="mb-4">
+              <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Posts that made fans</p>
+              <p class="mt-1 text-xs text-muted-foreground">Inspect these first when choosing the next Meta hook or format. CrowdRelay ranks actual acquired fans before attention.</p>
+              <ul class="mt-2 space-y-2">
+                <For each={fanCreators()}>{post => <HookRow post={post} />}</For>
+              </ul>
+            </div>
+          </Show>
+
           <Show
             when={held().length + lost().length > 0}
             fallback={<p class="text-sm text-muted-foreground">Not enough measured posts yet — it takes about four with reach before anything stands out.</p>}
