@@ -547,12 +547,19 @@ struct WorkflowIngressIssue {
     reason: &'static str,
 }
 
-fn verified_ingress_issues(workflow_id: &str, workflow_name: &str, body: &Value) -> Vec<WorkflowIngressIssue> {
+fn verified_ingress_issues(
+    workflow_id: &str,
+    workflow_name: &str,
+    body: &Value,
+) -> Vec<WorkflowIngressIssue> {
     body.get("nodes")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-        .filter(|node| node.get("type").and_then(Value::as_str) == Some("n8n-nodes-base.executeWorkflowTrigger"))
+        .filter(|node| {
+            node.get("type").and_then(Value::as_str)
+                == Some("n8n-nodes-base.executeWorkflowTrigger")
+        })
         .filter_map(|node| {
             let input_source = node
                 .get("parameters")
@@ -750,7 +757,8 @@ async fn sync_automation_routing(
             "failed": inspection_failed,
             "issues": ingress_issues,
         }
-    })).into_response())
+    }))
+    .into_response())
 }
 
 async fn automation_routing(
