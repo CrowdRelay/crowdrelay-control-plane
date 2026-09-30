@@ -1,7 +1,8 @@
 import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Users } from 'lucide-solid'
-import { api } from '../lib/api'
+import { capability } from '../lib/capabilities'
+import { surface } from '../lib/surface'
 import type { VideoScorecard } from '../lib/types'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
@@ -25,7 +26,7 @@ const pct = (basisPoints: number | null) =>
 export function VideoFanConversionPanel(props: { slug: string }) {
   const scorecards = useQuery(() => ({
     queryKey: ['video-fan-scorecards', props.slug],
-    queryFn: () => api.videoScorecards(props.slug, 10),
+    queryFn: () => surface.read<VideoScorecard[]>(props.slug, capability('video-scorecards').read!.path, { limit: '10' }),
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   }))

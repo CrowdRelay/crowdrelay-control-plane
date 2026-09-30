@@ -352,6 +352,7 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       { name: 'excluded_platforms', label: 'Excluded platforms', kind: 'json', hint: 'A JSON list of platform names. Videos exclude Facebook and Instagram when omitted.' },
     ] }],
   },
+  { id: 'video-scorecards', pillar: 'grow', home: { path: '/content/material', section: 'Videos that make fans' }, title: 'Videos that make fans', purpose: 'Which recent videos turn tracked attention into owned fans, ranked by people who joined the owned fanbase after clicking through.', read: { path: 'content/videos/scorecards', query: [{ name: 'limit', label: 'Limit', kind: 'number' }] } },
   {
     id: 'manual-posts', pillar: 'grow', home: { path: '/content', section: 'Went out' }, title: 'Telegram and Discord, posted by hand',
     purpose: 'Every outbound channel drafts and waits for a person. After posting a draft yourself, register the message so the row closes and measurement starts.',
