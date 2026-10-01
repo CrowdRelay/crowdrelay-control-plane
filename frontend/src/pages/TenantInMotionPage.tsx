@@ -1,13 +1,13 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { AlertTriangle, CircleCheck, RefreshCw, Share2 } from 'lucide-solid'
+import { AlertTriangle, CircleCheck, Share2 } from 'lucide-solid'
 import { api } from '../lib/api'
 import { cn } from '../lib/cn'
 import { timestampMillis } from '../lib/format'
 import { DECISION_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { PageShell, SkeletonBlock } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Note, Row, Split, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { Act, Card, DashHeader, ItemRow, MoreRow, Note, Row, Split, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
 import type { RelayProcessRun } from '../lib/types'
 import { RelayRunCard } from '../components/RelayRunCard'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -75,15 +75,6 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
   })
 
-  const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
-    const a = autopilot()
-    if (!a) return null
-    if (!a.runtime_enabled) return { tone: 'muted', text: 'The brain is off — nothing runs on its own' }
-    if (stuck() > 0) return { tone: 'warn', text: `${stuck()} stuck · no tool can do ${stuck() === 1 ? 'it' : 'them'}` }
-    if (a.failed_24h > 0) return { tone: 'bad', text: `${a.failed_24h} failed in the last day` }
-    if (a.processing_actions + a.queued_actions > 0) return { tone: 'good', text: `Working · ${a.processing_actions + a.queued_actions} in hand` }
-    return { tone: 'good', text: 'Quiet · nothing waiting to run' }
-  }
 
   const areas = useSubPage(() => props.section, '/tenants/$slug/in-motion')
 
@@ -92,12 +83,6 @@ export function TenantInMotionPage(props: { section: InMotionSection }) {
       <DashHeader
         title={SECTION_TITLE[props.section]}
         subtitle="What the machine is doing on its own"
-        pill={status()}
-        actions={
-          <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh">
-            <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
-          </IconAct>
-        }
       />
 
       <Show when={model.error}>

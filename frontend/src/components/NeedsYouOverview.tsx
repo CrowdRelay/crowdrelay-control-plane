@@ -199,19 +199,3 @@ export function NeedsYouOverview(props: {
   )
 }
 
-/** The header pill: the soonest expiry, or that nothing waits. */
-export function needsYouStatus(model: TenantTodayReadModel | undefined): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null {
-  if (!model) return null
-  const batches = model.derived?.approval_batches
-  if (batches == null) return { tone: 'muted', text: "Couldn't load the queue" }
-  const count = batches.reduce((sum, b) => sum + b.count, 0)
-  if (count === 0) return { tone: 'good', text: 'Nothing waits for your yes' }
-  // Every ask in the queue has expired by the last batch's first expiry.
-  const latest = batches.map(b => b.earliest_expires_at).filter((v): v is string => Boolean(v)).sort().at(-1)
-  return {
-    tone: 'warn',
-    text: latest
-      ? `${count} expire before ${new Intl.DateTimeFormat('en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(latest))}`
-      : `${count} waiting for your yes`,
-  }
-}

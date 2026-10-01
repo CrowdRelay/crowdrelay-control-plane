@@ -1,14 +1,14 @@
 import { ComparableActsPanel } from '../components/ComparableActsPanel'
 import { For, Show, createEffect, createMemo, createSignal, lazy, onCleanup, onMount } from 'solid-js'
 import { Link } from '@tanstack/solid-router'
-import { useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { PanelTitle } from '../components/layout'
 import { PageShell } from '../components/layout'
-import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
-import { PlacesFirstScreen, placesStatus } from '../components/PlacesFirstScreen'
+import { DashHeader, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { PlacesFirstScreen } from '../components/PlacesFirstScreen'
 import { SectionIcon } from '../components/SectionIcon'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonSection } from '../components/Skeleton'
@@ -19,10 +19,9 @@ import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPanel } from '../components/GigPlanPanel'
-import { MapPin, RefreshCw } from 'lucide-solid'
-import { humanizeToken, httpUrl, relativeTime } from '../lib/format'
+import { MapPin } from 'lucide-solid'
+import { humanizeToken, httpUrl } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
-import { cn } from '../lib/cn'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { count, draw, lastPlayed, organiseBand } from '../lib/organise'
 // The AREA workspace stays its own chunk — the Cities tab never pays for
@@ -131,7 +130,6 @@ export const PlacesAreaPage = () => <TenantPlacesPage section="area" />
 
 export function TenantPlacesPage(props: { section: PlacesSection }) {
   const params = useParams({ strict: false }) as () => { slug: string }
-  const queryClient = useQueryClient()
 
 
   // AREA routes sit behind require_platform_level upstream, so a band
@@ -147,16 +145,8 @@ export function TenantPlacesPage(props: { section: PlacesSection }) {
   createEffect(() => {
     if (props.section === 'area' && authState.profile() && !areaVisible()) areas.open('overview')
   })
-  const activeTab = () => areas.active()
   const switchTab = (id: string) => areas.open(id)
   const isVisited = (id: string) => areas.active() === id
-  const areaOverview = useQuery(() => ({
-    queryKey: ['area-overview', params().slug],
-    queryFn: () => api.areaOverview(params().slug),
-    enabled: areaVisible() && isVisited('area'),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  }))
 
   // Each tab owns its thin read model, enabled once visited — the Cities
   // tab never pays for the venue registry, the Online tab never pays for
@@ -190,32 +180,7 @@ export function TenantPlacesPage(props: { section: PlacesSection }) {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
 
-  // The header's clock and Refresh follow the active tab: the AREA tab's
-  // standing reads are its overview and drops lists.
-  const activeQuery = () =>
-    activeTab() === 'rooms' ? rooms
-      : activeTab() === 'online' ? online
-        : activeTab() === 'area' ? areaOverview
-          : cities
-  const refresh = () => {
-    if (activeTab() === 'area') {
-      void queryClient.invalidateQueries({ queryKey: ['area-overview', params().slug] })
-      void queryClient.invalidateQueries({ queryKey: ['area-drops', params().slug] })
-      void queryClient.invalidateQueries({ queryKey: ['area-cities', params().slug] })
-      return
-    }
-    void activeQuery().refetch()
-  }
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const query = activeQuery()
-    return query.dataUpdatedAt === 0 ? null : relativeTime(query.dataUpdatedAt)
-  })
 
   // The cities the plan proposes, for marking the funnel rows it already
   // wants. Keyed by slug — the proposal's `city` field is the catalogue slug
@@ -230,12 +195,6 @@ export function TenantPlacesPage(props: { section: PlacesSection }) {
     <DashHeader
       title={SECTION_TITLE[props.section]}
       subtitle="Where your fans are, and where to play next"
-      pill={placesStatus(cities.data)}
-      actions={
-        <IconAct onClick={refresh} disabled={activeQuery().isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', activeQuery().isFetching && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
 

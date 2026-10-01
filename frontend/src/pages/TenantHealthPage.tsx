@@ -1,13 +1,10 @@
 import { BoundsPanel } from '../components/BoundsPanel'
 import { fetchTenantOverview } from '../lib/tenantOverview'
 import { PlatformAgreementPanel } from '../components/PlatformAgreementPanel'
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
-import { relativeTime } from '../lib/format'
-import { cn } from '../lib/cn'
 import { ChiefOfStaffPanel } from '../components/ChiefOfStaffPanel'
 import { DeliveryJourneyPanel } from '../components/DeliveryJourneyPanel'
 import { SystemHealthPanel } from '../components/SystemHealthPanel'
@@ -19,7 +16,7 @@ import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, Note, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
+import { Act, Card, DashHeader, ItemRow, Note, Tile, Tiles, SubPagePanel } from '../components/ui/dash'
 import { ListChecks } from 'lucide-solid'
 import { operationalLabel } from '../lib/health-tone'
 import type { TenantDeliveryReadModel, TenantTodayReadModel } from '../lib/types'
@@ -99,8 +96,6 @@ export function TenantHealthPage(props: { section: HealthSection }) {
   // overview Refresh or a queue mutation does not pay the 5-call
   // upstream cost for a page never visited (same idiom as AudiencePage).
   const refresh = () => Promise.all([model.refetch(), ...(delivery.isFetched ? [delivery.refetch()] : [])])
-  const refreshAll = () => { void model.refetch(); if (overview.isFetched) void overview.refetch(); if (delivery.isFetched) void delivery.refetch() }
-  const refreshing = () => model.isFetching || overview.isFetching || delivery.isFetching
   const d = (): TenantTodayReadModel | undefined => model.data
   const summary = () => d()?.summary
   const deadJobs = () => {
@@ -108,29 +103,11 @@ export function TenantHealthPage(props: { section: HealthSection }) {
     return s ? s.outbox.dead + s.deliveries.dead + s.push.dead : 0
   }
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
-  })
 
   const alerts = () => d()?.attention?.alerts ?? []
   const delivered = () => {
     const x = summary()
     return x ? x.outbox.delivered_24h + x.deliveries.delivered_24h + x.push.delivered_24h : null
-  }
-  const pill = (): { tone: Tone; text: string } | null => {
-    const x = summary()
-    if (!x) return null
-    const crit = x.watchdog.critical_alerts
-    const warn = x.watchdog.active_alerts - crit
-    if (x.worker && !x.worker.alive) return { tone: 'bad', text: 'The worker is down' }
-    if (crit > 0) return { tone: 'bad', text: `${crit} critical · ${warn} ${warn === 1 ? 'warning' : 'warnings'}` }
-    if (warn > 0) return { tone: 'warn', text: `${warn} ${warn === 1 ? 'warning' : 'warnings'} · nothing down` }
-    return { tone: 'good', text: 'All well' }
   }
   // Where each alert is cleared — the one page or setting that fixes it.
   const fixFor = (key: string): { to: string; search?: Record<string, string> } => {
@@ -146,12 +123,6 @@ export function TenantHealthPage(props: { section: HealthSection }) {
     <DashHeader
       title={SECTION_TITLE[section()]}
       subtitle="Is anything broken, and what to do"
-      pill={pill()}
-      actions={
-        <IconAct onClick={refreshAll} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={model.error}>

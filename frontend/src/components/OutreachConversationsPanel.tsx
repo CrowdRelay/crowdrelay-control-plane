@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js'
 import { Inbox, MoreHorizontal, Plus } from 'lucide-solid'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
-import { capability, capabilityAction, type CapabilityAction } from '../lib/capabilities'
+import { capability, capabilityAction } from '../lib/capabilities'
 import { formatIsoAge } from '../lib/format'
 import { surface } from '../lib/surface'
 import { Section } from './layout'
@@ -11,11 +11,10 @@ import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
-import { ActionForm } from './capabilities/ActionForm'
+import { ActionSheet, type OpenWrite } from './capabilities/ActionSheet'
 import { Button } from './app/button'
 import { DataTable, type ColumnDef } from './app/data-table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet'
 import { READ_ONLY_REASON } from '../lib/read-only'
 import { OutreachContactDrawer } from './OutreachContactDrawer'
 import { cn } from '../lib/cn'
@@ -71,16 +70,6 @@ const localNow = () => {
 }
 
 const ROW_LIMIT = '500'
-
-/** A write opened from the table, shown in the side drawer. */
-type OpenWrite = {
-  title: string
-  description?: string
-  action: CapabilityAction
-  fixed?: Record<string, string>
-  initial?: Record<string, string | boolean>
-  hidden?: string[]
-}
 
 /** Where a contact's conversation stands, in a few words for its row. */
 const standing = (c: OutreachContact) => {
@@ -275,27 +264,12 @@ export function OutreachConversationsPanel(props: { slug: string }) {
         </Show>
       </Show>
 
-      <Sheet open={write() !== null} onOpenChange={open => { if (!open) setWrite(null) }}>
-        <SheetContent class="flex w-full flex-col gap-0 overflow-y-auto overscroll-contain p-0 sm:max-w-md">
-          <Show when={write()}>{current => <>
-            <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 pr-12 text-left">
-              <SheetTitle class="text-base">{current().title}</SheetTitle>
-              <Show when={current().description}><SheetDescription class="text-pretty">{current().description}</SheetDescription></Show>
-            </SheetHeader>
-            <div class="px-5 py-4">
-              <ActionForm
-                slug={props.slug}
-                action={current().action}
-                fixed={current().fixed}
-                initial={current().initial}
-                hidden={current().hidden}
-                onDone={() => { setWrite(null); refresh() }}
-                onCancel={() => setWrite(null)}
-              />
-            </div>
-          </>}</Show>
-        </SheetContent>
-      </Sheet>
+      <ActionSheet
+        slug={props.slug}
+        write={write()}
+        onClose={() => setWrite(null)}
+        onDone={() => { setWrite(null); refresh() }}
+      />
       <OutreachContactDrawer
         slug={props.slug}
         targetId={openTarget()}

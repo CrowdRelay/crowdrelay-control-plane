@@ -1,14 +1,13 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal } from 'solid-js'
 import { failureLine, unavailableError } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
-import { Bell, CircleCheck, History, Layers, RefreshCw, Send } from 'lucide-solid'
+import { Bell, CircleCheck, History, Layers, Send } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
 import { refreshQueries } from '../lib/refresh'
 import { humanizeToken } from '../lib/format'
-import { errorMessage, relativeTime, timestampMillis } from '../lib/format'
-import { cn } from '../lib/cn'
+import { errorMessage, timestampMillis } from '../lib/format'
 import { Spinner } from '../components/Spinner'
 import { EmptyState } from '../components/ui/empty-state'
 import { SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
@@ -22,7 +21,7 @@ import { TrackedLinksPanel } from '../components/TrackedLinksPanel'
 import { HookScorecardPanel } from '../components/HookScorecardPanel'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, Note, Pill, Split, StatRow, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { Act, Card, DashHeader, Note, Pill, Split, StatRow, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { DraftEditor, changedFields, emptiedField } from '../components/DraftEditor'
 import type { DeliveryResult, PendingAutopilotAction } from '../lib/types'
@@ -197,13 +196,6 @@ export function TenantContentPage(props: { section: ContentSection }) {
   })
   const pushFans = () => wentOutWeek().filter(r => r.kind === 'signal_push').length
   const pushGroups = () => wentOutGroups().filter(g => g.row.kind === 'signal_push' && ['posted', 'published', 'delivered'].includes(g.row.status) && timestampMillis(g.row.posted_at ?? g.row.created_at) >= weekAgo).length
-  const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
-    if (!model.data) return null
-    if (ready().length > 0) return { tone: 'warn', text: `${ready().length} ${ready().length === 1 ? 'post' : 'posts'} ready for you to publish` }
-    if (pending().length > 0) return { tone: 'warn', text: `${pending().length} ${pending().length === 1 ? 'draft waits' : 'drafts wait'} for your yes` }
-    if (failed().length > 0) return { tone: 'bad', text: `${failed().length} didn't land` }
-    return { tone: 'good', text: 'Nothing waits on you' }
-  }
   // "Material" is its own page (/content/material) and sits beside these
   // sub-pages in the sidebar; `?tab=material` redirects there.
   const areas = useSubPage(() => props.section, '/tenants/$slug/content')
@@ -222,18 +214,7 @@ export function TenantContentPage(props: { section: ContentSection }) {
   const sourceTitle = (id: unknown) =>
     typeof id === 'string' ? pipeline.data?.source_titles[id] : undefined
 
-  const refreshing = () => pipeline.isFetching || results.isFetching
-  const refresh = () => refreshQueries(['content-model', params().slug], ['tenant-delivery', params().slug])
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(pipeline.dataUpdatedAt, results.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
 
   const approveAction = async (action: PendingAutopilotAction) => {
     // A blanked field is refused upstream — name it here instead of
@@ -278,12 +259,6 @@ export function TenantContentPage(props: { section: ContentSection }) {
     <DashHeader
       title={SECTION_TITLE[props.section]}
       subtitle="What is ready to post, and what went out"
-      pill={status()}
-      actions={
-        <IconAct onClick={refresh} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={pipeline.error}>

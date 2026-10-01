@@ -4,12 +4,9 @@ import { ReachPanel } from '../components/ReachPanel'
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useNavigate, useParams } from '@tanstack/solid-router'
-import { RefreshCw } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
-import { cn } from '../lib/cn'
 import { BrainBriefPanel } from '../components/BrainBriefPanel'
 import { IntelligenceTransparencyPanel } from '../components/IntelligenceTransparencyPanel'
 import { GrowthIntelligencePanel } from '../components/GrowthIntelligencePanel'
@@ -33,9 +30,9 @@ import type { TenantBrainReadModel } from '../lib/types'
 import { JourneyRail } from '../components/Journey'
 import { brainCycleStages } from '../lib/brain-cycle'
 import { PageShell, PanelTitle } from '../components/layout'
-import { DashHeader, IconAct, SubPagePanel } from '../components/ui/dash'
+import { DashHeader, SubPagePanel } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
-import { IntelligenceOverview, brainStatus } from '../components/IntelligenceOverview'
+import { IntelligenceOverview } from '../components/IntelligenceOverview'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 
 export type IntelligenceSection = 'overview' | 'brief' | 'standing' | 'decisions' | 'learning'
@@ -111,10 +108,6 @@ export function TenantIntelligencePage(props: { section: IntelligenceSection }) 
   const [now, setNow] = createSignal(Date.now())
   const tick = setInterval(() => setNow(Date.now()), 15_000)
   onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
-  })
 
   // The brain's own loop as a live rail — the derivation is pure, the page
   // owns the drill-through: stages land on the sub-page (or the Needs-you page)
@@ -147,12 +140,6 @@ export function TenantIntelligencePage(props: { section: IntelligenceSection }) 
     <DashHeader
       title={SECTION_TITLE[section()]}
       subtitle="Is the brain getting anywhere, and what next"
-      pill={brainStatus(model.data)}
-      actions={
-        <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={model.error}>

@@ -14,7 +14,9 @@ export const Alert: Component<
 > = (props) => {
   const [local, rest] = splitProps(props, ['tone', 'title', 'children', 'role'])
   const tone = () => local.tone ?? 'warning'
-  const role = () => local.role ?? (tone() === 'destructive' || tone() === 'warning' ? 'alert' : 'status')
+  // `alert` interrupts the screen reader; it is for a failure the reader
+  // has to hear now. A warning is a standing condition — announced politely.
+  const role = () => local.role ?? (tone() === 'destructive' ? 'alert' : 'status')
   return (
     <StockAlert variant={tone() === 'destructive' ? 'destructive' : 'default'} role={role()} {...rest}>
       <Show when={local.title}>

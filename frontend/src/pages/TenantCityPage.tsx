@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
@@ -12,7 +12,6 @@ import { EmptyState } from '../components/ui/empty-state'
 import { Badge } from '../components/app/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/app/table'
 import { GigPlanPassedOverRow, GigPlanProposalCard, useGigPlanApproval } from '../components/GigPlanProposalCard'
-import type { Tone as ViewTone } from '../components/ui/dash'
 import { formatTimestamp } from '../lib/format'
 import { count, draw, lastPlayed } from '../lib/organise'
 
@@ -114,15 +113,6 @@ export function TenantCityPage() {
   const played = () => rooms().filter(room => room.shows_played > 0).length
   const byAssessment = (kind: string) => rooms().filter(room => room.assessment === kind).length
 
-  const status = createMemo((): { tone: ViewTone; text: string } => {
-    const v = verdict()
-    if (!v) return { tone: 'muted', text: 'The planner has not looked at this city — no fan here has named it yet' }
-    if (v.proposed) return { tone: 'good', text: 'The plan proposes a show here' }
-    if (v.floor != null && v.reachable != null) {
-      return { tone: 'warn', text: `Not a plan yet · ${v.reachable} asked, a show needs about ${v.floor}` }
-    }
-    return { tone: 'warn', text: 'Not a plan yet' }
-  })
 
   // Ranked by what the band can act on today: rooms it already played (it
   // knows the people), then rooms the evidence says are worth a letter, with
@@ -149,7 +139,6 @@ export function TenantCityPage() {
       <DashHeader
         title={cityName()}
         subtitle={funnelRow()?.region ?? undefined}
-        pill={model() ? status() : null}
         back={{ label: 'Places', to: '/tenants/$slug/places', params: { slug: slug() } }}
       />
 

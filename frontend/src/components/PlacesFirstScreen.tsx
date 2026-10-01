@@ -11,16 +11,6 @@ import { Globe, MapPin, Users } from 'lucide-solid'
 
 const PLATFORM_LABEL: Record<string, string> = { reddit: 'subreddits', discord: 'Discord servers', telegram: 'Telegram groups', forum: 'forums', facebook: 'Facebook groups' }
 
-/** The header pill: a proposed city, or that none is ready and why. */
-export function placesStatus(model: TenantPlacesCitiesModel | undefined): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null {
-  const plan = model?.gig_plan
-  if (!plan) return null
-  if (plan.proposals.length > 0) {
-    return { tone: 'good', text: `${plan.proposals.length} ${plan.proposals.length === 1 ? 'city is' : 'cities are'} ready for a show` }
-  }
-  return { tone: 'warn', text: 'No city is ready for a show yet' }
-}
-
 export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCitiesModel; onOpenTab: (tab: string) => void }) {
   const funnel = () => [...(props.model.city_funnel ?? [])].sort((a, b) => b.fans - a.fans)
   const plan = () => props.model.gig_plan ?? null

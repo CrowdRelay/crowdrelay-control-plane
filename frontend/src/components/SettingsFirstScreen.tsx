@@ -25,13 +25,6 @@ const AREA_LABEL: Record<string, string> = {
   beacon: 'Local amplifiers',
 }
 
-export function settingsStatus(settings: Record<string, string> | undefined): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null {
-  if (!settings) return null
-  if (!settings['act_home_city']?.trim()) return { tone: 'warn', text: 'Home city not set · letters leave it out' }
-  if (!settings['act_style']?.trim()) return { tone: 'warn', text: 'Sound not set · letters leave it out' }
-  return { tone: 'good', text: 'Letters describe you' }
-}
-
 export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary }) {
   const settings = useQuery(() => ({
     queryKey: ['tenant-settings', props.slug],

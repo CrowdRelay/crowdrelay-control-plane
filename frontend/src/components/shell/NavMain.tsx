@@ -62,8 +62,15 @@ export function NavLink(props: {
         />
         <TooltipContent hidden={state() !== 'collapsed' || isMobile()}>{props.item.label}</TooltipContent>
       </Tooltip>
+      {/* A quiet count pill — it says "there is something here" without
+          shouting a three-digit number at every glance. Capped at 99+. */}
       <Show when={(props.badge ?? 0) > 0}>
-        <SidebarMenuBadge>{props.badge}</SidebarMenuBadge>
+        <SidebarMenuBadge
+          class="rounded-full bg-sidebar-accent px-1.5 font-normal text-muted-foreground peer-hover/menu-button:text-muted-foreground"
+          aria-label={`${props.badge} waiting`}
+        >
+          {props.badge! > 99 ? '99+' : props.badge}
+        </SidebarMenuBadge>
       </Show>
       <Show when={hasPages() && inSection()}>
         <SidebarMenuSub>

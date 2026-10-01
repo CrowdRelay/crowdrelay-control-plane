@@ -48,6 +48,9 @@ export function DataTable<T>(props: {
   empty?: JSX.Element
   initialSorting?: SortingState
   pageSize?: number
+  /** Box the table in its own border. Off when the table already sits in a
+   *  card — a border inside a border is just noise. */
+  bordered?: boolean
   getRowId?: (row: T) => string
 }) {
   const [sorting, setSorting] = createSignal<SortingState>(props.initialSorting ?? [])
@@ -129,7 +132,7 @@ export function DataTable<T>(props: {
       </Show>
 
       <Show when={props.data.length > 0} fallback={props.empty}>
-        <div class="overflow-hidden rounded-md border">
+        <div class={cn('overflow-hidden', props.bordered !== false && 'rounded-md border')}>
           <Table>
             <TableHeader>
               <For each={table.getHeaderGroups()}>{group => (

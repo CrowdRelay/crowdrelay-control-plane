@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { httpUrl, relativeTime } from '../lib/format'
-import { Check, Circle, RefreshCw } from 'lucide-solid'
+import { httpUrl } from '../lib/format'
+import { Check, Circle } from 'lucide-solid'
 import { cn } from '../lib/cn'
 import type { Palette, ProvisioningJob } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
@@ -20,8 +20,8 @@ import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
 import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
 import { ErrorCard, PageShell, Section } from '../components/layout'
-import { Act, DashHeader, IconAct, Pill, SubPagePanel, type Tone } from '../components/ui/dash'
-import { SettingsFirstScreen, settingsStatus } from '../components/SettingsFirstScreen'
+import { Act, DashHeader, Pill, SubPagePanel, type Tone } from '../components/ui/dash'
+import { SettingsFirstScreen } from '../components/SettingsFirstScreen'
 import { Alert } from '../components/app/alert'
 import { Spinner } from '../components/Spinner'
 import { Button } from '../components/app/button'
@@ -124,17 +124,6 @@ export function TenantPage(props: { section: SettingsSection }) {
   const capabilities = () => model.data?.platform?.capabilities
   const provisioning = { get data() { return model.data?.provisioning } }
 
-  // The settings the letters use — shared key with the first screen and the
-  // Workspace panel, so the pill and the card read one entry. The overview
-  // seeds it (see `fetchTenantOverview`), so this waits for the overview and
-  // only fetches when the overview came back without them.
-  const settingsQuery = useQuery(() => ({
-    queryKey: ['tenant-settings', params().slug],
-    queryFn: () => api.tenantSettings(params().slug),
-    enabled: !model.isPending,
-    refetchOnWindowFocus: false,
-    staleTime: 10_000,
-  }))
 
   // Operations read model — the Deployment page is its only consumer here
   // (release ledger, instance state). Today reads it on /operations, which
@@ -233,19 +222,10 @@ export function TenantPage(props: { section: SettingsSection }) {
     onSuccess: () => setOptOutDone(true),
   }))
 
-  // The page's read models, refreshed together.
-  const PAGE_KEYS = ['tenant-overview', 'tenant-today', 'tenant-runtime', 'tenant-operators']
-  const refreshPage = () => void queryClient.invalidateQueries({ predicate: q => q.queryKey[1] === params().slug && PAGE_KEYS.includes(String(q.queryKey[0])) })
-  const refreshing = () => model.isFetching || operations.isFetching
   // "Updated 2m ago" has to keep moving while the page sits open.
   const [now, setNow] = createSignal(Date.now())
   const tick = setInterval(() => setNow(Date.now()), 15_000)
   onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(model.dataUpdatedAt, operations.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
   const statusTone = (s: string) => s === 'active' ? 'good' : s === 'suspended' ? 'bad' : 'warn'
 
   return <PageShell>
@@ -504,7 +484,6 @@ export function TenantPage(props: { section: SettingsSection }) {
         subtitle={platformView()
           ? `Who you are, and what the machine may do · ${t.slug} · ${t.defaultCountryCode}`
           : 'Who you are, and what the machine may do'}
-        pill={settingsStatus(settingsQuery.data?.settings)}
         actions={<>
           <Show when={t.status !== 'active'}><Pill tone={statusTone(t.status) as Tone}>{t.status}</Pill></Show>
           {/* The capability map — where each feature lives. Operator-only
@@ -512,9 +491,6 @@ export function TenantPage(props: { section: SettingsSection }) {
           <Show when={authState.isPlatformLevel()}>
             <Act to="/tenants/$slug/capabilities" params={{ slug: t.slug }}>Where features live</Act>
           </Show>
-          <IconAct onClick={refreshPage} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-            <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-          </IconAct>
         </>}
       />
       <Show when={status.error || branding.error || mobileApps.error || plan.error || deploy.error || cancel.error || park.error || unpark.error}>

@@ -1,16 +1,15 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, useRouterState } from '@tanstack/solid-router'
-import { CircleCheck, Inbox, RefreshCw } from 'lucide-solid'
+import { CircleCheck, Inbox } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { humanize } from '../lib/opportunity-labels'
 import { authState } from '../lib/auth'
-import { cn } from '../lib/cn'
 import { toast } from '../components/app/toast'
 import { fetchOperationsAttention, type BrainSelfAssessment, type TenantAttentionReadModel } from '../lib/attention'
 import { whileIncomplete } from '../lib/incomplete'
 import { refreshQueries } from '../lib/refresh'
-import { relativeTime, formatTimestamp as observed, humanizeToken } from '../lib/format'
+import { formatTimestamp as observed, humanizeToken } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { TechId, TechIdList } from '../components/ui/TechnicalDetails'
@@ -18,8 +17,8 @@ import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
 import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
-import { NeedsYouOverview, needsYouStatus } from '../components/NeedsYouOverview'
-import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { NeedsYouOverview } from '../components/NeedsYouOverview'
+import { DashHeader, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
@@ -247,17 +246,7 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
     await Promise.all([attention.refetch(), operations.refetch()])
     refreshQueries(['tenant-brain', params().slug], ['tenant-delivery', params().slug])
   }
-  const refreshing = () => attention.isFetching || operations.isFetching
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(attention.dataUpdatedAt, operations.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
 
   const reconcile = async () => {
     if (busy()) return
@@ -322,12 +311,6 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
     <DashHeader
       title={SECTION_TITLE[props.section]}
       subtitle="What waits for your yes"
-      pill={needsYouStatus(operations.data)}
-      actions={
-        <IconAct onClick={() => void refreshMaintenance()} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={operations.error}>

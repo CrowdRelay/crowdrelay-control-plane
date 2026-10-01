@@ -1,14 +1,12 @@
-import { Show, createMemo, createSignal, onCleanup } from 'solid-js'
-import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { Building2, RefreshCw } from 'lucide-solid'
+import { Show } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
+import { Building2 } from 'lucide-solid'
 import { api } from '../lib/api'
-import { relativeTime } from '../lib/format'
 import { authState } from '../lib/auth'
 import { whileIncomplete, hasUnavailableTenant } from '../lib/incomplete'
-import { cn } from '../lib/cn'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageShell, ErrorCard } from '../components/layout'
-import { DashHeader, IconAct, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
+import { DashHeader, Tile, Tiles, WorkAreaPanel, WorkAreas, useWorkAreas } from '../components/ui/dash'
 import { FleetList } from '../components/FleetList'
 import { useOverviewModel, NeedsYouCard, NorthStarStrip, NorthStarSkeleton, TenantsTable, AutopilotSummary, ServicesRow } from '../components/OverviewBlocks'
 
@@ -16,7 +14,6 @@ import { useOverviewModel, NeedsYouCard, NorthStarStrip, NorthStarSkeleton, Tena
 // getting more fans, and how is each tenant doing. Everything the machine
 // does on its own sits below, closed.
 export function OverviewPage() {
-  const qc = useQueryClient()
   const tenants = useQuery(() => ({ queryKey: ['tenants'], queryFn: api.tenants, refetchOnWindowFocus: false, reconcile: 'id', staleTime: 15_000 }))
   // A command centre that reports a tenant as unavailable is not an answer,
   // and it arrives as 200 so nothing retries it. Keep asking until the
@@ -36,31 +33,9 @@ export function OverviewPage() {
   const ov = useOverviewModel(tenants, commandCenter)
   const ccLoading = () => !commandCenter.data && !commandCenter.isError
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(tenants.dataUpdatedAt, commandCenter.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
-  const refreshing = () => tenants.isFetching || commandCenter.isFetching
-  const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ['tenants'] })
-    void qc.invalidateQueries({ queryKey: ['command-center'] })
-  }
 
   const areas = useWorkAreas(['overview', 'needs', 'northstar', 'autopilot', 'table'], 'tab', 'overview')
   const t = () => ov.cc()?.tenants ?? null
-  const notReporting = () => ov.silentTenants() + (t()?.unknown ?? 0) + (t()?.stale ?? 0)
-  const pill = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
-    const cc = ov.cc()
-    if (!cc) return null
-    if (cc.attention.criticalAlerts > 0) return { tone: 'bad', text: `${cc.attention.criticalAlerts} critical alert${cc.attention.criticalAlerts === 1 ? '' : 's'}` }
-    if (notReporting() > 0) return { tone: 'warn', text: `${notReporting()} ${notReporting() === 1 ? 'tenant' : 'tenants'} not reporting` }
-    return { tone: 'good', text: 'Fleet healthy' }
-  }
   const northStar = () => {
     const values = (ov.cc()?.perTenant ?? []).map(p => p.momentum.northStarLatest).filter((v): v is number => v != null)
     return values.length ? values.reduce((a, b) => a + b, 0) : null
@@ -71,12 +46,6 @@ export function OverviewPage() {
     <DashHeader
       title="Overview"
       subtitle="The fleet, and who needs attention first"
-      pill={pill()}
-      actions={
-        <IconAct onClick={refresh} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={commandCenter.isError}>

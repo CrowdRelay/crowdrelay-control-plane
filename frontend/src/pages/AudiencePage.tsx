@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
@@ -17,13 +17,10 @@ import { AcquisitionChannelsPanel } from '../components/AcquisitionChannelsPanel
 import { SkeletonSection } from '../components/Skeleton'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { PageShell } from '../components/layout'
-import { DashHeader, IconAct, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { DashHeader, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { Alert } from '../components/app/alert'
 import { Button } from '../components/app/button'
-import { RefreshCw } from 'lucide-solid'
-import { relativeTime } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
-import { cn } from '../lib/cn'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { AudienceFirstScreen } from '../components/AudienceFirstScreen'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
@@ -135,33 +132,12 @@ export function AudiencePage(props: { section: AudienceSection }) {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refreshPortfolio = () => portfolio.refetch()
-  const refreshAll = () => { void refresh(); if (portfolio.isFetched) void refreshPortfolio() }
-  const refreshing = () => model.isFetching || portfolio.isFetching
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(model.dataUpdatedAt, portfolio.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
 
   return <PageShell>
     <DashHeader
       title={props.section === 'portfolio' && authState.isPlatformLevel() ? 'Label portfolio' : SECTION_TITLE[props.section]}
       subtitle="Who follows you, and who you can reach"
-      pill={model.data?.signal?.activity
-        ? (model.data.signal.activity.new_fans_7d > 0
-          ? { tone: 'good', text: `+${model.data.signal.activity.new_fans_7d} fans this week` }
-          : { tone: 'warn', text: 'No new fans this week' })
-        : null}
-      actions={
-        <IconAct onClick={refreshAll} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
 

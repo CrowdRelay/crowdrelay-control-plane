@@ -48,7 +48,6 @@ export function TenantCapabilitiesPage() {
         <DashHeader
           title="Capabilities"
           subtitle="Where every feature lives, and which have no home"
-          pill={gaps.length > 0 ? { tone: 'warn', text: `${gaps.length} of ${all.length} have no screen yet` } : { tone: 'good', text: `All ${all.length} have a home` }}
         />
         <Tiles>
           <For each={PILLARS}>{pillar => (

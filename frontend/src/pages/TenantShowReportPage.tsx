@@ -84,13 +84,6 @@ export function TenantShowReportPage() {
           // A room nobody scanned is unmeasured, not empty: the report names
           // the gap, and the page must not print its zeros as a count.
           const roomMeasured = () => !(report().evidence_gaps ?? []).includes('room_attendance_unverified')
-          const state = (): { tone: ViewTone; text: string } => {
-            if (!data().issued) return { tone: 'muted', text: 'Preview — sends 7 days after the night' }
-            const when = data().issued_at ? shortDate(data().issued_at!) : ''
-            return data().delivery_status === 'delivered'
-              ? { tone: 'good', text: `Sent ${when}`.trim() }
-              : { tone: 'warn', text: `Issued ${when} · not delivered yet`.trim() }
-          }
           const nightStarted = () => startsAt() != null && new Date(startsAt()!).getTime() < Date.now()
           const campaignResult = (campaign: { status: string; delivered: number | null }): { text: string; tone: ViewTone } => {
             if (campaign.status === 'scheduled' && nightStarted()) return { text: 'never sent · still scheduled', tone: 'bad' }
@@ -106,7 +99,6 @@ export function TenantShowReportPage() {
               <DashHeader
                 title="After the show"
                 subtitle={[event().title, venue(), event().city, (event().acts ?? []).length > 0 ? `with ${(event().acts ?? []).map(a => a.name).join(', ')}` : null].filter(Boolean).join(' · ') || undefined}
-                pill={state()}
                 back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }}
               />
               <div class="flex w-full max-w-3xl flex-col">
