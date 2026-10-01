@@ -262,55 +262,46 @@ test.describe('Control Plane E2E @e2e', () => {
     await page.waitForURL('**/tenants/virya/settings/deployment', { timeout: 10000 })
   })
 
-  // Settings is a section: the parent link lands on the overview and stays
-  // lit on every sub-page; the hover flyout lists the sub-pages and marks
-  // the open one.
-  test('Settings sub-pages open from the hover flyout @e2e @tabs', async ({ page }) => {
+  // Settings is a section: the parent link lands on the overview, and while
+  // you are anywhere in the section its sub-pages list under it in the
+  // sidebar. The open sub-page is the lit row; the parent is lit only on
+  // the overview.
+  test('Settings sub-pages list under the section in the sidebar @e2e @tabs', async ({ page }) => {
     await page.goto('/tenants/virya/settings')
-    const settingsLink = page.getByRole('link', { name: 'Settings', exact: true }).first()
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768
+    const sidebar = isMobile
+      ? page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
+      : page.locator('[data-sidebar="sidebar"]').first()
+    const openNav = async () => {
+      if (!isMobile) return
+      // Navigation dismisses the sheet, but it lingers through the exit —
+      // settle closed first (closing it ourselves if it never dismissed),
+      // then reopen, or lookups land in a dying tree.
+      await expect(sidebar).toHaveCount(0).catch(async () => {
+        await page.keyboard.press('Escape')
+        await expect(sidebar).toHaveCount(0)
+      })
+      await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click()
+    }
     // `aria-current` is the marker that survives the SidebarMenuButton `as`
     // composition — TanStack sets `data-status` too, but the wrapper drops it.
+    await openNav()
+    const settingsLink = sidebar.getByRole('link', { name: 'Settings', exact: true })
     await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-    // Row hover only reveals the `>`; the chevron is what opens the flyout.
-    // On mobile the same children list inline inside the nav sheet instead —
-    // there is no flyout, so the open is a tap on the section's expander and
-    // the items are links, not menuitems.
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768
-    const sheet = page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
-    const chevron = page.getByRole('button', { name: 'Settings pages', exact: true })
-    const openFlyout = async () => {
-      if (isMobile) {
-        // Navigation dismisses the sheet, but it lingers through the exit —
-        // settle closed first (closing it ourselves if it never dismissed),
-        // then reopen, or lookups land in a dying tree.
-        await expect(sheet).toHaveCount(0).catch(async () => {
-          // The sheet is modal — its toggle is inert while it is open;
-          // Escape is the close an operator has left.
-          await page.keyboard.press('Escape')
-          await expect(sheet).toHaveCount(0)
-        })
-        await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click()
-        const expand = sheet.getByRole('button', { name: 'Show Settings pages', exact: true })
-        if (await expand.isVisible().catch(() => false)) await expand.click()
-        return sheet
-      }
-      // A pointer leaving an open flyout starts a ~300ms close grace — a
-      // chevron click inside it would toggle the open menu shut, so wait for
-      // the dismissal to land first.
-      await expect(chevron).toHaveAttribute('aria-expanded', 'false')
-      await settingsLink.hover()
-      await chevron.click()
-      return page
-    }
-    const item = (scope: Page | Locator, label: string) =>
-      scope.getByRole(isMobile ? 'link' : 'menuitem', { name: label, exact: true })
+    const subPages = sidebar.locator('[data-sidebar="menu-sub"]')
+    await expect(subPages).toHaveCount(1)
     for (const [label, segment] of [['Workspace', 'workspace'], ['Deployment', 'deployment'], ['Access', 'access']]) {
-      await item(await openFlyout(), label).click()
+      await subPages.getByRole('link', { name: label, exact: true }).click()
       await expect(page).toHaveURL(new RegExp(`/settings/${segment}$`))
-      await expect(settingsLink).toHaveAttribute('aria-current', 'page')
-      await expect(item(await openFlyout(), label)).toHaveAttribute('aria-current', 'page')
-      if (!isMobile) await page.mouse.move(800, 400)
+      await openNav()
+      await expect(subPages.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
+      await expect(settingsLink).not.toHaveAttribute('aria-current', 'page')
     }
+    // Leaving the section folds its list away.
+    await sidebar.getByRole('link', { name: 'Today', exact: true }).click()
+    await expect(page).toHaveURL(/\/operations$/)
+    await openNav()
+    await expect(sidebar.locator('[data-sidebar="menu-sub"]').getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0)
   })
 
   // Old `?tab=` links follow their content onto the sub-page, keeping the
