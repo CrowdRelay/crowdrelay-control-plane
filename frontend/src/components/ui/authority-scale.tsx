@@ -34,6 +34,11 @@ export function AuthorityScale<T extends string>(props: {
   value: T
   onChange: (value: T) => void
   disabled?: boolean
+  /** Rungs that exist but cannot be picked right now — a policy held by the
+   *  guardrail keeps "Alone" visible (the operator needs to see it) while
+   *  refusing the selection, because the write it would produce can only fail.
+   *  Arrow-key moves skip them the same way clicks do. */
+  disabledValues?: readonly T[]
   /** Names the group for assistive tech, e.g. "Outreach — how far it may go". */
   label: string
   /** Show the selected rung's detail underneath. Off in a table: twenty-two
@@ -45,10 +50,23 @@ export function AuthorityScale<T extends string>(props: {
   const index = () => props.rungs.findIndex(rung => rung.value === props.value)
   const current = () => props.rungs[index()]
 
+  const rungDisabled = (rung: AuthorityRung<T>) =>
+    !!props.disabled || !!props.disabledValues?.includes(rung.value)
+
   const move = (delta: number) => {
     if (props.disabled) return
-    const next = props.rungs[Math.min(props.rungs.length - 1, Math.max(0, index() + delta))]
-    if (next && next.value !== props.value) props.onChange(next.value)
+    // Walk past held rungs rather than landing on one: arrow keys and clicks
+    // must agree on what can be chosen.
+    let i = index()
+    while (true) {
+      i += delta
+      const next = props.rungs[i]
+      if (!next) return
+      if (!rungDisabled(next)) {
+        if (next.value !== props.value) props.onChange(next.value)
+        return
+      }
+    }
   }
 
   return (
@@ -68,16 +86,18 @@ export function AuthorityScale<T extends string>(props: {
           // among four. That is the question it answers.
           const reached = () => i() <= index()
           const selected = () => rung.value === props.value
+          const held = () => rungDisabled(rung)
           return (
             <button
               type="button"
               role="radio"
               aria-checked={selected()}
               aria-label={`${rung.label} — ${rung.detail}`}
+              aria-disabled={held()}
               title={rung.detail}
               tabIndex={selected() ? 0 : -1}
-              disabled={props.disabled}
-              onClick={() => !props.disabled && props.onChange(rung.value)}
+              disabled={held()}
+              onClick={() => !held() && props.onChange(rung.value)}
               class={cn(
                 // `min-w-0` let a rung shrink below its own label, so the
                 // longest word overflowed its button and ran into the next
@@ -87,7 +107,8 @@ export function AuthorityScale<T extends string>(props: {
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                 reached() ? 'bg-muted text-primary' : 'text-muted-foreground',
                 selected() && 'bg-primary font-semibold text-primary-foreground',
-                !props.disabled && !selected() && 'hover:text-foreground',
+                !held() && !selected() && 'hover:text-foreground',
+                held() && !props.disabled && 'opacity-45',
               )}
             >
               {rung.label}
