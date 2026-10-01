@@ -1,18 +1,22 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Inbox } from 'lucide-solid'
+import { Inbox, MoreHorizontal, Plus } from 'lucide-solid'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { authState } from '../lib/auth'
-import { capability, capabilityAction } from '../lib/capabilities'
+import { capability, capabilityAction, type CapabilityAction } from '../lib/capabilities'
 import { formatIsoAge } from '../lib/format'
 import { surface } from '../lib/surface'
-import { Section, TabBar } from './layout'
+import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
 import { StatusBadge } from './StatusBadge'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
 import { SectionFailureCard } from './SectionFailureCard'
-import { SurfaceAction } from './capabilities/SurfaceAction'
+import { ActionForm } from './capabilities/ActionForm'
 import { Button } from './app/button'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet'
+import { READ_ONLY_REASON } from '../lib/read-only'
 import { OutreachContactDrawer } from './OutreachContactDrawer'
 import { cn } from '../lib/cn'
 
@@ -68,13 +72,43 @@ const localNow = () => {
 
 const ROW_LIMIT = '500'
 
+/** A write opened from the table, shown in the side drawer. */
+type OpenWrite = {
+  title: string
+  description?: string
+  action: CapabilityAction
+  fixed?: Record<string, string>
+  initial?: Record<string, string | boolean>
+  hidden?: string[]
+}
+
+/** Where a contact's conversation stands, in a few words for its row. */
+const standing = (c: OutreachContact) => {
+  switch (c.state) {
+    case 'your_turn': return c.last_answered_at ? `They answered ${formatIsoAge(c.last_answered_at)}` : 'They wrote'
+    case 'waiting_on_them': return c.answers > 0 ? `${c.answers} earlier answer${c.answers === 1 ? '' : 's'}` : 'No answer yet'
+    case 'not_contacted': return 'No message on record'
+    default: return c.last_message_at ? `Last message ${formatIsoAge(c.last_message_at)}` : 'No message on record'
+  }
+}
+
+/** Written to, not answered for two weeks: worth a follow-up decision. */
+const quiet = (c: OutreachContact) => {
+  const days = daysSince(c.last_written_at)
+  return c.state === 'waiting_on_them' && days != null && days >= FOLLOW_UP_AFTER_DAYS
+}
+
+const age = (iso: string | null) => iso ? formatIsoAge(iso) : '—'
+
 export function OutreachConversationsPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
   const [stage, setStage] = createSignal<ConversationState>('your_turn')
-  const [showAll, setShowAll] = createSignal(false)
   // The row that is open in the drawer — one contact's whole thread.
   const [openTarget, setOpenTarget] = createSignal<string | null>(null)
-  const MAX_VISIBLE = 15
+  // A write in progress — Add a contact, I wrote back, Log their answer.
+  // A form expanding inside a table row would push the table about, so it
+  // opens beside it instead.
+  const [write, setWrite] = createSignal<OpenWrite | null>(null)
 
   const list = useQuery(() => ({
     queryKey: ['surface', props.slug, 'outreach-contacts', stage()],
@@ -94,6 +128,94 @@ export function OutreachConversationsPanel(props: { slug: string }) {
   const counts = () => list.data?.counts
   const rows = () => list.data?.contacts ?? []
 
+  const wroteBack = (c: OutreachContact): OpenWrite => ({
+    title: c.state === 'your_turn' ? 'I wrote back' : 'I wrote to them',
+    description: c.display_name,
+    action: capabilityAction('outreach-conversations', 'I wrote back'),
+    fixed: { target_id: c.target_id },
+    initial: { occurred_at: localNow() },
+  })
+  const logAnswer = (c: OutreachContact): OpenWrite => ({
+    title: 'Log their answer',
+    description: c.display_name,
+    action: capabilityAction('outreach-replies', 'Record a reply'),
+    fixed: { target_id: c.target_id },
+    initial: { disposition: c.answer_disposition ?? 'received', occurred_at: localNow() },
+    hidden: ['opportunity_id'],
+  })
+
+  const columns: ColumnDef<OutreachContact, any>[] = [
+    {
+      id: 'contact', header: 'Contact', accessorFn: c => c.display_name,
+      cell: cell => {
+        const c = cell.row.original
+        return <>
+          <Button
+            variant="link"
+            class="h-auto p-0 text-left font-medium text-foreground"
+            title="Open the whole thread"
+            onClick={() => setOpenTarget(c.target_id)}
+          >{c.display_name}</Button>
+          <Show when={c.reply_label}><span class="block text-muted-foreground">{c.reply_label}</span></Show>
+        </>
+      },
+    },
+    { id: 'kind', header: 'Kind', accessorFn: c => kindLabel(c.target_kind), meta: { class: 'whitespace-nowrap capitalize' } },
+    {
+      id: 'standing', header: 'Where it stands', accessorFn: c => standing(c),
+      cell: cell => {
+        const c = cell.row.original
+        return <span class={cn(quiet(c) && 'text-warning-foreground')}>
+          {standing(c)}{quiet(c) ? ' — follow up, or let it go' : ''}
+        </span>
+      },
+    },
+    {
+      id: 'answer', header: 'Answer', accessorFn: c => c.answer_disposition ?? '',
+      cell: cell => <Show when={cell.row.original.answer_disposition} fallback="—">
+        {disposition => <StatusBadge status={disposition()} tone={disposition() === 'positive' ? 'good' : disposition() === 'declined' ? 'warn' : 'muted'} />}
+      </Show>,
+    },
+    {
+      id: 'written', header: 'You last wrote', accessorFn: c => c.last_written_at ?? '', meta: { class: 'whitespace-nowrap' },
+      cell: cell => <span class={cn(quiet(cell.row.original) && 'text-warning-foreground')}>{age(cell.row.original.last_written_at)}</span>,
+    },
+    { id: 'answered', header: 'They answered', accessorFn: c => c.last_answered_at ?? '', meta: { class: 'whitespace-nowrap' }, cell: cell => age(cell.row.original.last_answered_at) },
+    { id: 'sent', header: 'Sent', accessorFn: c => c.messages_sent, meta: { numeric: true } },
+    { id: 'answers', header: 'Answers', accessorFn: c => c.answers, meta: { numeric: true } },
+    {
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'w-12 text-right' },
+      cell: cell => {
+        const c = cell.row.original
+        const open = c.state !== 'closed'
+        const readOnly = () => authState.readOnly()
+        return (
+          <DropdownMenu placement="bottom-end">
+            <DropdownMenuTrigger as={Button} variant="ghost" size="icon" class="size-8">
+              <span class="sr-only">Open menu for {c.display_name}</span>
+              <MoreHorizontal aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="min-w-44">
+              <DropdownMenuItem onSelect={() => setOpenTarget(c.target_id)}>Open the thread</DropdownMenuItem>
+              <Show when={open}>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={readOnly()} title={readOnly() ? READ_ONLY_REASON : undefined} onSelect={() => setWrite(wroteBack(c))}>
+                  {c.state === 'your_turn' ? 'I wrote back' : 'I wrote to them'}
+                </DropdownMenuItem>
+                <Show when={c.state !== 'not_contacted'}>
+                  <DropdownMenuItem disabled={readOnly()} title={readOnly() ? READ_ONLY_REASON : undefined} onSelect={() => setWrite(logAnswer(c))}>
+                    Log their answer
+                  </DropdownMenuItem>
+                </Show>
+              </Show>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
   return (
     <Section
       flush
@@ -103,57 +225,77 @@ export function OutreachConversationsPanel(props: { slug: string }) {
       description={platform()
         ? 'Every outreach target with its conversation state, read from the interaction ledger: the latest message decides the stage.'
         : 'Everyone you pitch — press, radio, venues, agents — and where each conversation stands. Your turn comes first: those are the ones that go cold.'}
-      action={
-        <SurfaceAction
-          slug={props.slug}
-          size="sm"
-          label="Add a contact"
-          action={capabilityAction('outreach-targets', 'Add or update a target')}
-          hidden={['version']}
-          onDone={refresh}
-        />
-      }
     >
-      {/* The stages are the pipeline: each tab is a count and a filter.
-          "Your turn" leads — it is the stage that goes cold. */}
-      <TabBar
-        class="mb-0"
-        active={stage()}
-        onChange={(next) => { setStage(next as ConversationState); setShowAll(false) }}
-        tabs={STAGES.map(item => ({
-          id: item.id,
-          label: platform() ? item.platform : item.band,
-          count: () => counts()?.[item.id] ?? 0,
-        }))}
-      />
-
       <Show when={list.error}>
         <SectionFailureCard error={list.error} title="Couldn't load the outreach list" onRetry={() => void list.refetch()} />
       </Show>
-      <Show when={!list.error && list.isPending}><SkeletonRows count={4} /></Show>
+      <Show when={!list.error && list.isPending && !list.data}><SkeletonRows count={4} /></Show>
 
       <Show when={list.data}>
-        <Show
-          when={rows().length > 0}
-          fallback={<EmptyState icon={<Inbox />} label={emptyLabel(stage())} hint={emptyHint(stage(), platform())} />}
-        >
-          <div class="mt-3 flex flex-col">
-            <For each={showAll() ? rows() : rows().slice(0, MAX_VISIBLE)}>{contact => (
-              <ConversationRow contact={contact} slug={props.slug} onDone={refresh} onOpen={() => setOpenTarget(contact.target_id)} />
-            )}</For>
-          </div>
-          <Show when={rows().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAll(s => !s)}>
-              {showAll() ? 'Show fewer' : `Show all ${rows().length}`}
+        <DataTable
+          data={rows()}
+          columns={columns}
+          getRowId={c => c.target_id}
+          searchText={c => [c.display_name, c.reply_label, kindLabel(c.target_kind), c.answer_disposition].filter(Boolean).join(' ')}
+          searchPlaceholder="Search by name, kind or contact"
+          pageSize={15}
+          actions={
+            <Button writes size="sm" onClick={() => setWrite({
+              title: 'Add a contact',
+              description: 'Press, radio, a venue or an agent to pitch.',
+              action: capabilityAction('outreach-targets', 'Add or update a target'),
+              hidden: ['version'],
+            })}>
+              <Plus aria-hidden="true" /> Add a contact
             </Button>
-          </Show>
-          <Show when={counts() && counts()![stage()] > rows().length}>
-            <p class="mt-2 text-xs text-muted-foreground">
-              Showing {rows().length} of {counts()![stage()].toLocaleString()}.
-            </p>
-          </Show>
+          }
+          // The stages are the pipeline: each chip is a count and a filter.
+          // "Your turn" leads — it is the stage that goes cold.
+          toolbar={
+            <div role="group" aria-label="Stage" class="flex flex-wrap items-center gap-1">
+              <For each={STAGES}>{item => (
+                <Button
+                  variant={stage() === item.id ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={stage() === item.id}
+                  onClick={() => setStage(item.id)}
+                >
+                  {platform() ? item.platform : item.band}
+                  <span class="tabular-nums text-muted-foreground">{(counts()?.[item.id] ?? 0).toLocaleString()}</span>
+                </Button>
+              )}</For>
+            </div>
+          }
+          empty={<EmptyState icon={<Inbox />} label={emptyLabel(stage())} hint={emptyHint(stage(), platform())} />}
+        />
+        <Show when={counts() && counts()![stage()] > rows().length}>
+          <p class="mt-2 text-xs text-muted-foreground">
+            Showing {rows().length} of {counts()![stage()].toLocaleString()}.
+          </p>
         </Show>
       </Show>
+
+      <Sheet open={write() !== null} onOpenChange={open => { if (!open) setWrite(null) }}>
+        <SheetContent class="flex w-full flex-col gap-0 overflow-y-auto overscroll-contain p-0 sm:max-w-md">
+          <Show when={write()}>{current => <>
+            <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 pr-12 text-left">
+              <SheetTitle class="text-base">{current().title}</SheetTitle>
+              <Show when={current().description}><SheetDescription class="text-pretty">{current().description}</SheetDescription></Show>
+            </SheetHeader>
+            <div class="px-5 py-4">
+              <ActionForm
+                slug={props.slug}
+                action={current().action}
+                fixed={current().fixed}
+                initial={current().initial}
+                hidden={current().hidden}
+                onDone={() => { setWrite(null); refresh() }}
+                onCancel={() => setWrite(null)}
+              />
+            </div>
+          </>}</Show>
+        </SheetContent>
+      </Sheet>
       <OutreachContactDrawer
         slug={props.slug}
         targetId={openTarget()}
@@ -178,83 +320,4 @@ const emptyHint = (stage: ConversationState, platform: boolean) => {
       : 'When someone you pitched writes back, they land here until you answer.'
   }
   return platform ? 'No target is in this stage.' : 'Conversations move here as they happen.'
-}
-
-function ConversationRow(props: { contact: OutreachContact; slug: string; onDone: () => void; onOpen: () => void }) {
-  const c = () => props.contact
-  const quiet = () => {
-    const days = daysSince(c().last_written_at)
-    return c().state === 'waiting_on_them' && days != null && days >= FOLLOW_UP_AFTER_DAYS
-  }
-  const detail = () => {
-    switch (c().state) {
-      case 'your_turn':
-        return [
-          c().last_answered_at ? `answered ${formatIsoAge(c().last_answered_at!)}` : null,
-          c().last_written_at ? `you last wrote ${formatIsoAge(c().last_written_at!)}` : 'no message from you on record',
-        ].filter(Boolean).join(' · ')
-      case 'waiting_on_them':
-        return [
-          c().last_written_at ? `you wrote ${formatIsoAge(c().last_written_at!)}` : null,
-          c().answers > 0 ? `${c().answers} earlier answer${c().answers === 1 ? '' : 's'}` : 'no answer yet',
-        ].filter(Boolean).join(' · ')
-      case 'not_contacted':
-        return 'no message on record'
-      default:
-        return c().last_message_at ? `last message ${formatIsoAge(c().last_message_at!)}` : 'no message on record'
-    }
-  }
-
-  return (
-    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-border py-3 last:border-0">
-      <div
-        class="min-w-0 flex-1 cursor-pointer rounded-sm outline-offset-2 hover:bg-muted/30 focus-visible:outline-2"
-        role="button"
-        tabIndex={0}
-        onClick={props.onOpen}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onOpen() } }}
-        title="Open the whole thread"
-      >
-        <strong class="block text-foreground">{c().display_name}</strong>
-        <small class="block text-sm text-muted-foreground">
-          {[kindLabel(c().target_kind), c().reply_label].filter(Boolean).join(' · ')}
-        </small>
-        <small class={cn('block text-sm', quiet() ? 'text-warning-foreground' : 'text-muted-foreground')}>
-          {detail()}{quiet() ? ' — follow up, or let it go' : ''}
-        </small>
-      </div>
-      <div class="flex flex-shrink-0 flex-col items-end gap-2">
-        <Show when={c().answer_disposition}>
-          {disposition => <StatusBadge status={disposition()} tone={disposition() === 'positive' ? 'good' : disposition() === 'declined' ? 'warn' : 'muted'} />}
-        </Show>
-        <Show when={c().state === 'your_turn' || c().state === 'waiting_on_them' || c().state === 'not_contacted'}>
-          <div class="flex flex-wrap justify-end gap-1.5">
-            <SurfaceAction
-              slug={props.slug}
-              size="xs"
-              variant={c().state === 'your_turn' ? 'outline' : 'ghost'}
-              action={capabilityAction('outreach-conversations', 'I wrote back')}
-              label={c().state === 'your_turn' ? 'I wrote back' : 'I wrote to them'}
-              fixed={{ target_id: c().target_id }}
-              initial={{ occurred_at: localNow() }}
-              onDone={props.onDone}
-            />
-            <Show when={c().state !== 'not_contacted'}>
-              <SurfaceAction
-                slug={props.slug}
-                size="xs"
-                variant="ghost"
-                action={capabilityAction('outreach-replies', 'Record a reply')}
-                label="Log their answer"
-                fixed={{ target_id: c().target_id }}
-                initial={{ disposition: c().answer_disposition ?? 'received', occurred_at: localNow() }}
-                hidden={['opportunity_id']}
-                onDone={props.onDone}
-              />
-            </Show>
-          </div>
-        </Show>
-      </div>
-    </div>
-  )
 }
