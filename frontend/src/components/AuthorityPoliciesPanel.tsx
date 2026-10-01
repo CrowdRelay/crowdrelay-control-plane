@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { failureLine } from '../lib/errors'
+import { policySaveFailureLine } from '../lib/policy-conflict'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { AutopilotOverview, AutopilotPolicy, BulkAutopilotResult } from '../lib/types'
@@ -30,7 +31,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
   const [pendingMutation, setPendingMutation] = createSignal<string | null>(null)
   const [mutationError, setMutationError] = createSignal<string | null>(null)
 
-  const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>) => {
+  const mutate = async (key: string, operation: () => Promise<unknown>, refresh: () => Promise<unknown>, describe?: (error: unknown) => Promise<string>) => {
     setMutationError(null)
     setPendingMutation(key)
     try {
@@ -40,7 +41,7 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
       // that only refetches the local query leaves Intelligence stale.
       void queryClient.invalidateQueries({ queryKey: ['tenant-brain', props.slug] })
     } catch (error) {
-      setMutationError(failureLine("Couldn't complete the change", error))
+      setMutationError(describe ? await describe(error) : failureLine("Couldn't complete the change", error))
     } finally {
       setPendingMutation(null)
     }
@@ -50,6 +51,10 @@ export function AuthorityPoliciesPanel(props: { slug: string }) {
     `policy:${policy.context}`,
     () => api.setAutopilotPolicy(props.slug, policy, input),
     () => autopilot.refetch(),
+    // A held policy refuses a direct return to Alone upstream; a plain 409
+    // reads as "refresh and try again", which is wrong there. Refetch first
+    // and say which it was.
+    (error) => policySaveFailureLine("Couldn't update the policy", props.slug, policy, input, error),
   )
 
   // The bulk mutation fans out to individual policy updates upstream.

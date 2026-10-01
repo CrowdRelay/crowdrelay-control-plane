@@ -8,6 +8,7 @@ import { RangeInput } from './ui/range-input'
 import { Input } from './ui/input'
 import { Switch } from './app/switch'
 import { readOnly, writeGuard } from '../lib/read-only'
+import { formatIsoUntil, formatTimestamp } from '../lib/format'
 
 // Shared autopilot policy editor — used by both AuthorityPoliciesPanel
 // and GrowthIntelligencePanel. The two copies had already drifted in
@@ -28,6 +29,12 @@ import { readOnly, writeGuard } from '../lib/read-only'
 // dissolves the wrapper divs on desktop so their children become grid items.
 
 const contextLabel = (context: string) => labelOr(CONTEXT_LABELS, context)
+
+/** While the guardrail holds a policy, upstream refuses a direct return to
+ *  `bounded_auto` — the write's WHERE clause requires the hold to have run
+ *  out. A lower-rung save lifts the hold, so the rungs below Alone stay
+ *  selectable and only this one is disabled. */
+const HELD_RUNGS: readonly AutonomyLevel[] = ['bounded_auto']
 
 /** The four rungs, cautious to trusting. Order is the ladder. */
 const AUTHORITY_RUNGS: readonly AuthorityRung<AutonomyLevel>[] = [
@@ -93,6 +100,9 @@ export function PolicyEditor(props: {
     || confidenceBasisPoints() !== props.policy.minimum_confidence
     || maxActions() !== props.policy.max_actions_24h
   const guarded = () => props.policy.guarded_until && new Date(props.policy.guarded_until).getTime() > Date.now()
+  /** A level picked before the hold landed can still sit on Alone — the save
+   *  would only fail upstream, so the button goes quiet too. */
+  const saveHeld = () => !!guarded() && level() === 'bounded_auto'
 
   return <div class={`${POLICY_GRID} border-b border-border px-1 py-2.5 last:border-0`}>
     {/* Context label + switch — header row on mobile, columns 1-2 on desktop */}
@@ -107,6 +117,14 @@ export function PolicyEditor(props: {
             held, which is the one thing here worth reading. */}
         <Show when={props.policy.guardrail_reason}>
           <small class="mt-0.5 block text-xs text-warning-foreground">{props.policy.guardrail_reason}</small>
+        </Show>
+        {/* A held policy refuses a direct return to Alone upstream. Saying so
+            here is what makes the greyed rung answer "why" instead of looking
+            broken — and names the path out: a lower-rung save lifts the hold. */}
+        <Show when={guarded()}>
+          <small class="mt-0.5 block text-xs text-warning-foreground">
+            Held {formatIsoUntil(props.policy.guarded_until!)} ({formatTimestamp(props.policy.guarded_until)}) — save a lower level to lift the hold, then Alone unlocks.
+          </small>
         </Show>
       </div>
       <Switch
@@ -131,6 +149,7 @@ export function PolicyEditor(props: {
         rungs={AUTHORITY_RUNGS}
         value={level()}
         disabled={props.pending || !enabled() || readOnly()}
+        disabledValues={guarded() ? HELD_RUNGS : undefined}
         label={`${contextLabel(props.policy.context)} — how far it may go`}
         onChange={setLevel}
       />
@@ -177,7 +196,7 @@ export function PolicyEditor(props: {
         <Button
           size="sm"
           writes
-          disabled={!valid() || props.pending}
+          disabled={!valid() || props.pending || saveHeld()}
           onClick={() => props.onSave({
             enabled: enabled(),
             autonomy_level: level(),

@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { failureLine } from '../lib/errors'
+import { policySaveFailureLine } from '../lib/policy-conflict'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
@@ -105,7 +106,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
       await api.setAutopilotPolicy(props.slug, policy, input)
       refreshQueries(['autopilot-overview', props.slug], ['tenant-brain', props.slug])
     } catch (err) {
-      setError(failureLine("Couldn't update the policy", err))
+      setError(await policySaveFailureLine("Couldn't update the policy", props.slug, policy, input, err))
     } finally {
       setPendingMutation(false)
     }
