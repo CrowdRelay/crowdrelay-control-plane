@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "CONTROL_PLANE_MOCK_API=1 vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit"
   },

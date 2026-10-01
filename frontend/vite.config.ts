@@ -2,16 +2,25 @@ import { defineConfig, loadEnv } from 'vite'
 import solid from 'vite-plugin-solid'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+import { apiMock } from './mock/api-mock-plugin'
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const adminToken = env.CONTROL_PLANE_ADMIN_TOKEN?.trim() ?? ''
-  if (command === 'serve' && adminToken.length < 32) {
-    throw new Error('CONTROL_PLANE_ADMIN_TOKEN must be set to a 32+ character secret for local Vite development')
+  // The `demo.admin` account answers /api with generated fake data on any dev
+  // server (mock/api-mock-plugin.ts). `npm run dev:mock` answers every request
+  // that way, signed in or not, so it needs no backend and no token.
+  // Without an admin token there is nothing safe to proxy to, so the dev server
+  // still starts — answering everything as `demo.admin` instead of refusing to.
+  const noToken = command === 'serve' && adminToken.length < 32
+  if (noToken && env.CONTROL_PLANE_MOCK_API !== '1') {
+    console.warn('[api-mock] CONTROL_PLANE_ADMIN_TOKEN is not set (32+ characters) — serving demo.admin fake data only')
   }
+  const mockApi = command === 'serve' && (env.CONTROL_PLANE_MOCK_API === '1' || noToken)
+  const apiTarget = env.CONTROL_PLANE_API_URL?.trim() || 'http://127.0.0.1:8090'
 
   return {
-    plugins: [tailwindcss(), solid()],
+    plugins: [tailwindcss(), solid(), apiMock({ root: fileURLToPath(new URL('.', import.meta.url)), always: mockApi, apiTarget, adminToken })],
     resolve: {
       alias: {
         '~': fileURLToPath(new URL('./src', import.meta.url)),
@@ -46,14 +55,14 @@ export default defineConfig(({ command, mode }) => {
         '/api': {
           // The local stack's default; point at another listener (a capture
           // mock, a staging build) with CONTROL_PLANE_API_URL.
-          target: env.CONTROL_PLANE_API_URL?.trim() ?? 'http://127.0.0.1:8090',
+          target: apiTarget,
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
               proxyReq.setHeader('Authorization', `Bearer ${adminToken}`)
             })
           },
         },
-        '/healthz': env.CONTROL_PLANE_API_URL?.trim() ?? 'http://127.0.0.1:8090',
+        '/healthz': apiTarget,
       },
     },
   }
