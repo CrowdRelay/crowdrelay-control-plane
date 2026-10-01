@@ -1,6 +1,6 @@
-import { For, Show, createSignal } from 'solid-js'
-import { CircleCheck } from 'lucide-solid'
-import { ErrorCard } from './layout'
+import { Show, createSignal, type JSX } from 'solid-js'
+import { CircleCheck, Inbox, MoreHorizontal, Zap } from 'lucide-solid'
+import { ErrorCard, Section } from './layout'
 import { failureLine } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -15,9 +15,12 @@ import type { ReplyTriageEntry, WaitingReply } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
 import { SkeletonReplyTriage } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
-import { Metric, MetricRow } from './ui/metric'
+import { Tile, Tiles } from './ui/dash'
 import { Button } from './app/button'
-import { SurfaceAction } from './capabilities/SurfaceAction'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu'
+import { ActionSheet, type OpenWrite } from './capabilities/ActionSheet'
+import { READ_ONLY_REASON } from '../lib/read-only'
 
 const timeAgo = (value: string | null | undefined) => {
   if (!value) return 'never'
@@ -57,8 +60,18 @@ const targetKindLabel = (kind: string) =>
   kind.replace(/_/g, ' ')
 
 
+/** Now, in the shape a datetime-local input takes: the answer being logged
+ *  is usually today's, and the form needs one to submit. */
+const localNow = () => {
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+const card = 'rounded-xl border border-border bg-card p-4 sm:p-5'
+
 export function ReplyTriagePanel() {
   const params = useParams({ strict: false }) as () => { slug: string }
+  const queryClient = useQueryClient()
   // The reply queue rides the tenant's /today snapshot — same query key the
   // page already holds, so this subscriber adds no request of its own.
   const model = useQuery(() => ({
@@ -76,140 +89,26 @@ export function ReplyTriagePanel() {
   const data = () => model.data?.reply_triage
   const waiting = () => data()?.waiting_on_you ?? []
   const waitingCount = () => data()?.summary.waiting_on_you_count ?? waiting().length
-  const [showAllWaiting, setShowAllWaiting] = createSignal(false)
-  // Everything here that asks a person for something: replies to read, and
-  // people who answered and have not heard back.
-  const openCount = () => (data()?.summary.needs_human_count ?? 0) + waitingCount()
+  const platform = () => authState.isPlatformLevel()
+  const readOnly = () => authState.readOnly()
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['tenant-today', params().slug] })
 
-  const [showAllNeedsHuman, setShowAllNeedsHuman] = createSignal(false)
-  const [showAllRecentAuto, setShowAllRecentAuto] = createSignal(false)
-  const MAX_VISIBLE = 10
-
-  return <div class="space-y-4">
-    <div class="flex items-start justify-between gap-4">
-      <p class="text-sm text-muted-foreground">{authState.isPlatformLevel() ? 'Inbound replies the classifier could not resolve on its own. Read the text, then decide.' : 'Inbound replies it could not sort on its own. Read the text, then decide.'}</p>
-      <Show when={data()}>
-        <StatusBadge
-          status={openCount() > 0 ? `${openCount()} waiting` : 'clear'}
-          tone={openCount() > 0 ? 'warn' : 'good'}
-        />
-      </Show>
-    </div>
-
-    <Show when={model.error}>
-      <ErrorCard class="mt-4" title="Couldn't load replies" error={model.error} onRetry={() => void model.refetch()} />
-    </Show>
-
-    <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
-
-    {/* The today snapshot loaded but the tenant's triage section did not —
-        degraded, not empty. The page retries until it fills; say so instead
-        of leaving a blank tab. */}
-    <Show when={model.data && !data()}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-4" role="status">
-        {authState.isPlatformLevel() ? 'Reply triage did not answer — retrying shortly.' : 'The replies list did not answer — retrying shortly.'}
-      </div>
-    </Show>
-
-    <Show when={data()}>{d => <>
-      {/* Summary: the same metric rail every page uses. The word "classified"
-          used to be coloured green, orange and red under three static labels,
-          which read as three states when it was one word. */}
-      <MetricRow min="9rem">
-        <Metric label="Needs a human" value={d().summary.needs_human_count} tone={d().summary.needs_human_count > 0 ? 'warn' : 'default'} sub="awaiting review" />
-        <Metric label="Auto positive" value={d().summary.auto_positive_count} sub="classified" />
-        <Metric label="Auto declined" value={d().summary.auto_declined_count} sub="classified" />
-        <Metric label="Do not contact" value={d().summary.auto_do_not_contact_count} sub="classified" />
-        <Show when={d().summary.pending_count > 0}>
-          <Metric label="Pending" value={d().summary.pending_count} tone="warn" sub="queued for classification" />
-        </Show>
-      </MetricRow>
-
-      {/* Answered you. The classifier's queue only sees replies that went
-          through it; people who answered by a route it never reads — the
-          reply form, the sheet import — were invisible here while they
-          waited. Their last word is theirs, so the next move is the act's. */}
-      <Show when={waitingCount() > 0}>
-        <section id="answered" class="pt-2">
-          <div class="flex justify-between gap-4 items-start">
-            <div>
-              <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Answered you — your turn</h3>
-              <p class="mt-1 text-sm text-muted-foreground">
-                {authState.isPlatformLevel()
-                  ? 'Contacts whose latest logged message is inbound, from the outreach interaction ledger. A declined or do-not-contact answer closes the row; an outbound message logged after the reply ("I wrote back") does too.'
-                  : 'They wrote back and nobody has answered them since. Reply from your mailbox, then press "I wrote back" — or log their answer if it was a no.'}
-              </p>
-            </div>
-          </div>
-          <div class="flex flex-col mt-3">
-            <For each={showAllWaiting() ? waiting() : waiting().slice(0, MAX_VISIBLE)}>{contact => <WaitingRow contact={contact} slug={params().slug} />}</For>
-          </div>
-          <Show when={waitingCount() > waiting().length}>
-            <p class="mt-2 text-xs text-muted-foreground">{waitingCount() - waiting().length} more not listed — the oldest are cut first.</p>
-          </Show>
-          <Show when={waiting().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllWaiting(s => !s)}>
-              {showAllWaiting() ? 'Show fewer' : `Show all ${waiting().length}`}
-            </Button>
-          </Show>
-        </section>
-      </Show>
-
-      {/* Needs human */}
-      <section class={waitingCount() > 0 ? 'pt-4 border-t border-border' : 'pt-2'}>
-        <div class="flex justify-between gap-4 items-start">
-          <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="mail" />Read these</h3></div>
-        </div>
-        <Show
-          when={d().needs_human.length > 0}
-          fallback={<EmptyState icon={<CircleCheck />} label="No replies need human review" hint={authState.isPlatformLevel() ? 'The agent handles routine replies automatically. Items that need a human touch appear here.' : 'It handles routine replies on its own. Items that need a person appear here.'} />}
-        >
-          <div class="flex flex-col mt-3">
-            <For each={showAllNeedsHuman() ? d().needs_human : d().needs_human.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} actionable />}</For>
-          </div>
-          <Show when={d().needs_human.length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllNeedsHuman(s => !s)}>
-              {showAllNeedsHuman() ? 'Show fewer' : `Show all ${d().needs_human.length}`}
-            </Button>
-          </Show>
-        </Show>
-      </section>
-
-      {/* Recent auto */}
-      <Show when={d().recent_auto.length > 0}>
-        <section class="pt-4 border-t border-border">
-          <div class="flex justify-between gap-4 items-start">
-            <div><h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><SectionIcon name="zap" />Classified without a human</h3></div>
-          </div>
-          <div class="flex flex-col mt-3">
-            <For each={showAllRecentAuto() ? d().recent_auto : d().recent_auto.slice(0, MAX_VISIBLE)}>{entry => <ReplyRow entry={entry} slug={params().slug} />}</For>
-          </div>
-          <Show when={d().recent_auto.length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" class="mt-3" onClick={() => setShowAllRecentAuto(s => !s)}>
-              {showAllRecentAuto() ? 'Show fewer' : `Show all ${d().recent_auto.length}`}
-            </Button>
-          </Show>
-        </section>
-      </Show>
-    </>}</Show>
-  </div>
-}
-
-function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: boolean }) {
+  // "I wrote back" and "Log their answer" open beside the table.
+  const [write, setWrite] = createSignal<OpenWrite | null>(null)
+  // Marking a reply positive / declined / do-not-contact happens in place.
   const [busy, setBusy] = createSignal<string | null>(null)
   const [error, setError] = createSignal<string | null>(null)
-
-  const resolve = async (disposition: string) => {
+  const resolve = async (entry: ReplyTriageEntry, disposition: string) => {
     if (busy()) return
-    setBusy(disposition)
+    setBusy(entry.id)
     setError(null)
     try {
-      await api.recordBeaconReply(props.slug, props.entry.target_id, {
-        eventId: props.entry.id,
+      await api.recordBeaconReply(params().slug, entry.target_id, {
+        eventId: entry.id,
         disposition,
         occurredAt: new Date().toISOString(),
       })
-      refreshQueries(['tenant-today', props.slug])
+      refreshQueries(['tenant-today', params().slug])
     } catch (err) {
       setError(failureLine("Couldn't save the reply status", err))
     } finally {
@@ -217,105 +116,219 @@ function ReplyRow(props: { entry: ReplyTriageEntry; slug: string; actionable?: b
     }
   }
 
-  return <div class="flex items-start justify-between gap-3 py-3 border-b border-border last:border-0">
-    <div class="min-w-0 flex-1">
-      <strong class="block text-foreground">{targetKindLabel(props.entry.target_kind)}</strong>
-      <small class="block text-muted-foreground text-sm">{props.entry.reply_text}</small>
-      <Show when={reasonLabel(props.entry.human_review_reason)}>
-        {r => <small class="block text-muted-foreground text-sm">reason: {r()}</small>}
-      </Show>
-      <Show when={props.entry.proposed_fee_minor != null && props.entry.proposed_currency != null}>
-        <small class="block text-sm text-foreground">
-          proposed {money(props.entry.proposed_fee_minor!, props.entry.proposed_currency!)} — confirm on the Negotiations tab
-        </small>
-      </Show>
-      <Show when={props.entry.matched_rules.length > 0}>
-        <small class="block text-muted-foreground text-sm">rules: {props.entry.matched_rules.join(', ')}</small>
-      </Show>
-      <small class="block text-muted-foreground text-sm">{timeAgo(props.entry.classified_at)} · {confidencePercent(props.entry.confidence_basis_points)}</small>
-      <Show when={error()}><small class="block text-destructive text-sm">{error()}</small></Show>
-    </div>
-    <div class="flex flex-col items-end gap-2 flex-shrink-0">
-      <StatusBadge
-        status={dispositionLabel(props.entry.classified_disposition)}
-        tone={dispositionTone(props.entry.classified_disposition)}
-      />
-      <Show when={props.actionable}>
-        <div class="flex gap-1.5 flex-wrap justify-end">
-          <Button writes
-            variant="ghost"
-            size="sm"
-            class="text-success-foreground"
-            disabled={busy() !== null}
-            onClick={() => resolve('positive')}
-            title="Mark as positive — the contact is interested"
-          >{busy() === 'positive' ? '…' : 'Positive'}</Button>
-          <Button writes
-            variant="ghost"
-            size="sm"
-            class="text-warning-foreground"
-            disabled={busy() !== null}
-            onClick={() => resolve('declined')}
-            title="Mark as declined — the contact said no"
-          >{busy() === 'declined' ? '…' : 'Declined'}</Button>
-          <Button writes
-            variant="ghost"
-            size="sm"
-            class="text-destructive"
-            disabled={busy() !== null}
-            onClick={() => resolve('do_not_contact')}
-            title="Do not contact — stop all outreach to this contact"
-          >{busy() === 'do_not_contact' ? '…' : 'DNC'}</Button>
+  // `items` is a function so the menu items are created inside the menu —
+  // Kobalte's item reads the menu context when it is built.
+  const rowMenu = (label: string, items: () => JSX.Element) => (
+    <DropdownMenu placement="bottom-end">
+      <DropdownMenuTrigger as={Button} variant="ghost" size="icon" class="size-8">
+        <span class="sr-only">Open menu for {label}</span>
+        <MoreHorizontal aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent class="min-w-44">{items()}</DropdownMenuContent>
+    </DropdownMenu>
+  )
+  const writeItem = (label: string, onSelect: () => void, class_?: string) => (
+    <DropdownMenuItem class={class_} disabled={readOnly()} title={readOnly() ? READ_ONLY_REASON : undefined} onSelect={onSelect}>{label}</DropdownMenuItem>
+  )
+
+  const waitingColumns: ColumnDef<WaitingReply, any>[] = [
+    {
+      id: 'contact', header: 'Contact', accessorFn: c => c.display_name,
+      cell: cell => <>
+        <span class="font-medium text-foreground">{cell.row.original.display_name}</span>
+        <Show when={cell.row.original.reply_label}><span class="block text-muted-foreground">{cell.row.original.reply_label}</span></Show>
+      </>,
+    },
+    { id: 'kind', header: 'Kind', accessorFn: c => targetKindLabel(c.target_kind), meta: { class: 'whitespace-nowrap first-letter:uppercase' } },
+    {
+      id: 'answer', header: 'Answer', accessorFn: c => c.disposition, meta: { class: 'whitespace-nowrap' },
+      cell: cell => <StatusBadge status={cell.row.original.disposition} tone={dispositionTone(cell.row.original.disposition)} />,
+    },
+    { id: 'replied', header: 'They answered', accessorFn: c => c.replied_at, meta: { class: 'whitespace-nowrap' }, cell: cell => timeAgo(cell.row.original.replied_at) },
+    {
+      id: 'written', header: 'You last wrote', accessorFn: c => c.last_written_at ?? '', meta: { class: 'whitespace-nowrap' },
+      cell: cell => cell.row.original.last_written_at ? timeAgo(cell.row.original.last_written_at) : <span class="text-muted-foreground">Never</span>,
+    },
+    {
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'w-12 text-right' },
+      cell: cell => {
+        const c = cell.row.original
+        return rowMenu(c.display_name, () => <>
+          {writeItem('I wrote back', () => setWrite({
+            title: 'I wrote back',
+            description: c.display_name,
+            action: capabilityAction('outreach-conversations', 'I wrote back'),
+            fixed: { target_id: c.target_id },
+            initial: { occurred_at: localNow() },
+          }))}
+          {writeItem('Log their answer', () => setWrite({
+            title: 'Log their answer',
+            description: c.display_name,
+            action: capabilityAction('outreach-replies', 'Record a reply'),
+            fixed: { target_id: c.target_id },
+            initial: { disposition: c.disposition, occurred_at: localNow() },
+            hidden: ['opportunity_id'],
+          }))}
+        </>)
+      },
+    },
+  ]
+
+  const replyColumns = (actionable: boolean): ColumnDef<ReplyTriageEntry, any>[] => [
+    {
+      id: 'reply', header: 'Reply', accessorFn: e => e.reply_text,
+      cell: cell => {
+        const e = cell.row.original
+        return <span class="block max-w-xl">
+          <span class="block font-medium text-foreground first-letter:uppercase">{targetKindLabel(e.target_kind)}</span>
+          <span class="block text-muted-foreground text-pretty">{e.reply_text}</span>
+          <Show when={e.proposed_fee_minor != null && e.proposed_currency != null}>
+            <span class="block text-foreground">Proposes {money(e.proposed_fee_minor!, e.proposed_currency!)} — confirm it under Negotiations</span>
+          </Show>
+        </span>
+      },
+    },
+    {
+      id: 'reason', header: 'Why it needs you', accessorFn: e => reasonLabel(e.human_review_reason) ?? '',
+      meta: { label: 'Why it needs you' },
+      cell: cell => {
+        const e = cell.row.original
+        return <>
+          {reasonLabel(e.human_review_reason) ?? '—'}
+          <Show when={e.matched_rules.length > 0}><span class="block text-xs text-muted-foreground">Rules: {e.matched_rules.join(', ')}</span></Show>
+        </>
+      },
+    },
+    { id: 'confidence', header: 'Confidence', accessorFn: e => e.confidence_basis_points, meta: { numeric: true, class: 'whitespace-nowrap' }, cell: cell => confidencePercent(cell.row.original.confidence_basis_points) },
+    { id: 'classified', header: 'When', accessorFn: e => e.classified_at, meta: { class: 'whitespace-nowrap' }, cell: cell => timeAgo(cell.row.original.classified_at) },
+    {
+      id: 'status', header: 'Status', accessorFn: e => dispositionLabel(e.classified_disposition), meta: { class: 'whitespace-nowrap' },
+      cell: cell => <StatusBadge status={dispositionLabel(cell.row.original.classified_disposition)} tone={dispositionTone(cell.row.original.classified_disposition)} />,
+    },
+    ...(actionable ? [{
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'w-12 text-right' },
+      cell: (cell: { row: { original: ReplyTriageEntry } }) => {
+        const e = cell.row.original
+        return <Show when={busy() !== e.id} fallback={<span class="text-xs text-muted-foreground">Saving…</span>}>
+          {rowMenu(targetKindLabel(e.target_kind), () => <>
+            {writeItem('Mark positive', () => void resolve(e, 'positive'))}
+            {writeItem('Mark declined', () => void resolve(e, 'declined'))}
+            <DropdownMenuSeparator />
+            {writeItem('Do not contact', () => void resolve(e, 'do_not_contact'), 'text-destructive')}
+          </>)}
+        </Show>
+      },
+    } satisfies ColumnDef<ReplyTriageEntry, any>] : []),
+  ]
+  const needsHumanColumns = replyColumns(true)
+  const autoColumns = replyColumns(false).filter(c => c.id !== 'reason')
+
+  const replySearch = (e: ReplyTriageEntry) => [targetKindLabel(e.target_kind), e.reply_text, reasonLabel(e.human_review_reason), e.classified_disposition].filter(Boolean).join(' ')
+
+  return <div class="space-y-6">
+    <p class="text-sm text-muted-foreground text-pretty">{platform() ? 'Inbound replies the classifier could not resolve on its own. Read the text, then decide.' : 'Inbound replies it could not sort on its own. Read the text, then decide.'}</p>
+
+    <Show when={model.error}>
+      <ErrorCard title="Couldn't load replies" error={model.error} onRetry={() => void model.refetch()} />
+    </Show>
+    <Show when={error()}><ErrorCard>{error()}</ErrorCard></Show>
+
+    <Show when={!model.error && model.isPending}><SkeletonReplyTriage /></Show>
+
+    {/* The today snapshot loaded but the tenant's triage section did not —
+        degraded, not empty. The page retries until it fills; say so instead
+        of leaving a blank tab. */}
+    <Show when={model.data && !data()}>
+      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
+        {platform() ? 'Reply triage did not answer — retrying shortly.' : 'The replies list did not answer — retrying shortly.'}
+      </div>
+    </Show>
+
+    <Show when={data()}>{d => <>
+      {/* The same tile strip as the Today overview. "Classified" used to be
+          coloured green, orange and red under three static labels, which read
+          as three states when it was one word. */}
+      <Tiles cols={d().summary.pending_count > 0 ? 5 : 4}>
+        <Tile label="Needs a human" value={d().summary.needs_human_count} valueTone={d().summary.needs_human_count > 0 ? 'warn' : undefined} sub="Waiting for your review" />
+        <Tile label="Auto positive" value={d().summary.auto_positive_count} sub="Sorted on its own" />
+        <Tile label="Auto declined" value={d().summary.auto_declined_count} sub="Sorted on its own" />
+        <Tile label="Do not contact" value={d().summary.auto_do_not_contact_count} sub="Sorted on its own" />
+        <Show when={d().summary.pending_count > 0}>
+          <Tile label="Pending" value={d().summary.pending_count} valueTone="warn" sub="Queued for sorting" />
+        </Show>
+      </Tiles>
+
+      {/* Answered you. The classifier's queue only sees replies that went
+          through it; people who answered by a route it never reads — the
+          reply form, the sheet import — were invisible here while they
+          waited. Their last word is theirs, so the next move is the act's. */}
+      <Show when={waitingCount() > 0}>
+        <div class={card} id="answered">
+          <Section
+            flush
+            title="Answered you — your turn"
+            icon={<SectionIcon name="mail" />}
+            count={waitingCount()}
+            description={platform()
+              ? 'Contacts whose latest logged message is inbound, from the outreach interaction ledger. A declined or do-not-contact answer closes the row; an outbound message logged after the reply ("I wrote back") does too.'
+              : 'They wrote back and nobody has answered them since. Reply from your mailbox, then mark "I wrote back" — or log their answer if it was a no.'}
+          >
+            <DataTable
+              data={waiting()}
+              columns={waitingColumns}
+              getRowId={c => c.target_id}
+              bordered={false}
+              searchText={c => [c.display_name, c.reply_label, targetKindLabel(c.target_kind), c.disposition].filter(Boolean).join(' ')}
+              searchPlaceholder="Search by name or answer"
+              initialSorting={[{ id: 'replied', desc: false }]}
+              empty={<EmptyState icon={<CircleCheck />} label="Nobody is waiting on you" hint="When someone you pitched writes back, they land here until you answer." />}
+            />
+            <Show when={waitingCount() > waiting().length}>
+              <p class="mt-2 text-xs text-muted-foreground">{waitingCount() - waiting().length} more not listed — the oldest are cut first.</p>
+            </Show>
+          </Section>
         </div>
       </Show>
-    </div>
-  </div>
-}
 
-/** Now, in the shape a datetime-local input takes: the answer being logged
- *  is usually today's, and the form needs one to submit. */
-const localNow = () => {
-  const now = new Date()
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
-}
+      <div class={card}>
+        <Section flush title="Read these" icon={<Inbox class="size-4" />} count={d().needs_human.length} description="Replies it couldn't sort on its own. Read each one, then mark it positive, declined or do not contact.">
+          <DataTable
+            data={d().needs_human}
+            columns={needsHumanColumns}
+            getRowId={e => e.id}
+            bordered={false}
+            searchText={replySearch}
+            searchPlaceholder="Search replies"
+            initialSorting={[{ id: 'classified', desc: true }]}
+            empty={<EmptyState icon={<CircleCheck />} label="No replies need human review" hint={platform() ? 'The agent handles routine replies automatically. Items that need a human touch appear here.' : 'It handles routine replies on its own. Items that need a person appear here.'} />}
+          />
+        </Section>
+      </div>
 
-function WaitingRow(props: { contact: WaitingReply; slug: string }) {
-  const queryClient = useQueryClient()
-  const c = () => props.contact
-  return <div class="flex flex-wrap items-start justify-between gap-3 py-3 border-b border-border last:border-0">
-    <div class="min-w-0 flex-1">
-      <strong class="block text-foreground">{c().display_name}</strong>
-      <small class="block text-muted-foreground text-sm">
-        {[targetKindLabel(c().target_kind), c().reply_label].filter(Boolean).join(' · ')}
-      </small>
-      <small class="block text-muted-foreground text-sm">
-        answered {timeAgo(c().replied_at)}
-        {c().last_written_at ? ` · you last wrote ${timeAgo(c().last_written_at)}` : ' · no message from you on record'}
-      </small>
-    </div>
-    <div class="flex flex-col items-end gap-2 flex-shrink-0">
-      <StatusBadge status={c().disposition} tone={dispositionTone(c().disposition)} />
-      <SurfaceAction
-        slug={props.slug}
-        size="xs"
-        variant="outline"
-        action={capabilityAction('outreach-conversations', 'I wrote back')}
-        label="I wrote back"
-        fixed={{ target_id: c().target_id }}
-        initial={{ occurred_at: localNow() }}
-        onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })}
+      <Show when={d().recent_auto.length > 0}>
+        <div class={card}>
+          <Section flush title="Classified without a human" icon={<Zap class="size-4" />} count={d().recent_auto.length} description="Recent replies it sorted on its own — check one now and then.">
+            <DataTable
+              data={d().recent_auto}
+              columns={autoColumns}
+              getRowId={e => e.id}
+              bordered={false}
+              searchText={replySearch}
+              searchPlaceholder="Search replies"
+              initialSorting={[{ id: 'classified', desc: true }]}
+            />
+          </Section>
+        </div>
+      </Show>
+
+      <ActionSheet
+        slug={params().slug}
+        write={write()}
+        onClose={() => setWrite(null)}
+        onDone={() => { setWrite(null); refresh() }}
       />
-      <SurfaceAction
-        slug={props.slug}
-        size="xs"
-        variant="ghost"
-        action={capabilityAction('outreach-replies', 'Record a reply')}
-        label="Log their answer"
-        fixed={{ target_id: c().target_id }}
-        initial={{ disposition: c().disposition, occurred_at: localNow() }}
-        hidden={['opportunity_id']}
-        onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-today', props.slug] })}
-      />
-    </div>
+    </>}</Show>
   </div>
 }
