@@ -168,6 +168,8 @@ function fakeNumber(ctx: Ctx): number {
   const n = hash(ctx.keys.join('.')) + ctx.index * 13
   const has = (...xs: string[]) => xs.some((x) => ws.includes(x))
 
+  // `coverageCount`, `rateCount` — a count is a count whatever it counts.
+  if (has('count')) return 3 + (n % 140)
   if (has('pct', 'percent', 'percentage')) return 12 + (n % 80)
   if (has('rate', 'ratio', 'share', 'confidence', 'probability', 'fraction', 'progress', 'ctr', 'conversion', 'coverage', 'lift', 'weight', 'propensity', 'likelihood')) return Math.round((0.12 + (n % 80) / 100) * 100) / 100
   if (has('score')) return Math.round((0.35 + (n % 60) / 100) * 100) / 100

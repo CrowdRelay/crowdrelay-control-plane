@@ -6,7 +6,7 @@
  * and captures the drawer's writes.
  *
  * Covers:
- *   - the roster lists contacts by stage, bounded to a screenful
+ *   - the roster lists contacts by stage, a page at a time
  *   - a row opens the drawer: contact, what happens next, the letters, the
  *     thread — one screen answers "who do we write to, and why"
  *   - "Don't contact" posts the suppression, not a reply
@@ -123,10 +123,14 @@ const stubSurface = async (page: import('@playwright/test').Page) => {
   )
 }
 
-// A row's open affordance is the contact block — one role=button per row,
-// named by the contact and its detail line.
-const row = (page: import('@playwright/test').Page, name: RegExp | string) =>
+// A row's open affordance is the contact's name — one button per row, named
+// by the contact alone (the row's ⋯ menu is "Open menu for …").
+const row = (page: import('@playwright/test').Page, name: RegExp) =>
   page.getByRole('button', { name })
+
+// The stages are filter chips above the table.
+const stage = (page: import('@playwright/test').Page, name: RegExp) =>
+  page.getByRole('group', { name: 'Stage' }).getByRole('button', { name })
 
 test.describe('outreach conversation drawer @e2e', () => {
   test.beforeEach(async ({ page }) => {
@@ -138,13 +142,16 @@ test.describe('outreach conversation drawer @e2e', () => {
     await page.goto('/tenants/virya/operations/outreach')
 
     // The stage the platform view calls "last message outbound".
-    await page.getByRole('tab', { name: /Last message outbound/ }).click()
+    await stage(page, /Last message outbound/).click()
 
-    // Bounded to a screenful; the ledger holds twenty.
-    await expect(row(page, /Contact \d+/)).toHaveCount(15)
-    await expect(page.getByRole('button', { name: 'Show all 20' })).toBeVisible()
+    // Bounded to a page; the ledger holds twenty.
+    await expect(row(page, /^Contact \d+$/)).toHaveCount(15)
+    await expect(page.getByText('20 rows · Page 1 of 2')).toBeVisible()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(row(page, /^Contact \d+$/)).toHaveCount(5)
+    await page.getByRole('button', { name: 'Previous', exact: true }).click()
 
-    await row(page, /Contact 3/).click()
+    await row(page, /^Contact 3$/).click()
 
     const drawer = page.getByRole('dialog')
     await expect(drawer).toBeVisible()
@@ -175,8 +182,8 @@ test.describe('outreach conversation drawer @e2e', () => {
     await page.route(WRITTEN_URL, route => route.fulfill({ status: 500, body: 'must not fire' }))
 
     await page.goto('/tenants/virya/operations/outreach')
-    await page.getByRole('tab', { name: /Last message outbound/ }).click()
-    await row(page, /Contact 3/).click()
+    await stage(page, /Last message outbound/).click()
+    await row(page, /^Contact 3$/).click()
 
     const drawer = page.getByRole('dialog')
     // First press opens the form, second arms the confirm, third sends.

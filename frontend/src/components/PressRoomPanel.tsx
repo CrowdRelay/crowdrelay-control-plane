@@ -1,4 +1,4 @@
-import { For, Show, createSignal, type JSX } from 'solid-js'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
 import { FormDrawer } from './app/form-drawer'
 import { failureLine } from '../lib/errors'
 import { Field } from './ui/field'
@@ -9,16 +9,19 @@ import { refreshQueries } from '../lib/refresh'
 import { formatTimestamp, httpUrl, relativeTime } from '../lib/format'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonRows } from './Skeleton'
-import { TabBar, ErrorCard } from './layout'
+import { ErrorCard } from './layout'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
+import { DataTable, type ColumnDef } from './app/data-table'
 import { NativeSelect } from './ui/native-select'
 import { Input } from './ui/input'
-import { writeGuard } from '../lib/read-only'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
-import type { PressOverviewSection } from '../lib/types'
-import { Check, CloudOff, Newspaper, Users, Plus } from 'lucide-solid'
+import type { BeaconEngagementView, BeaconPressRequestView, PressOverviewSection } from '../lib/types'
+import { CloudOff, Handshake, Image, Inbox, MoreHorizontal, Newspaper, Plus } from 'lucide-solid'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuGroupLabel, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from './ui/dropdown-menu'
+import { READ_ONLY_REASON } from '../lib/read-only'
 
 const statusTone = (status: string): 'good' | 'warn' | 'bad' | 'muted' => {
   switch (status) {
@@ -42,15 +45,51 @@ const REPLY_DISPOSITIONS = [
   { value: 'do_not_contact', label: 'Do not contact' },
 ] as const
 
+/** One line of the press room, whichever of the four sections it came from. */
+type PressRow = {
+  id: string
+  section: PressOverviewSection
+  who: string
+  whoDetail: string | null
+  what: string
+  whatDetail: string | null
+  event: string | null
+  /** `null` where the section has no status — coverage just happened. */
+  status: string | null
+  at: string
+  url: string | null
+  request?: BeaconPressRequestView
+  engagement?: BeaconEngagementView
+}
+
+// Each kind gets its own chart hue and icon so the Type column reads at a
+// glance down a mixed list. Chart tokens, not status ones: green/amber/red
+// already mean something in the Status column next to it. The label keeps
+// the foreground colour for contrast; the hue carries the tint and the icon.
+const SECTIONS: { id: PressOverviewSection; label: string; one: string; icon: typeof Inbox; tone: string }[] = [
+  { id: 'requests', label: 'Requests', one: 'Request', icon: Inbox, tone: 'border-chart-1/40 bg-chart-1/15 [&>svg]:text-chart-1' },
+  { id: 'assets', label: 'Assets', one: 'Asset', icon: Image, tone: 'border-chart-2/40 bg-chart-2/15 [&>svg]:text-chart-2' },
+  { id: 'engagements', label: 'Engagements', one: 'Engagement', icon: Handshake, tone: 'border-info-foreground/30 bg-info [&>svg]:text-info-foreground' },
+  { id: 'coverage', label: 'Coverage', one: 'Coverage', icon: Newspaper, tone: 'border-chart-3/40 bg-chart-3/15 [&>svg]:text-chart-3' },
+]
+const sectionOf = (id: PressOverviewSection) => SECTIONS.find(s => s.id === id)!
+const sectionName = (id: PressOverviewSection) => sectionOf(id).one
+
+const TypeBadge = (props: { section: PressOverviewSection }) => {
+  const section = () => sectionOf(props.section)
+  return (
+    <Badge variant="outline" class={`gap-1.5 px-2.5 py-1 font-semibold text-foreground ${section().tone}`}>
+      {(() => { const Icon = section().icon; return <Icon class="size-3.5" stroke-width={2.25} aria-hidden="true" /> })()}
+      {section().one}
+    </Badge>
+  )
+}
+
 export function PressRoomPanel(props: { slug: string }) {
-  const [tab, setTab] = createSignal<'requests' | 'assets' | 'engagements' | 'coverage'>('requests')
+  const [show, setShow] = createSignal<PressOverviewSection | 'all'>('all')
   const [error, setError] = createSignal<string | null>(null)
   const [resolving, setResolving] = createSignal<string | null>(null)
   const [replying, setReplying] = createSignal<string | null>(null)
-  const [showAllRequests, setShowAllRequests] = createSignal(false)
-  const [showAllAssets, setShowAllAssets] = createSignal(false)
-  const [showAllEngagements, setShowAllEngagements] = createSignal(false)
-  const [showAllCoverage, setShowAllCoverage] = createSignal(false)
   const [adding, setAdding] = createSignal(false)
   const [saving, setSaving] = createSignal(false)
   const [draft, setDraft] = createSignal({
@@ -60,7 +99,6 @@ export function PressRoomPanel(props: { slug: string }) {
     labelPl: '',
     url: '',
   })
-  const MAX_VISIBLE = 10
 
   // One consolidated read model replaces four separate proxy round-trips.
   // The backend fans out to the four beacon endpoints concurrently and
@@ -84,11 +122,43 @@ export function PressRoomPanel(props: { slug: string }) {
   // `degraded` — that is "not reported", never an empty list. whileIncomplete
   // keeps refetching; the copy below says what is actually happening.
   const degraded = (name: PressOverviewSection) => (model.data?.degraded ?? []).includes(name)
-  const sectionCount = (name: PressOverviewSection, rows: unknown[]) => degraded(name) ? null : rows.length
   const sectionFallback = (name: PressOverviewSection, icon: JSX.Element, label: string, hint: string) =>
     degraded(name)
       ? <EmptyState icon={<CloudOff />} label="Couldn't load this section" hint="The tenant did not report it — the console keeps asking and fills it in when it answers." />
       : <EmptyState icon={icon} label={label} hint={hint} />
+
+  // The four sections as one list, so a request, the asset it asked for and
+  // the coverage it earned read side by side instead of three tabs apart.
+  const rows = createMemo<PressRow[]>(() => [
+    ...requests().map((r): PressRow => ({
+      id: `request:${r.id}`, section: 'requests',
+      who: r.displayName, whoDetail: r.beaconKind,
+      what: r.requestKind, whatDetail: r.details,
+      event: r.eventTitle, status: r.status, at: r.createdAt, url: null, request: r,
+    })),
+    ...assets().map((a): PressRow => ({
+      id: `asset:${a.id}`, section: 'assets',
+      who: a.labelEn, whoDetail: a.labelPl && a.labelPl !== a.labelEn ? a.labelPl : null,
+      what: a.assetKind, whatDetail: a.assetKey,
+      event: a.eventTitle, status: a.active ? 'active' : 'inactive', at: a.updatedAt, url: a.url,
+    })),
+    ...engagements().map((e): PressRow => ({
+      id: `engagement:${e.beaconId}:${e.eventId}`, section: 'engagements',
+      who: e.displayName, whoDetail: e.beaconKind,
+      what: e.helpKind ?? 'Engagement',
+      whatDetail: `${e.notificationCount} notified · ${e.coverageCount} coverage`,
+      event: e.eventTitle, status: e.status, at: e.updatedAt, url: null, engagement: e,
+    })),
+    ...coverage().map((c): PressRow => ({
+      id: `coverage:${c.id}`, section: 'coverage',
+      who: c.displayName, whoDetail: null,
+      what: c.title ?? c.coverageKind, whatDetail: c.title ? c.coverageKind : null,
+      event: c.eventTitle, status: null, at: c.createdAt, url: c.url,
+    })),
+  ])
+  const visible = () => show() === 'all' ? rows() : rows().filter(r => r.section === show())
+  const countOf = (id: PressOverviewSection) => rows().filter(r => r.section === id).length
+  const missing = () => SECTIONS.filter(s => degraded(s.id))
 
   const recordReply = async (beaconId: string, eventId: string, disposition: string) => {
     setReplying(`${beaconId}:${eventId}`)
@@ -145,272 +215,200 @@ export function PressRoomPanel(props: { slug: string }) {
     }
   }
 
+  const columns: ColumnDef<PressRow, any>[] = [
+    {
+      id: 'section', header: 'Type', accessorFn: r => sectionName(r.section), meta: { class: 'whitespace-nowrap' },
+      cell: c => <TypeBadge section={c.row.original.section} />,
+    },
+    {
+      id: 'who', header: 'Who / what', accessorFn: r => r.who,
+      cell: c => <>
+        <span class="font-medium">{c.row.original.who}</span>
+        <Show when={c.row.original.whoDetail}><br /><span class="text-muted-foreground">{c.row.original.whoDetail}</span></Show>
+      </>,
+    },
+    {
+      id: 'what', header: 'Detail', accessorFn: r => r.what,
+      cell: c => <>
+        {c.row.original.what}
+        <Show when={c.row.original.whatDetail}><br /><span class="text-muted-foreground">{c.row.original.whatDetail}</span></Show>
+      </>,
+    },
+    { id: 'event', header: 'Event', accessorFn: r => r.event ?? '', cell: c => c.row.original.event ?? '—' },
+    {
+      id: 'status', header: 'Status', accessorFn: r => r.status ?? '', meta: { class: 'whitespace-nowrap' },
+      cell: c => <Show when={c.row.original.status} fallback="—">{status => <Badge variant={toneToVariant(statusTone(status()))}>{status()}</Badge>}</Show>,
+    },
+    { id: 'at', header: 'Date', accessorFn: r => r.at, meta: { class: 'whitespace-nowrap' }, cell: c => formatTimestamp(c.row.original.at) },
+    {
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'w-12 text-right' },
+      cell: c => {
+        const r = c.row.original
+        const req = r.request
+        const e = r.engagement
+        const url = r.url ? httpUrl(r.url) : null
+        const canResolve = req && (req.status === 'pending' || req.status === 'open')
+        const busy = () => (req && resolving() === req.id) || (e && replying() === `${e.beaconId}:${e.eventId}`)
+        if (!canResolve && !e && !url) return null
+        return (
+          <DropdownMenu placement="bottom-end">
+            <DropdownMenuTrigger as={Button} variant="ghost" size="icon" class="size-8" disabled={!!busy()}>
+              <span class="sr-only">Open menu for {r.who}</span>
+              <MoreHorizontal aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="min-w-44">
+              <Show when={canResolve && req}>{request => (
+                <DropdownMenuItem disabled={authState.readOnly()} title={authState.readOnly() ? READ_ONLY_REASON : undefined} onSelect={() => void resolveRequest(request().id)}>
+                  Resolve request
+                </DropdownMenuItem>
+              )}</Show>
+              {/* The write endpoint existed and nothing called it, so a beacon
+                  who declined twice looked the same as one who had never been
+                  asked. This row has both ids the reply needs, so it is where
+                  the answer gets written down. */}
+              <Show when={e}>{engagement => (
+                <DropdownMenuGroup>
+                  <DropdownMenuGroupLabel class="text-xs font-medium text-muted-foreground">Record reply</DropdownMenuGroupLabel>
+                  <For each={REPLY_DISPOSITIONS}>{option => (
+                    <DropdownMenuItem
+                      disabled={authState.readOnly()}
+                      title={authState.readOnly() ? READ_ONLY_REASON : undefined}
+                      onSelect={() => void recordReply(engagement().beaconId, engagement().eventId, option.value)}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  )}</For>
+                </DropdownMenuGroup>
+              )}</Show>
+              <Show when={url}>{link => <>
+                <Show when={canResolve || e}><DropdownMenuSeparator /></Show>
+                <DropdownMenuItem onSelect={() => window.open(link(), '_blank', 'noopener,noreferrer')}>Open link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(link())}>Copy link</DropdownMenuItem>
+              </>}</Show>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
   return <div class="space-y-4">
     <div class="flex items-start justify-between gap-4">
       <p class="text-sm text-muted-foreground">Requests from amplifiers, assets for distribution, event engagements and earned coverage.</p>
       <Show when={model.dataUpdatedAt}><span class="shrink-0 text-xs text-muted-foreground">Updated {relativeTime(model.dataUpdatedAt)}</span></Show>
     </div>
-    <TabBar
-      class="mb-0"
-      active={tab()}
-      onChange={setTab}
-      tabs={[
-        { id: 'requests', label: 'Requests', count: () => sectionCount('requests', requests()) },
-        { id: 'assets', label: 'Assets', count: () => sectionCount('assets', assets()) },
-        { id: 'engagements', label: 'Engagements', count: () => sectionCount('engagements', engagements()) },
-        { id: 'coverage', label: 'Coverage', count: () => sectionCount('coverage', coverage()) },
-      ]}
-    />
-
     <Show when={error() && !adding()}>
       <ErrorCard>{error()}</ErrorCard>
     </Show>
+    <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
 
-    <Show when={tab() === 'requests'}>
-      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
-      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={requests().length > 0} fallback={sectionFallback('requests', <Newspaper />, 'No press requests', authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.')}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>From</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <For each={showAllRequests() ? requests() : requests().slice(0, MAX_VISIBLE)}>{(r) => (
-                <TableRow>
-                  <TableCell><strong>{r.displayName}</strong><br /><span class="text-muted-foreground">{r.beaconKind}</span></TableCell>
-                  <TableCell>{r.requestKind}</TableCell>
-                  <TableCell>{r.eventTitle ?? '—'}</TableCell>
-                  <TableCell><Badge variant={toneToVariant(statusTone(r.status))}>{r.status}</Badge></TableCell>
-                  <TableCell>{formatTimestamp(r.createdAt)}</TableCell>
-                  <TableCell>
-                    <Show when={r.status === 'pending' || r.status === 'open'}>
-                      <Button writes
-                        variant="ghost"
-                        size="sm"
-                        disabled={resolving() === r.id}
-                        onClick={() => resolveRequest(r.id)}
-                      >{resolving() === r.id ? '…' : 'Resolve'}</Button>
-                    </Show>
-                  </TableCell>
-                </TableRow>
+    <FormDrawer
+      open={adding()}
+      onOpenChange={setAdding}
+      title="Add press asset"
+      description="Photos, logos, bios and EPKs for outreach. Instagram posts pick from the active photos and logos."
+      submitLabel="Add asset"
+      pendingLabel="Saving…"
+      pending={saving()}
+      error={error()}
+      onSubmit={() => void saveAsset()}
+    >
+      <Field label="Key" hint="Lowercase letters, digits, - or _, starting with a letter.">
+        <Input
+          required pattern="[a-z][a-z0-9_\-]{1,63}" title="Lowercase letters, digits, - or _, starting with a letter."
+          autocomplete="off" placeholder="band_photo_01"
+          value={draft().assetKey}
+          onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
+        />
+      </Field>
+      <Field label="Kind">
+        <NativeSelect
+          value={draft().assetKind}
+          onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
+        >
+          <option value="photo">Photo</option>
+          <option value="logo">Logo</option>
+          <option value="epk">EPK</option>
+          <option value="bio">Bio</option>
+          <option value="video">Video</option>
+        </NativeSelect>
+      </Field>
+      <Field label="Label">
+        <Input
+          required autocomplete="off"
+          value={draft().labelEn}
+          onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
+        />
+      </Field>
+      <Field label="Label in Polish" note="optional" hint="Leave empty to reuse the English label.">
+        <Input
+          autocomplete="off"
+          value={draft().labelPl}
+          onInput={(e) => setDraft(d => ({ ...d, labelPl: e.currentTarget.value }))}
+        />
+      </Field>
+      <Field label="URL" hint="Must be public — Meta fetches it.">
+        <Input
+          required type="url" pattern="https://.+" title="Use a public https:// link."
+          placeholder="https://example.com/photo.jpg"
+          value={draft().url}
+          onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
+        />
+      </Field>
+    </FormDrawer>
+
+    <Show when={model.data} fallback={<SkeletonRows count={5} />}>
+      <DataTable
+        data={visible()}
+        columns={columns}
+        getRowId={r => r.id}
+        initialSorting={[{ id: 'at', desc: true }]}
+        searchText={r => [r.who, r.whoDetail, r.what, r.whatDetail, r.event, r.status, sectionName(r.section)].filter(Boolean).join(' ')}
+        searchPlaceholder="Search by name, event or title"
+        toolbar={
+          <>
+            <div role="group" aria-label="Show" class="flex flex-wrap items-center gap-1">
+              <For each={[{ id: 'all' as const, label: 'All' }, ...SECTIONS]}>{chip => (
+                <Button
+                  variant={show() === chip.id ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={show() === chip.id}
+                  onClick={() => setShow(chip.id)}
+                >
+                  {chip.label}
+                  <span class="tabular-nums text-muted-foreground">
+                    {chip.id === 'all' ? rows().length : degraded(chip.id) ? '—' : countOf(chip.id)}
+                  </span>
+                </Button>
               )}</For>
-            </TableBody>
-          </Table>
-          <Show when={requests().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" onClick={() => setShowAllRequests(s => !s)}>
-              {showAllRequests() ? 'Show fewer' : `Show all ${requests().length}`}
-            </Button>
-          </Show>
-        </Show>
-      </Show>
-    </Show>
-
-    <Show when={tab() === 'assets'}>
-      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
-      <div class="mb-3 flex items-center justify-between gap-4">
+            </div>
+          </>
+        }
+        actions={
+          <Button writes size="sm" onClick={() => { setError(null); setAdding(true) }}>
+            <Plus aria-hidden="true" /> Add asset
+          </Button>
+        }
+        empty={
+          show() === 'requests' ? sectionFallback('requests', <Newspaper />, 'No press requests', authState.isPlatformLevel() ? 'Press requests are outreach actions to media contacts. They appear here when the intelligence dispatches press pitches.' : 'Press requests are outreach to media contacts. They appear here when it sends press pitches.')
+          : show() === 'assets' ? sectionFallback('assets', <Newspaper />, 'No press assets', 'Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there.')
+          : show() === 'engagements' ? sectionFallback('engagements', <Newspaper />, 'No event engagements', 'Event engagements track press interactions for specific shows and releases.')
+          : show() === 'coverage' ? sectionFallback('coverage', <Newspaper />, 'No earned media coverage', authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.')
+          : <EmptyState icon={<Newspaper />} label="Nothing in the press room yet" hint="Press requests, assets, event engagements and earned coverage all land here." />
+        }
+      />
+      <Show when={show() === 'assets' || (show() === 'all' && countOf('assets') === 0 && !degraded('assets'))}>
         <p class="text-sm text-muted-foreground">
           Photos and logos here are what Instagram posts use, least recently published first.
           With none active, every Instagram post is held.
         </p>
-        <Button writes variant="outline" size="sm" onClick={() => { setError(null); setAdding(true) }}>
-          <Plus aria-hidden="true" /> Add asset
-        </Button>
-      </div>
-
-      <FormDrawer
-        open={adding()}
-        onOpenChange={setAdding}
-        title="Add press asset"
-        description="Photos, logos, bios and EPKs for outreach. Instagram posts pick from the active photos and logos."
-        submitLabel="Add asset"
-        pendingLabel="Saving…"
-        pending={saving()}
-        error={error()}
-        onSubmit={() => void saveAsset()}
-      >
-        <Field label="Key" hint="Lowercase letters, digits, - or _, starting with a letter.">
-          <Input
-            required pattern="[a-z][a-z0-9_\-]{1,63}" title="Lowercase letters, digits, - or _, starting with a letter."
-            autocomplete="off" placeholder="band_photo_01"
-            value={draft().assetKey}
-            onInput={(e) => setDraft(d => ({ ...d, assetKey: e.currentTarget.value }))}
-          />
-        </Field>
-        <Field label="Kind">
-          <NativeSelect
-            value={draft().assetKind}
-            onChange={(e) => setDraft(d => ({ ...d, assetKind: e.currentTarget.value }))}
-          >
-            <option value="photo">Photo</option>
-            <option value="logo">Logo</option>
-            <option value="epk">EPK</option>
-            <option value="bio">Bio</option>
-            <option value="video">Video</option>
-          </NativeSelect>
-        </Field>
-        <Field label="Label">
-          <Input
-            required autocomplete="off"
-            value={draft().labelEn}
-            onInput={(e) => setDraft(d => ({ ...d, labelEn: e.currentTarget.value }))}
-          />
-        </Field>
-        <Field label="Label in Polish" note="optional" hint="Leave empty to reuse the English label.">
-          <Input
-            autocomplete="off"
-            value={draft().labelPl}
-            onInput={(e) => setDraft(d => ({ ...d, labelPl: e.currentTarget.value }))}
-          />
-        </Field>
-        <Field label="URL" hint="Must be public — Meta fetches it.">
-          <Input
-            required type="url" pattern="https://.+" title="Use a public https:// link."
-            placeholder="https://example.com/photo.jpg"
-            value={draft().url}
-            onInput={(e) => setDraft(d => ({ ...d, url: e.currentTarget.value }))}
-          />
-        </Field>
-      </FormDrawer>
-
-      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={assets().length > 0} fallback={sectionFallback('assets', <Newspaper />, 'No press assets', 'Photos, logos, bios and EPKs for outreach. Instagram picks its image from the active photo and logo rows, so add at least one to publish there.')}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Asset</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead>URL</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <For each={showAllAssets() ? assets() : assets().slice(0, MAX_VISIBLE)}>{(a) => (
-                <TableRow>
-                  <TableCell><strong>{a.labelEn}</strong><br /><span class="text-muted-foreground">{a.labelPl}</span></TableCell>
-                  <TableCell>{a.assetKind}</TableCell>
-                  <TableCell>{a.eventTitle ?? '—'}</TableCell>
-                  <TableCell>{a.active ? <Check class="size-4" aria-label="Active" /> : '—'}</TableCell>
-                  <TableCell>{formatTimestamp(a.updatedAt)}</TableCell>
-                  <TableCell><Show when={httpUrl(a.url)} fallback="—">{url => <a href={url()} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a>}</Show></TableCell>
-                </TableRow>
-              )}</For>
-            </TableBody>
-          </Table>
-          <Show when={assets().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" onClick={() => setShowAllAssets(s => !s)}>
-              {showAllAssets() ? 'Show fewer' : `Show all ${assets().length}`}
-            </Button>
-          </Show>
-        </Show>
       </Show>
-    </Show>
-
-    <Show when={tab() === 'engagements'}>
-      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
-      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={engagements().length > 0} fallback={sectionFallback('engagements', <Users />, 'No event engagements', 'Event engagements track press interactions for specific shows and releases.')}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Amplifier</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Help</TableHead>
-                <TableHead>Notifications</TableHead>
-                <TableHead>Coverage</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead>Reply</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <For each={showAllEngagements() ? engagements() : engagements().slice(0, MAX_VISIBLE)}>{(e) => (
-                <TableRow>
-                  <TableCell><strong>{e.displayName}</strong><br /><span class="text-muted-foreground">{e.beaconKind}</span></TableCell>
-                  <TableCell>{e.eventTitle}</TableCell>
-                  <TableCell><Badge variant={toneToVariant(statusTone(e.status))}>{e.status}</Badge></TableCell>
-                  <TableCell>{e.helpKind ?? '—'}</TableCell>
-                  <TableCell numeric>{e.notificationCount}</TableCell>
-                  <TableCell numeric>{e.coverageCount}</TableCell>
-                  <TableCell>{formatTimestamp(e.updatedAt)}</TableCell>
-                  {/* The write endpoint existed and nothing called it, so a
-                      beacon who declined twice looked the same as one who
-                      had never been asked. This row has both ids the reply
-                      needs, so it is where the answer gets written down. */}
-                  <TableCell>
-                    <label class="engagement-reply">
-                      <span class="sr-only">Reply from {e.displayName} about {e.eventTitle}</span>
-                      <NativeSelect disabled={replying() === `${e.beaconId}:${e.eventId}`}
-                        value=""
-                        onChange={(event) => {
-                          const disposition = event.currentTarget.value
-                          event.currentTarget.value = ''
-                          if (disposition) void recordReply(e.beaconId, e.eventId, disposition)
-                        }}
-                        {...writeGuard()}
-                      >
-                        <option value="">Record…</option>
-                        <For each={REPLY_DISPOSITIONS}>{option =>
-                          <option value={option.value}>{option.label}</option>
-                        }</For>
-                      </NativeSelect>
-                    </label>
-                  </TableCell>
-                </TableRow>
-              )}</For>
-            </TableBody>
-          </Table>
-          <Show when={engagements().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" onClick={() => setShowAllEngagements(s => !s)}>
-              {showAllEngagements() ? 'Show fewer' : `Show all ${engagements().length}`}
-            </Button>
-          </Show>
-        </Show>
-      </Show>
-    </Show>
-
-    <Show when={tab() === 'coverage'}>
-      <Show when={model.error}><ErrorCard title="Couldn't load the press room" error={model.error} onRetry={() => void model.refetch()} /></Show>
-      <Show when={model.data} fallback={<SkeletonRows count={3} />}>
-        <Show when={coverage().length > 0} fallback={sectionFallback('coverage', <Newspaper />, 'No earned media coverage', authState.isPlatformLevel() ? 'Earned media coverage tracks press mentions and reviews. They appear here once the intelligence detects coverage.' : 'Earned media coverage tracks press mentions and reviews. They appear here once it detects coverage.')}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Amplifier</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>URL</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <For each={showAllCoverage() ? coverage() : coverage().slice(0, MAX_VISIBLE)}>{(c) => (
-                <TableRow>
-                  <TableCell><strong>{c.displayName}</strong></TableCell>
-                  <TableCell>{c.eventTitle}</TableCell>
-                  <TableCell>{c.coverageKind}</TableCell>
-                  <TableCell>{c.title ?? '—'}</TableCell>
-                  <TableCell>{formatTimestamp(c.createdAt)}</TableCell>
-                  <TableCell><Show when={httpUrl(c.url)} fallback="—">{url => <a href={url()} target="_blank" rel="noopener noreferrer" class="text-primary underline-offset-4 hover:underline">Open</a>}</Show></TableCell>
-                </TableRow>
-              )}</For>
-            </TableBody>
-          </Table>
-          <Show when={coverage().length > MAX_VISIBLE}>
-            <Button variant="ghost" size="sm" onClick={() => setShowAllCoverage(s => !s)}>
-              {showAllCoverage() ? 'Show fewer' : `Show all ${coverage().length}`}
-            </Button>
-          </Show>
-        </Show>
+      <Show when={show() === 'all' && missing().length > 0}>
+        <p class="flex items-center gap-2 text-sm text-muted-foreground">
+          <CloudOff class="size-4 shrink-0" aria-hidden="true" />
+          {missing().map(m => m.label).join(', ')} didn't report — the console keeps asking and fills them in when the tenant answers.
+        </p>
       </Show>
     </Show>
   </div>
