@@ -14,26 +14,23 @@ import { test, expect, type Page } from '@playwright/test'
 import { login } from './fixtures/auth'
 
 test.describe('Tab switch DOM stability @e2e @tabs', () => {
-  // Areas are sub-pages now, reached from the sidebar's flyout — the `>`
-  // affordance is what opens it (row hover only reveals it), so the helper
-  // hovers the row, then clicks the chevron the way an operator would.
-  // On mobile the same children list inline inside the sheet instead.
-  const openSubPage = async (page: Page, section: string, label: string) => {
+  // Areas are sub-pages, listed under their section in the sidebar while
+  // you are in it — a plain link, no flyout. On mobile the same list sits
+  // inside the nav sheet, so open the sheet first.
+  const openSubPage = async (page: Page, _section: string, label: string) => {
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768
+    const scope = isMobile ? page.locator('[data-sidebar="sidebar"][data-mobile="true"]') : page.locator('[data-sidebar="sidebar"]').first()
+    // The mobile nav is a Sheet — scope to it, or the bottom bar's "Today"
+    // link makes the lookup a false positive. Navigation dismisses it but it
+    // lingers through the exit, so settle closed first, then reopen.
     if (isMobile) {
-      // The mobile nav is a Sheet — scope to it, or the bottom bar's "Today"
-      // link makes the visibility check a false positive.
-      const sheet = page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
-      if (!(await sheet.isVisible().catch(() => false)))
-        await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click()
-      const expand = sheet.getByRole('button', { name: `Show ${section} pages`, exact: true })
-      if (await expand.isVisible().catch(() => false)) await expand.click()
-      await sheet.getByRole('link', { name: label, exact: true }).click()
-      return
+      await expect(scope).toHaveCount(0).catch(async () => {
+        await page.keyboard.press('Escape')
+        await expect(scope).toHaveCount(0)
+      })
+      await page.getByRole('button', { name: 'Toggle Sidebar', exact: true }).click()
     }
-    await page.getByRole('link', { name: section, exact: true }).first().hover()
-    await page.getByRole('button', { name: `${section} pages`, exact: true }).click()
-    await page.getByRole('menuitem', { name: label, exact: true }).click()
+    await scope.locator('[data-sidebar="menu-sub"]').getByRole('link', { name: label, exact: true }).click()
   }
 
   test('intelligence sub-pages: one body at a time, heading follows @e2e', async ({ page }) => {
