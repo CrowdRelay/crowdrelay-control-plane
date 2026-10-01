@@ -1,10 +1,9 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { Activity, RefreshCw, SearchX, Workflow } from 'lucide-solid'
+import { Activity, SearchX, Workflow } from 'lucide-solid'
 import { Spinner } from '../components/Spinner'
 import { api } from '../lib/api'
-import { relativeTime } from '../lib/format'
 import { toast } from '../components/app/toast'
 import type { AutomationEvent, AutomationWorkflowConfig } from '../lib/types'
 import { EmptyState } from '../components/ui/empty-state'
@@ -14,7 +13,7 @@ import { SectionIcon } from '../components/SectionIcon'
 import { StatusBadge } from '../components/StatusBadge'
 import { PageShell, ErrorCard, Section } from '../components/layout'
 import { formatIsoAge } from '../lib/format'
-import { Act, Card, DashHeader, IconAct, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, SubPagePanel } from '../components/ui/dash'
+import { Act, Card, DashHeader, ItemRow, MoreRow, Split, StatRow, Tile, Tiles, SubPagePanel } from '../components/ui/dash'
 import { Button } from '../components/app/button'
 import { Badge } from '../components/app/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/app/table'
@@ -110,17 +109,7 @@ export function AutomationPage(props: { section: AutomationSection }) {
     queryClient.invalidateQueries({ queryKey: ['automation-events', scopeSlug] })
     queryClient.invalidateQueries({ queryKey: ['automation-workflow-configs', scopeSlug] })
   }
-  const refreshing = () => events.isFetching || configs.isFetching
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    const ts = Math.max(events.dataUpdatedAt, configs.dataUpdatedAt)
-    return ts === 0 ? null : relativeTime(ts)
-  })
 
   const [busyId, setBusyId] = createSignal<string | null>(null)
 
@@ -193,16 +182,6 @@ export function AutomationPage(props: { section: AutomationSection }) {
     <DashHeader
       title={SECTION_TITLE[section()]}
       subtitle="The workflows that carry the machine's work out"
-      pill={eventsReady()
-        ? (errorCount() > 0 ? { tone: 'bad', text: `${errorCount()} errors in the last 100 events` }
-          : newCount() > 0 ? { tone: 'warn', text: `${newCount()} events need an ack` }
-          : { tone: 'good', text: 'No events waiting' })
-        : null}
-      actions={
-        <IconAct onClick={() => invalidate(slug())} disabled={refreshing()} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', refreshing() && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <SubPagePanel when={section() === 'overview'}>

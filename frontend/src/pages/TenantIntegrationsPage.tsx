@@ -1,16 +1,15 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createMemo } from 'solid-js'
 import { unavailableError } from '../lib/errors'
-import { useIsFetching, useQuery, useQueryClient } from '@tanstack/solid-query'
+import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
-import { AlertTriangle, Plug, RefreshCw } from 'lucide-solid'
+import { AlertTriangle, Plug } from 'lucide-solid'
 import { api } from '../lib/api'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
-import { formatIsoAge, relativeTime } from '../lib/format'
-import { cn } from '../lib/cn'
+import { formatIsoAge } from '../lib/format'
 import type { AgentProviderHealth } from '../lib/types'
 import { AgentPanel } from '../components/AgentPanel'
 import { PageShell } from '../components/layout'
-import { Card, DashHeader, IconAct, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
+import { Card, DashHeader, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
 
 // AI integrations (mockup `console-mockups/operator-pages.html`, screen 2):
 // are the AI lanes answering, and at what cost? The first screen reads the
@@ -18,8 +17,6 @@ import { Card, DashHeader, IconAct, ItemRow, Note, Pill, Split, StatRow, Tile, T
 // the same three keys the providers panel uses, so opening that panel costs
 // nothing more. Providers, tasks and schedules sit behind the work area.
 
-// The agent service's read models: providers, tasks, premium usage, analytics.
-const AGENT_KEYS = ['agent-', 'premium-ai-', 'ai-usage']
 
 const ERROR_WORDS: Record<string, string> = {
   call_failed: 'calls failing',
@@ -73,20 +70,6 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
   const alerts = { get data() { return overview.data?.alerts ?? undefined }, get error() { return missing('alerts') } }
   const usage = { get data() { return overview.data?.usage ?? undefined } }
 
-  // The page's refresh reaches every agent query by prefix; "Updated" reads
-  // the newest of whatever has loaded.
-  const isAgentQuery = (key: readonly unknown[]) =>
-    typeof key[0] === 'string' && AGENT_KEYS.some(prefix => (key[0] as string).startsWith(prefix)) && key[1] === params().slug
-  const fetching = useIsFetching(() => ({ predicate: q => isAgentQuery(q.queryKey) }))
-  const refresh = () => void qc.invalidateQueries({ predicate: q => isAgentQuery(q.queryKey) })
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now(); fetching()
-    const ts = Math.max(0, ...qc.getQueryCache().findAll({ predicate: q => isAgentQuery(q.queryKey) }).map(q => q.state.dataUpdatedAt))
-    return ts === 0 ? null : relativeTime(ts)
-  })
 
   // Model probes only — `__provider__` rows describe the account, not a lane.
   const models = () => (health.data?.health ?? []).filter(row => row.model_id !== '__provider__')
@@ -119,12 +102,6 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
     }).sort((a, b) => b.answering - a.answering || a.provider.localeCompare(b.provider))
   })
 
-  const pill = (): { tone: Tone; text: string } | null => {
-    if (!health.data) return null
-    if (ok().length === 0) return { tone: 'bad', text: 'No lane is answering' }
-    if (degraded().length + off().length > ok().length) return { tone: 'warn', text: `${ok().length} of ${models().length} lanes answering` }
-    return { tone: 'good', text: 'Answering' }
-  }
   const spend = () => (usage.data ? usage.data.monthly_spend_micro_usd / 1_000_000 : null)
   const budget = () => (usage.data ? usage.data.budget_micro_usd / 1_000_000 : null)
 
@@ -132,12 +109,6 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
     <DashHeader
       title={SECTION_TITLE[section()]}
       subtitle="Are the AI lanes answering, and at what cost"
-      pill={pill()}
-      actions={
-        <IconAct onClick={refresh} disabled={fetching() > 0} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', fetching() > 0 && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <SubPagePanel when={section() === 'overview'}>

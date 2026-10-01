@@ -10,7 +10,10 @@ import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { BookingJourneyPanel } from '../components/BookingJourneyPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
-import { Field, FieldGrid } from '../components/ui/field'
+import { Field } from '../components/ui/field'
+import { Hint } from '../components/ui/hint'
+import { Button } from '../components/app/button'
+import { Plus } from 'lucide-solid'
 import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/app/checkbox'
 import { FormDrawer } from '../components/app/form-drawer'
@@ -63,13 +66,6 @@ export function TenantShowsPage(props: { section: ShowsSection }) {
   const capacity = () => upcoming().reduce((sum, show) => sum + (show.tickets_sold != null ? show.capacity ?? 0 : 0), 0)
   const measuredPast = () => past().filter(show => (show.door_campaigns ?? 0) > 0).length
   const scans = () => past().reduce((sum, show) => sum + show.scan_count, 0)
-  const status = (): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null => {
-    if (!model.data) return null
-    const draft = upcoming().find(show => show.status === 'draft')
-    if (draft) return { tone: 'warn', text: `${draft.city ?? draft.title} is booked, not announced` }
-    if (!next()) return { tone: 'warn', text: 'Nothing booked ahead' }
-    return { tone: 'good', text: `Next: ${next()!.city ?? next()!.title} in ${daysUntil(next()!.starts_at)}` }
-  }
 
   // "Get booked": the people who answered outreach, from the Today read
   // the console already keeps warm — the same key, the same retry rule.
@@ -90,8 +86,7 @@ export function TenantShowsPage(props: { section: ShowsSection }) {
       <DashHeader
         title={SECTION_TITLE[props.section]}
         subtitle="Nights on the books and gigs to get"
-        pill={status()}
-        actions={<Act onClick={() => setAdding(true)}>Add show</Act>}
+        actions={<Button writes size="sm" onClick={() => setAdding(true)}><Plus aria-hidden="true" /> Add show</Button>}
       />
       <AddShowDialog slug={params().slug} open={adding()} onClose={() => setAdding(false)} />
 
@@ -269,27 +264,31 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
     },
   }))
 
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'your local time'
+  const group = 'space-y-3'
+  const groupTitle = 'text-sm font-semibold text-foreground'
+
   return (
     <FormDrawer
       open={props.open}
       onOpenChange={open => { if (!open) close() }}
       title="Add show"
-      description="The night as you know it — checklists, gig planning and the report pick it up from here. Uncheck 'announce' to keep it a draft."
-      size="lg"
+      description="Put a night on your calendar. Checklists, gig planning and the show report all start from here."
+      size="xl"
       submitLabel="Add show"
       pendingLabel="Adding…"
       pending={create.isPending}
       error={create.error}
       errorTitle="Couldn't add the show"
       validate={() =>
-        !scheduleOk() ? 'Doors must be before the start, and the end after it.'
-        : !cityOk() ? 'Give the city its two-letter country code, or leave both empty.'
-        : !ticketOk() ? 'Ticket links start with https://.'
+        !scheduleOk() ? 'Set doors before the start time, and the end after it.'
+        : !cityOk() ? "Add the city's two-letter country code, or clear the city."
+        : !ticketOk() ? 'Start the ticket link with https://'
         : undefined}
       onSubmit={() => create.mutate(createKey())}
     >
-      <FieldGrid>
-        <Field label="Title" hint="As it appears on the poster — e.g. Live in Warszawa.">
+      <div class="space-y-6">
+        <Field label="Show name" hint="As it appears on the poster.">
           <Input
             required maxlength="300" autocomplete="off"
             value={draft().title}
@@ -297,87 +296,123 @@ function AddShowDialog(props: { slug: string; open: boolean; onClose: () => void
             placeholder="Live in Warszawa"
           />
         </Field>
-        <Field
-          label="Starts"
-          hint={Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone'}
-        >
-          <Input
-            required type="datetime-local"
-            value={draft().startsAt}
-            onInput={e => set('startsAt', e.currentTarget.value)}
+
+        <fieldset class={group}>
+          <legend class={groupTitle}>When</legend>
+          <div class="grid gap-4 sm:grid-cols-3">
+            <Field
+              label="Starts"
+              hint={`Your time: ${timeZone}`}
+              note={<Hint label="About the start time" align="right">When the first act goes on stage. Times are in {timeZone}.</Hint>}
+            >
+              <Input
+                required type="datetime-local"
+                value={draft().startsAt}
+                onInput={e => set('startsAt', e.currentTarget.value)}
+              />
+            </Field>
+            <Field
+              label="Doors open"
+              hint="Optional · before the start"
+              note={<Hint label="About doors" align="right">When the venue lets fans in. Leave it empty if you don't know yet.</Hint>}
+            >
+              <Input
+                type="datetime-local"
+                value={draft().doorsAt}
+                onInput={e => set('doorsAt', e.currentTarget.value)}
+              />
+            </Field>
+            <Field
+              label="Ends"
+              hint="Optional · curfew or last song"
+              note={<Hint label="About the end time" align="right">When the night has to finish — the venue's curfew, or roughly when you play the last song.</Hint>}
+            >
+              <Input
+                type="datetime-local"
+                value={draft().endsAt}
+                onInput={e => set('endsAt', e.currentTarget.value)}
+              />
+            </Field>
+          </div>
+        </fieldset>
+
+        <fieldset class={group}>
+          <legend class={groupTitle}>Where</legend>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <Field label="Venue" hint="Optional">
+              <Input
+                maxlength="500" autocomplete="off"
+                value={draft().venue}
+                onInput={e => set('venue', e.currentTarget.value)}
+                placeholder="Progresja"
+              />
+            </Field>
+            <Field label="Street address" hint="Optional">
+              <Input
+                maxlength="500" autocomplete="off"
+                value={draft().venueAddress}
+                onInput={e => set('venueAddress', e.currentTarget.value)}
+                placeholder="Fort Wola 22"
+              />
+            </Field>
+            <Field
+              label="City"
+              hint="Optional · add the country too"
+              note={<Hint label="About city and country" align="right">The city and its country go together, so maps and city pages find the show. Fill in both, or leave both empty.</Hint>}
+              error={!cityOk() && draft().cityName.trim() !== '' ? 'Add the country code too.' : undefined}
+            >
+              <Input
+                maxlength="200" autocomplete="off"
+                aria-invalid={!cityOk()}
+                value={draft().cityName}
+                onInput={e => set('cityName', e.currentTarget.value)}
+                placeholder="Warszawa"
+              />
+            </Field>
+            <Field
+              label="Country"
+              hint="Two-letter code, e.g. PL or DE"
+              error={!cityOk() && draft().cityCountry.trim() !== '' ? 'Use two letters, e.g. PL.' : undefined}
+            >
+              <Input
+                maxlength="2" autocomplete="off"
+                aria-invalid={!cityOk()}
+                value={draft().cityCountry}
+                onInput={e => set('cityCountry', e.currentTarget.value.toUpperCase())}
+                placeholder="PL"
+              />
+            </Field>
+          </div>
+        </fieldset>
+
+        <fieldset class={group}>
+          <legend class={groupTitle}>Tickets</legend>
+          <Field
+            label="Ticket link"
+            hint="Optional · where fans buy tickets. Starts with https://"
+            error={!ticketOk() ? 'Start the link with https://' : undefined}
+          >
+            <Input
+              type="url" pattern="https://.+" title="Start the link with https://" maxlength="2048" autocomplete="off"
+              aria-invalid={!ticketOk()}
+              value={draft().ticketUrl}
+              onInput={e => set('ticketUrl', e.currentTarget.value)}
+              placeholder="https://tickets.example/yourband"
+            />
+          </Field>
+        </fieldset>
+
+        <div class="space-y-1">
+          <Checkbox
+            label="Announce on your public site now"
+            checked={draft().publish}
+            onChange={checked => set('publish', checked === true)}
           />
-        </Field>
-        <Field label="Doors" hint="Optional — earlier than the start.">
-          <Input
-            type="datetime-local"
-            value={draft().doorsAt}
-            onInput={e => set('doorsAt', e.currentTarget.value)}
-          />
-        </Field>
-        <Field label="Ends" hint="Optional — curfew or expected end.">
-          <Input
-            type="datetime-local"
-            value={draft().endsAt}
-            onInput={e => set('endsAt', e.currentTarget.value)}
-          />
-        </Field>
-        <Field label="Venue" hint="Optional — the room's name, e.g. Progresja.">
-          <Input
-            maxlength="500" autocomplete="off"
-            value={draft().venue}
-            onInput={e => set('venue', e.currentTarget.value)}
-            placeholder="Progresja"
-          />
-        </Field>
-        <Field label="Venue address" hint="Optional — street and number.">
-          <Input
-            maxlength="500" autocomplete="off"
-            value={draft().venueAddress}
-            onInput={e => set('venueAddress', e.currentTarget.value)}
-            placeholder="Fort Wola 22"
-          />
-        </Field>
-        <Field
-          label="City"
-          hint="Optional — with a country code, or leave both empty."
-          error={!cityOk() ? 'City needs its two-letter country code.' : undefined}
-        >
-          <Input
-            maxlength="200" autocomplete="off"
-            aria-invalid={!cityOk()}
-            value={draft().cityName}
-            onInput={e => set('cityName', e.currentTarget.value)}
-            placeholder="Warszawa"
-          />
-        </Field>
-        <Field label="Country code" hint="ISO alpha-2 — PL, DE, CZ…">
-          <Input
-            maxlength="2" autocomplete="off"
-            aria-invalid={!cityOk()}
-            value={draft().cityCountry}
-            onInput={e => set('cityCountry', e.currentTarget.value.toUpperCase())}
-            placeholder="PL"
-          />
-        </Field>
-        <Field
-          label="Ticket URL"
-          hint="Optional — https only; it becomes the door link."
-          error={!ticketOk() ? 'Ticket links start with https://' : undefined}
-        >
-          <Input
-            type="url" pattern="https://.+" title="Ticket links start with https://" maxlength="2048" autocomplete="off"
-            aria-invalid={!ticketOk()}
-            value={draft().ticketUrl}
-            onInput={e => set('ticketUrl', e.currentTarget.value)}
-            placeholder="https://tickets.example/yourband"
-          />
-        </Field>
-      </FieldGrid>
-      <Checkbox
-        label="Announce on the public site now — unchecked keeps it a draft only the console sees."
-        checked={draft().publish}
-        onChange={checked => set('publish', checked === true)}
-      />
+          <p class="pl-6 text-xs leading-relaxed text-muted-foreground text-pretty">
+            Leave this off to save the show as a draft that only you can see. You can announce it later.
+          </p>
+        </div>
+      </div>
     </FormDrawer>
   )
 }

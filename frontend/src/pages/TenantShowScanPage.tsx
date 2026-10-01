@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { generateQr } from '../lib/qrCode'
 import { PageShell } from '../components/layout'
-import { DashHeader, Tile, Tiles, type Tone as ViewTone } from '../components/ui/dash'
+import { DashHeader, Tile, Tiles } from '../components/ui/dash'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonSection } from '../components/Skeleton'
 import { formatTimestamp } from '../lib/format'
@@ -45,14 +45,6 @@ export function TenantShowScanPage() {
     return count != null && max != null && count >= max
   }
 
-  // The one sentence the person at the door needs before anything else.
-  const doorState = (): { tone: ViewTone; text: string } => {
-    const data = model.data
-    if (!data?.checkin_url) return { tone: 'muted', text: 'No door QR for this night yet' }
-    if (full()) return { tone: 'bad', text: 'Full — every further scan is turned away' }
-    if (notYetOpen()) return { tone: 'warn', text: `Opens ${doorTime(data.valid_from!)}` }
-    return { tone: 'good', text: data.valid_until ? `Open · until ${doorTime(data.valid_until)}` : 'Open' }
-  }
   const backLabel = () => {
     const event = model.data?.event
     if (!event) return 'The night'
@@ -82,7 +74,6 @@ export function TenantShowScanPage() {
             <DashHeader
               title={data().campaign_label ?? 'Door'}
               subtitle={data().valid_until ? `Good until ${formatTimestamp(data().valid_until!)}` : undefined}
-              pill={doorState()}
               back={{ label: backLabel(), to: '/tenants/$slug/shows/$eventSlug', params: { slug: params().slug, eventSlug: params().eventSlug } }}
             />
             <Show
@@ -150,9 +141,6 @@ export function TenantShowScanPage() {
   )
 }
 
-/** "Sat 15:30" — the door's own clock, in the browser's zone. */
-const doorTime = (iso: string) =>
-  new Intl.DateTimeFormat('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 
 const shortDate = (iso: string) =>
   new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(iso))

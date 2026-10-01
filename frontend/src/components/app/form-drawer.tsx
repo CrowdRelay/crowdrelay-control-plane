@@ -60,7 +60,7 @@ export function FormDrawer(props: {
   /** A secondary action on the left of the footer (e.g. "Create custom city"). */
   secondaryAction?: JSX.Element
   /** `lg` for forms with side-by-side fields or long text areas. */
-  size?: 'md' | 'lg'
+  size?: 'md' | 'lg' | 'xl'
   /** Whether submitting writes (read-only sessions see it disabled). Default true. */
   writes?: boolean
   children: JSX.Element
@@ -102,7 +102,7 @@ export function FormDrawer(props: {
         onCloseAutoFocus={restoreFocus}
         class={cn(
           'flex w-full flex-col gap-0 overscroll-contain p-0',
-          props.size === 'lg' ? 'sm:max-w-lg' : 'sm:max-w-md',
+          props.size === 'xl' ? 'sm:max-w-3xl' : props.size === 'lg' ? 'sm:max-w-lg' : 'sm:max-w-md',
         )}
       >
         <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 pr-12 text-left">

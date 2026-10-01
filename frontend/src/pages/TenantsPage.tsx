@@ -48,11 +48,6 @@ export function TenantsPage() {
     <DashHeader
       title={isPlatformLevel() ? 'Tenants' : 'Your tenant'}
       subtitle={isPlatformLevel() ? 'Every team on the platform, most urgent first' : 'Your team on the platform'}
-      pill={tenants.data
-        ? (items().some(t => t.runtimeHealth === 'unknown' || t.runtimeHealth === 'stale')
-          ? { tone: 'warn', text: `${items().filter(t => t.runtimeHealth === 'unknown' || t.runtimeHealth === 'stale').length} not reporting` }
-          : { tone: 'good', text: `${items().length} reporting` })
-        : null}
     />
 
     <WorkAreas active={areas.active()} onToggle={areas.toggle} areas={[

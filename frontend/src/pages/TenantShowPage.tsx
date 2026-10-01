@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
+import { For, Show, createSignal, type JSX } from 'solid-js'
 import { failureLine } from '../lib/errors'
 import { Link, useParams } from '@tanstack/solid-router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
@@ -81,13 +81,6 @@ export function TenantShowPage() {
           const pace = () => (step('sales_pace')?.detail ?? {}) as { paid_tickets?: number | null; paid_tickets_last_7d?: number | null; capacity?: number | null }
           const notified = () => (step('nearby_fans')?.detail as { notified?: number } | undefined)?.notified
           const room = () => event().venue && event().venue !== event().title ? event().venue : null
-          const status = createMemo((): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } => {
-            if (event().status === 'draft') return { tone: 'warn', text: 'Booked, not announced' }
-            const due = steps().find(s => s.state === 'due')
-            if (due) return { tone: 'warn', text: `${plainStep(due)} is due` }
-            { const t = timestampMillis(event().starts_at); if (Number.isFinite(t) && t < Date.now()) return { tone: 'muted', text: 'Played' } }
-            return { tone: 'good', text: 'On track' }
-          })
           // Promotion as the mockup lists it: every step with its date or
           // its state, then the bill's open asks as their own rows.
           const promotion = () => {
@@ -109,7 +102,6 @@ export function TenantShowPage() {
               <DashHeader
                 title={[event().city, shortDate(event().starts_at)].filter(Boolean).join(' · ') || event().title}
                 subtitle={[event().title, room(), event().venue_address].filter(Boolean).join(' · ')}
-                pill={status()}
                 back={{ label: 'All shows', to: '/tenants/$slug/shows', params: { slug: params().slug } }}
                 actions={
                   <>

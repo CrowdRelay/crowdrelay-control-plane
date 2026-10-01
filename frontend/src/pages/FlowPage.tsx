@@ -103,7 +103,6 @@ export function FlowPage() {
       <DashHeader
         title="Process map"
         subtitle={<>The brain's loop, with live counts · {tenantName()}</>}
-        pill={stuck() ? { tone: 'warn', text: `Stuck at ${stuck()!.label.toLowerCase()}` } : brain.data ? { tone: 'good', text: 'Loop moving' } : null}
       />
       <Show
         when={slug()}

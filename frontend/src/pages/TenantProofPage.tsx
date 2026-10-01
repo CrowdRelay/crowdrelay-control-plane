@@ -1,12 +1,11 @@
 import { RosterStoryPanel } from '../components/RosterStoryPanel'
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createMemo } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, Link } from '@tanstack/solid-router'
-import { ChartLine, RefreshCw } from 'lucide-solid'
+import { ChartLine } from 'lucide-solid'
 import { api } from '../lib/api'
-import { compareTimestamps, formatTimestamp, humanizeToken, relativeTime } from '../lib/format'
+import { compareTimestamps, formatTimestamp, humanizeToken } from '../lib/format'
 import { humanize } from '../lib/opportunity-labels'
-import { cn } from '../lib/cn'
 import { ListingPanel } from '../components/ListingPanel'
 import { AttestationsPanel } from '../components/AttestationsPanel'
 import { SkeletonSection } from '../components/Skeleton'
@@ -14,7 +13,7 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { EmptyState } from '../components/ui/empty-state'
 import { Alert } from '../components/app/alert'
 import { PageShell } from '../components/layout'
-import { Act, Card, DashHeader, IconAct, ItemRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { Act, Card, DashHeader, ItemRow, Note, Pill, Row, Split, StatRow, Tile, Tiles, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { BookOpen, Users } from 'lucide-solid'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import type { TenantProofReadModel, TenantShow } from '../lib/types'
@@ -73,14 +72,6 @@ export function TenantProofPage(props: { section: ProofSection }) {
       .sort((a, b) => compareTimestamps(b.starts_at, a.starts_at))
   )
 
-  // "Updated 2m ago" has to keep moving while the page sits open.
-  const [now, setNow] = createSignal(Date.now())
-  const tick = setInterval(() => setNow(Date.now()), 15_000)
-  onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
-  })
 
   const areas = useSubPage(() => props.section, '/tenants/$slug/proof')
 
@@ -88,12 +79,6 @@ export function TenantProofPage(props: { section: ProofSection }) {
     <DashHeader
       title={SECTION_TITLE[props.section]}
       subtitle="What you can show a promoter, an agent or a label"
-      pill={model.data ? (model.data.listing?.listing ? { tone: 'good', text: 'Listing is live' } : { tone: 'warn', text: 'No listing yet' }) : null}
-      actions={
-        <IconAct onClick={() => void model.refetch()} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={model.error}>

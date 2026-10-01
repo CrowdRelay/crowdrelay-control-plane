@@ -56,7 +56,6 @@ export function Pill(props: { tone?: Tone; children: JSX.Element; class?: string
 export function DashHeader(props: {
   title: JSX.Element
   subtitle?: JSX.Element
-  pill?: { tone: Tone; text: string } | null
   back?: { label: string; to: string; params?: Record<string, string>; search?: Record<string, string> }
   actions?: JSX.Element
 }) {
@@ -76,7 +75,6 @@ export function DashHeader(props: {
         </Show>
       </div>
       <div class="flex min-w-0 flex-wrap items-center justify-end gap-2 pt-1">
-        <Show when={props.pill}>{pill => <Pill tone={pill().tone} class="shrink whitespace-normal sm:whitespace-nowrap">{pill().text}</Pill>}</Show>
         {props.actions}
       </div>
     </div>

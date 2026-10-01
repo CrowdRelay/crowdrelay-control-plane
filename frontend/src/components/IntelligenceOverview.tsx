@@ -40,21 +40,6 @@ const STRATEGY_LABEL: Record<string, string> = {
   conversion: 'turn fans into tickets',
 }
 
-/** The self-assessment in plain words, with the tone the pill takes. */
-export function brainStatus(model: TenantBrainReadModel | undefined): { tone: 'good' | 'warn' | 'bad' | 'muted'; text: string } | null {
-  const brain = model?.intelligence?.brain
-  if (!brain) return null
-  const days = brain.days_observed
-  switch (brain.state) {
-    case 'improving': return { tone: 'good', text: 'Getting better' }
-    case 'learning': return { tone: 'good', text: `Learning · ${days} days of data` }
-    case 'initializing': return { tone: 'muted', text: `Still learning · ${days} ${days === 1 ? 'day' : 'days'} of data` }
-    case 'stagnant': return { tone: 'warn', text: 'Stalled — nothing it tries is moving the number' }
-    case 'regressing': return { tone: 'bad', text: 'Going backwards' }
-    default: return { tone: 'muted', text: brain.state }
-  }
-}
-
 export function IntelligenceOverview(props: { slug: string; model: TenantBrainReadModel }) {
   const intel = () => props.model.intelligence ?? null
   const chief = () => intel()?.chief_of_staff ?? null

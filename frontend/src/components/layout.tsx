@@ -604,11 +604,16 @@ export function Section(props: {
     >
       <div class="mb-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div class="min-w-0">
-          <h2 class={cn('flex items-center gap-2 font-semibold text-foreground', props.lead ? 'text-lg' : 'text-base')}>
+          {/* The count pill is hidden from screen readers and spoken through the
+              label instead: "Stock, 6 items", not "Stock6". */}
+          <h2
+            class={cn('flex items-center gap-2 font-semibold text-foreground', props.lead ? 'text-lg' : 'text-base')}
+            aria-label={props.count != null && props.count > 0 ? `${props.title}, ${props.count} ${props.count === 1 ? 'item' : 'items'}` : undefined}
+          >
             <Show when={props.icon}><span class={props.lead ? 'text-primary' : 'text-muted-foreground'}>{props.icon}</span></Show>
             {props.title}
             <Show when={props.count != null && props.count > 0}>
-              <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
+              <span aria-hidden="true" class="rounded-full bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">{props.count}</span>
             </Show>
           </h2>
           <Show when={props.description}>

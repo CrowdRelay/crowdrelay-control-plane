@@ -1,10 +1,10 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { Link, useParams } from '@tanstack/solid-router'
-import { ChartLine, MapPin, RefreshCw, Target, Ticket, Users } from 'lucide-solid'
+import { ChartLine, MapPin, Target, Ticket, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { compareTimestamps, formatIsoAge, formatIsoUntil, relativeTime, timestampMillis } from '../lib/format'
+import { compareTimestamps, formatIsoAge, formatIsoUntil, timestampMillis } from '../lib/format'
 import { cn } from '../lib/cn'
 import { ReplyTriagePanel } from '../components/ReplyTriagePanel'
 import { NegotiationsPanel } from '../components/NegotiationsPanel'
@@ -19,7 +19,7 @@ import { PrizesToSendPanel } from '../components/PrizesToSendPanel'
 import { PlayLedgerPanel } from '../components/PlayLedgerPanel'
 import { BarList, DeltaBadge, Donut, Legend, Ring, Widget, type Segment } from '../components/charts'
 import { PageShell, Section, SkeletonBlock } from '../components/layout'
-import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Ring as DashRing, IconAct, Split, StatRow, Steps, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { Act, Bar, Card, DashHeader, ItemRow, MoreRow, Note, Pill, Ring as DashRing, Split, StatRow, Steps, Tile, Tiles, type Tone, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { SectionIcon } from '../components/SectionIcon'
 import { TenantStatusLine } from '../components/TenantStatusLine'
 import { buttonVariants } from '../components/app/button'
@@ -96,29 +96,6 @@ export function TenantOperationsPage(props: { section: TodaySection }) {
   const refresh = () => void model.refetch()
 
   const d = (): TenantTodayReadModel | undefined => model.error ? undefined : model.data
-  // The header pill — one plain sentence for the machine's state, read off
-  // the derived block the read model now assembles. Broken beats idle beats
-  // working; an absent derived block (older build) simply keeps the pill
-  // hidden rather than claiming a state nobody reported.
-  const statusPill = createMemo((): { text: string; tone: 'good' | 'warn' | 'bad' | 'muted' } | null => {
-    const st = d()?.derived?.status
-    if (!st) return null
-    if (st.dead_jobs != null && st.dead_jobs > 0)
-      return { text: `${st.dead_jobs} send${st.dead_jobs === 1 ? '' : 's'} stuck — needs a look`, tone: 'bad' }
-    if (st.failed_24h != null && st.failed_24h > 0)
-      return { text: `${st.failed_24h} failed in the last day`, tone: 'warn' }
-    if (st.running === false) return { text: 'Machine is off — nothing runs until you start it', tone: 'warn' }
-    const done = st.done_24h
-    if (st.running == null)
-      // Nobody reported a run state — name what was done, claim nothing more.
-      return done != null
-        ? { text: `${done} done in 24h`, tone: done > 0 ? 'good' : 'muted' }
-        : { text: 'Machine has not reported in', tone: 'muted' }
-    return {
-      text: done != null && done > 0 ? `Running on its own · ${done} done in 24h` : 'Running on its own',
-      tone: 'good',
-    }
-  })
 
   // One human-gate number for the KPI strip: answers owed + asks parked +
   // drafts waiting. It exists only when all three are reported — a sum of
@@ -276,21 +253,11 @@ export function TenantOperationsPage(props: { section: TodaySection }) {
   const [now, setNow] = createSignal(Date.now())
   const tick = setInterval(() => setNow(Date.now()), 15_000)
   onCleanup(() => clearInterval(tick))
-  const updated = createMemo(() => {
-    now()
-    return model.dataUpdatedAt ? relativeTime(model.dataUpdatedAt) : null
-  })
 
   return <PageShell>
     <DashHeader
       title={SECTION_TITLE[props.section]}
       subtitle={new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(now()))}
-      pill={model.data && !model.error ? statusPill() : null}
-      actions={
-        <IconAct onClick={refresh} disabled={model.isFetching} label="Refresh" title={updated() ? `Updated ${updated()}` : 'Refresh'}>
-          <RefreshCw class={cn('size-3.5', model.isFetching && 'animate-spin')} aria-hidden="true" />
-        </IconAct>
-      }
     />
 
     <Show when={model.error}>

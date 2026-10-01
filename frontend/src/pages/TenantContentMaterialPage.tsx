@@ -10,7 +10,6 @@ import { Act, Bar, Card, DashHeader, MoreRow, Note, Pill, Row, Split, StatRow, T
 import { ChartBar, Database, Layers } from 'lucide-solid'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { SkeletonKpiStrip, SkeletonSection } from '../components/Skeleton'
-import type { Tone as ViewTone } from '../components/ui/dash'
 import { formatIsoAge, humanizeToken } from '../lib/format'
 
 /// Everything the system may say publicly comes from this material — videos
@@ -61,16 +60,6 @@ export function TenantContentMaterialPage() {
   const kind = (key: ContentSourceKind) => model()?.by_kind.find(row => row.kind === key)
   const largest = () => Math.max(1, ...(model()?.by_kind ?? []).map(row => row.total))
 
-  const status = (): { tone: ViewTone; text: string } => {
-    const m = model()
-    if (!m || m.total === 0) return { tone: 'muted', text: 'No material yet' }
-    if (m.usable === 0) return { tone: 'bad', text: 'Nothing usable — every source has aged out' }
-    const fresh = m.newest != null && Date.now() - new Date(m.newest.occurred_at).getTime() < 7 * 86_400_000
-    if (neverUsed() * 2 > m.total) {
-      return { tone: 'warn', text: `${fresh ? 'Fresh' : 'Nothing new this week'}, but ${neverUsed()} of ${m.total} never used` }
-    }
-    return { tone: fresh ? 'good' : 'warn', text: `${m.usable} usable · ${fresh ? 'newest this week' : 'nothing new this week'}` }
-  }
 
   const areas = useWorkAreas(['overview', 'all'], 'tab', 'overview')
 
@@ -78,7 +67,6 @@ export function TenantContentMaterialPage() {
     <DashHeader
       title="Material"
       subtitle="Everything the machine may talk about"
-      pill={model() ? status() : null}
       back={{ label: 'Content', to: '/tenants/$slug/content', params: { slug: params().slug } }}
     />
 
