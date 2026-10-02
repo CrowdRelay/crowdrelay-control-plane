@@ -58,7 +58,7 @@ const STATE_TONE: Record<RelayTargetState, 'good' | 'warn' | 'bad' | 'muted'> = 
 /// The headline answer — helpful, unhelpful, or still too early to call.
 /// Derived only from what the run has actually produced: an unmeasured run
 /// never claims a result.
-const verdict = (run: RelayProcessRun): { label: string; tone: 'good' | 'warn' | 'bad' | 'muted' } => {
+export const verdict = (run: RelayProcessRun): { label: string; tone: 'good' | 'warn' | 'bad' | 'muted' } => {
   if (run.conversions > 0)
     return { label: `brought ${run.conversions} fan${run.conversions === 1 ? '' : 's'}`, tone: 'good' }
   if (run.replies > 0) return { label: 'getting replies', tone: 'good' }
@@ -83,20 +83,43 @@ const cadence = (seconds: number): string => {
   return `one every ${seconds}s`
 }
 
+/// "40 forums · 1% sure" — what the decision counted, in nouns.
+export const decidedText = (run: RelayProcessRun) =>
+  `${run.communities_decided} forum${run.communities_decided === 1 ? '' : 's'} · ${confidencePercent(run.confidence_bp)} sure`
+
+/// What is on its way out: the drip's cadence once approved, else the count.
+export const goingOutText = (run: RelayProcessRun) => {
+  if (run.batch_status === 'approved' && run.interval_seconds != null) return `dripping, ${cadence(run.interval_seconds)}`
+  const n = Math.round(run.deciding + run.queued + run.posting + run.rate_limited)
+  return n > 0 ? `${n} queued` : 'nothing queued'
+}
+
+/// The Signal push leg in a sentence rather than its status code.
+export const pushText = (status: string | null) => {
+  switch (status) {
+    case null: return 'App push decided, not sent yet'
+    case 'succeeded': case 'done': case 'delivered': case 'sent': return 'Pushed to fans in the app'
+    case 'pending': case 'queued': case 'processing': return 'App push waiting to go out'
+    case 'failed': case 'dead': return 'App push failed'
+    default: return `App push: ${status.replaceAll('_', ' ')}`
+  }
+}
+
 function Step(props: { label: string; children: import('solid-js').JSX.Element; warn?: boolean }) {
   return (
     <div class="flex min-w-0 flex-col gap-0.5">
-      <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{props.label}</span>
-      <span class={cn('truncate text-sm font-medium tabular-nums', props.warn ? 'text-warning-foreground' : 'text-foreground')}>
+      <span class="text-xs text-muted-foreground">{props.label}</span>
+      <span class={cn('text-sm font-medium tabular-nums text-pretty break-words', props.warn ? 'text-warning-foreground' : 'text-foreground')}>
         {props.children}
       </span>
     </div>
   )
 }
 
-export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
+export function RelayRunCard(props: { slug: string; run: RelayProcessRun; initiallyOpen?: boolean }) {
   const queryClient = useQueryClient()
-  const [open, setOpen] = createSignal(false)
+  // A card opened from the runs table starts with its forums showing.
+  const [open, setOpen] = createSignal(props.initiallyOpen ?? false)
 
   const detail = useQuery(() => ({
     queryKey: ['relay-process-run', props.slug, props.run.source_id],
@@ -134,14 +157,16 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
           {url => <img src={url()} alt="" class="size-10 shrink-0 rounded-md object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" loading="lazy" />}
         </Show>
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <h3 class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+          {/* The title wraps: it is the one thing that says which post this
+              is, and on a phone a one-line title shrank to its first letter. */}
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 class="min-w-0 basis-full text-sm font-semibold text-foreground text-pretty sm:basis-auto sm:flex-1">
               {run().title ?? 'Untitled post'}
             </h3>
             <StatusBadge status={v().label} tone={v().tone} />
             <Button variant="ghost" size="sm" onClick={() => setOpen(o => !o)} aria-expanded={open()}>
               <ChevronDown class={cn('transition-transform', open() && 'rotate-180')} aria-hidden="true" />
-              {open() ? 'Hide forums' : 'See the forums'}
+              {open() ? 'Hide forums' : 'See the forums'}<span class="sr-only">: {run().title ?? 'untitled post'}</span>
             </Button>
           </div>
           <p class="mt-0.5 text-xs text-muted-foreground">
@@ -157,7 +182,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
                     rel="noreferrer"
                     class="inline-flex items-center gap-0.5 text-primary underline-offset-2 hover:underline"
                   >
-                    original <ExternalLink class="size-3" aria-hidden="true" />
+                    original <ExternalLink class="size-3" aria-hidden="true" /><span class="sr-only"> (opens in a new tab)</span>
                   </a>
                 </>
               )}
@@ -168,13 +193,11 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
 
       {/* The six steps. Each cell is one step position, not an entity — the
           words under it are counts and times, not links to other pages. */}
-      <div class="grid grid-cols-3 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-6">
+      <div class="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-6">
         <Step label="Observed">
           {run().occurred_at ? formatIsoAge(run().occurred_at!) : '—'}
         </Step>
-        <Step label="Decided">
-          {confidencePercent(run().confidence_bp)} → {run().communities_decided}
-        </Step>
+        <Step label="Decided">{decidedText(run())}</Step>
         <Step label="Needs you" warn={run().batch_status === 'awaiting_approval' || run().awaiting > 0}>
           {run().batch_status === 'awaiting_approval'
             ? run().awaiting > 0
@@ -186,11 +209,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
                 ? `${run().expired} lapsed`
                 : 'nothing'}
         </Step>
-        <Step label="Going out">
-          {run().batch_status === 'approved' && run().interval_seconds != null
-            ? `dripping — ${cadence(run().interval_seconds!)}`
-            : run().deciding + run().queued + run().posting + run().rate_limited}
-        </Step>
+        <Step label="Going out">{goingOutText(run())}</Step>
         <Step label="Posted">
           {run().posted + run().manual > 0
             ? `${run().posted + run().manual}${run().manual > 0 ? ` (${run().manual} by hand)` : ''}`
@@ -212,7 +231,7 @@ export function RelayRunCard(props: { slug: string; run: RelayProcessRun }) {
       {/* The Signal push leg — the owned-audience half of the same decision. */}
       <Show when={run().push_decided || run().push_status}>
         <p class="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
-          Signal push{(() => { const st = run()!.push_status; return st ? `: ${st.replaceAll('_', ' ')}` : ' decided' })()}
+          {pushText(run().push_status)}
         </p>
       </Show>
 
@@ -671,12 +690,16 @@ function TargetRow(props: {
           <Show when={editingDraft()} fallback={
             <Show when={t().draft_title}>
               <span class="mt-0.5 flex items-baseline gap-2">
+                {/* Wraps instead of running past the card on a phone, and says
+                    whether the draft below it is open. */}
                 <Button
                   variant="link"
-                  class="block h-auto min-w-0 flex-1 p-0 text-left text-xs font-normal text-muted-foreground hover:text-foreground hover:no-underline"
+                  class="h-auto min-w-0 flex-1 items-start justify-start gap-1 whitespace-normal p-0 text-left text-xs font-normal text-muted-foreground text-pretty hover:text-foreground hover:no-underline"
+                  aria-expanded={showDraft()}
                   onClick={() => setShowDraft(v => !v)}
                 >
-                  {showDraft() ? '▾' : '▸'} {props.edited.title ?? t().draft_title}
+                  <ChevronDown class={cn('mt-0.5 size-3 shrink-0 transition-transform', !showDraft() && '-rotate-90')} aria-hidden="true" />
+                  <span class="min-w-0">{props.edited.title ?? t().draft_title}</span>
                 </Button>
                 <Show when={props.editable && Object.keys(props.draft).length > 0}>
                   <Button
