@@ -54,6 +54,7 @@ export function applyOverrides(method: string, pathname: string, value: unknown)
     // Read models that embed the tenant summary.
     if (isObject(out) && isObject(out.tenant)) out = { ...out, tenant: asTenant(out.tenant, tenant) }
     if (method === 'GET' && tenantMatch[2] === '/operations/attention' && isObject(out)) out = withDeadQueues(out)
+    if (method === 'GET' && tenantMatch[2] === '/content/model' && isObject(out)) out = withReadyPosts(out)
     return out
   }
 
@@ -103,4 +104,35 @@ function withDeadQueues(model: Json): Json {
     dead_push: push,
     summary: { ...summary, outbox: lane('outbox', 3), deliveries: lane('deliveries', 3), push: lane('push', 3) },
   }
+}
+
+// The generator never produces a post waiting to be published by hand, so
+// the Content page's "Ready to post" table only ever showed its absence.
+// Four, one of them long enough to need "Show all", plus three in flight.
+function withReadyPosts(model: Json): Json {
+  const dr = isObject(model.delivery_results) ? model.delivery_results : null
+  if (!dr || !Array.isArray(dr.results)) return model
+  const at = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3_600_000).toISOString()
+  const ready = [
+    { kind: 'social_post', channel: 'instagram', status: 'awaiting_manual_post', url: 'https://www.instagram.com/',
+      text: 'Tonight at Klub RE, doors 20:00. Bring someone who has never heard us.' },
+    { kind: 'community_post', channel: 'r/r/polishmusic', status: 'awaiting_manual_post', url: 'https://www.reddit.com/r/polishmusic/',
+      text: 'We are a four-piece from Kraków and we just finished a spring tour of nine cities.\n\nThe last night in Wrocław was the loudest room we have played, and we recorded it. Here is the live version of the closing song, with the crowd singing the last chorus back at us.\n\nHappy to answer anything about touring on a shoestring in Poland.' },
+    { kind: 'telegram_post', channel: 'telegram', status: 'draft', url: null,
+      text: 'New single out Friday. Pre-save link in the bio.' },
+    { kind: 'discord_post', channel: 'discord', status: 'awaiting_manual_post', url: null,
+      text: 'Listening party in the voice channel on Sunday at 19:00 — we will play the new EP front to back.' },
+    // In flight: approved and going out by themselves.
+    { kind: 'community_post', channel: 'r/r/indieheads', status: 'posting', url: null,
+      text: 'Nocna Zmiana — a Kraków four-piece. New EP out Friday, here is the opening track.' },
+    { kind: 'social_post', channel: 'facebook', status: 'pending', url: null,
+      text: 'Spring tour, night nine: Wrocław. Thank you for singing the last chorus back at us.' },
+    { kind: 'community_post', channel: 'r/r/polishmusic', status: 'rate_limited', url: null,
+      text: 'The live version of our closing song, recorded on the last night of the tour.' },
+  ].map((r, i) => ({
+    kind: r.kind, id: `00000000-0000-4000-8000-00000000040${i}`, action_id: null, channel: r.channel,
+    content: { text: r.text }, status: r.status, url: r.url, created_at: at(3 + i * 5), posted_at: null,
+    score: null, upvotes: null, num_comments: null, upvote_ratio: null, error_message: null,
+  }))
+  return { ...model, delivery_results: { ...dr, results: [...ready, ...(dr.results as unknown[])] } }
 }
