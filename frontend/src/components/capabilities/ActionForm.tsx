@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createSignal } from 'solid-js'
+import { For, Match, Show, Switch, createSignal, createUniqueId, type JSX } from 'solid-js'
 import { failureLine, lowerFirst } from '../../lib/errors'
 import { useQuery } from '@tanstack/solid-query'
 import { api } from '../../lib/api'
@@ -13,6 +13,8 @@ import { NativeSelect } from '../ui/native-select'
 import { Alert } from '../app/alert'
 import { Spinner } from '../Spinner'
 import { toast } from '../app/toast'
+import { tokenLabel } from '../../lib/format'
+import { cn } from '../../lib/cn'
 
 type Values = Record<string, string | boolean>
 
@@ -75,13 +77,14 @@ function ParamInput(props: { name: string; source: ParamSource; slug: string; va
     enabled: props.source !== 'text',
     staleTime: 60_000,
   }))
+  const id = createUniqueId()
   return (
-    <div class="space-y-1">
-      <Label>{props.source === 'text' ? props.name.replace(/_/g, ' ') : 'Show'}</Label>
+    <div class="space-y-1.5">
+      <Label for={id}>{props.source === 'text' ? tokenLabel(props.name) : 'Show'}</Label>
       <Show when={props.source !== 'text'} fallback={
-        <Input value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} placeholder={props.name.endsWith('_id') ? 'id (UUID)' : props.name} />
+        <Input id={id} required value={props.value} onInput={(event) => props.onInput(event.currentTarget.value)} placeholder={props.name.endsWith('_id') ? 'id (UUID)' : props.name} />
       }>
-        <NativeSelect value={props.value} onChange={(event) => props.onInput(event.currentTarget.value)}>
+        <NativeSelect id={id} required value={props.value} onChange={(event) => props.onInput(event.currentTarget.value)}>
           <option value="">Choose a show…</option>
           <For each={shows.data?.events ?? []}>{(show) => (
             <option value={props.source === 'event_id' ? show.id : show.slug}>
@@ -96,33 +99,41 @@ function ParamInput(props: { name: string; source: ParamSource; slug: string; va
 
 function FieldInput(props: { field: Field; value: string | boolean; onInput: (value: string | boolean) => void }) {
   const text = () => (typeof props.value === 'string' ? props.value : '')
+  // Every control is named by its visible label and points at its hint, so
+  // a screen reader reads both and the browser can focus it on a failed submit.
+  const id = createUniqueId()
+  const hintId = `${id}-hint`
+  const common = () => ({ id, required: props.field.required, 'aria-describedby': props.field.hint ? hintId : undefined })
   return (
-    <div class="space-y-1">
+    <div class="space-y-1.5">
       <Show when={props.field.kind !== 'bool'}>
-        <Label>{props.field.label}{props.field.required ? ' *' : ''}</Label>
+        <Label for={id}>
+          {props.field.label}
+          <Show when={!props.field.required}> <span class="font-normal text-muted-foreground">(optional)</span></Show>
+        </Label>
       </Show>
-      <Switch fallback={<Input value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />}>
+      <Switch fallback={<Input {...common()} autocomplete="off" value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />}>
         <Match when={props.field.kind === 'bool'}>
           <Checkbox label={props.field.label} checked={props.value === true} onChange={(checked: boolean) => props.onInput(checked)} />
         </Match>
         <Match when={props.field.kind === 'select'}>
-          <NativeSelect value={text()} onChange={(event) => props.onInput(event.currentTarget.value)}>
-            <option value="">—</option>
-            <For each={props.field.options ?? []}>{(option) => <option value={option}>{option.replace(/_/g, ' ')}</option>}</For>
+          <NativeSelect {...common()} value={text()} onChange={(event) => props.onInput(event.currentTarget.value)}>
+            <option value="">Choose…</option>
+            <For each={props.field.options ?? []}>{(option) => <option value={option}>{tokenLabel(option)}</option>}</For>
           </NativeSelect>
         </Match>
         <Match when={props.field.kind === 'textarea' || props.field.kind === 'json' || props.field.kind === 'lines'}>
-          <Textarea rows={props.field.kind === 'textarea' ? 3 : 5} class={props.field.kind === 'json' ? 'font-mono text-xs' : undefined} value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
+          <Textarea {...common()} rows={props.field.kind === 'textarea' ? 4 : 6} class={props.field.kind === 'json' ? 'font-mono text-xs' : undefined} value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
         </Match>
         <Match when={props.field.kind === 'number'}>
-          <Input type="number" value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
+          <Input {...common()} type="number" value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
         </Match>
         <Match when={props.field.kind === 'datetime'}>
-          <Input type="datetime-local" value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
+          <Input {...common()} type="datetime-local" value={text()} onInput={(event) => props.onInput(event.currentTarget.value)} />
         </Match>
       </Switch>
       <Show when={props.field.hint}>
-        <p class="text-xs text-muted-foreground">{props.field.hint}</p>
+        <p id={hintId} class="text-xs text-muted-foreground text-pretty">{props.field.hint}</p>
       </Show>
     </div>
   )
@@ -141,6 +152,15 @@ export function ActionForm(props: {
   hidden?: string[]
   onDone?: (response: unknown) => void
   onCancel?: () => void
+  /** `sheet` when the form fills a side sheet: one column, a scrolling body
+   *  and a footer pinned to the bottom, like `FormDrawer`. `inline` is the
+   *  bordered box that expands in place. */
+  layout?: 'inline' | 'sheet'
+  /** The submit button's words when the place names the act better than
+   *  the spec's label ("Add opportunity" for "I found one"). */
+  submitLabel?: string
+  /** Shown at the top of the body — what to know before filling it in. */
+  intro?: JSX.Element
 }) {
   const [values, setValues] = createSignal<Values>({ ...initialValues(props.action.fields), ...props.initial })
   const visibleFields = () => (props.action.fields ?? []).filter(field => !(props.hidden ?? []).includes(field.name))
@@ -171,37 +191,73 @@ export function ActionForm(props: {
     }
   }
 
-  return (
-    <div class="space-y-3 rounded-md border border-border p-3">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <For each={askFor()}>{(name) => (
-          <ParamInput
-            name={name}
-            source={props.action.paramSources?.[name] ?? 'text'}
-            slug={props.slug}
-            value={params()[name] ?? ''}
-            onInput={(value) => setParams({ ...params(), [name]: value })}
-          />
-        )}</For>
-        <For each={visibleFields()}>{(field) => (
-          <FieldInput field={field} value={values()[field.name] ?? ''} onInput={(value) => setValues({ ...values(), [field.name]: value })} />
-        )}</For>
-      </div>
+  const sheet = () => props.layout === 'sheet'
+  const label = () => props.submitLabel ?? props.action.label
+  const fields = (
+    <div class={sheet() ? 'flex flex-col gap-4' : 'grid grid-cols-1 gap-3 sm:grid-cols-2'}>
+      <For each={askFor()}>{(name) => (
+        <ParamInput
+          name={name}
+          source={props.action.paramSources?.[name] ?? 'text'}
+          slug={props.slug}
+          value={params()[name] ?? ''}
+          onInput={(value) => setParams({ ...params(), [name]: value })}
+        />
+      )}</For>
+      <For each={visibleFields()}>{(field) => (
+        <FieldInput field={field} value={values()[field.name] ?? ''} onInput={(value) => setValues({ ...values(), [field.name]: value })} />
+      )}</For>
+    </div>
+  )
+  const notices = (
+    <>
       <Show when={confirming()}>
         <Alert tone="warning" title="Before this goes out">{props.action.confirm}</Alert>
       </Show>
       <Show when={error()}>
         <Alert tone="destructive">{error()}</Alert>
       </Show>
-      <div class="flex items-center gap-2">
-        <Button size="sm" writes variant={props.action.method === 'DELETE' ? 'destructive' : undefined} disabled={busy()} onClick={() => void submit()}>
-          <Show when={busy()}><Spinner /></Show>
-          {confirming() ? `Yes, ${props.action.label.toLowerCase()}` : props.action.label}
-        </Button>
-        <Show when={props.onCancel}>
-          <Button size="sm" variant="ghost" disabled={busy()} onClick={() => props.onCancel?.()}>Close</Button>
-        </Show>
-      </div>
-    </div>
+    </>
+  )
+  const buttons = (
+    <>
+      <Show when={props.onCancel}>
+        <Button type="button" size="sm" variant="ghost" disabled={busy()} onClick={() => props.onCancel?.()}>Cancel</Button>
+      </Show>
+      <Button type="submit" size="sm" writes variant={props.action.method === 'DELETE' ? 'destructive' : undefined} disabled={busy()}>
+        <Show when={busy()}><Spinner /></Show>
+        {confirming() ? `Yes, ${label().toLowerCase()}` : label()}
+      </Button>
+    </>
+  )
+  // A real form: Enter submits, and the browser checks required fields and
+  // focuses the first empty one before anything is sent.
+  const onSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+    event.preventDefault()
+    if (!busy()) void submit()
+  }
+
+  return (
+    <Show
+      when={sheet()}
+      fallback={
+        <form class="space-y-3 rounded-md border border-border p-3" onSubmit={onSubmit}>
+          {fields}
+          {notices}
+          <div class="flex flex-row-reverse items-center justify-end gap-2">{buttons}</div>
+        </form>
+      }
+    >
+      <form class="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
+        <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 py-4">
+          <Show when={props.intro}><div class="text-sm text-muted-foreground text-pretty">{props.intro}</div></Show>
+          {fields}
+          {notices}
+        </div>
+        <div class={cn('flex shrink-0 flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4')}>
+          {buttons}
+        </div>
+      </form>
+    </Show>
   )
 }

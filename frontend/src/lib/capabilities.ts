@@ -658,11 +658,11 @@ export const SURFACE_CAPABILITIES: Capability[] = [
       {
         label: 'I found one', method: 'POST', path: 'autopilot/team-opportunities/discover',
         fields: [
-          { name: 'source', label: 'Source', kind: 'text', required: true },
-          { name: 'external_key', label: 'Key', kind: 'text', required: true, hint: 'anything stable — the URL works' },
-          { name: 'title', label: 'Title', kind: 'text', required: true },
-          { name: 'destination_url', label: 'URL', kind: 'text', required: true },
-          { name: 'summary', label: 'Summary', kind: 'textarea', required: true },
+          { name: 'title', label: 'Title', kind: 'text', required: true, hint: 'What it is, in a few words — "Showcase slot at Klub RE".' },
+          { name: 'destination_url', label: 'Link', kind: 'text', required: true, hint: 'Where to read about it or apply.' },
+          { name: 'summary', label: 'What it is', kind: 'textarea', required: true, hint: 'The details that matter: dates, fee, deadline, what they ask for.' },
+          { name: 'source', label: 'Where you heard about it', kind: 'text', required: true, hint: 'A person, a newsletter, a site.' },
+          { name: 'external_key', label: 'Reference', kind: 'text', required: true, hint: 'Anything that stays the same for this opportunity, so it is never filed twice. Pasting the link again works.' },
         ],
       },
       {
