@@ -576,7 +576,9 @@ export function FanSourcesPanel(props: {
   const connTone = (status: string, syncFailing = false): 'good' | 'warn' | 'bad' | 'muted' =>
     status === 'connected' ? (syncFailing ? 'warn' : 'good') : status === 'expired' ? 'warn' : status === 'disconnected' || status === 'invalid' ? 'bad' : 'muted'
 
-  const connectedCount = () => connections.data?.length ?? 0
+  // Platforms that are actually connected — not every connection record,
+  // which also counts disconnected ones and several accounts on one platform.
+  const connectedCount = () => new Set((connections.data ?? []).filter(c => c.status === 'connected').map(c => c.platform)).size
 
   return <>
     <Section
@@ -603,13 +605,23 @@ export function FanSourcesPanel(props: {
       <Show when={connections.data} fallback={<Show when={connections.isPending}><SkeletonRows count={3} /></Show>}>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           <For each={PLATFORMS}>{spec => {
-            const conn = () => connections.data?.find(c => c.platform === spec.value)
+            // A disconnected record is history, not a connection: the tile
+            // reads as available again, with when it last synced, and offers
+            // Connect rather than a Disconnect that would do nothing.
+            // Several records can share a platform; the live one wins, then
+            // one that needs attention, then the disconnected history.
+            const record = () => {
+              const mine = (connections.data ?? []).filter(c => c.platform === spec.value)
+              return mine.find(c => c.status === 'connected') ?? mine.find(c => c.status !== 'disconnected') ?? mine[0]
+            }
+            const conn = () => record()?.status === 'disconnected' ? undefined : record()
+            const lapsed = () => record()?.status === 'disconnected' ? record() : undefined
             return (
               // The name, its description and the action all competed for one
               // horizontal line, so "SoundCloud" broke across two lines inside
               // its own tile. The name gets the top row; everything that
               // explains it goes underneath at full tile width.
-              <div class="flex flex-col gap-2 border p-4" classList={{ 'border-success-foreground/30': !!conn(), 'border-border': !conn() }}>
+              <div class="flex flex-col gap-2 rounded-lg border p-4" classList={{ 'border-success-foreground/30': !!conn(), 'border-border': !conn() }}>
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
                     <FanbaseIcon sourceKind={spec.icon as never} size={28} />
@@ -618,24 +630,35 @@ export function FanSourcesPanel(props: {
                   <Show when={conn()} fallback={
                     <Button writes
                       class="shrink-0"
-                      variant="outline"
                       size="sm"
                       disabled={spec.authorizeUrl !== undefined && apiBase() === null}
                       onClick={() => openConnect(spec)}
-                    >Connect</Button>
+                    >Connect<span class="sr-only"> {spec.label}</span></Button>
                   }>
-                    <StatusBadge status={conn()!.status} tone={connTone(conn()!.status, !!conn()!.last_sync_error)} />
+                    {/* Signed out or rejected: the fix is to connect again. */}
+                    <Show when={conn()!.status === 'expired' || conn()!.status === 'invalid'} fallback={
+                      <StatusBadge status={conn()!.status} tone={connTone(conn()!.status, !!conn()!.last_sync_error)} />
+                    }>
+                      <Button writes class="shrink-0" size="sm" onClick={() => openConnect(spec)}>
+                        Reconnect<span class="sr-only"> {spec.label}</span>
+                      </Button>
+                    </Show>
                   </Show>
                 </div>
                 {/* An unconnected tile said only its own name, which the icon
                     beside it already said. Saying what connecting would get you
                     is what makes the choice between thirteen tiles possible. */}
                 <Show when={!conn()} fallback={
-                  <Show when={conn()!.last_sync_at}>
-                    <p class="m-0 text-xs text-muted-foreground">last sync {formatAge(conn()!.last_sync_at!)}</p>
-                  </Show>
+                  <p class="m-0 text-xs text-muted-foreground">
+                    <Show when={conn()!.status === 'expired'}>Signed out · </Show>
+                    <Show when={conn()!.status === 'invalid'}>Sign-in rejected · </Show>
+                    {conn()!.last_sync_at ? `Last synced ${formatAge(conn()!.last_sync_at!)}` : 'Not synced yet'}
+                  </p>
                 }>
                   <p class="m-0 text-xs leading-relaxed text-muted-foreground">{spec.provides}</p>
+                  <Show when={lapsed()?.last_sync_at}>
+                    <p class="m-0 text-xs text-muted-foreground">Disconnected · last synced {formatAge(lapsed()!.last_sync_at!)}</p>
+                  </Show>
                 </Show>
                 {/* An OAuth tile cannot offer the grant without the tenant's
                     own host — a disabled button alone would leave "why" to a
@@ -733,7 +756,7 @@ export function FanSourcesPanel(props: {
             writes
             type="button"
             onClick={() => { setCreating(true); setNotice(null); setErrorText(null) }}
-            class="h-auto w-full flex-col items-stretch gap-2 whitespace-normal border border-dashed border-border bg-transparent p-4 text-left font-normal hover:border-input hover:bg-background"
+            class="h-auto w-full flex-col items-stretch gap-2 whitespace-normal rounded-lg border border-dashed border-border bg-transparent p-4 text-left font-normal hover:border-input hover:bg-background"
           >
             <div class="flex items-center gap-3">
               <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">

@@ -93,8 +93,8 @@ export function FanMessagesPanel(props: {
     retry: 1,
   }))
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['surface', props.slug, 'fan-messages'] })
-  const segmentName = (slug: string) => props.segments.find(s => s.slug === slug)?.name ?? slug.replaceAll('-', ' ')
-  const active = () => props.segments.filter(s => s.active)
+  const segmentName = (slug: string) => (props.segments ?? []).find(s => s.slug === slug)?.name ?? slug.replaceAll('-', ' ')
+  const active = () => (props.segments ?? []).filter(s => s.active)
 
   // ── Draft ──────────────────────────────────────────────────────────────
   const [drafting, setDrafting] = createSignal(false)
@@ -102,6 +102,7 @@ export function FanMessagesPanel(props: {
   const [slugEdited, setSlugEdited] = createSignal(false)
   const [saving, setSaving] = createSignal(false)
   const [failure, setFailure] = createSignal<unknown>(null)
+  const [valuesError, setValuesError] = createSignal<string>()
   const openDraft = (segment = '') => {
     setDraft(blankDraft(segment))
     setSlugEdited(false)
@@ -133,7 +134,6 @@ export function FanMessagesPanel(props: {
   }
   // Field rules show under their own field, not in the card pinned above the
   // footer — that card covered the very field it was about.
-  const [valuesError, setValuesError] = createSignal<string>()
   let valuesInput: HTMLTextAreaElement | undefined
   let slugInput: HTMLInputElement | undefined
   const slugTaken = () => {
