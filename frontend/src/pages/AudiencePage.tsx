@@ -137,7 +137,7 @@ export function AudiencePage(props: { section: AudienceSection }) {
   return <PageShell>
     <DashHeader
       title={props.section === 'portfolio' && authState.isPlatformLevel() ? 'Label portfolio' : SECTION_TITLE[props.section]}
-      subtitle="Who follows you, and who you can reach"
+      subtitle={props.section === 'portfolio' ? 'Which artists can reach each other’s fans, and on what terms' : 'Who follows you, and who you can reach'}
     />
 
 
