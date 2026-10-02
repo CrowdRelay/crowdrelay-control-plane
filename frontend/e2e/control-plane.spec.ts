@@ -63,10 +63,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(virya).toBeVisible()
   await virya.click()
   // The bare tenant URL redirects to Today. The Heartbeat panel lives on
-  // the tenant Health page, which sits one level in under the collapsed
-  // Operator group — open the group before the link exists to click.
+  // the tenant Health page; the sidebar groups are always expanded, so the
+  // Operator section's Health link is already mounted.
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
-  await page.getByRole('button', { name: 'Operator' }).click()
   await page.getByRole('link', { name: 'Health' }).first().click()
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/health/)
   // The Heartbeat panel lives in the Overview work area, which is the
