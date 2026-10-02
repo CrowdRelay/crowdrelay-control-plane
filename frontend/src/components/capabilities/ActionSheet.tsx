@@ -16,6 +16,8 @@ export type OpenWrite = {
   intro?: JSX.Element
   /** `lg` for a form with a long JSON or list field. */
   size?: 'md' | 'lg'
+  /** The submit button's words, when the spec's label reads oddly here. */
+  submitLabel?: string
 }
 
 /**
@@ -34,7 +36,7 @@ export function ActionSheet(props: {
     <Sheet open={props.write !== null} onOpenChange={open => { if (!open) props.onClose() }}>
       <SheetContent
         class={cn(
-          'flex w-full flex-col gap-0 overflow-y-auto overscroll-contain p-0',
+          'flex w-full flex-col gap-0 overscroll-contain p-0',
           props.write?.size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-md',
         )}
       >
@@ -43,18 +45,18 @@ export function ActionSheet(props: {
             <SheetTitle class="text-base">{current().title}</SheetTitle>
             <Show when={current().description}><SheetDescription class="text-pretty">{current().description}</SheetDescription></Show>
           </SheetHeader>
-          <div class="space-y-3 px-5 py-4">
-            <Show when={current().intro}><div class="text-sm text-muted-foreground text-pretty">{current().intro}</div></Show>
-            <ActionForm
-              slug={props.slug}
-              action={current().action}
-              fixed={current().fixed}
-              initial={current().initial}
-              hidden={current().hidden}
-              onDone={response => props.onDone(response)}
-              onCancel={props.onClose}
-            />
-          </div>
+          <ActionForm
+            layout="sheet"
+            slug={props.slug}
+            action={current().action}
+            fixed={current().fixed}
+            initial={current().initial}
+            hidden={current().hidden}
+            intro={current().intro}
+            submitLabel={current().submitLabel}
+            onDone={response => props.onDone(response)}
+            onCancel={props.onClose}
+          />
         </>}</Show>
       </SheetContent>
     </Sheet>

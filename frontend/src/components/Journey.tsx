@@ -36,6 +36,9 @@ export type JourneyStageSpec = {
   /** Drill-through — the rail button calls this instead of scrolling to
    *  `anchor` when both are set. */
   onSelect?: () => void
+  /** The stage is the current filter of the view the rail drives. Only set
+   *  by callers whose `onSelect` filters, so the rail shows what is shown. */
+  selected?: boolean
 }
 
 /** The stage rail — pipeline order left to right, collapsing to a wrapped
@@ -71,10 +74,12 @@ export function JourneyRail(props: { stages: JourneyStageSpec[] }) {
                 variant="ghost"
                 type="button"
                 disabled={!stage().anchor && !stage().onSelect}
+                aria-pressed={stage().selected === undefined ? undefined : stage().selected}
                 onClick={() => go(stage())}
                 class={cn(
                   'flex h-full min-w-24 flex-col items-start justify-start gap-0.5 rounded-md border border-border bg-card px-3 py-2 text-left font-normal whitespace-normal',
                   (stage().anchor || stage().onSelect) && 'transition-colors hover:bg-accent/40',
+                  stage().selected && 'border-foreground/40 bg-accent',
                   stage().stuck ? 'border-destructive/50' : (stage().waiting ?? 0) > 0 && 'border-warning/50',
                 )}
               >
@@ -103,6 +108,64 @@ export function JourneyRail(props: { stages: JourneyStageSpec[] }) {
               </Button>
             </li>
           </>
+        )}
+      </Index>
+    </ol>
+  )
+}
+
+// ─── StageTiles ───────────────────────────────────────────────────────
+// The rail as the console's number tiles (dash `Tile`): equal widths, a
+// sentence-case label, the count large, one line of context. Pipeline order
+// reads left to right; a stage that waits on a person says so in words
+// under the count. For pages where the stages filter the view below — the
+// selected one is pressed.
+
+export function StageTiles(props: { stages: JourneyStageSpec[]; label?: string }) {
+  const go = (stage: JourneyStageSpec) => {
+    if (stage.onSelect) return stage.onSelect()
+    if (stage.anchor) document.getElementById(stage.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  return (
+    <ol class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" aria-label={props.label ?? 'Pipeline stages'}>
+      <Index each={props.stages}>
+        {(stage, i) => (
+          <li class="min-w-0">
+            <Button
+              variant="ghost"
+              type="button"
+              disabled={!stage().anchor && !stage().onSelect}
+              aria-pressed={stage().selected === undefined ? undefined : stage().selected}
+              onClick={() => go(stage())}
+              class={cn(
+                'flex h-full w-full flex-col items-start justify-start gap-0 rounded-lg border px-3.5 py-3 text-left font-normal whitespace-normal',
+                stage().selected
+                  ? 'border-foreground/40 bg-card hover:bg-card'
+                  : 'border-transparent bg-muted/55 hover:bg-muted',
+              )}
+            >
+              <span class="flex w-full items-center gap-1.5 text-xs text-muted-foreground">
+                <span class="tabular-nums">{i + 1}</span>
+                <span aria-hidden="true">·</span>
+                <span class="min-w-0 truncate">{stage().label}</span>
+                <Show when={stage().stuck}>
+                  <AlertTriangle class="ml-auto size-3.5 shrink-0 text-destructive" aria-hidden="true" />
+                  <span class="sr-only">needs attention</span>
+                </Show>
+              </span>
+              <span class="mt-0.5 text-2xl font-medium tabular-nums text-foreground">
+                {stage().headline ?? (stage().count == null ? '—' : stage().count)}
+              </span>
+              <Show when={(stage().waiting ?? 0) > 0}>
+                <span class="text-xs font-medium text-warning-foreground">
+                  {stage().waiting} need{stage().waiting === 1 ? 's' : ''} you
+                </span>
+              </Show>
+              <Show when={stage().detail}>
+                {detail => <span class="text-xs text-muted-foreground">{detail()}</span>}
+              </Show>
+            </Button>
+          </li>
         )}
       </Index>
     </ol>

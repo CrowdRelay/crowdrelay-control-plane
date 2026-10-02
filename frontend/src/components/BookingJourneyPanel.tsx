@@ -1,11 +1,11 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
 import { failureLine } from '../lib/errors'
 import { Link } from '@tanstack/solid-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { ArrowRight, CalendarDays } from 'lucide-solid'
+import { CalendarDays, Plus } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { compareTimestamps, confidencePercent, formatIsoAge, formatIsoUntil, humanizeToken, money } from '../lib/format'
+import { compareTimestamps, confidencePercent, formatIsoAge, formatIsoUntil, humanizeToken, money, timestampMillis, tokenLabel } from '../lib/format'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { toast } from './app/toast'
 import { Alert } from './app/alert'
@@ -15,20 +15,17 @@ import { Section } from './layout'
 import { SectionFailureCard } from './SectionFailureCard'
 import { SkeletonSection } from './Skeleton'
 import { Spinner } from './Spinner'
-import { JourneyCard, JourneyRail, type JourneyStageSpec } from './Journey'
-import { SurfaceAction } from './capabilities/SurfaceAction'
+import { StageTiles, type JourneyStageSpec } from './Journey'
+import { ActionSheet, type OpenWrite } from './capabilities/ActionSheet'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { Pill, type Tone } from './ui/dash'
+import { SectionIcon } from './SectionIcon'
 import { capabilityAction } from '../lib/capabilities'
 import type {
-  BookingAgent,
   BookingCandidateView,
   GigPlanOutcome,
-  GigPlanProposal,
   NegotiationEntry,
-  OpportunityShortlistEntry,
-  OutreachCandidateView,
-  ReplyTriageEntry,
   TenantBookingSection,
-  TenantShow,
 } from '../lib/types'
 
 // The book-a-show journey — the one process the whole product exists to
@@ -83,7 +80,6 @@ export function BookingJourneyPanel(props: { slug: string }) {
         || compareTimestamps(b.source_observed_at, a.source_observed_at),
       ),
   )
-  const [shownFound, setShownFound] = createSignal(10)
   // Rows the shortlist already sent — an application out is an approach,
   // and "they replied" is the strongest approach signal there is.
   const applied = createMemo(() =>
@@ -171,7 +167,7 @@ export function BookingJourneyPanel(props: { slug: string }) {
         key: 'talking', label: 'Talking', anchor: 'booking-talking',
         count: degraded('negotiations') ? null : negotiationsLive().length,
         waiting: parkedMoves().length,
-        detail: nextDeadline ? `answers ${formatIsoUntil(nextDeadline)}` : null,
+        detail: nextDeadline && !Number.isNaN(timestampMillis(nextDeadline)) ? `answers ${formatIsoUntil(nextDeadline)}` : null,
       },
       {
         key: 'booked', label: 'Booked', anchor: 'booking-booked',
@@ -261,6 +257,253 @@ export function BookingJourneyPanel(props: { slug: string }) {
     },
   }))
 
+  // ── One table ────────────────────────────────────────────────────────
+  // Every stage's items as rows of one table, filtered by stage. The rail
+  // above is the stage summary and drills into the same filter.
+  const [stage, setStage] = createSignal<StageFilter>('all')
+  const [write, setWrite] = createSignal<OpenWrite | null>(null)
+  const refreshBooking = () => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })
+
+  const rows = createMemo((): PipelineRow[] => {
+    const out: PipelineRow[] = []
+    const push = (row: Omit<PipelineRow, 'order'>) => out.push({ ...row, order: out.length })
+    const platform = authState.isPlatformLevel()
+
+    // Waiting on you — the human gate first.
+    for (const c of confirmed()) {
+      push({
+        id: `confirmed-${c.id}`, stage: 'waiting', title: c.name,
+        meta: c.kind === 'booking'
+          ? c.replayed ? 'Already a booking contact' : `Added to ${c.citySlug}'s booking contacts`
+          : c.replayed ? 'Already a contact' : 'Added to outreach contacts',
+        status: { label: 'Confirmed', tone: 'good' }, when: null, whenLabel: null,
+        action: c.kind === 'booking' && c.citySlug
+          ? <Link to="/tenants/$slug/cities/$cityId" params={{ slug: props.slug, cityId: c.citySlug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open {c.citySlug}</Link>
+          : undefined,
+      })
+    }
+    for (const c of waitingBooking()) {
+      const refusal = bookingRefusal(c)
+      push({
+        id: c.candidate_id, stage: 'waiting', title: c.display_name,
+        meta: [tokenLabel(c.target_kind), c.city_slug, `fit ${confidencePercent(c.fit_basis_points)}`, `via ${c.source}`].filter(Boolean).join(' · '),
+        // The consequence is read before the click, not learned after it —
+        // or the refusal, which is the same sentence's other half.
+        note: refusal ?? (platform
+          ? `Confirm adds ${c.display_name} as a booking contact for ${c.city_slug}. The gig planner can write to them. Nothing is sent.`
+          : `Confirm saves ${c.display_name} as someone who books shows in ${c.city_slug}. Nothing is sent.`),
+        error: cardErrors()[c.candidate_id],
+        status: refusal === null ? { label: 'To confirm', tone: 'warn' } : { label: "Can't file yet", tone: 'muted' },
+        when: null, whenLabel: null,
+        action: refusal === null
+          ? <Button size="sm" writes disabled={pendingIds().has(c.candidate_id)} onClick={() => confirm.mutate({ kind: 'booking', id: c.candidate_id, name: c.display_name, citySlug: c.city_slug })}>
+              {pendingIds().has(c.candidate_id) && <Spinner />} Confirm
+            </Button>
+          : undefined,
+      })
+    }
+    for (const c of waitingOutreach()) {
+      // Only an email route becomes an outreach contact — for a form or a
+      // handle there is nothing to file, and the button would lie.
+      const confirmable = c.route_kind === 'email'
+      push({
+        id: c.id, stage: 'waiting', title: c.display_name,
+        meta: [tokenLabel(c.target_kind), c.pitch_class ? humanizeToken(c.pitch_class) : null, `fit ${confidencePercent(c.fit_basis_points)}`,
+          c.follower_count != null ? `${c.follower_count.toLocaleString()} followers` : null].filter(Boolean).join(' · '),
+        note: confirmable
+          ? platform ? `Confirm adds ${c.display_name} to outreach contacts. Nothing is sent.` : `Confirm saves ${c.display_name} as a contact. Nothing is sent.`
+          : `${tokenLabel(c.route_kind)} route: nothing to save. Apply by hand.`,
+        noteLink: !confirmable && isHttpUrl(c.source_reference) ? c.source_reference : undefined,
+        error: cardErrors()[c.id],
+        status: confirmable ? { label: 'To confirm', tone: 'warn' } : { label: 'Apply by hand', tone: 'muted' },
+        when: null, whenLabel: null,
+        action: confirmable
+          ? <Button size="sm" writes disabled={pendingIds().has(c.id)} onClick={() => confirm.mutate({ kind: 'outreach', id: c.id, name: c.display_name, citySlug: null })}>
+              {pendingIds().has(c.id) && <Spinner />} Confirm
+            </Button>
+          : undefined,
+      })
+    }
+    for (const p of proposals()) {
+      push({
+        id: `proposal-${p.city_name}-${p.venue}-${out.length}`, stage: 'waiting', title: `${p.city_name} — ${p.venue}`,
+        meta: [`${p.reach.reachable.toLocaleString()} reachable`, p.reach.room_typical_draw != null ? `room draws ~${p.reach.room_typical_draw}` : null,
+          p.contact[0] ? `to ${p.contact[0].name}` : null,
+          p.caveats.length > 0 ? `${p.caveats.length} caveat${p.caveats.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · '),
+        status: { label: 'Plan to approve', tone: 'warn' }, when: null, whenLabel: null,
+        action: <Link to="/tenants/$slug/places" params={{ slug: props.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Review the plan</Link>,
+      })
+    }
+    for (const n of parkedMoves()) push(negotiationRow(props.slug, n, 'waiting'))
+    for (const r of repliesWaiting()) {
+      push({
+        id: `reply-${r.id ?? out.length}`, stage: 'waiting',
+        title: tokenLabel(r.classified_disposition ?? r.target_kind),
+        meta: [r.human_review_reason ?? 'Classified for human review',
+          r.proposed_fee_minor != null && r.proposed_currency ? `proposed ${money(r.proposed_fee_minor, r.proposed_currency)}` : null].filter(Boolean).join(' · '),
+        status: { label: 'Reply to read', tone: 'warn' }, when: r.classified_at, whenLabel: formatIsoAge(r.classified_at),
+        action: <Link to="/tenants/$slug/operations" params={{ slug: props.slug }} search={{ tab: 'replies' }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Read it</Link>,
+      })
+    }
+
+    // Found — the scout's watch list, best fit first.
+    for (const e of watching()) {
+      push({
+        id: `found-${e.opportunity_id}`, stage: 'found', title: e.title,
+        meta: [e.organization, `fit ${confidencePercent(e.fit_basis_points)}`].filter(Boolean).join(' · '),
+        status: e.stale_reason ? { label: tokenLabel(e.stale_reason), tone: 'muted' } : { label: 'Watching', tone: 'muted' },
+        when: e.deadline ?? e.source_observed_at ?? null,
+        whenLabel: e.deadline ? `deadline ${formatIsoUntil(e.deadline)}` : e.source_observed_at ? `seen ${formatIsoAge(e.source_observed_at)}` : null,
+        // Where the application actually stands — only a person knows it
+        // left, came back, won or lost. A terminal answer needs its reason.
+        action: <Button variant="outline" size="sm" writes onClick={() => setWrite({
+          title: 'Mark progress', description: e.title,
+          action: capabilityAction('team-opportunities', 'Progress'),
+          fixed: { opportunity_id: e.opportunity_id }, initial: { progress: 'package_ready' }, submitLabel: 'Save progress',
+        })}>Mark progress</Button>,
+      })
+    }
+
+    // Approached — asks already out the door.
+    for (const e of applied()) {
+      push({
+        id: `applied-${e.opportunity_id}`, stage: 'approached', title: e.title,
+        meta: [e.organization, `fit ${confidencePercent(e.fit_basis_points)}`].filter(Boolean).join(' · '),
+        status: e.status === 'replied' ? { label: 'They answered', tone: 'good' } : { label: 'Application sent', tone: 'muted' },
+        when: e.source_observed_at ?? null, whenLabel: e.source_observed_at ? `seen ${formatIsoAge(e.source_observed_at)}` : null,
+        action: <Button variant="outline" size="sm" writes onClick={() => setWrite({
+          title: 'What happened', description: e.title,
+          action: capabilityAction('team-opportunities', 'Progress'),
+          fixed: { opportunity_id: e.opportunity_id }, initial: { progress: 'replied' }, submitLabel: 'Save progress',
+        })}>What happened</Button>,
+      })
+    }
+    for (const o of lettersOut()) {
+      const state = letterState(o)
+      push({
+        id: `letter-${o.city_name}-${o.venue}-${o.approved_at}`, stage: 'approached', title: `${o.city_name} — ${o.venue}`,
+        meta: state.meta, status: { label: state.label, tone: state.tone },
+        when: o.approved_at, whenLabel: `approved ${formatIsoAge(o.approved_at)}`,
+      })
+    }
+    for (const a of approachedAgents()) {
+      push({
+        id: `agent-${a.name}-${a.agency ?? ''}`, stage: 'approached', title: a.name,
+        meta: [a.agency ?? 'Independent', a.refused_until ? `declined until ${formatIsoUntil(a.refused_until)}` : null].filter(Boolean).join(' · '),
+        status: a.approach_pending ? { label: 'Approach queued', tone: 'muted' } : { label: 'Approached', tone: 'muted' },
+        when: a.approached_at ?? null, whenLabel: a.approached_at ? formatIsoAge(a.approached_at) : null,
+      })
+    }
+
+    // Talking — live terms conversations; parked ones already sit above.
+    for (const n of negotiationsLive().filter(n => n.pending_move == null)) push(negotiationRow(props.slug, n, 'talking'))
+
+    // Booked — what the pipeline produced.
+    for (const o of bookedOutcomes()) {
+      push({
+        id: `booked-${o.city_name}-${o.venue}-${o.approved_at}`, stage: 'booked', title: `${o.city_name} — ${o.venue}`,
+        meta: `${o.recipients} contacted · ${o.replies} replied`,
+        status: { label: 'Became a night', tone: 'good' }, when: o.approved_at, whenLabel: `approved ${formatIsoAge(o.approved_at)}`,
+      })
+    }
+    for (const show of upcoming()) {
+      push({
+        id: `show-${show.slug}`, stage: 'booked', title: show.title,
+        meta: show.venue ?? '',
+        status: show.status === 'draft' ? { label: 'Draft', tone: 'muted' } : { label: 'On the calendar', tone: 'good' },
+        when: show.starts_at, whenLabel: `starts ${formatIsoUntil(show.starts_at)}`,
+        action: <Link to="/tenants/$slug/shows/$eventSlug" params={{ slug: props.slug, eventSlug: show.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open night</Link>,
+      })
+    }
+    return out
+  })
+
+  // A stage whose every source is down reads as unknown, not empty.
+  const stageDown = (key: StageKey) =>
+    key === 'waiting' ? gateDown()
+    : key === 'found' ? degraded('shortlist')
+    : key === 'approached' ? degraded('agents') && degraded('gig_plan') && degraded('shortlist')
+    : key === 'talking' ? degraded('negotiations')
+    : degraded('shows') && degraded('gig_plan')
+  // Talking counts every live conversation, parked moves included, so the
+  // chip matches the rail even though parked ones are listed under Waiting.
+  const stageCount = (key: StageFilter) =>
+    key === 'all' ? rows().length
+    // Just-confirmed rows stay listed as proof of the click, but they no
+    // longer wait on anyone — count them the way the rail does.
+    : key === 'waiting' ? waitingCount()
+    : key === 'talking' ? negotiationsLive().length
+    : rows().filter(r => r.stage === key).length
+  const visible = () =>
+    stage() === 'all' ? rows()
+    : stage() === 'talking' ? rows().filter(r => r.stage === 'talking' || (r.stage === 'waiting' && r.talking))
+    : rows().filter(r => r.stage === stage())
+
+  const selectStage = (key: StageKey) => {
+    setStage(key)
+    document.getElementById('booking-pipeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const railStages = () => stages().map(s => ({ ...s, anchor: undefined, selected: stage() === s.key, onSelect: () => selectStage(s.key as StageKey) }))
+
+  const columns: ColumnDef<PipelineRow, any>[] = [
+    {
+      id: 'item', header: 'Item', accessorFn: r => r.title, meta: { class: 'min-w-64' },
+      cell: c => {
+        const r = c.row.original
+        return <>
+          <span class="font-medium text-foreground">{r.title}</span>
+          <Show when={r.meta}><span class="block text-muted-foreground">{r.meta}</span></Show>
+          <Show when={r.note}>
+            <span class="mt-0.5 block max-w-md text-xs text-muted-foreground text-pretty">
+              {r.note}
+              <Show when={r.noteLink}>{' '}<a href={r.noteLink} target="_blank" rel="noopener" class="break-all underline underline-offset-2">{r.noteLink}</a></Show>
+            </span>
+          </Show>
+          <Show when={r.error}><span class="mt-0.5 block max-w-md text-xs text-error-foreground text-pretty">{r.error}</span></Show>
+        </>
+      },
+    },
+    {
+      id: 'stage', header: 'Stage', accessorFn: r => r.order, meta: { class: 'whitespace-nowrap' },
+      cell: c => <span class="text-muted-foreground">
+        {STAGE_LABEL[c.row.original.stage]}
+        {/* A parked move waits on you and is still a live conversation —
+            say both, so the Talking filter doesn't look wrong. */}
+        <Show when={c.row.original.talking}><span class="block text-xs">and Talking</span></Show>
+      </span>,
+    },
+    {
+      id: 'status', header: 'Status', accessorFn: r => r.status.label,
+      cell: c => <Pill tone={c.row.original.status.tone}>{c.row.original.status.label}</Pill>,
+    },
+    {
+      id: 'when', header: 'When', accessorFn: r => timestampMillis(r.when) || 0, meta: { class: 'whitespace-nowrap' },
+      // A date that does not parse says nothing — "answers —" is noise.
+      cell: c => {
+        const r = c.row.original
+        const known = r.when == null || !Number.isNaN(timestampMillis(r.when))
+        return <span class="text-muted-foreground">{known ? r.whenLabel ?? '—' : '—'}</span>
+      },
+    },
+    {
+      id: 'action', header: () => <span class="sr-only">Action</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'text-right whitespace-nowrap' },
+      cell: c => c.row.original.action,
+    },
+  ]
+
+  const emptyFor = (key: StageFilter) => {
+    if (key !== 'all' && stageDown(key)) return <DegradedLine name={key === 'waiting' ? 'reply_triage' : key === 'found' ? 'shortlist' : key === 'talking' ? 'negotiations' : key} />
+    switch (key) {
+      case 'waiting': return <EmptyState icon={<CalendarDays />} label="Nothing waiting on you" hint="The pipeline's gate is clear — nothing is parked on a person." />
+      case 'found': return <EmptyState icon={<CalendarDays />} label="Nothing on the watch list" hint="The scout has no live candidates. Add one you heard about." />
+      case 'approached': return <EmptyState icon={<CalendarDays />} label="Nothing out yet" hint="Approved letters, applications and agent approaches land here." />
+      case 'talking': return <EmptyState icon={<CalendarDays />} label="No live terms conversations" hint="When someone answers with an offer, the conversation lands here." />
+      case 'booked': return <EmptyState icon={<CalendarDays />} label="Nothing booked yet" hint="When an approach becomes a night it lands here — and on the Nights tab." />
+      default: return <EmptyState icon={<CalendarDays />} label="The pipeline is empty" hint="Opportunities the scout finds and ones you add show up here as they move toward a booked night." />
+    }
+  }
+
   return (
     <>
       <Show when={model.error}>
@@ -276,202 +519,96 @@ export function BookingJourneyPanel(props: { slug: string }) {
       </Show>
       <Show when={model.data}>
         {data => (
-          <>
+          <div class="space-y-6">
             <DegradedNotice degraded={data().degraded} />
-            <div class="mb-6">
-              <JourneyRail stages={stages()} />
-            </div>
+            <StageTiles stages={railStages()} />
 
-            {/* The human gate first — a pipeline view that buries the asks
-                under the inventory is the old page again. `Section` has no
-                id prop, so each stage's rail anchor lives on the wrapper. */}
-            <div id="booking-waiting" class="scroll-mt-4">
-            <Section
-              title="Waiting on you"
-              count={waitingCount()}
-              lead
-              flush
-              description="Everything the pipeline cannot move past until a person says so — screened routes to confirm, plans to approve, moves parked mid-negotiation, replies nobody has read."
-            >
-              <Show
-                when={waitingCount() > 0 || confirmed().length > 0}
-                fallback={
-                  <p class="text-sm text-muted-foreground">
-                    {gateDown()
-                      ? 'Cannot read the gate — every queue that feeds it is degraded.'
-                      : 'Nothing parked — the pipeline\'s gate is clear.'}
-                  </p>
-                }
+            <div id="booking-pipeline" class="scroll-mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <Section
+                flush
+                title="Booking pipeline"
+                icon={<SectionIcon name="target" />}
+                count={rows().length}
+                description="Every ask on its way to a night, in pipeline order: what waits on you, what the scout found, what is out the door, who is talking terms, and what got booked."
               >
-                <div class="flex flex-col gap-2">
-                  {/* Confirmed rows leave `admitted` on the next refetch, so
-                      the proof of the click lives here — in page state —
-                      not in the queue that no longer carries the row. */}
-                  <Show when={confirmed().length > 0}>
-                    <p class="text-xs font-medium text-muted-foreground">Just confirmed</p>
-                    <For each={confirmed()}>
-                      {c => <ConfirmedCard slug={props.slug} entry={c} />}
-                    </For>
-                  </Show>
-                  <For each={waitingBooking()}>
-                    {c => <CandidateCard candidate={c} confirming={pendingIds().has(c.candidate_id)} error={cardErrors()[c.candidate_id]} onConfirm={() => confirm.mutate({ kind: 'booking', id: c.candidate_id, name: c.display_name, citySlug: c.city_slug })} />}
-                  </For>
-                  <For each={waitingOutreach()}>
-                    {c => <OutreachCard candidate={c} confirming={pendingIds().has(c.id)} error={cardErrors()[c.id]} onConfirm={() => confirm.mutate({ kind: 'outreach', id: c.id, name: c.display_name, citySlug: null })} />}
-                  </For>
-                  <For each={proposals()}>
-                    {p => <ProposalCard slug={props.slug} proposal={p} />}
-                  </For>
-                  <For each={parkedMoves()}>
-                    {n => <NegotiationCard slug={props.slug} entry={n} />}
-                  </For>
-                  <For each={repliesWaiting()}>
-                    {r => <ReplyCard slug={props.slug} entry={r} />}
-                  </For>
-                </div>
-              </Show>
-            </Section>
-            </div>
-
-            <div id="booking-found" class="scroll-mt-4">
-            <Section
-              title="Found"
-              count={degraded('shortlist') ? undefined : watching().length}
-              description="What the scout is tracking — opportunities it has seen but not yet approached. A stale row says why it cannot be worked."
-              action={
-                // A person hears about a slot, a grant or a showcase before
-                // any scout does. Filing it puts it through the same
-                // shortlist, costing and refusal rules as a found one.
-                <SurfaceAction
-                  slug={props.slug}
-                  size="sm"
-                  action={capabilityAction('team-opportunities', 'I found one')}
-                  label="Add one you heard about"
-                  onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
-                />
-              }
-            >
-              <Show
-                when={!degraded('shortlist')}
-                fallback={<DegradedLine name="shortlist" />}
-              >
-                <Show
-                  when={watching().length > 0}
-                  fallback={<p class="text-sm text-muted-foreground">Nothing on the watch list — the scout has no live candidates.</p>}
-                >
-                  <div class="flex flex-col gap-2">
-                    <For each={watching().slice(0, shownFound())}>
-                      {e => <ShortlistCard slug={props.slug} entry={e} />}
-                    </For>
-                    <div class="flex items-center gap-4">
-                      <Show when={watching().length > shownFound()}>
-                        <Button variant="outline" size="sm" onClick={() => setShownFound(n => n + 20)}>
-                          Show more
+                <DataTable
+                  data={visible()}
+                  columns={columns}
+                  getRowId={r => r.id}
+                  bordered={false}
+                  pageSize={15}
+                  initialSorting={[{ id: 'stage', desc: false }]}
+                  searchText={r => [r.title, r.meta, r.note, r.status.label, STAGE_LABEL[r.stage]].filter(Boolean).join(' ')}
+                  searchPlaceholder="Search by name, venue or organisation"
+                  toolbar={
+                    <div role="group" aria-label="Stage" class="flex flex-wrap items-center gap-1">
+                      <For each={STAGE_FILTERS}>{key => (
+                        <Button variant={stage() === key ? 'secondary' : 'ghost'} size="sm" aria-pressed={stage() === key} onClick={() => setStage(key)}>
+                          {key === 'all' ? 'All' : STAGE_LABEL[key]}
+                          <span class="tabular-nums text-muted-foreground">{key !== 'all' && stageDown(key) ? '—' : stageCount(key)}</span>
                         </Button>
-                      </Show>
-                      <Show when={watching().length > 10}>
-                        <DrillLink slug={props.slug} to="outreach" label={`All ${watching().length} on the shortlist`} />
-                      </Show>
+                      )}</For>
                     </div>
-                  </div>
-                </Show>
-              </Show>
-            </Section>
-            </div>
-
-            <div id="booking-approached" class="scroll-mt-4">
-            <Section
-              title="Approached"
-              count={degraded('agents') && degraded('gig_plan') && degraded('shortlist') ? undefined : approachedCount()}
-              description="Asks already out the door — applications sent, agent doors knocked on, gig-plan letters measuring their replies."
-            >
-              <Show
-                when={!(degraded('agents') && degraded('gig_plan') && degraded('shortlist'))}
-                fallback={<DegradedLine name="approached" />}
-              >
-                <Show
-                  when={approachedCount() > 0}
-                  fallback={<p class="text-sm text-muted-foreground">Nothing out yet — approved letters, applications and agent approaches land here.</p>}
-                >
-                  <div class="flex flex-col gap-2">
-                    <For each={applied()}>
-                      {e => <AppliedCard slug={props.slug} entry={e} />}
-                    </For>
-                    <For each={lettersOut()}>
-                      {o => <LetterOutCard outcome={o} />}
-                    </For>
-                    <For each={approachedAgents()}>
-                      {a => <AgentCard agent={a} />}
-                    </For>
-                  </div>
-                </Show>
-              </Show>
-            </Section>
-            </div>
-
-            <div id="booking-talking" class="scroll-mt-4">
-            <Section
-              title="Talking"
-              count={degraded('negotiations') ? undefined : negotiationsLive().length}
-              description="Live terms conversations — who answered, what is on the table, when the next move is due."
-            >
-              <Show
-                when={!degraded('negotiations')}
-                fallback={<DegradedLine name="negotiations" />}
-              >
-                <Show
-                  when={negotiationsLive().length > 0}
-                  fallback={<p class="text-sm text-muted-foreground">No live terms conversations.</p>}
-                >
-                  <div class="flex flex-col gap-2">
-                    <For each={negotiationsLive()}>
-                      {n => <NegotiationCard slug={props.slug} entry={n} />}
-                    </For>
-                  </div>
-                </Show>
-              </Show>
-            </Section>
-            </div>
-
-            <div id="booking-booked" class="scroll-mt-4">
-            <Section
-              title="Booked"
-              count={degraded('shows') && degraded('gig_plan') ? undefined : bookedCount()}
-              description="What the pipeline produced — nights on the calendar, and the gig-plan approvals that became real shows."
-            >
-              <Show
-                when={!(degraded('shows') && degraded('gig_plan'))}
-                fallback={<DegradedLine name="booked" />}
-              >
-                <Show
-                  when={bookedCount() > 0}
-                  fallback={
-                    <EmptyState icon={<CalendarDays />}
-                      label="Nothing booked yet"
-                      hint="When an approach becomes a night it lands here — and on the Nights tab."
-                    />
                   }
-                >
-                  <div class="flex flex-col gap-2">
-                    <For each={bookedOutcomes()}>
-                      {o => <BookedOutcomeCard outcome={o} />}
-                    </For>
-                    <For each={upcoming()}>
-                      {s => <ShowNightCard slug={props.slug} show={s} />}
-                    </For>
-                  </div>
-                </Show>
-              </Show>
-            </Section>
+                  actions={
+                    // A person hears about a slot, a grant or a showcase before
+                    // any scout does. Filing it puts it through the same
+                    // shortlist, costing and refusal rules as a found one.
+                    <Button writes variant="outline" size="sm" onClick={() => setWrite({
+                      title: 'Add an opportunity',
+                      description: 'A slot, grant or showcase you heard about. It goes through the same shortlist, costing and refusal rules as one the scout found.',
+                      action: capabilityAction('team-opportunities', 'I found one'),
+                      submitLabel: 'Add opportunity',
+                    })}>
+                      <Plus aria-hidden="true" /> Add one you heard about
+                    </Button>
+                  }
+                  empty={emptyFor(stage())}
+                />
+              </Section>
             </div>
-          </>
+
+            <ActionSheet
+              slug={props.slug}
+              write={write()}
+              onClose={() => setWrite(null)}
+              onDone={() => { setWrite(null); refreshBooking() }}
+            />
+          </div>
         )}
       </Show>
     </>
   )
 }
 
-// ── Cards ────────────────────────────────────────────────────────────
+// ── Rows ──────────────────────────────────────────────────────────────
+
+type StageKey = 'waiting' | 'found' | 'approached' | 'talking' | 'booked'
+type StageFilter = 'all' | StageKey
+const STAGE_FILTERS: StageFilter[] = ['all', 'waiting', 'found', 'approached', 'talking', 'booked']
+const STAGE_LABEL: Record<StageKey, string> = {
+  waiting: 'Waiting on you', found: 'Found', approached: 'Approached', talking: 'Talking', booked: 'Booked',
+}
+
+/** One item anywhere in the pipeline, whatever read it came from. */
+type PipelineRow = {
+  id: string
+  stage: StageKey
+  /** Pipeline position — the default sort, gate first. */
+  order: number
+  title: string
+  meta: string
+  /** What the action does, or why there is none — read before the click. */
+  note?: string
+  noteLink?: string
+  error?: string
+  status: { label: string; tone: Tone }
+  when: string | null
+  whenLabel: string | null
+  action?: JSX.Element
+  /** A parked negotiation is waiting on you and still a live conversation. */
+  talking?: boolean
+}
 
 /** A row the operator already said yes to — kept in page state because the
  *  admitted queue stops carrying it the moment upstream files it. */
@@ -484,7 +621,7 @@ type ConfirmedEntry = {
 }
 
 /// Upstream confirm files only an email route into a booking target — the
-/// refusal is an answer, so the card says it instead of offering a click
+/// refusal is an answer, so the row says it instead of offering a click
 /// that can only 409.
 function bookingRefusal(c: BookingCandidateView): string | null {
   if (c.route_kind !== 'email') {
@@ -496,393 +633,43 @@ function bookingRefusal(c: BookingCandidateView): string | null {
   return null
 }
 
-function CandidateCard(props: {
-  candidate: BookingCandidateView
-  confirming: boolean
-  error?: string
-  onConfirm: () => void
-}) {
-  const c = () => props.candidate
-  const platform = authState.isPlatformLevel()
-  return (
-    <JourneyCard
-      title={c().display_name}
-      badge={bookingRefusal(c()) === null ? { label: 'to confirm', tone: 'warn' } : { label: "can't file yet", tone: 'muted' }}
-      meta={<>
-        {c().target_kind.replaceAll('_', ' ')}
-        {c().city_slug ? ` · ${c().city_slug}` : ''}
-        {` · fit ${confidencePercent(c().fit_basis_points)}`}
-        {` · via ${c().source}`}
-      </>}
-      action={
-        <Show when={bookingRefusal(c()) === null}>
-          <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
-            {props.confirming && <Spinner />} Confirm
-          </Button>
-        </Show>
-      }
-    >
-      {/* The consequence is read before the click, not learned after it —
-          or the refusal, which is the same sentence's other half. */}
-      <p class="mt-1 text-xs text-muted-foreground">
-        {bookingRefusal(c()) ?? (platform
-          ? `Confirm adds ${c().display_name} as a booking contact for ${c().city_slug}. The gig planner can write to them. Nothing is sent.`
-          : `Confirm saves ${c().display_name} as someone who books shows in ${c().city_slug}. Nothing is sent.`)}
-      </p>
-      <Show when={props.error}>
-        {e => <p class="mt-1 text-xs text-destructive">{e()}</p>}
-      </Show>
-    </JourneyCard>
-  )
-}
-
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value)
 
-function OutreachCard(props: {
-  candidate: OutreachCandidateView
-  confirming: boolean
-  error?: string
-  onConfirm: () => void
-}) {
-  const c = () => props.candidate
-  const platform = authState.isPlatformLevel()
-  const meta = () => [
-    c().target_kind.replaceAll('_', ' '),
-    c().pitch_class?.replaceAll('_', ' '),
-    `fit ${confidencePercent(c().fit_basis_points)}`,
-    c().follower_count != null ? `${c().follower_count!.toLocaleString()} followers` : null,
-  ].filter(Boolean).join(' · ')
-  // Only an email route becomes an outreach contact — for a form or a
-  // handle there is nothing to file, and the button would lie.
-  const confirmable = () => c().route_kind === 'email'
-  return (
-    <JourneyCard
-      title={c().display_name}
-      badge={confirmable() ? { label: 'to confirm', tone: 'warn' } : { label: 'apply by hand', tone: 'muted' }}
-      meta={meta()}
-      action={
-        <Show when={confirmable()}>
-          <Button size="sm" writes disabled={props.confirming} onClick={props.onConfirm}>
-            {props.confirming && <Spinner />} Confirm
-          </Button>
-        </Show>
-      }
-    >
-      <p class="mt-1 text-xs text-muted-foreground">
-        {confirmable()
-          ? platform
-            ? `Confirm adds ${c().display_name} to outreach contacts. Nothing is sent.`
-            : `Confirm saves ${c().display_name} as a contact. Nothing is sent.`
-          : `${c().route_kind} route: nothing to save. Apply by hand.`}
-        {' '}
-        <Show when={!confirmable() && isHttpUrl(c().source_reference)}>
-          <a href={c().source_reference} target="_blank" rel="noopener" class="underline underline-offset-2">
-            {c().source_reference}
-          </a>
-        </Show>
-      </p>
-      <Show when={props.error}>
-        {e => <p class="mt-1 text-xs text-destructive">{e()}</p>}
-      </Show>
-    </JourneyCard>
-  )
-}
-
-function ConfirmedCard(props: { slug: string; entry: ConfirmedEntry }) {
-  const c = () => props.entry
-  return (
-    <JourneyCard
-      title={c().name}
-      badge={{ label: 'confirmed', tone: 'good' }}
-      meta={c().kind === 'booking'
-        ? c().replayed
-          ? 'Already a booking contact'
-          : `Added to ${c().citySlug}'s booking contacts`
-        : c().replayed
-          ? 'Already a contact'
-          : 'Added to outreach contacts'}
-      action={
-        <Show when={c().kind === 'booking' && c().citySlug}>
-          <Link
-            to="/tenants/$slug/cities/$cityId"
-            params={{ slug: props.slug, cityId: c().citySlug! }}
-            class={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Open {c().citySlug}
-          </Link>
-        </Show>
-      }
-    />
-  )
-}
-
-function ProposalCard(props: { slug: string; proposal: GigPlanProposal }) {
-  const p = () => props.proposal
-  const meta = () => [
-    `${p().reach.reachable.toLocaleString()} reachable`,
-    p().reach.room_typical_draw != null ? `room draws ~${p().reach.room_typical_draw}` : null,
-    p().contact[0] ? `to ${p().contact[0]!.name}` : null,
-    p().caveats.length > 0 ? `${p().caveats.length} caveat${p().caveats.length === 1 ? '' : 's'}` : null,
-  ].filter(Boolean).join(' · ')
-  return (
-    <JourneyCard
-      title={`${p().city_name} — ${p().venue}`}
-      badge={{ label: 'plan to approve', tone: 'warn' }}
-      meta={meta()}
-      action={
-        <Link
-          to="/tenants/$slug/places"
-          params={{ slug: props.slug }}
-          class={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          Review the plan
-        </Link>
-      }
-    />
-  )
-}
-
-function NegotiationCard(props: { slug: string; entry: NegotiationEntry }) {
-  const n = () => props.entry
-  return (
-    <JourneyCard
-      title={n().title}
-      badge={n().pending_move
-        ? { label: 'move parked', tone: 'warn' }
-        : { label: `answers ${formatIsoUntil(n().responds_by)}`, tone: 'muted' }}
-      meta={<>
-        {n().organization}
-        {` · on the table ${money(n().offered_fee_minor, n().currency)}`}
-        {n().countered_fee_minor != null ? ` · asked ${money(n().countered_fee_minor!, n().currency)}` : ''}
-        {` · answers ${formatIsoUntil(n().responds_by)}`}
-      </>}
-      action={
-        <Link
-          to="/tenants/$slug/operations"
-          params={{ slug: props.slug }}
-          search={{ tab: 'negotiations' }}
-          class={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          {n().pending_move ? 'Answer the move' : 'Open terms'}
-        </Link>
-      }
-    />
-  )
-}
-
-function ReplyCard(props: { slug: string; entry: ReplyTriageEntry }) {
-  const r = () => props.entry
-  return (
-    <JourneyCard
-      title={r().classified_disposition?.replaceAll('_', ' ') ?? r().target_kind.replaceAll('_', ' ')}
-      badge={{ label: 'reply to read', tone: 'warn' }}
-      meta={<>
-        {r().human_review_reason ?? 'classified for human review'}
-        {` · ${formatIsoAge(r().classified_at)}`}
-        {r().proposed_fee_minor != null && r().proposed_currency
-          ? ` · proposed ${money(r().proposed_fee_minor!, r().proposed_currency!)}`
-          : ''}
-      </>}
-      action={
-        <Link
-          to="/tenants/$slug/operations"
-          params={{ slug: props.slug }}
-          search={{ tab: 'replies' }}
-          class={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          Read it
-        </Link>
-      }
-    />
-  )
-}
-
-function ShortlistCard(props: { slug: string; entry: OpportunityShortlistEntry }) {
-  const queryClient = useQueryClient()
-  const e = () => props.entry
-  const meta = () => [
-    e().organization,
-    `fit ${confidencePercent(e().fit_basis_points)}`,
-    e().deadline ? `deadline ${formatIsoUntil(e().deadline!)}` : null,
-    e().source_observed_at ? `seen ${formatIsoAge(e().source_observed_at!)}` : null,
-  ].filter(Boolean).join(' · ')
-  return (
-    <JourneyCard
-      title={e().title}
-      badge={e().stale_reason
-        ? { label: e().stale_reason!.replaceAll('_', ' '), tone: 'muted' }
-        : { label: 'watching', tone: 'muted' }}
-      meta={meta()}
-      action={
-        <div class="flex items-center gap-1">
-        <Link
-          to="/tenants/$slug/operations"
-          params={{ slug: props.slug }}
-          search={{ tab: 'outreach' }}
-          class={buttonVariants({ variant: 'ghost', size: 'sm' })}
-        >
-          <ArrowRight class="size-3.5" aria-hidden="true" /> Shortlist
-        </Link>
-        {/* Where the application actually stands — only a person knows it
-            left, came back, won or lost. A terminal answer needs its reason. */}
-        <SurfaceAction
-          slug={props.slug}
-          size="xs"
-          variant="ghost"
-          action={capabilityAction('team-opportunities', 'Progress')}
-          label="Mark progress"
-          fixed={{ opportunity_id: e().opportunity_id }}
-          initial={{ progress: 'package_ready' }}
-          onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
-        />
-        </div>
-      }
-    />
-  )
-}
-
-function AppliedCard(props: { slug: string; entry: OpportunityShortlistEntry }) {
-  const queryClient = useQueryClient()
-  const e = () => props.entry
-  const meta = () => [
-    e().organization,
-    `fit ${confidencePercent(e().fit_basis_points)}`,
-    e().source_observed_at ? `seen ${formatIsoAge(e().source_observed_at!)}` : null,
-  ].filter(Boolean).join(' · ')
-  return (
-    <JourneyCard
-      title={e().title}
-      badge={e().status === 'replied'
-        ? { label: 'they answered', tone: 'good' }
-        : { label: 'application sent', tone: 'muted' }}
-      meta={meta()}
-      action={
-        <div class="flex items-center gap-1">
-        <Link
-          to="/tenants/$slug/operations"
-          params={{ slug: props.slug }}
-          search={{ tab: 'outreach' }}
-          class={buttonVariants({ variant: 'ghost', size: 'sm' })}
-        >
-          <ArrowRight class="size-3.5" aria-hidden="true" /> Open
-        </Link>
-        {/* Where the application actually stands — only a person knows it
-            left, came back, won or lost. A terminal answer needs its reason. */}
-        <SurfaceAction
-          slug={props.slug}
-          size="xs"
-          variant="ghost"
-          action={capabilityAction('team-opportunities', 'Progress')}
-          label="What happened"
-          fixed={{ opportunity_id: e().opportunity_id }}
-          initial={{ progress: 'replied' }}
-          onDone={() => void queryClient.invalidateQueries({ queryKey: ['tenant-booking', props.slug] })}
-        />
-        </div>
-      }
-    />
-  )
-}
-
-function AgentCard(props: { agent: BookingAgent }) {
-  const a = () => props.agent
-  return (
-    <JourneyCard
-      title={a().name}
-      badge={a().approach_pending
-        ? { label: 'approach queued', tone: 'muted' }
-        : { label: 'approached', tone: 'muted' }}
-      meta={<>
-        {a().agency ?? 'independent'}
-        {a().approached_at ? ` · approached ${formatIsoAge(a().approached_at!)}` : ''}
-        {a().refused_until ? ` · declined until ${formatIsoUntil(a().refused_until!)}` : ''}
-      </>}
-    />
-  )
-}
-
-function LetterOutCard(props: { outcome: GigPlanOutcome }) {
-  const o = () => props.outcome
-  // Upstream's own vocabulary (track_record.rs): the letter only "left" on
-  // `succeeded`; `cancelled` means it never did; anything else — queued,
-  // running, reconciling — is parked on the executor, not closed.
-  const state = (): { label: string; tone: 'warn' | 'muted' | 'bad'; meta: string } => {
-    if (o().action_status === 'cancelled') {
-      return { label: 'never sent', tone: 'muted', meta: `cancelled before it left · approved ${formatIsoAge(o().approved_at)}` }
-    }
-    if (o().action_status === 'failed' || o().action_status === 'unknown') {
-      return { label: 'send failed', tone: 'bad', meta: `approved ${formatIsoAge(o().approved_at)} · the send ended ${o().action_status}` }
-    }
-    if (o().action_status !== 'succeeded') {
-      return { label: 'letter parked', tone: 'warn', meta: `approved ${formatIsoAge(o().approved_at)} · still ${o().action_status} — has not gone out` }
-    }
-    if (o().unfinished_measurements > 0) {
-      return { label: 'letter out', tone: 'muted', meta: `sent to ${o().recipients} · ${o().replies} ${o().replies === 1 ? 'reply' : 'replies'} · replies may still land` }
-    }
-    return { label: 'closed — no night', tone: 'muted', meta: `sent to ${o().recipients} · ${o().replies} ${o().replies === 1 ? 'reply' : 'replies'} · window closed` }
+function negotiationRow(slug: string, n: NegotiationEntry, stage: StageKey): Omit<PipelineRow, 'order'> {
+  return {
+    id: `negotiation-${n.opportunity_id}`, stage, talking: stage === 'waiting',
+    title: n.title,
+    meta: [n.organization, `on the table ${money(n.offered_fee_minor, n.currency)}`,
+      n.countered_fee_minor != null ? `asked ${money(n.countered_fee_minor, n.currency)}` : null].filter(Boolean).join(' · '),
+    status: n.pending_move ? { label: 'Move parked', tone: 'warn' } : { label: 'Talking', tone: 'muted' },
+    when: n.responds_by, whenLabel: `answers ${formatIsoUntil(n.responds_by)}`,
+    action: (
+      <Link to="/tenants/$slug/operations" params={{ slug }} search={{ tab: 'negotiations' }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        {n.pending_move ? 'Answer the move' : 'Open terms'}
+      </Link>
+    ),
   }
-  return (
-    <JourneyCard
-      title={`${o().city_name} — ${o().venue}`}
-      badge={{ label: state().label, tone: state().tone }}
-      meta={state().meta}
-    />
-  )
 }
 
-function BookedOutcomeCard(props: { outcome: GigPlanOutcome }) {
-  const o = () => props.outcome
-  return (
-    <JourneyCard
-      title={`${o().city_name} — ${o().venue}`}
-      badge={{ label: 'became a night', tone: 'good' }}
-      meta={<>{`approved ${formatIsoAge(o().approved_at)} · ${o().recipients} contacted · ${o().replies} replied`}</>}
-    />
-  )
-}
-
-function ShowNightCard(props: { slug: string; show: TenantShow }) {
-  const s = () => props.show
-  return (
-    <Link
-      to="/tenants/$slug/shows/$eventSlug"
-      params={{ slug: props.slug, eventSlug: s().slug }}
-      class="block rounded-lg transition-colors hover:bg-accent/40"
-    >
-      <JourneyCard
-        title={s().title}
-        badge={s().status === 'draft'
-          ? { label: 'draft', tone: 'muted' }
-          : { label: formatIsoUntil(s().starts_at), tone: 'good' }}
-        meta={<>
-          {s().venue ? `${s().venue} · ` : ''}
-          {`starts ${formatIsoUntil(s().starts_at)}`}
-        </>}
-      />
-    </Link>
-  )
-}
-
-function DrillLink(props: { slug: string; to: string; label: string }) {
-  return (
-    <Link
-      to="/tenants/$slug/operations"
-      params={{ slug: props.slug }}
-      search={{ tab: props.to }}
-      class="inline-flex items-center gap-1 px-1 py-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-    >
-      {props.label} <ArrowRight class="size-3.5" aria-hidden="true" />
-    </Link>
-  )
+/// Upstream's own vocabulary (track_record.rs): the letter only "left" on
+/// `succeeded`; `cancelled` means it never did; anything else — queued,
+/// running, reconciling — is parked on the executor, not closed.
+function letterState(o: GigPlanOutcome): { label: string; tone: Tone; meta: string } {
+  if (o.action_status === 'cancelled') return { label: 'Never sent', tone: 'muted', meta: 'Cancelled before it left' }
+  if (o.action_status === 'failed' || o.action_status === 'unknown') return { label: 'Send failed', tone: 'bad', meta: `The send ended ${o.action_status}` }
+  if (o.action_status !== 'succeeded') return { label: 'Letter parked', tone: 'warn', meta: `Still ${o.action_status} — has not gone out` }
+  const replies = `${o.replies} ${o.replies === 1 ? 'reply' : 'replies'}`
+  if (o.unfinished_measurements > 0) return { label: 'Letter out', tone: 'muted', meta: `Sent to ${o.recipients} · ${replies} · replies may still land` }
+  return { label: 'Closed, no night', tone: 'muted', meta: `Sent to ${o.recipients} · ${replies} · window closed` }
 }
 
 // A section the tenant could not serve reads as its own honest line — the
-// card wall beside it keeps working, and the name tells the operator which
+// table beside it keeps working, and the name tells the operator which
 // upstream route to chase.
 function DegradedNotice(props: { degraded: readonly string[] }) {
   return (
     <Show when={props.degraded.length > 0}>
-      <div class="mb-4 flex flex-col gap-2">
+      <div class="flex flex-col gap-2">
         <For each={props.degraded}>
           {name => (
             <Alert tone="warning" role="status">
@@ -898,7 +685,7 @@ function DegradedNotice(props: { degraded: readonly string[] }) {
 
 function DegradedLine(props: { name: string }) {
   return (
-    <p class="text-sm text-muted-foreground">
+    <p class="py-6 text-center text-sm text-muted-foreground">
       {sectionLabel[props.name] ?? humanizeToken(props.name)} didn't load, so this is unknown rather than empty.
     </p>
   )
