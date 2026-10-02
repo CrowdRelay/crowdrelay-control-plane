@@ -57,8 +57,9 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(page.getByRole('heading', { name: 'Tenants', exact: true })).toBeVisible()
   // The default Overview work area renders FleetList cards, not the
   // tenant-row table — that lives on the second tab. The operator path in is
-  // the card's Open link, which encodes the tenant slug in its href.
-  const virya = page.locator('a[href="/tenants/virya/operations"]')
+  // the card's Open link; scope to <main> because the sidebar Today link
+  // shares the same href.
+  const virya = page.getByRole('main').locator('a[href="/tenants/virya/operations"]')
   await expect(virya).toBeVisible()
   await virya.click()
   // The bare tenant URL redirects to Today. The Heartbeat panel lives on
