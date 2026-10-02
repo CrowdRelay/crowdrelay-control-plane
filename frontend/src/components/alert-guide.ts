@@ -1,22 +1,11 @@
-import { For, Show } from 'solid-js'
-import { CircleCheck } from 'lucide-solid'
 import { authState } from '../lib/auth'
-import { PanelTitle } from './layout'
-import { Link } from '@tanstack/solid-router'
 import type { OpsAlert } from '../lib/types'
-import { StatusBadge } from './StatusBadge'
-import { EmptyState } from './ui/empty-state'
-import { SectionIcon } from './SectionIcon'
-import { Card } from './app/card'
-import { Alert } from './app/alert'
-import { Button } from './app/button'
-import { buttonVariants } from './app/button'
 
 // What each watchdog condition actually observes, and where an operator can act
 // on it. The upstream row carries a one-line summary and raw evidence; the
 // operator still needs to know which queue or worker produced it, so the
 // explanation lives next to the alert instead of in a runbook nobody opens.
-type AlertGuide = {
+export type AlertGuide = {
   title: string
   cause: string
   /// The band's phrasing of the same alert — used where the operator wording
@@ -137,102 +126,25 @@ const GUIDE: Record<string, AlertGuide> = {
   },
 }
 
-const formatTime = (value: string | null) => {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString()
+/** What an alert means in words, in the reader's vocabulary — the band
+ *  gets the band's phrasing where the operator's names machinery. */
+export function alertGuide(alert: OpsAlert): AlertGuide | undefined {
+  const g = GUIDE[alert.alert_key]
+  if (!g) return undefined
+  if (authState.isPlatformLevel() || !g.band) return g
+  return { ...g, title: g.band.title ?? g.title, cause: g.band.cause ?? g.cause }
 }
-const formatDetail = (value: unknown) => typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)
 
-export function WatchdogAlertsPanel(props: {
-  alerts: OpsAlert[]
-  slug: string
-  /// Show the section an alert points at. This used to be a local
-  /// `scrollIntoView` by element id, which found nothing whenever the target
-  /// sat in another tab — the failed-queue anchors all do, and an inactive tab
-  /// panel is hidden or not mounted. The page knows which tab owns which
-  /// anchor, so it does the reveal.
-  onReveal: (anchor: string) => void
-}) {
-  const open = () => props.alerts.filter(alert => alert.active)
-  const recovered = () => props.alerts.filter(alert => !alert.active)
-  // Actions that lead to surfaces the band does not have — the operations
-  // page, the platform-gated reconciliation section, or the dead-queue
-  // anchors (their owning Queues tab is not in the band's tab bar, so the
-  // reveal would mount a panel with no tab selected) — hide for the band;
-  // the alert itself still says what is wrong.
-  const visibleAction = (a: AlertGuide['action']) =>
-    !a || (!authState.isPlatformLevel() && ('operations' in a || a.anchor === 'reconciliation-findings' || a.anchor?.startsWith('dead-'))) ? undefined : a
-
-  return <>
-    <div id="watchdog-alerts" class="flex items-start justify-between gap-4 mb-3">
-      <div>
-        <PanelTitle as="h3" icon={<SectionIcon name="alert-triangle" />}>Open alerts</PanelTitle>
-        <p class="mt-1 text-sm text-muted-foreground leading-relaxed">Checked every 5 minutes. An alert closes itself as soon as the problem it is watching goes away — you do not have to dismiss it.</p>
-      </div>
-      <StatusBadge
-        status={open().length === 0 ? 'clear' : `${open().length} open`}
-        tone={open().some(alert => alert.severity === 'critical') ? 'bad' : open().length > 0 ? 'warn' : 'good'}
-      />
-    </div>
-
-    {/* Adjacent alerts shared an edge, so two open alerts read as one box
-        with a rule through it. The gap lives on the list rather than as a
-        margin on each alert: an alert is used in a dozen other places where
-        it is the only thing on screen and needs no trailing space. */}
-    <div class="flex flex-col gap-3">
-    <For each={open()}>{alert => {
-      const guide = () => {
-        const g = GUIDE[alert.alert_key]
-        if (!g) return undefined
-        if (authState.isPlatformLevel() || !g.band) return g
-        return { ...g, title: g.band.title ?? g.title, cause: g.band.cause ?? g.cause }
-      }
-      return <Alert tone={alert.severity === 'critical' ? 'destructive' : 'warning'}>
-        <div class="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <strong class="text-foreground">{guide()?.title ?? alert.summary}</strong>
-            <p class="mt-1 text-sm text-secondary-foreground leading-relaxed">{guide()?.cause ?? alert.summary}</p>
-          </div>
-          <StatusBadge status={alert.severity} tone={alert.severity === 'critical' ? 'bad' : 'warn'} />
-        </div>
-        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-          <For each={Object.entries(alert.details)}>{([key, value]) => <span><em class="not-italic font-medium">{key}</em> {formatDetail(value)}</span>}</For>
-          <span><em class="not-italic font-medium">first seen</em> {formatTime(alert.first_seen_at)}</span>
-          <span><em class="not-italic font-medium">last confirmed</em> {formatTime(alert.last_seen_at)}</span>
-        </div>
-        {/* An action that names a surface the band does not have — the
-            operations page, or the platform-gated reconciliation section —
-            is worse than no action, so the band gets the alert without it. */}
-        <Show when={visibleAction(guide()?.action)}>{action => <div class="flex items-center gap-2 mt-3">
-          <Show
-            when={'operations' in action() ? null : (action() as { anchor: string }).anchor}
-            fallback={<Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/operations" params={{ slug: props.slug }}>{action().label}</Link>}
-          >
-            {anchor => <Button variant="ghost" size="sm" onClick={() => props.onReveal(anchor())}>{action().label}</Button>}
-          </Show>
-        </div>}</Show>
-      </Alert>
-    }}</For>
-    </div>
-
-    <Show when={open().length === 0}>
-      <div class="p-4 mt-2.5"><EmptyState icon={<CircleCheck />} label="No open alerts" hint={authState.isPlatformLevel() ? 'The watchdog monitors runtime health and shows open alerts here.' : 'The monitor checks that nothing broke and shows open alerts here.'} /></div>
-    </Show>
-
-    {/* Recovered rows stay for 24 hours so a cleared incident is visible as
-        cleared rather than as an alert that silently disappeared. */}
-    <Show when={recovered().length > 0}>
-      <Card class="p-4 mt-2.5">
-        <p class="m-0 text-sm text-foreground font-semibold">Recovered in the last 24 hours</p>
-        <div class="mt-2 flex flex-col gap-1.5">
-          <For each={recovered()}>{alert => {
-            const guide = GUIDE[alert.alert_key]
-            const title = !authState.isPlatformLevel() && guide?.band?.title ? guide.band.title : guide?.title
-            return <p class="m-0 text-sm text-muted-foreground"><strong class="text-secondary-foreground">{title ?? alert.summary}</strong> · recovered {formatTime(alert.recovered_at)}</p>
-          }}</For>
-        </div>
-      </Card>
-    </Show>
-  </>
+/** Where a person can act on an alert. Actions that lead to surfaces the
+ *  band does not have — the operations page, the platform-gated
+ *  reconciliation section, or the dead-queue anchors (their owning Queues
+ *  tab is not in the band's tab bar) — hide for the band; the alert itself
+ *  still says what is wrong. */
+export function alertAction(alert: OpsAlert): AlertGuide['action'] | undefined {
+  const a = alertGuide(alert)?.action
+  return !a || (!authState.isPlatformLevel() && ('operations' in a || a.anchor === 'reconciliation-findings' || a.anchor?.startsWith('dead-'))) ? undefined : a
 }
+
+/** The raw evidence the watchdog attached, as `key value` pairs. */
+export const alertDetails = (alert: OpsAlert) =>
+  Object.entries(alert.details).map(([key, value]) => `${key} ${typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}`)

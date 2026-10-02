@@ -82,9 +82,9 @@ export function DashHeader(props: {
 }
 
 /** The row of numbers under the header — four by default, as the mockups. */
-export function Tiles(props: { children: JSX.Element; cols?: 2 | 3 | 4 | 5 }) {
+export function Tiles(props: { children: JSX.Element; cols?: 2 | 3 | 4 | 5 | 6 }) {
   return (
-    <div class={cn('mb-3 grid grid-cols-2 gap-2.5', props.cols === 5 ? 'lg:grid-cols-5' : props.cols === 3 ? 'lg:grid-cols-3' : props.cols === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4')}>
+    <div class={cn('mb-3 grid grid-cols-2 gap-2.5', props.cols === 6 ? 'sm:grid-cols-3 xl:grid-cols-6' : props.cols === 5 ? 'lg:grid-cols-5' : props.cols === 3 ? 'lg:grid-cols-3' : props.cols === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4')}>
       {props.children}
     </div>
   )

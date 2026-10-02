@@ -52,6 +52,10 @@ export function DataTable<T>(props: {
    *  card — a border inside a border is just noise. */
   bordered?: boolean
   getRowId?: (row: T) => string
+  /** A DOM id on the row's `<tr>`, for deep links that scroll to a row. */
+  rowDomId?: (row: T) => string | undefined
+  /** Extra classes on a row — a deep link's highlight, say. */
+  rowClass?: (row: T) => string | undefined
 }) {
   const [sorting, setSorting] = createSignal<SortingState>(props.initialSorting ?? [])
   const [query, setQuery] = createSignal('')
@@ -185,7 +189,7 @@ export function DataTable<T>(props: {
                   </TableRow>
                 }
               >{row => (
-                <TableRow>
+                <TableRow id={props.rowDomId?.(row.original)} class={cn(props.rowDomId && 'scroll-mt-4', props.rowClass?.(row.original))}>
                   <For each={row.getVisibleCells()}>{cell => (
                     <TableCell numeric={cell.column.columnDef.meta?.numeric} class={cell.column.columnDef.meta?.class}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
