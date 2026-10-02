@@ -1,11 +1,17 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
+import { Link2 } from 'lucide-solid'
 import { capability } from '../lib/capabilities'
 import { surface } from '../lib/surface'
-import { formatTimestamp, httpUrl } from '../lib/format'
+import { formatTimestamp, httpUrl, tokenLabel } from '../lib/format'
 import { Section } from './layout'
 import { SectionIcon } from './SectionIcon'
-import { Badge } from './app/badge'
+import { SectionFailureCard } from './SectionFailureCard'
+import { SkeletonRows } from './Skeleton'
+import { Button } from './app/button'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { EmptyState } from './ui/empty-state'
+import { Pill, Tile, Tiles, type Tone } from './ui/dash'
 
 // Which of the band's own posts held attention — CrowdRelay's hook
 // scorecard (`/v1/control-plane/content/hooks`). Each post is judged against
@@ -42,43 +48,37 @@ type FanLink = {
   stayed: number
 }
 
-const VERDICT: Record<HookPost['verdict'], { label: string; variant: 'success' | 'warning' | 'muted' }> = {
-  held_attention: { label: 'held attention', variant: 'success' },
-  lost_early: { label: 'lost them early', variant: 'warning' },
-  typical: { label: 'typical', variant: 'muted' },
-  unmeasured: { label: 'not measured', variant: 'muted' },
+const VERDICT: Record<HookPost['verdict'], { label: string; tone: Tone }> = {
+  held_attention: { label: 'Held attention', tone: 'good' },
+  lost_early: { label: 'Lost them early', tone: 'warn' },
+  typical: { label: 'Typical', tone: 'muted' },
+  unmeasured: { label: 'Not measured', tone: 'muted' },
 }
 
-const versusMedian = (bps: number | null) => (bps == null ? null : `${(bps / 100).toFixed(0)}% of usual`)
+const versusMedian = (bps: number | null) => (bps == null ? null : `${(bps / 100).toFixed(0)}% of your usual`)
 
-function HookRow(props: { post: HookPost }) {
-  const verdict = () => VERDICT[props.post.verdict]
-  return (
-    <li class="rounded-lg border border-border bg-background px-4 py-3">
-      <p class="text-xs text-muted-foreground">
-        <Badge variant={verdict().variant}>{verdict().label}</Badge>{' '}
-        {props.post.platform ?? 'post'}{props.post.media_type ? ` · ${props.post.media_type.toLowerCase()}` : ''} · {formatTimestamp(props.post.posted_at)}
-        <Show when={httpUrl(props.post.url)}>{url => <> · <a class="underline" href={url()} target="_blank" rel="noreferrer">open</a></>}</Show>
-      </p>
-      <Show when={props.post.opening}>{opening => <p class="mt-1 text-sm text-foreground">“{opening()}”</p>}</Show>
-      <p class="mt-1 text-xs text-muted-foreground">
-        <Show when={props.post.avg_watch_ms != null}>watched {((props.post.avg_watch_ms ?? 0) / 1000).toFixed(1)}s on average{versusMedian(props.post.watch_index_bps) ? ` (${versusMedian(props.post.watch_index_bps)})` : ''} · </Show>
-        {(props.post.saves ?? 0) + (props.post.shares ?? 0)} saves and shares{versusMedian(props.post.keep_index_bps) ? ` (${versusMedian(props.post.keep_index_bps)})` : ''}
-        {props.post.reach != null ? ` · reached ${props.post.reach}` : ''}
-      </p>
-      <Show when={props.post.fans_acquired > 0}>
-        <p class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <Badge variant="success">{props.post.fans_acquired} fan{props.post.fans_acquired === 1 ? '' : 's'} acquired</Badge>
-          <span class="text-muted-foreground">
-            {props.post.fans_activated_within_30d} activated within 30d
-            {props.post.fan_conversion_per_1000_reach != null ? ` · ${props.post.fan_conversion_per_1000_reach} per 1k reach` : ''}
-          </span>
-        </p>
-      </Show>
-    </li>
-  )
+type Filter = 'all' | 'fans' | HookPost['verdict']
+const FILTER_LABEL: Record<Filter, string> = {
+  all: 'All', fans: 'Made fans', held_attention: 'Held attention', lost_early: 'Lost them early', typical: 'Typical', unmeasured: 'Not measured',
 }
+const matches = (post: HookPost, filter: Filter) =>
+  filter === 'all' ? true : filter === 'fans' ? post.fans_acquired > 0 : post.verdict === filter
 
+/// Platform names as the platforms write them — "Youtube" read wrong.
+const BRANDS: Record<string, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', spotify: 'Spotify', bandcamp: 'Bandcamp' }
+const platformName = (raw: string) => BRANDS[raw.toLowerCase()] ?? tokenLabel(raw)
+const days = (count: number) => `${count} ${count === 1 ? 'day' : 'days'}`
+
+/// Where a post went out and what it was, in words: "Facebook · Video".
+const where = (post: HookPost) =>
+  [post.platform ? platformName(post.platform) : 'Post', post.media_type ? tokenLabel(post.media_type.toLowerCase()) : null].filter(Boolean).join(' · ')
+const postName = (post: HookPost) => post.opening ? `“${post.opening}”` : `${where(post)} post`
+
+const n = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString()
+
+// Which of the band's own posts held attention, and which made fans — one
+// table, every post once, filtered by its verdict. It used to be three lists
+// that repeated the same post and packed each post's numbers into a sentence.
 export function HookScorecardPanel(props: { slug: string }) {
   const hooks = useQuery(() => ({
     queryKey: ['surface', props.slug, 'content-hooks'],
@@ -86,72 +86,156 @@ export function HookScorecardPanel(props: { slug: string }) {
     staleTime: 5 * 60_000,
     retry: 1,
   }))
+  const [show, setShow] = createSignal<Filter>('all')
   const posts = () => hooks.data?.posts ?? []
-  const held = () => posts().filter(post => post.verdict === 'held_attention')
-  const lost = () => posts().filter(post => post.verdict === 'lost_early')
   const links = () => hooks.data?.links ?? []
-  const fanCreators = () => posts()
-    .filter(post => post.fans_acquired > 0)
-    .slice()
-    .sort((a, b) =>
-      b.fans_acquired - a.fans_acquired
-        || b.fans_activated_within_30d - a.fans_activated_within_30d
-        || (b.fan_conversion_per_1000_reach ?? -1) - (a.fan_conversion_per_1000_reach ?? -1)
-    )
-    .slice(0, 5)
+  const count = (filter: Filter) => posts().filter(post => matches(post, filter)).length
+  const measured = () => posts().filter(post => post.verdict !== 'unmeasured').length
+  const fans = () => posts().reduce((sum, post) => sum + post.fans_acquired, 0)
+  const activated = () => posts().reduce((sum, post) => sum + post.fans_activated_within_30d, 0)
+
+  const columns: ColumnDef<HookPost, any>[] = [
+    {
+      id: 'post', header: 'Post', accessorFn: postName, meta: { class: 'min-w-64' },
+      cell: c => {
+        const post = c.row.original
+        return <div class="max-w-md">
+          <span class="font-medium text-foreground text-pretty">{postName(post)}</span>
+          <span class="block text-xs text-muted-foreground">
+            {where(post)} · {formatTimestamp(post.posted_at)}
+            <Show when={httpUrl(post.url)}>{url => <>
+              {' · '}
+              <a class="underline underline-offset-2 hover:text-foreground" href={url()} target="_blank" rel="noreferrer">
+                Open<span class="sr-only"> {postName(post)} on {post.platform ? platformName(post.platform) : 'the platform'} (opens in a new tab)</span>
+              </a>
+            </>}</Show>
+          </span>
+        </div>
+      },
+    },
+    {
+      id: 'verdict', header: 'Verdict', accessorFn: p => VERDICT[p.verdict].label, meta: { class: 'whitespace-nowrap' },
+      cell: c => <Pill tone={VERDICT[c.row.original.verdict].tone}>{VERDICT[c.row.original.verdict].label}</Pill>,
+    },
+    {
+      id: 'watched', header: 'Watched', accessorFn: p => p.avg_watch_ms ?? -1, meta: { numeric: true, class: 'whitespace-nowrap' },
+      cell: c => <Show when={c.row.original.avg_watch_ms != null} fallback="—">
+        {((c.row.original.avg_watch_ms ?? 0) / 1000).toFixed(1)}s
+        <Show when={versusMedian(c.row.original.watch_index_bps)}>{v => <span class="block text-xs text-muted-foreground">{v()}</span>}</Show>
+      </Show>,
+    },
+    {
+      id: 'kept', header: 'Saves + shares', accessorFn: p => (p.saves ?? 0) + (p.shares ?? 0), meta: { numeric: true, class: 'whitespace-nowrap' },
+      cell: c => <>
+        {n((c.row.original.saves ?? 0) + (c.row.original.shares ?? 0))}
+        <Show when={versusMedian(c.row.original.keep_index_bps)}>{v => <span class="block text-xs text-muted-foreground">{v()}</span>}</Show>
+      </>,
+    },
+    { id: 'reach', header: 'Reach', accessorFn: p => p.reach ?? -1, meta: { numeric: true }, cell: c => n(c.row.original.reach) },
+    {
+      id: 'fans', header: 'Fans made', accessorFn: p => p.fans_acquired, meta: { numeric: true, class: 'whitespace-nowrap' },
+      cell: c => <>
+        <span class={c.row.original.fans_acquired > 0 ? 'font-medium text-success-foreground' : 'text-muted-foreground'}>{n(c.row.original.fans_acquired)}</span>
+        <Show when={c.row.original.fans_acquired > 0}>
+          <span class="block text-xs text-muted-foreground">{n(c.row.original.fans_activated_within_30d)} active in 30d</span>
+        </Show>
+      </>,
+    },
+  ]
+
+  const linkColumns: ColumnDef<FanLink, any>[] = [
+    {
+      id: 'where', header: 'Link', accessorFn: l => l.creative ?? l.slug, meta: { class: 'min-w-48' },
+      cell: c => <>
+        <span class="font-medium text-foreground">{platformName(c.row.original.channel)}{c.row.original.creative ? ` · ${c.row.original.creative}` : ''}</span>
+        <span class="block font-mono text-xs text-muted-foreground">/l/{c.row.original.slug}</span>
+      </>,
+    },
+    { id: 'fans', header: 'Fans', accessorFn: l => l.fans, meta: { numeric: true }, cell: c => n(c.row.original.fans) },
+    {
+      id: 'stayed', header: 'Stayed', accessorFn: l => l.stayed, meta: { numeric: true, class: 'whitespace-nowrap' },
+      cell: c => <>
+        <span class={c.row.original.stayed > 0 ? 'font-medium text-success-foreground' : 'text-muted-foreground'}>{n(c.row.original.stayed)}</span>
+        <Show when={c.row.original.fans > 0}><span class="block text-xs text-muted-foreground">{Math.round(c.row.original.stayed / c.row.original.fans * 100)}% of them</span></Show>
+      </>,
+    },
+  ]
 
   return (
-    <Section
-      title="What held attention"
-      icon={<SectionIcon name="trending-up" />}
-      description="Your own posts from the last 60 days: attention and actual fan acquisition kept separate. Repeat the patterns that create fans, not just the ones that look busy."
-    >
-      <Show when={!hooks.error} fallback={<p class="text-sm text-muted-foreground">Couldn't read how your posts did.</p>}>
-        <Show when={hooks.data} fallback={<p class="text-sm text-muted-foreground">Checking…</p>}>
-          <Show when={fanCreators().length > 0}>
-            <div class="mb-4">
-              <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Posts that made fans</p>
-              <p class="mt-1 text-xs text-muted-foreground">Inspect these first when choosing the next Meta hook or format. CrowdRelay ranks actual acquired fans before attention.</p>
-              <ul class="mt-2 space-y-2">
-                <For each={fanCreators()}>{post => <HookRow post={post} />}</For>
-              </ul>
-            </div>
-          </Show>
+    <Show when={!hooks.error} fallback={
+      <SectionFailureCard error={hooks.error} title="Couldn't read how your posts did" onRetry={() => void hooks.refetch()} />
+    }>
+      <Show when={hooks.data} fallback={<SkeletonRows count={5} />}>
+        <div class="space-y-6">
+          <Tiles class="mb-6">
+            <Tile label="Posts measured" value={measured()} sub={`of ${posts().length} in ${days(hooks.data!.window_days)}`} />
+            <Tile label="Held attention" value={count('held_attention')} valueTone={count('held_attention') > 0 ? 'good' : undefined} sub="above your usual" />
+            <Tile label="Lost them early" value={count('lost_early')} valueTone={count('lost_early') > 0 ? 'warn' : undefined} sub="well below your usual" />
+            <Tile label="Fans made" value={fans().toLocaleString()} valueTone={fans() > 0 ? 'good' : undefined} sub={`${activated().toLocaleString()} active within 30 days`} />
+          </Tiles>
 
-          <Show
-            when={held().length + lost().length > 0}
-            fallback={<p class="text-sm text-muted-foreground">Not enough measured posts yet — it takes about four with reach before anything stands out.</p>}
-          >
-            <div class="grid gap-4 md:grid-cols-2">
-              <div>
-                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Held attention</p>
-                <ul class="mt-2 space-y-2">
-                  <For each={held()} fallback={<li class="text-xs text-muted-foreground">None stood out yet.</li>}>{post => <HookRow post={post} />}</For>
-                </ul>
-              </div>
-              <div>
-                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lost them early</p>
-                <ul class="mt-2 space-y-2">
-                  <For each={lost()} fallback={<li class="text-xs text-muted-foreground">None — nothing dropped well below your usual.</li>}>{post => <HookRow post={post} />}</For>
-                </ul>
-              </div>
-            </div>
-          </Show>
+          <section class="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <Section
+              flush
+              title="Your posts"
+              icon={<SectionIcon name="trending-up" />}
+              count={posts().length}
+              description={`Each post judged against your own usual over ${days(hooks.data!.window_days)}. Fans made comes first: repeat what makes fans, not just what looks busy.`}
+            >
+              <DataTable
+                data={posts().filter(post => matches(post, show()))}
+                columns={columns}
+                getRowId={p => p.id}
+                bordered={false}
+                initialSorting={[{ id: 'fans', desc: true }]}
+                searchText={p => [p.opening, p.platform, p.media_type, VERDICT[p.verdict].label].filter(Boolean).join(' ')}
+                searchPlaceholder="Search by opening line or platform"
+                toolbar={
+                  <div role="group" aria-label="Verdict" class="flex flex-wrap items-center gap-1">
+                    <For each={(['all', 'fans', 'held_attention', 'lost_early', 'typical', 'unmeasured'] as Filter[]).filter(f => f === 'all' || count(f) > 0)}>{f => (
+                      <Button variant={show() === f ? 'secondary' : 'ghost'} size="sm" aria-pressed={show() === f} onClick={() => setShow(f)}>
+                        {FILTER_LABEL[f]}
+                        <span class="tabular-nums text-muted-foreground">{count(f)}</span>
+                      </Button>
+                    )}</For>
+                  </div>
+                }
+                empty={posts().length === 0
+                  ? <EmptyState icon={<SectionIcon name="trending-up" />} label="No posts measured yet" hint="It takes about four posts with reach before anything stands out." />
+                  : <EmptyState label="Nothing here" hint="No post matches this filter.">
+                      <Button variant="outline" size="sm" onClick={() => setShow('all')}>Show every post</Button>
+                    </EmptyState>}
+              />
+              <Show when={posts().length > 0 && count('held_attention') + count('lost_early') === 0}>
+                <p class="mt-3 text-xs text-muted-foreground">Nothing stands out from your usual yet — it takes about four posts with reach.</p>
+              </Show>
+            </Section>
+          </section>
+
           <Show when={links().length > 0}>
-            <p class="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Links that brought fans, 90 days</p>
-            <ul class="mt-2 space-y-1 text-sm">
-              <For each={links()}>{link => (
-                <li class="flex flex-wrap items-baseline gap-2">
-                  <Badge variant={link.stayed > 0 ? 'success' : 'muted'}>{link.stayed} of {link.fans} stayed</Badge>
-                  <span class="text-foreground">{link.channel}{link.creative ? ` · ${link.creative}` : ''}</span>
-                  <span class="text-xs text-muted-foreground">/l/{link.slug}</span>
-                </li>
-              )}</For>
-            </ul>
-            <p class="mt-1 text-xs text-muted-foreground">Stayed: still subscribed, still hearing from you, and did something in the last 30 days. Give each post or story its own link and it earns its own line here.</p>
+            <section class="rounded-xl border border-border bg-card p-4 sm:p-5">
+              <Section
+                flush
+                title="Links that brought fans"
+                icon={<Link2 />}
+                count={links().length}
+                description="The last 90 days. Stayed means still subscribed, still hearing from you, and active in the last 30 days. Give each post or story its own link and it gets its own row."
+              >
+                <DataTable
+                  data={links()}
+                  columns={linkColumns}
+                  getRowId={l => l.slug + l.channel}
+                  bordered={false}
+                  pageSize={8}
+                  initialSorting={[{ id: 'stayed', desc: true }]}
+                  searchText={l => [l.channel, l.creative, l.slug].filter(Boolean).join(' ')}
+                  searchPlaceholder="Search links"
+                />
+              </Section>
+            </section>
           </Show>
-        </Show>
+        </div>
       </Show>
-    </Section>
+    </Show>
   )
 }
