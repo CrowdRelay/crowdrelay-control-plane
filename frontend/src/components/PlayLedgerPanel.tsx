@@ -173,7 +173,7 @@ export function PlayLedgerPanel(props: { slug: string }) {
     <Show when={!ledger.error} fallback={<SectionFailureCard error={ledger.error} title="Couldn't load the play ledger" onRetry={() => void ledger.refetch()} />}>
       <Show when={ledger.data} fallback={<SkeletonRows count={4} />}>
         <div class="space-y-6">
-          <Tiles>
+          <Tiles class="mb-6">
             <Tile
               label="Plays"
               value={plays().length}

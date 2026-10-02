@@ -302,7 +302,7 @@ export function DeadQueuesPanel(props: {
     <Show when={props.error}><ErrorCard title="Couldn't load the failed queues" error={props.error} /></Show>
 
     <Show when={!props.isLoading} fallback={<SkeletonRows count={4} />}>
-      <Tiles cols={3}>
+      <Tiles cols={3} class="mb-6">
         <For each={['outbox', 'delivery', 'push'] as QueueKind[]}>{kind => (
           <Tile
             label={QUEUE_LABEL[kind]}
