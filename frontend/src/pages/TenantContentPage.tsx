@@ -227,7 +227,7 @@ const SECTION_TITLE: Record<ContentSection, string> = {
 const SECTION_SUBTITLE: Record<ContentSection, string> = {
   overview: 'What is ready to post, and what went out',
   hooks: 'Which of your posts held attention, and which made fans',
-  links: 'The links you shared, and who came through them',
+  links: 'Share these instead of the bare address, so each post is credited with the fans it brings',
 }
 
 export const ContentOverviewPage = () => <TenantContentPage section="overview" />
