@@ -133,6 +133,17 @@ const SECTION_TITLE: Record<AttentionSection, string> = {
   trace: 'Trace',
 }
 
+// One line under the title per sub-page — "What waits for your yes" read
+// wrong on Queues, Runtime and Trace.
+const SECTION_SUBTITLE: Record<AttentionSection, string> = {
+  overview: 'What waits for your yes',
+  decisions: 'Every move the brain proposed and what became of it',
+  inbox: 'What waits for your yes',
+  queues: 'What failed after every retry, and the way back',
+  runtime: 'The database and the machinery under it',
+  trace: 'Follow one request or action through the system',
+}
+
 export const AttentionOverviewPage = () => <TenantAttentionPage section="overview" />
 export const AttentionDecisionsPage = () => <TenantAttentionPage section="decisions" />
 export const AttentionInboxPage = () => <TenantAttentionPage section="inbox" />
@@ -288,7 +299,7 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
   return <PageShell>
     <DashHeader
       title={SECTION_TITLE[props.section]}
-      subtitle="What waits for your yes"
+      subtitle={SECTION_SUBTITLE[props.section]}
     />
 
     <Show when={operations.error}>
