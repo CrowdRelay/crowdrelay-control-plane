@@ -273,3 +273,11 @@ export const sentenceCase = (text: string): string => {
   const s = t.charAt(0).toUpperCase() + t.slice(1)
   return /[.!?…]$/.test(s) ? s : `${s}.`
 }
+
+/** A stored token as a label: `in_transit` → "In transit". `humanizeToken`
+ *  with the first letter raised — CSS `first-letter` does nothing on the
+ *  inline and flex elements badges and cells render as. */
+export const tokenLabel = (token: string): string => {
+  const text = humanizeToken(token)
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}

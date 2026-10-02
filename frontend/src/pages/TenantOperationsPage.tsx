@@ -363,8 +363,12 @@ export function TenantOperationsPage(props: { section: TodaySection }) {
       <PressRoomPanel slug={params().slug} />
     </SubPagePanel>
     <SubPagePanel when={areas.active() === 'releases'}>
-      <ReleasePlanPanel slug={params().slug} />
-      <ReleaseCampaignsPanel slug={params().slug} />
+      {/* Each block its own card; the tables inside drop their own border
+          so a card holds one edge. */}
+      <div class="space-y-6">
+        <div class="rounded-xl border border-border bg-card p-4 sm:p-5"><ReleasePlanPanel slug={params().slug} /></div>
+        <ReleaseCampaignsPanel slug={params().slug} />
+      </div>
     </SubPagePanel>
     <SubPagePanel when={areas.active() === 'plays'}>
       <PlayLedgerPanel slug={params().slug} />
