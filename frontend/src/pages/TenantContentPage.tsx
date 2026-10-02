@@ -224,6 +224,12 @@ const SECTION_TITLE: Record<ContentSection, string> = {
   links: 'Tracked links',
 }
 
+const SECTION_SUBTITLE: Record<ContentSection, string> = {
+  overview: 'What is ready to post, and what went out',
+  hooks: 'Which of your posts held attention, and which made fans',
+  links: 'The links you shared, and who came through them',
+}
+
 export const ContentOverviewPage = () => <TenantContentPage section="overview" />
 export const ContentHooksPage = () => <TenantContentPage section="hooks" />
 export const ContentLinksPage = () => <TenantContentPage section="links" />
@@ -461,7 +467,7 @@ export function TenantContentPage(props: { section: ContentSection }) {
   return <PageShell>
     <DashHeader
       title={SECTION_TITLE[props.section]}
-      subtitle="What is ready to post, and what went out"
+      subtitle={SECTION_SUBTITLE[props.section]}
     />
 
     <Show when={pipeline.error}>
