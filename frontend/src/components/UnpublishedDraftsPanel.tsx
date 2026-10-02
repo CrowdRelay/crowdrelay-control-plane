@@ -1,9 +1,9 @@
 import { For, Show } from 'solid-js'
 import { authState } from '../lib/auth'
-import { KpiCard, KpiStrip, PanelTitle } from './layout'
+import { PanelTitle } from './layout'
 import type { AutomaticQueueChannel, UnpublishedDraftChannel } from '../lib/attention'
 import { SectionIcon } from './SectionIcon'
-import { Badge } from './app/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './app/table'
 import { cn } from '../lib/cn'
 
 // The post queue, in its two lanes.
@@ -30,6 +30,10 @@ const CHANNEL_LABELS: Record<string, string> = {
   instagram: 'Instagram',
   facebook: 'Facebook',
   x: 'X',
+  youtube: 'YouTube',
+  spotify: 'Spotify',
+  tiktok: 'TikTok',
+  bandcamp: 'Bandcamp',
   social: 'Social',
 }
 
@@ -69,6 +73,7 @@ export function UnpublishedDraftsPanel(props: {
   drafts: UnpublishedDraftChannel[]
   automatic: AutomaticQueueChannel[] | undefined
   notReported: string[]
+  class?: string
 }) {
   const reported = () => !props.notReported.includes('unpublished_drafts')
   // The projection substitutes [] and names the lane in not_reported when
@@ -85,101 +90,111 @@ export function UnpublishedDraftsPanel(props: {
       .filter((age): age is number => age !== null)
     return ages.length > 0 ? Math.max(...ages) : null
   }
+  const platform = authState.isPlatformLevel()
+  const reason = (channel: string) =>
+    (platform ? CHANNEL_REASONS : BAND_CHANNEL_REASONS)[channel] ?? (platform ? 'awaiting an operator' : 'waiting on a person')
+  // Most first: the lane's biggest pile is the one worth acting on.
+  const automatic = () => [...(props.automatic ?? [])].sort((a, b) => (b.in_flight + b.failed) - (a.in_flight + a.failed))
+  const drafts = () => [...props.drafts].sort((a, b) => b.drafts - a.drafts)
 
-  return <section class="space-y-3">
-    <div>
-      <PanelTitle as="h3" icon={<SectionIcon name="inbox" />}>Post queue</PanelTitle>
-      <p class="text-muted-foreground text-sm mt-1">
-        Two lanes: what the machine is posting itself, and what waits for a person.
-      </p>
-    </div>
+  const Age = (p: { iso: string | null }) => {
+    const age = ageInDays(p.iso)
+    return <span class={cn('tabular-nums', age !== null && age >= STALE_AFTER_DAYS ? 'text-warning-foreground' : 'text-muted-foreground')}>
+      {age === null ? '—' : `${age}d`}
+    </span>
+  }
 
-    {/* Automatic lane — system-owned. Informational: nothing here is
-        anyone's to-do, so it renders quiet rather than as an alarm. */}
-    <Show when={automaticReported()} fallback={
-      <p class="text-sm text-muted-foreground italic">{authState.isPlatformLevel() ? 'This tenant does not report the machine queue.' : 'The machine queue is not reported yet.'}</p>
-    }>
-      <div class="flex flex-col gap-2">
-        <div class="flex items-baseline justify-between gap-2">
-          <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Automatic</h4>
-          <Show when={inFlight() > 0}>
-            <span class="text-xs text-muted-foreground">{inFlight()} in flight</span>
+  return <section class={cn('min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5', props.class)}>
+    <PanelTitle as="h3" icon={<SectionIcon name="inbox" />}>Post queue</PanelTitle>
+    <p class="mt-1 text-sm text-muted-foreground">What the machine is posting itself, and what waits for a person to publish.</p>
+
+    <div class="mt-4 grid gap-6 lg:grid-cols-2">
+      {/* Human lane — the operator's to-do. This is the queue where the
+          system is blocked on a person rather than the reverse. Listed first
+          because it is the only lane anyone can act on. */}
+      <div class="min-w-0">
+        <div>
+          <h4 class="text-sm font-medium text-foreground">Waiting for you to publish</h4>
+          <Show when={reported() && total() > 0}>
+            <span class="block text-xs text-muted-foreground tabular-nums">
+              {total()} draft{total() === 1 ? '' : 's'}<Show when={oldestDays() !== null}> · oldest <span class={oldestDays()! >= STALE_AFTER_DAYS ? 'text-warning-foreground' : undefined}>{oldestDays()}d</span></Show>
+            </span>
           </Show>
         </div>
-        <Show when={(props.automatic ?? []).length > 0} fallback={
-          <p class="text-muted-foreground text-sm italic">Nothing in the machine's queue.</p>
+        <Show when={reported()} fallback={
+          <p class="mt-2 text-sm text-muted-foreground">{platform ? 'This tenant does not report the draft queue.' : 'The draft queue is not reported yet.'}</p>
         }>
-          <div class="flex flex-col gap-2">
-            <For each={props.automatic ?? []}>{(channel) => {
-              const age = ageInDays(channel.oldest_queued_at)
-              const stale = age !== null && age >= STALE_AFTER_DAYS
-              return <div class="flex items-center gap-2 flex-wrap rounded-md border border-border bg-background px-3 py-2 text-sm">
-                <Badge variant="muted">{channelLabel(channel.channel)}</Badge>
-                <Show when={channel.in_flight > 0}>
-                  <span class="text-foreground">{channel.in_flight} in flight</span>
-                </Show>
-                <Show when={channel.failed > 0}>
-                  <span class="text-destructive">{channel.failed} failed</span>
-                </Show>
-                <Show when={age !== null}>
-                  <span class={cn('text-xs', stale ? 'text-destructive' : 'text-muted-foreground')}>
-                    oldest {age}d
-                  </span>
-                </Show>
-              </div>
-            }}</For>
-          </div>
-          <Show when={machineFailed() > 0}>
-            <p class="text-xs text-muted-foreground">Failed sends are the system's own losses — alerts carry the detail.</p>
+          <Show when={total() > 0} fallback={
+            <p class="mt-2 text-sm text-muted-foreground">No drafts waiting. Everything the brain wrote is published or in the machine's lane.</p>
+          }>
+            <Table class="mt-2">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Channel</TableHead>
+                  <TableHead class="text-right">Drafts</TableHead>
+                  <TableHead class="text-right">Oldest</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={drafts()}>{(channel) => (
+                  <TableRow>
+                    <TableCell>
+                      <span class="font-medium text-foreground">{channelLabel(channel.channel)}</span>
+                      <span class="block text-xs text-muted-foreground text-pretty">{reason(channel.channel)}</span>
+                    </TableCell>
+                    <TableCell numeric>{channel.drafts}</TableCell>
+                    <TableCell numeric><Age iso={channel.oldest_drafted_at} /></TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
           </Show>
         </Show>
       </div>
-    </Show>
 
-    {/* Human lane — the operator's to-do. This is the queue where the
-        system is blocked on a person rather than the reverse. */}
-    <div class="flex flex-col gap-2">
-      <h4 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Waiting on you to publish</h4>
-      <Show when={reported()} fallback={
-        <p class="text-sm text-muted-foreground italic">{authState.isPlatformLevel() ? 'This tenant does not report the draft queue.' : 'The draft queue is not reported yet.'}</p>
-      }>
-        <Show when={total() > 0} fallback={
-          <p class="text-muted-foreground text-sm">No drafts waiting. Everything the brain wrote is published or in the machine's lane.</p>
+      {/* Automatic lane — system-owned. Informational: nothing here is
+          anyone's to-do, so it renders quiet rather than as an alarm. */}
+      <div class="min-w-0">
+        <div>
+          <h4 class="text-sm font-medium text-foreground">Posting automatically</h4>
+          <Show when={automaticReported() && (props.automatic ?? []).length > 0}>
+            <span class="block text-xs text-muted-foreground tabular-nums">
+              {inFlight()} in flight<Show when={machineFailed() > 0}> · <span class="text-error-foreground">{machineFailed()} failed</span></Show>
+            </span>
+          </Show>
+        </div>
+        <Show when={automaticReported()} fallback={
+          <p class="mt-2 text-sm text-muted-foreground">{platform ? 'This tenant does not report the machine queue.' : 'The machine queue is not reported yet.'}</p>
         }>
-          <KpiStrip class="mb-0">
-            <KpiCard label="Drafts waiting" value={total()} />
-            <Show when={oldestDays() !== null}>
-              <KpiCard label="Oldest" value={`${oldestDays()}d`} tone="warn" />
+          <Show when={(props.automatic ?? []).length > 0} fallback={
+            <p class="mt-2 text-sm text-muted-foreground">Nothing in the machine's queue.</p>
+          }>
+            <Table class="mt-2">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Channel</TableHead>
+                  <TableHead class="text-right">In flight</TableHead>
+                  <TableHead class="text-right">Failed</TableHead>
+                  <TableHead class="text-right">Oldest</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <For each={automatic()}>{(channel) => (
+                  <TableRow>
+                    <TableCell class="font-medium text-foreground">{channelLabel(channel.channel)}</TableCell>
+                    <TableCell numeric>{channel.in_flight}</TableCell>
+                    <TableCell numeric class={channel.failed > 0 ? 'text-error-foreground' : 'text-muted-foreground'}>{channel.failed}</TableCell>
+                    <TableCell numeric><Age iso={channel.oldest_queued_at} /></TableCell>
+                  </TableRow>
+                )}</For>
+              </TableBody>
+            </Table>
+            <Show when={machineFailed() > 0}>
+              <p class="mt-2 text-xs text-muted-foreground">Failed sends are the system's own losses — the alerts carry the detail.</p>
             </Show>
-          </KpiStrip>
-
-          {/* One row per channel, each in its own box. As four inline spans on
-              a shared baseline they wrapped into a single paragraph, so where
-              one channel ended and the next began was invisible — and the
-              reason, the longest of them, decided where every other row
-              broke. The reason now has its own line under the counts. */}
-          <div class="flex flex-col gap-2">
-            <For each={props.drafts}>{(channel) => {
-              const age = ageInDays(channel.oldest_drafted_at)
-              const stale = age !== null && age >= STALE_AFTER_DAYS
-              return <div class="flex flex-col gap-1 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <Badge variant={stale ? 'warning' : 'muted'}>{channelLabel(channel.channel)}</Badge>
-                  <strong class="text-foreground">{channel.drafts} draft{channel.drafts === 1 ? '' : 's'}</strong>
-                  <Show when={age !== null}>
-                    <span class={cn('text-xs', stale ? 'text-destructive' : 'text-muted-foreground')}>
-                      oldest {age}d
-                    </span>
-                  </Show>
-                </div>
-                <span class="text-xs leading-relaxed text-muted-foreground">
-                  {(authState.isPlatformLevel() ? CHANNEL_REASONS : BAND_CHANNEL_REASONS)[channel.channel] ?? (authState.isPlatformLevel() ? 'awaiting an operator' : 'waiting on a person')}
-                </span>
-              </div>
-            }}</For>
-          </div>
+          </Show>
         </Show>
-      </Show>
+      </div>
     </div>
   </section>
 }

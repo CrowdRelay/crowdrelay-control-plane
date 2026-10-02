@@ -1,10 +1,10 @@
-import { For, Show, createEffect, createSignal, on, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js'
 import { CircleCheck } from 'lucide-solid'
 import { Link, useRouterState } from '@tanstack/solid-router'
-import type { PendingActionSummary } from '../lib/types'
+import type { OpsAlert, PendingActionSummary, UnansweredReply } from '../lib/types'
 import { api, ApiError } from '../lib/api'
 import { authState } from '../lib/auth'
-import { formatIsoUntil, errorMessage } from '../lib/format'
+import { formatIsoUntil, errorMessage, formatTimestamp, timestampMillis, tokenLabel } from '../lib/format'
 import { DraftEditor, changedFields, emptiedField } from './DraftEditor'
 import { toast } from './app/toast'
 import { EmptyState } from './ui/empty-state'
@@ -12,11 +12,15 @@ import { SectionIcon } from './SectionIcon'
 import { CONTEXT_LABELS, DECISION_KIND_LABELS, SUBJECT_KIND_LABELS, labelOr } from '../lib/opportunity-labels'
 import { Button } from './app/button'
 import { Spinner } from './Spinner'
-import { cn } from '../lib/cn'
 import { buttonVariants } from './app/button'
 import { refreshQueriesSoon } from '../lib/refresh'
 import { capabilityAction } from '../lib/capabilities'
 import { fillPath, surface } from '../lib/surface'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { Pill, type Tone } from './ui/dash'
+import { Section } from './layout'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet'
+import { alertAction, alertDetails, alertGuide } from './alert-guide'
 
 // The attention inbox — converts the operator-attention experience from an
 // informational banner into a real action-oriented surface.
@@ -79,6 +83,10 @@ export function AttentionInbox(props: {
   onRefresh: () => Promise<unknown>
   /// Show a section of this page, switching tab first if it owns one.
   onReveal: (tab: string, anchor?: string) => void
+  /// The watchdog's alerts, open and recovered in the last day.
+  alerts?: OpsAlert[]
+  /// People who answered and nobody wrote back — `undefined` when unreported.
+  replies?: UnansweredReply[]
 }) {
   const unreported = (name: string) => (props.notReported ?? []).includes(name)
 
@@ -222,7 +230,7 @@ export function AttentionInbox(props: {
           ? 'Watchdog has raised critical alerts requiring immediate attention.'
           : 'The monitor raised critical alerts that need a person now.',
         consequence: 'System health may be compromised.',
-        goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
+        goto: { label: 'Show alerts', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
     if (platform && (props.staleReservations ?? 0) > 0) {
@@ -314,35 +322,168 @@ export function AttentionInbox(props: {
         tier: 'informational',
         title: `${props.activeAlerts} active ${platform ? 'watchdog ' : ''}alert(s)`,
         detail: 'Non-critical alerts that may indicate emerging issues.',
-        goto: { label: 'Inspect', tab: 'inbox', anchor: 'watchdog-alerts' },
+        goto: { label: 'Show alerts', tab: 'inbox', anchor: 'watchdog-alerts' },
       })
     }
 
     return list
   }
 
-  // One row shape for all three tiers. Only one item runs at a time, so every
-  // other button goes disabled while it does.
-  const row = (item: AttentionItem) => <AttentionItemRow
-    item={item}
-    busy={busy() === item.id}
-    disabled={busy() !== null && busy() !== item.id}
-    confirming={confirming() === item.id}
-    error={itemErrors()[item.id]}
-    editing={item.draft ? editing().has(item.draft.actionId) : false}
-    hasEdits={Boolean(editedRevision(item))}
-    edited={item.draft ? (edits()[item.draft.actionId] ?? item.draft.fields) : {}}
-    onEdit={(field, value) => editField(item, field, value)}
-    onToggleEdit={() => { if (item.draft) toggleEdit(item.draft.actionId) }}
-    onSave={() => void saveEdits(item)}
-    onRun={() => void carryOut(item)}
-    onReveal={props.onReveal}
-  />
+  // ── One table ──────────────────────────────────────────────────────
+  // The tiered items, the watchdog's alerts and the people waiting on a
+  // reply are one list of things a person can do something about, filtered
+  // by chips. Each row keeps its own action.
+  const [show, setShow] = createSignal<Kind | 'all'>('all')
+  const [reviewing, setReviewing] = createSignal<AttentionItem | null>(null)
 
-  const total = () => items().length
-  const urgent = () => items().filter(i => i.tier === 'urgent')
-  const review = () => items().filter(i => i.tier === 'review')
-  const informational = () => items().filter(i => i.tier === 'informational')
+  /// A `goto` at the alerts filters this table instead of scrolling to a
+  /// section that no longer exists.
+  const follow = (destination: NonNullable<AttentionItem['goto']>) => {
+    if (destination.anchor === 'watchdog-alerts') {
+      setShow('alert')
+      document.getElementById('watchdog-alerts')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    props.onReveal(destination.tab, destination.anchor)
+  }
+
+  const rows = (): TodoRow[] => {
+    const out: TodoRow[] = []
+    for (const item of items()) {
+      const kind: Kind = item.id === 'active-alerts' ? 'alert' : item.tier === 'urgent' ? 'urgent' : item.tier === 'review' ? 'review' : 'alert'
+      out.push({
+        id: `attention-item-${item.id}`, kind, item,
+        title: item.title, detail: item.detail,
+        note: item.consequence, noteTone: 'warn',
+        error: itemErrors()[item.id],
+        status: item.tier === 'urgent' ? { label: 'Urgent', tone: 'bad' } : item.tier === 'review' ? { label: 'Review', tone: 'warn' } : { label: 'For your information', tone: 'muted' },
+        when: null, whenLabel: null,
+        rank: item.tier === 'urgent' ? 0 : item.tier === 'review' ? 1 : 4,
+      })
+    }
+    for (const alert of props.alerts ?? []) {
+      const guide = alertGuide(alert)
+      const critical = alert.severity === 'critical'
+      out.push({
+        id: `alert-${alert.alert_key}-${alert.first_seen_at ?? ''}`, kind: 'alert', alert,
+        title: guide?.title ?? alert.summary,
+        detail: guide?.cause ?? alert.summary,
+        note: alertDetails(alert).join(' · ') || undefined,
+        status: !alert.active
+          ? { label: 'Recovered', tone: 'good' }
+          : critical ? { label: 'Critical alert', tone: 'bad' } : { label: 'Alert', tone: 'warn' },
+        when: alert.active ? alert.last_seen_at : alert.recovered_at ?? null,
+        whenLabel: alert.active
+          ? `last seen ${formatTimestamp(alert.last_seen_at)}`
+          : `recovered ${formatTimestamp(alert.recovered_at ?? null)}`,
+        rank: !alert.active ? 5 : critical ? 0 : 2,
+      })
+    }
+    for (const reply of props.replies ?? []) {
+      out.push({
+        id: `reply-${reply.target_name}-${reply.replied_at}`, kind: 'reply', reply,
+        title: reply.target_name,
+        detail: [tokenLabel(reply.target_kind), reply.channel, reply.contact_email].filter(Boolean).join(' · '),
+        note: reply.sheet_verdict ? `Sheet verdict: ${humanSheet(reply.sheet_verdict)}` : undefined,
+        status: reply.disposition === 'positive' ? { label: 'Positive reply', tone: 'good' } : { label: 'Reply', tone: 'muted' },
+        when: reply.replied_at,
+        whenLabel: `waiting ${reply.waiting_days === 0 ? 'since today' : `${reply.waiting_days}d`}`,
+        whenTone: reply.waiting_days >= 7 ? 'warn' : undefined,
+        // Oldest first within replies — a positive answer ageing is the most
+        // perishable thing on this board.
+        rank: 3,
+      })
+    }
+    return out
+  }
+
+  const countOf = (kind: Kind | 'all') => kind === 'all' ? rows().length : rows().filter(r => r.kind === kind).length
+  const visible = () => show() === 'all' ? rows() : rows().filter(r => r.kind === show())
+  const CHIPS: { id: Kind | 'all'; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'urgent', label: 'Urgent' },
+    { id: 'review', label: 'Review' },
+    { id: 'alert', label: 'Alerts' },
+    { id: 'reply', label: 'Replies' },
+  ]
+
+  const actionsFor = (row: TodoRow): JSX.Element => {
+    if (row.item) {
+      const item = row.item
+      const busyHere = busy() === item.id
+      const disabled = busy() !== null && !busyHere
+      return <div class="flex items-center justify-end gap-1.5">
+        <Show when={item.draft}>
+          <Button size="sm" variant="ghost" disabled={disabled || busyHere} onClick={() => setReviewing(item)}>Review draft<span class="sr-only">: {row.title}</span></Button>
+        </Show>
+        <Show when={item.run}>{run =>
+          <Button size="sm" writes variant={item.tier === 'urgent' ? 'destructive' : 'default'} disabled={disabled || busyHere} onClick={() => void carryOut(item)}>
+            <Show when={busyHere}><Spinner /></Show>
+            {busyHere ? run().pendingLabel : confirming() === item.id ? (editedRevision(item) ? 'Yes, approve as edited' : run().confirmLabel) : run().label}
+            <span class="sr-only">: {row.title}, {row.detail}</span>
+          </Button>
+        }</Show>
+        <Show when={item.goto}>{destination =>
+          <Button size="sm" variant={item.run ? 'ghost' : 'outline'} onClick={() => follow(destination())}>{destination().label}<span class="sr-only">: {row.title}</span></Button>
+        }</Show>
+        <Show when={item.action}>{action =>
+          <Show when={action().to} fallback={<Button size="sm" variant="ghost">{action().label}</Button>}>
+            {to => <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to={to()}>{action().label}</Link>}
+          </Show>
+        }</Show>
+      </div>
+    }
+    if (row.alert && row.alert.active) {
+      const action = alertAction(row.alert)
+      if (!action) return null
+      return 'operations' in action
+        ? <Link class={buttonVariants({ variant: 'outline', size: 'sm' })} to="/tenants/$slug/operations" params={{ slug: props.slug }}>{action.label}<span class="sr-only">: {row.title}</span></Link>
+        : <Button variant="outline" size="sm" onClick={() => props.onReveal(action.anchor.startsWith('dead-') ? 'queues' : 'inbox', action.anchor)}>{action.label}<span class="sr-only">: {row.title}</span></Button>
+    }
+    if (row.reply?.contact_email) {
+      return <a class={buttonVariants({ variant: 'outline', size: 'sm' })} href={`mailto:${row.reply.contact_email}`}>Write back<span class="sr-only"> to {row.title}</span></a>
+    }
+    return null
+  }
+
+  const columns: ColumnDef<TodoRow, any>[] = [
+    {
+      id: 'item', header: 'Item', accessorFn: r => r.title, meta: { class: 'min-w-72' },
+      cell: c => {
+        const r = c.row.original
+        return <div class="max-w-xl">
+          <span class="font-medium text-foreground">{r.title}</span>
+          <span class="block text-muted-foreground text-pretty">{r.detail}</span>
+          <Show when={r.note}>
+            <span class={r.noteTone === 'warn' ? 'mt-0.5 block text-xs font-medium text-warning-foreground' : 'mt-0.5 block text-xs text-muted-foreground'}>{r.note}</span>
+          </Show>
+          <Show when={r.error}><span class="mt-0.5 block text-xs font-medium text-error-foreground">{r.error}</span></Show>
+        </div>
+      },
+    },
+    {
+      id: 'status', header: 'Status', accessorFn: r => r.rank, meta: { class: 'whitespace-nowrap' },
+      cell: c => <Pill tone={c.row.original.status.tone}>{c.row.original.status.label}</Pill>,
+    },
+    {
+      id: 'when', header: 'When', accessorFn: r => timestampMillis(r.when) || 0, meta: { class: 'whitespace-nowrap' },
+      cell: c => <span class={c.row.original.whenTone === 'warn' ? 'text-warning-foreground' : 'text-muted-foreground'}>{c.row.original.whenLabel ?? '—'}</span>,
+    },
+    {
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false,
+      meta: { class: 'text-right whitespace-nowrap' },
+      cell: c => actionsFor(c.row.original),
+    },
+  ]
+
+  const platform = authState.isPlatformLevel()
+  // Sections the tenant does not publish are unknown, not empty — said once,
+  // under the table, instead of as a zero.
+  const unreportedNotes = () => [
+    unreported('unanswered_replies') || props.replies === undefined
+      ? (platform ? 'This tenant does not publish its unanswered replies.' : 'Unanswered replies are not reported yet.')
+      : null,
+  ].filter((v): v is string => v !== null)
 
   // Deep-link from team emails: the URL hash may contain
   // `#needs-you&action={id}`. Track the router's hash reactively — a second
@@ -351,162 +492,148 @@ export function AttentionInbox(props: {
   // tracks the hash alone — onReveal navigates, and tracking the router
   // signals that navigation reads looped this effect forever.
   const currentHash = useRouterState({ select: s => s.location.hash })
+  // The highlight is state, not a class poked onto a node: the table
+  // rebuilds its rows when the filter changes, and a class on the old node
+  // vanished with it.
+  const [highlighted, setHighlighted] = createSignal<string | null>(null)
   createEffect(on(currentHash, hash => {
     const match = hash.match(/action=([0-9a-f-]+)/i)
     if (!match) return
     const elId = `attention-item-approval-${match[1]}`
-    // The target lives on this tab — with decisions now the default the
-    // element may not even be mounted, so switch tabs via onReveal first and
-    // let its retry loop land the scroll before adding the highlight.
+    // Approvals sit on the first page of the Review filter.
+    setShow('review')
     props.onReveal('inbox', elId)
+    // Scroll and highlight once the row exists. On a cold load the snapshot
+    // takes seconds, so wait up to ten for it rather than one frame-second.
     let highlightTimer: ReturnType<typeof setTimeout> | undefined
+    let pollTimer: ReturnType<typeof setTimeout> | undefined
     let attempts = 0
-    const highlight = () => {
+    const land = () => {
       const el = document.getElementById(elId)
       if (el) {
-        // A previous action's highlight never wins over the newest link.
-        document.querySelectorAll('.attention-item-highlighted')
-          .forEach(old => { if (old !== el) old.classList.remove('attention-item-highlighted') })
-        el.classList.add('attention-item-highlighted')
-        highlightTimer = setTimeout(() => el.classList.remove('attention-item-highlighted'), 4000)
-      } else if (attempts++ < 60) {
-        // Keep pace with revealAnchor's ~1s window — an element that mounts
-        // late must still get its highlight, not just the scroll.
-        requestAnimationFrame(highlight)
+        el.scrollIntoView({ block: 'center' })
+        setHighlighted(elId)
+        highlightTimer = setTimeout(() => setHighlighted(current => current === elId ? null : current), 4000)
+      } else if (attempts++ < 100) {
+        pollTimer = setTimeout(land, 100)
       }
     }
-    requestAnimationFrame(highlight)
-    onCleanup(() => clearTimeout(highlightTimer))
+    land()
+    onCleanup(() => { clearTimeout(highlightTimer); clearTimeout(pollTimer) })
   }))
 
-  return <div class="rounded-lg border border-border bg-card">
-    {/* A zero in a dark pill on a dark header read as a smudge, and the row
-        said "0 items need your attention" where the panel below already says
-        nothing does. The count appears when there is a count — and so does the
-        header: with an empty inbox this printed "Nothing needs you right now"
-        directly above an empty state reading "Nothing needs attention", which
-        is the same sentence twice in two type sizes. The empty state carries
-        the better one, because it also says what would put something here. */}
-    <Show when={total() > 0}>
-      <div class="flex items-center justify-between gap-2 p-4 border-b border-border">
-        <div class="text-muted-foreground text-sm flex items-center gap-2">
-          <SectionIcon name="inbox" />
-          <span class="bg-primary/20 text-primary text-xs rounded-full px-1.5 font-bold tabular-nums">{total()}</span>
-          <span>item{total() !== 1 ? 's' : ''} need{total() === 1 ? 's' : ''} {authState.isPlatformLevel() ? 'your attention' : 'you'}</span>
-        </div>
-      </div>
-    </Show>
-
-    <Show when={total() === 0}>
-      <EmptyState icon={<CircleCheck />}
-        label={authState.isPlatformLevel() ? 'Nothing needs attention' : 'Nothing needs you'}
-        hint={authState.isPlatformLevel()
-          ? 'The system is operating autonomously. Items appear here when the brain needs your decision or when delivery issues occur.'
-          : 'It is working on its own. Items appear here when the brain needs your decision or when something breaks.'}
+  return <div id="watchdog-alerts" class="scroll-mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <Section
+      flush
+      title="To do"
+      icon={<SectionIcon name="inbox" />}
+      count={rows().length}
+      description={platform
+        ? 'What waits for your yes, the watchdog\'s alerts, and the people waiting on a reply. Alerts are checked every 5 minutes and close themselves when the problem goes away.'
+        : 'What waits for your yes, what broke, and the people waiting on a reply. Alerts close themselves when the problem goes away.'}
+    >
+      <DataTable
+        data={visible()}
+        columns={columns}
+        getRowId={r => r.id}
+        rowDomId={r => r.id}
+        rowClass={r => r.id === highlighted() ? 'bg-warning/40 hover:bg-warning/40' : undefined}
+        bordered={false}
+        pageSize={15}
+        initialSorting={[{ id: 'status', desc: false }]}
+        searchText={r => [r.title, r.detail, r.note, r.status.label].filter(Boolean).join(' ')}
+        searchPlaceholder="Search by name, alert or approval"
+        toolbar={
+          <div role="group" aria-label="Show" class="flex flex-wrap items-center gap-1">
+            <For each={CHIPS}>{chip => (
+              <Button variant={show() === chip.id ? 'secondary' : 'ghost'} size="sm" aria-pressed={show() === chip.id} onClick={() => setShow(chip.id)}>
+                {chip.label}
+                <span class="tabular-nums text-muted-foreground">{countOf(chip.id)}</span>
+              </Button>
+            )}</For>
+          </div>
+        }
+        empty={
+          rows().length === 0
+            ? <EmptyState icon={<CircleCheck />}
+                label={platform ? 'Nothing needs attention' : 'Nothing needs you'}
+                hint={platform
+                  ? 'The system is operating autonomously. Items appear here when the brain needs your decision, when delivery issues occur, or when someone answers.'
+                  : 'It is working on its own. Items appear here when the brain needs your decision, when something breaks, or when someone answers.'}
+              />
+            : <EmptyState icon={<CircleCheck />} label="Nothing here" hint="Nothing matches this filter.">
+                <Button variant="outline" size="sm" onClick={() => setShow('all')}>Show everything</Button>
+              </EmptyState>
+        }
       />
-    </Show>
+      <For each={unreportedNotes()}>{note => <p class="mt-3 text-xs text-muted-foreground">{note}</p>}</For>
+    </Section>
 
-    <Show when={urgent().length > 0}>
-      <div class="border-b border-border last:border-0">
-        <div class="flex items-center gap-2 p-4 pb-2 text-destructive">
-          <span class="text-xs font-semibold uppercase tracking-wider">Urgent</span>
-          <span class="bg-destructive/15 text-destructive text-xs rounded-full px-2 py-0.5 font-bold">{urgent().length}</span>
-        </div>
-        <For each={urgent()}>{row}</For>
-      </div>
-    </Show>
-
-    <Show when={review().length > 0}>
-      <div class="border-b border-border last:border-0">
-        <div class="flex items-center gap-2 p-4 pb-2 text-warning-foreground">
-          <span class="text-xs font-semibold uppercase tracking-wider">Review</span>
-          <span class="bg-warning-foreground/10 text-warning-foreground text-xs rounded-full px-2 py-0.5 font-bold">{review().length}</span>
-        </div>
-        <For each={review()}>{row}</For>
-      </div>
-    </Show>
-
-    <Show when={informational().length > 0}>
-      <div class="last:border-0">
-        <div class="flex items-center gap-2 p-4 pb-2 text-muted-foreground">
-          <span class="text-xs font-semibold uppercase tracking-wider">Informational</span>
-          <span class="bg-muted text-muted-foreground text-xs rounded-full px-2 py-0.5 font-bold">{informational().length}</span>
-        </div>
-        <For each={informational()}>{row}</For>
-      </div>
-    </Show>
+    {/* The draft an approve sends, read and edited beside the table. */}
+    <Sheet open={reviewing() !== null} onOpenChange={open => { if (!open) setReviewing(null) }}>
+      <SheetContent class="flex w-full flex-col gap-0 overscroll-contain p-0 sm:max-w-lg">
+        <Show when={reviewing()}>{item => {
+          const draft = () => item().draft!
+          const editingNow = () => editing().has(draft().actionId)
+          return <>
+            <SheetHeader class="shrink-0 space-y-1 border-b border-border px-5 py-4 pr-12 text-left">
+              <SheetTitle class="text-base">{item().title}</SheetTitle>
+              <SheetDescription class="text-pretty">{item().detail}<Show when={item().consequence}> · {item().consequence}</Show></SheetDescription>
+            </SheetHeader>
+            <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
+              <DraftEditor
+                fields={draft().fields}
+                value={edits()[draft().actionId] ?? draft().fields}
+                onChange={(field, value) => editField(item(), field, value)}
+                editing={editingNow()}
+                onToggle={() => toggleEdit(draft().actionId)}
+              />
+              <Show when={itemErrors()[item().id]}>
+                <p class="text-xs font-medium text-error-foreground">{itemErrors()[item().id]}</p>
+              </Show>
+            </div>
+            <div class="flex shrink-0 flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4">
+              <Show when={!editingNow()}>
+                <Button size="sm" variant="ghost" writes disabled={busy() !== null} onClick={() => toggleEdit(draft().actionId)}>Edit</Button>
+              </Show>
+              <Show when={editingNow() && editedRevision(item())}>
+                <Button size="sm" variant="outline" writes disabled={busy() !== null} onClick={() => void saveEdits(item())}>Save edits</Button>
+              </Show>
+              <Show when={item().run}>{run =>
+                <Button size="sm" writes disabled={busy() !== null} onClick={() => void carryOut(item()).then(() => { if (!itemErrors()[item().id] && confirming() !== item().id) setReviewing(null) })}>
+                  <Show when={busy() === item().id}><Spinner /></Show>
+                  {busy() === item().id ? run().pendingLabel : confirming() === item().id ? (editedRevision(item()) ? 'Yes, approve as edited' : run().confirmLabel) : run().label}
+                </Button>
+              }</Show>
+            </div>
+          </>
+        }}</Show>
+      </SheetContent>
+    </Sheet>
   </div>
 }
 
-function AttentionItemRow(props: {
-  item: AttentionItem
-  busy: boolean
-  disabled: boolean
-  confirming: boolean
+type Kind = 'urgent' | 'review' | 'alert' | 'reply'
+
+/** One thing to do, whichever list it came from. */
+type TodoRow = {
+  /** Also the row's DOM id — `attention-item-approval-<id>` deep links land here. */
+  id: string
+  kind: Kind
+  item?: AttentionItem
+  alert?: OpsAlert
+  reply?: UnansweredReply
+  title: string
+  detail: string
+  note?: string
+  noteTone?: 'warn'
   error?: string
-  editing: boolean
-  hasEdits: boolean
-  edited: Record<string, string>
-  onEdit: (field: string, value: string) => void
-  onToggleEdit: () => void
-  onSave: () => void
-  onRun: () => void
-  onReveal: (tab: string, anchor?: string) => void
-}) {
-  const tone = () => props.item.tier === 'urgent' ? 'destructive' as const : 'ghost' as const
-  return <div id={`attention-item-${props.item.id}`} class={cn('flex items-start justify-between gap-3 px-4 py-3 border-b border-border last:border-0 border-l-2', props.item.tier === 'urgent' && 'border-l-destructive/50', props.item.tier === 'review' && 'border-l-warning-foreground/50', props.item.tier === 'informational' && 'border-l-border')}>
-    <div class="flex-1 min-w-0 flex flex-col gap-1">
-      <strong class="text-sm font-semibold text-foreground">{props.item.title}</strong>
-      <small class="text-xs text-muted-foreground leading-[1.4]">{props.item.detail}</small>
-      <Show when={props.item.consequence}>
-        <small class="text-xs text-warning-foreground font-medium leading-[1.4]">{props.item.consequence}</small>
-      </Show>
-      <Show when={props.item.draft}>{draft =>
-        <DraftEditor
-          fields={draft().fields}
-          value={props.edited}
-          onChange={props.onEdit}
-          editing={props.editing}
-          onToggle={props.onToggleEdit}
-        />
-      }</Show>
-      <Show when={props.error}>
-        <small class="text-xs text-destructive font-medium leading-[1.4]">{props.error}</small>
-      </Show>
-    </div>
-    <div class="flex gap-2 shrink-0 items-center flex-wrap">
-      <Show when={props.item.draft && !props.editing}>
-        <Button size="sm" variant="ghost" writes disabled={props.disabled || props.busy} onClick={props.onToggleEdit}>
-          Edit
-        </Button>
-      </Show>
-      <Show when={props.item.draft && props.editing && props.hasEdits}>
-        <Button size="sm" variant="outline" writes disabled={props.disabled || props.busy} onClick={props.onSave}>
-          Save edits
-        </Button>
-      </Show>
-      <Show when={props.item.run}>{run =>
-        <Button
-          size="sm"
-          writes
-          variant={props.item.tier === 'urgent' ? 'destructive' : 'default'}
-          disabled={props.disabled || props.busy}
-          onClick={props.onRun}
-        >
-          <Show when={props.busy}><Spinner /></Show>
-          {props.busy ? run().pendingLabel : props.confirming ? (props.hasEdits ? 'Yes, approve as edited' : run().confirmLabel) : run().label}
-        </Button>
-      }</Show>
-      <Show when={props.item.goto}>{destination =>
-        <Button size="sm" variant={props.item.run ? 'ghost' : tone()} onClick={() => props.onReveal(destination().tab, destination().anchor)}>
-          {destination().label}
-        </Button>
-      }</Show>
-      <Show when={props.item.action}>{action =>
-        <Show when={action().to} fallback={<Button size="sm" variant="ghost">{action().label}</Button>}>
-          {to => <Link class={buttonVariants({ variant: props.item.run ? 'ghost' : tone(), size: 'sm' })} to={to()}>{action().label}</Link>}
-        </Show>
-      }</Show>
-    </div>
-  </div>
+  status: { label: string; tone: Tone }
+  when: string | null
+  whenLabel: string | null
+  whenTone?: 'warn'
+  /** Default order: urgent and critical first, recovered last. */
+  rank: number
 }
+
+const humanSheet = (verdict: string) => tokenLabel(verdict)

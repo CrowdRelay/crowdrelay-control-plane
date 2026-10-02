@@ -1,7 +1,7 @@
-import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, useRouterState } from '@tanstack/solid-router'
-import { CircleCheck, Inbox } from 'lucide-solid'
+import { CircleCheck } from 'lucide-solid'
 import { api, ApiError } from '../lib/api'
 import { humanize } from '../lib/opportunity-labels'
 import { authState } from '../lib/auth'
@@ -13,12 +13,11 @@ import { formatTimestamp as observed, humanizeToken } from '../lib/format'
 import type { OperationsSummary, ReconciliationFinding, TraceTimeline } from '../lib/types'
 import { StatusBadge } from '../components/StatusBadge'
 import { TechId, TechIdList } from '../components/ui/TechnicalDetails'
-import { WatchdogAlertsPanel } from '../components/WatchdogAlertsPanel'
 import { UnpublishedDraftsPanel } from '../components/UnpublishedDraftsPanel'
-import { LapsedApprovalsPanel, FailedSendsPanel, RejectedOutcomesPanel, BandNoticesPanel, UnansweredRepliesPanel } from '../components/QueueLossesPanel'
+import { InboxLossesPanel } from '../components/QueueLossesPanel'
 import { AttentionInbox } from '../components/AttentionInbox'
 import { NeedsYouOverview } from '../components/NeedsYouOverview'
-import { DashHeader, SubPagePanel, useSubPage } from '../components/ui/dash'
+import { DashHeader, Pill, SubPagePanel, Tile, Tiles, useSubPage } from '../components/ui/dash'
 import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
@@ -27,7 +26,7 @@ import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
 import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
 import { ActionLedgerPanel } from '../components/ActionLedgerPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
-import { SectionIcon, type IconName } from '../components/SectionIcon'
+import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
 import { KpiCard, KpiStrip, PageShell, ErrorCard, SectionTitle, PanelTitle } from '../components/layout'
 import { Button } from '../components/app/button'
@@ -53,24 +52,6 @@ const formatPgVersion = (num: number | null | undefined): string => {
   const major = Math.floor(num / 10000)
   const minor = Math.floor((num % 10000) / 100)
   return minor === 0 ? `${major}` : `${major}.${minor}`
-}
-
-/** One heading shape for every section on the Inbox tab: a small title with
- *  its icon, one line of description, and whatever sits on the right. The tab
- *  used to draw five sections in four different ways. */
-function InboxSection(props: { id?: string; icon: IconName; title: string; description: string; action?: JSX.Element; children: JSX.Element }) {
-  return (
-    <section id={props.id} class="space-y-3">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <PanelTitle as="h3" icon={<SectionIcon name={props.icon} />}>{props.title}</PanelTitle>
-          <p class="mt-1 text-sm text-muted-foreground">{props.description}</p>
-        </div>
-        <Show when={props.action}><div class="shrink-0">{props.action}</div></Show>
-      </div>
-      {props.children}
-    </section>
-  )
 }
 
 /** One reconciliation finding. The surround says how loud it is; this says
@@ -99,51 +80,45 @@ function FindingBody(props: { finding: ReconciliationFinding }) {
 function BrainPanel(props: { brain: BrainSelfAssessment | null | undefined; notReported: string[] }) {
   const brain = () => props.brain
   return (
-    <InboxSection
-      icon="brain"
-      title="The brain's account of itself"
-      description="Its verdict on its own recent performance and, when it has been doing nothing, the reason it gave."
-      action={<Show when={brain()}>{b => <StatusBadge
-        status={b().state ?? 'unknown'}
-        tone={b().needs_attention ? 'bad' : b().state === 'improving' ? 'good' : 'muted'}
-      />}</Show>}
-    >
+    <section class="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div class="flex items-start justify-between gap-3">
+        <PanelTitle as="h3" icon={<SectionIcon name="brain" />}>The brain's account</PanelTitle>
+        <Show when={brain()}>{b => <Pill tone={b().needs_attention ? 'bad' : b().state === 'improving' ? 'good' : 'muted'}>{humanizeToken(b().state ?? 'unknown')}</Pill>}</Show>
+      </div>
+      <p class="mt-1 text-sm text-muted-foreground">Its verdict on its own recent work and, when it has been doing nothing, the reason it gave.</p>
       <Show
         when={brain()}
         fallback={
-          <EmptyState icon={<Inbox />}
-            label={props.notReported.includes('brain') ? 'Not reported' : 'No self-assessment yet'}
-            hint={props.notReported.includes('brain')
-              ? (authState.isPlatformLevel()
-                ? 'This tenant does not publish a brain self-assessment.'
-                : 'No self-assessment is published yet.')
+          <p class="mt-4 text-sm text-muted-foreground">
+            {props.notReported.includes('brain')
+              ? (authState.isPlatformLevel() ? 'This tenant does not publish a brain self-assessment.' : 'No self-assessment is published yet.')
               : 'The brain forms a verdict once it has enough days of North Star readings.'}
-          />
+          </p>
         }
       >
-        {b => <Card class="space-y-2 p-4">
-          <div class="flex items-center gap-3 flex-wrap text-sm">
-            <span class="text-muted-foreground">North star verdict over <strong class="text-foreground">{b().days_observed ?? 0}</strong> observed day{(b().days_observed ?? 0) === 1 ? '' : 's'}</span>
-            <Show when={(b().quiet_cycles ?? 0) > 0}>
-              <span class="text-muted-foreground">·</span>
-              <span class={b().needs_attention ? 'text-destructive' : 'text-warning-foreground'}>
-                quiet for <strong>{b().quiet_cycles}</strong> consecutive cycle{b().quiet_cycles === 1 ? '' : 's'}
-              </span>
-            </Show>
+        {b => <div class="mt-4 space-y-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <Tile label="Days observed" value={b().days_observed ?? 0} sub="of North Star readings" />
+            <Tile
+              label="Quiet cycles"
+              value={b().quiet_cycles ?? 0}
+              valueTone={(b().quiet_cycles ?? 0) > 0 ? (b().needs_attention ? 'bad' : 'warn') : undefined}
+              sub="in a row, doing nothing"
+            />
           </div>
           <Show when={b().latest_wait_reason}>
-            {reason => <p class="text-sm text-muted-foreground leading-relaxed">
-              Last quiet cycle explained itself: <span class="font-mono text-xs text-foreground">{reason()}</span>
+            {reason => <p class="text-sm leading-relaxed text-muted-foreground text-pretty">
+              Last quiet cycle: <span class="text-foreground">{reason()}</span>
             </p>}
           </Show>
           <Show when={(b().quiet_cycles ?? 0) > 0 && !b().latest_wait_reason}>
-            <p class="text-sm text-muted-foreground leading-relaxed">
+            <p class="text-sm leading-relaxed text-muted-foreground">
               The quiet cycles carried no recorded reason. The wait went unexplained, which is itself worth knowing.
             </p>
           </Show>
-        </Card>}
+        </div>}
       </Show>
-    </InboxSection>
+    </section>
   )
 }
 
@@ -184,9 +159,6 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
     requestAnimationFrame(scroll)
   }
   const isVisited = (id: string) => areas.active() === id
-  // Which tab owns which anchor. The failed-queue sections live in Queues;
-  // everything else an alert or inbox item points at is on the Inbox tab.
-  const reveal = (anchor: string) => revealAnchor(anchor.startsWith('dead-') ? 'queues' : 'inbox', anchor)
   const attention = useQuery(() => ({
     queryKey: ['tenant-operator-attention-snapshot', params().slug],
     queryFn: () => fetchOperationsAttention(params().slug),
@@ -307,6 +279,12 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
     return out
   })
 
+  const openAlerts = () => (attention.data?.alerts ?? []).filter(alert => alert.active)
+  const oldestReply = () => {
+    const days = (attention.data?.unanswered_replies ?? []).map(r => r.waiting_days)
+    return days.length > 0 ? Math.max(...days) : null
+  }
+
   return <PageShell>
     <DashHeader
       title={SECTION_TITLE[props.section]}
@@ -366,8 +344,45 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
       </Show>
 
       <Show when={!summary.error && summary.data}>
-        <div class="space-y-8">
-          <WatchdogAlertsPanel alerts={attention.data?.alerts ?? []} slug={params().slug} onReveal={reveal} />
+        <div class="space-y-6">
+          {/* The whole tab in six numbers — each one a queue below. */}
+          <Tiles cols={6}>
+            <Tile
+              label="Waiting for your yes"
+              value={attention.data?.awaiting_approval ?? attention.data?.needs_you?.length ?? null}
+              valueTone={(attention.data?.lapsed_approvals?.expiring_within_24h ?? 0) > 0 ? 'warn' : undefined}
+              sub={(attention.data?.lapsed_approvals?.expiring_within_24h ?? 0) > 0
+                ? `${attention.data!.lapsed_approvals!.expiring_within_24h} lapse within 24h`
+                : 'approvals pending'}
+            />
+            <Tile
+              label="Open alerts"
+              value={openAlerts().length}
+              valueTone={openAlerts().some(a => a.severity === 'critical') ? 'bad' : openAlerts().length > 0 ? 'warn' : undefined}
+              sub={`${openAlerts().filter(a => a.severity === 'critical').length} critical`}
+            />
+            <Tile
+              label="People waiting"
+              value={attention.data?.unanswered_replies?.length ?? null}
+              sub={oldestReply() != null ? `oldest ${oldestReply()}d` : 'for a reply'}
+            />
+            <Tile
+              label="Drafts to publish"
+              value={(attention.data?.unpublished_drafts ?? []).reduce((sum, c) => sum + c.drafts, 0)}
+              sub="waiting on a person"
+            />
+            <Tile
+              label="Lost to the deadline"
+              value={attention.data?.lapsed_approvals?.total ?? null}
+              valueTone={(attention.data?.lapsed_approvals?.total ?? 0) > 0 ? 'warn' : undefined}
+              sub={`last ${attention.data?.lapsed_approvals?.window_days ?? 7} days`}
+            />
+            <Tile
+              label="Notices undelivered"
+              value={attention.data?.band_notices ? attention.data.band_notices.filter(n => !n.delivered).length : null}
+              sub={attention.data?.band_notices ? `of ${attention.data.band_notices.length} notices` : 'not reported'}
+            />
+          </Tiles>
 
           <AttentionInbox
             slug={params().slug}
@@ -379,98 +394,86 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
             awaitingApproval={(attention.data?.not_reported ?? []).includes('awaiting_approval') ? null : attention.data?.awaiting_approval ?? null}
             notReported={attention.data?.not_reported ?? []}
             drafts={drafts()}
+            alerts={attention.data?.alerts ?? []}
+            replies={(attention.data?.not_reported ?? []).includes('unanswered_replies') ? undefined : attention.data?.unanswered_replies}
             onRefresh={refreshMaintenance}
             onReveal={revealAnchor}
           />
 
-          {/* The queue where people wait on the band — replies nobody has
-              answered. Ahead of every other queue: a person who wrote back
-              is warmer than anything the machine can propose. */}
-          <UnansweredRepliesPanel
-            replies={attention.data?.unanswered_replies}
-            notReported={attention.data?.not_reported ?? []}
-          />
+          {/* The post queue in both lanes beside the brain's own account —
+              what is going out, and why nothing is when nothing is. */}
+          <div class="grid items-start gap-6 xl:grid-cols-3">
+            <UnpublishedDraftsPanel
+              class="xl:col-span-2"
+              drafts={attention.data?.unpublished_drafts ?? []}
+              automatic={attention.data?.automatic_queue}
+              notReported={attention.data?.not_reported ?? []}
+            />
+            <BrainPanel
+              brain={attention.data?.brain}
+              notReported={attention.data?.not_reported ?? []}
+            />
+          </div>
 
-          {/* The post queue, in both lanes — what the machine is carrying
-              and what waits for a person. */}
-          <UnpublishedDraftsPanel
-            drafts={attention.data?.unpublished_drafts ?? []}
-            automatic={attention.data?.automatic_queue}
-            notReported={attention.data?.not_reported ?? []}
-          />
-
-          {/* The queue's other half — what the inbox above already lost. The
-              pending list shows what is waiting; these show what reached its
-              deadline and which sends never arrived, named by who missed out. */}
-          <LapsedApprovalsPanel
-            lapsed={attention.data?.lapsed_approvals}
-            notReported={attention.data?.not_reported ?? []}
-          />
-          <FailedSendsPanel
+          {/* The queue's other half — what the inbox above already lost. */}
+          <InboxLossesPanel
             slug={params().slug}
+            lapsed={attention.data?.lapsed_approvals}
             failed={attention.data?.failed_sends}
-            notReported={attention.data?.not_reported ?? []}
-          />
-          <RejectedOutcomesPanel
             outcomes={attention.data?.rejected_agent_outcomes}
-            notReported={attention.data?.not_reported ?? []}
-          />
-          <BandNoticesPanel
             notices={attention.data?.band_notices}
-            notReported={attention.data?.not_reported ?? []}
-          />
-
-          <BrainPanel
-            brain={attention.data?.brain}
             notReported={attention.data?.not_reported ?? []}
           />
 
           {/* Console↔tenant reconciliation is operator machinery — it compares
               two systems' beliefs, which is not a question the band asks. */}
           <Show when={authState.isPlatformLevel()}>
-            <InboxSection
-              id="reconciliation-findings"
-              icon="refresh-cw"
-              title="Cross-check against the tenant"
-              description="Compares what this console believes about the tenant with what the tenant reports. It only reads."
-              action={
+            <section id="reconciliation-findings" class="scroll-mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <PanelTitle as="h3" icon={<SectionIcon name="refresh-cw" />}>Cross-check against the tenant</PanelTitle>
+                  <p class="mt-1 text-sm text-muted-foreground">Compares what this console believes about the tenant with what the tenant reports. It only reads.</p>
+                </div>
                 <Button writes variant={confirmingReconcile() ? 'default' : 'outline'} size="sm" disabled={!!busy()} onClick={() => void reconcile()}>
                   {busy() === 'reconcile' && <Spinner />}
                   {busy() === 'reconcile' ? 'Checking…' : confirmingReconcile() ? 'Yes, run the check' : 'Run the check'}
                 </Button>
-              }
-            >
-              <Show when={attention.data?.ecosystem}><KpiStrip class="mb-0">
-                <KpiCard
-                  label="Open findings"
-                  value={attention.data!.ecosystem!.open_findings}
-                  sub="differences nobody has closed yet"
-                  tone={attention.data!.ecosystem!.open_findings > 0 ? 'warn' : 'default'}
-                />
-                <KpiCard
-                  label="Last check"
-                  value={humanize(attention.data!.ecosystem!.last_reconciliation?.status ?? '—')}
-                  sub={observed(attention.data!.ecosystem!.last_reconciliation?.finished_at ?? null)}
-                />
-                <KpiCard
-                  label="Bandsintown sync"
-                  value={attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? '—'}
-                  sub={attention.data!.ecosystem!.bandsintown_sync?.in_progress ? 'running now' : attention.data!.ecosystem!.bandsintown_sync ? 'failures in a row' : 'not reported'}
-                  tone={(attention.data!.ecosystem!.bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : 'default'}
-                />
-              </KpiStrip></Show>
-              <Show when={findingsCount() > 0} fallback={
-                <EmptyState icon={<CircleCheck />} label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports." />
-              }>
-                <div class="flex flex-col gap-3">
-                  <For each={attention.data?.findings ?? []}>{finding =>
-                    <Alert tone={finding.severity === 'critical' ? 'destructive' : 'warning'}>
-                      <FindingBody finding={finding} />
-                    </Alert>
-                  }</For>
+              </div>
+              <Show when={attention.data?.ecosystem}>{eco => (
+                <div class="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+                  <Tile
+                    label="Open findings"
+                    value={eco().open_findings}
+                    valueTone={eco().open_findings > 0 ? 'warn' : undefined}
+                    sub="differences nobody has closed yet"
+                  />
+                  <Tile
+                    label="Last check"
+                    value={humanize(eco().last_reconciliation?.status ?? '—')}
+                    sub={observed(eco().last_reconciliation?.finished_at ?? null)}
+                  />
+                  <Tile
+                    label="Bandsintown sync"
+                    value={eco().bandsintown_sync?.consecutive_failures ?? '—'}
+                    valueTone={(eco().bandsintown_sync?.consecutive_failures ?? 0) > 0 ? 'warn' : undefined}
+                    sub={eco().bandsintown_sync?.in_progress ? 'running now' : eco().bandsintown_sync ? 'failures in a row' : 'not reported'}
+                  />
                 </div>
-              </Show>
-            </InboxSection>
+              )}</Show>
+              <div class="mt-4">
+                <Show when={findingsCount() > 0} fallback={
+                  <EmptyState icon={<CircleCheck />} label="Nothing disagrees" hint="The last check found no difference between what this console believes and what the tenant reports." />
+                }>
+                  <div class="flex flex-col gap-3">
+                    <For each={attention.data?.findings ?? []}>{finding =>
+                      <Alert tone={finding.severity === 'critical' ? 'destructive' : 'warning'}>
+                        <FindingBody finding={finding} />
+                      </Alert>
+                    }</For>
+                  </div>
+                </Show>
+              </div>
+            </section>
           </Show>
         </div>
       </Show>
