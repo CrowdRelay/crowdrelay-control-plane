@@ -87,8 +87,15 @@ type ConfirmRequest = {
 
 const [pending, setPending] = createSignal<(ConfirmRequest & { resolve: (ok: boolean) => void }) | null>(null)
 
+// The dialog opens from an ordinary button, not a Kobalte trigger, so on
+// close focus fell to <body> and a keyboard user started over from the top
+// of the page. Remember what was focused and go back there — FormDrawer does
+// the same.
+let returnFocusTo: HTMLElement | null = null
+
 export function confirmAction(request: ConfirmRequest): Promise<boolean> {
   return new Promise<boolean>(resolve => {
+    returnFocusTo = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
     setPending({ ...request, resolve })
   })
 }
@@ -102,7 +109,15 @@ function settle(ok: boolean) {
 export function ConfirmHost(): JSX.Element {
   return (
     <AlertDialog open={pending() !== null} onOpenChange={(open) => { if (!open) settle(false) }}>
-      <AlertDialogContent class="w-[calc(100vw-2rem)] max-w-md border-border bg-card">
+      <AlertDialogContent
+        class="w-[calc(100vw-2rem)] max-w-md border-border bg-card"
+        onCloseAutoFocus={(event: Event) => {
+          if (!returnFocusTo?.isConnected) return
+          event.preventDefault()
+          returnFocusTo.focus()
+          returnFocusTo = null
+        }}
+      >
         <Show when={pending()} keyed>
           {request => (
             <>

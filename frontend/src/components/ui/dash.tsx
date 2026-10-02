@@ -412,7 +412,10 @@ export function useSubPage(section: () => string, base: string) {
 export function SubPagePanel(props: { when: boolean; children: JSX.Element }) {
   return (
     <Show when={props.when}>
-      <div data-slot="sub-page">
+      {/* The same rhythm as PageShell's direct children. Without it, every
+          section after the first sat its top rule flush against the table
+          or pagination row above — PageShell's spacing stops at this div. */}
+      <div data-slot="sub-page" class="space-y-5">
         <Suspense fallback={<SkeletonTabContent />}>{props.children}</Suspense>
       </div>
     </Show>

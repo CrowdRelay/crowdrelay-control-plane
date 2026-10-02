@@ -69,14 +69,14 @@ export function TenantsPage() {
       <Show when={items().length > 1}>
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="relative w-full sm:max-w-xs">
-            <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
               value={search()}
               onInput={e => setSearch(e.currentTarget.value)}
               placeholder="Search by name or slug"
               aria-label="Search tenants"
-              class="pl-8"
+              class="h-9 pl-9"
             />
           </div>
           <span class="text-sm text-muted-foreground" aria-live="polite">

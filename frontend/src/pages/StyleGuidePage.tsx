@@ -426,7 +426,7 @@ export default function StyleGuidePage() {
           </Section>
 
           {/* ── Alerts ──────────────────────────────────────────── */}
-          <Section title="Alerts & feedback" description="Stock alert has two variants; app/alert.tsx maps destructive → destructive and every other tone → default. Toasts are the stock Kobalte toaster.">
+          <Section title="Alerts & feedback" description="Stock alert has two variants; app/alert.tsx maps destructive → destructive and every other tone → default. Toasts are the Kobalte toaster on one quiet surface; the tone is a small leading icon, not a fill.">
             <div id="alerts" class="flex flex-col gap-8">
               <Group title="Alert tones">
                 <div class="grid gap-3 md:grid-cols-2">

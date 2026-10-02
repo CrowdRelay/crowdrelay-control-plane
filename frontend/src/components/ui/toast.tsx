@@ -8,19 +8,21 @@ import type { VariantProps } from "class-variance-authority"
 import { cva } from "class-variance-authority"
 
 import { cn } from "~/lib/utils"
-import { X } from "lucide-solid"
+import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-solid"
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-[translate] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--kb-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--kb-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[opened]:animate-in data-[closed]:animate-out data-[swipe=end]:animate-out data-[closed]:fade-out-80 data-[closed]:slide-out-to-right-full data-[opened]:slide-in-from-top-full data-[opened]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg border border-border bg-popover py-3 pl-3.5 pr-10 text-popover-foreground shadow-lg transition-[translate] data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--kb-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--kb-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[opened]:animate-in data-[closed]:animate-out data-[swipe=end]:animate-out data-[closed]:fade-out-80 data-[closed]:slide-out-to-right-full data-[opened]:slide-in-from-top-full data-[opened]:sm:slide-in-from-bottom-full",
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
-        destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
-        success: "success border-success-foreground bg-success text-success-foreground",
-        warning: "warning border-warning-foreground bg-warning text-warning-foreground",
-        error: "error border-error-foreground bg-error text-error-foreground"
+        // One quiet surface for every toast: the tone lives in the leading
+        // icon, not a full-bleed fill. A green slab for "exported 6 fans"
+        // shouted louder than the page it reported on.
+        default: "",
+        destructive: "destructive",
+        success: "success",
+        warning: "warning",
+        error: "error"
       }
     },
     defaultVariants: {
@@ -76,7 +78,7 @@ const ToastClose = <T extends ValidComponent = "button">(
   return (
     <ToastPrimitive.CloseButton
       class={cn(
-        "absolute right-2 top-2 rounded-md p-1 text-foreground/60 transition-colors hover:text-foreground focus:outline-none focus:ring-2 group-[.destructive]:text-destructive-foreground group-[.error]:text-error-foreground group-[.success]:text-success-foreground group-[.warning]:text-warning-foreground",
+        "absolute right-2 top-2.5 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         local.class
       )}
       aria-label="Dismiss"
@@ -95,7 +97,7 @@ const ToastTitle = <T extends ValidComponent = "div">(
   props: PolymorphicProps<T, ToastTitleProps<T>>
 ) => {
   const [local, others] = splitProps(props as ToastTitleProps, ["class"])
-  return <ToastPrimitive.Title class={cn("text-sm font-semibold", local.class)} {...others} />
+  return <ToastPrimitive.Title class={cn("text-sm font-medium text-foreground", local.class)} {...others} />
 }
 
 type ToastDescriptionProps<T extends ValidComponent = "div"> =
@@ -105,7 +107,17 @@ const ToastDescription = <T extends ValidComponent = "div">(
   props: PolymorphicProps<T, ToastDescriptionProps<T>>
 ) => {
   const [local, others] = splitProps(props as ToastDescriptionProps, ["class"])
-  return <ToastPrimitive.Description class={cn("text-sm opacity-90", local.class)} {...others} />
+  return <ToastPrimitive.Description class={cn("text-sm text-muted-foreground text-pretty", local.class)} {...others} />
+}
+
+/** The tone, said by a small icon beside the words — the color is never the
+ *  only cue, the words still carry the meaning. */
+const ICON: Record<ToastVariant, () => JSX.Element> = {
+  default: () => <Info class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />,
+  success: () => <CircleCheck class="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />,
+  warning: () => <TriangleAlert class="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-hidden="true" />,
+  error: () => <CircleAlert class="mt-0.5 size-4 shrink-0 text-error-foreground" aria-hidden="true" />,
+  destructive: () => <CircleAlert class="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />,
 }
 
 function showToast(props: {
@@ -118,9 +130,11 @@ function showToast(props: {
 }) {
   ToastPrimitive.toaster.show((data) => (
     <Toast toastId={data.toastId} variant={props.variant} duration={props.duration} persistent={props.persistent}>
-      <div class="grid gap-1">
+      {ICON[props.variant ?? "default"]()}
+      <div class="grid min-w-0 gap-0.5">
         {props.title && <ToastTitle>{props.title}</ToastTitle>}
-        {props.description && <ToastDescription>{props.description}</ToastDescription>}
+        {/* Alone, the description is the message and reads at full strength. */}
+        {props.description && <ToastDescription class={props.title ? undefined : "text-foreground"}>{props.description}</ToastDescription>}
       </div>
       <ToastClose />
     </Toast>

@@ -6,6 +6,7 @@ import { toast } from './app/toast'
 import { cn } from '../lib/cn'
 import { ErrorCard, Section } from './layout'
 import { Button } from './app/button'
+import { SectionIcon } from './SectionIcon'
 import { READ_ONLY_REASON, readOnly } from '../lib/read-only'
 import { FileInput } from './ui/file-input'
 
@@ -127,6 +128,7 @@ export function RedditCookieUploader(props: { slug: string }) {
   return (
     <Section
       title="Reddit session cookies"
+      icon={<SectionIcon name="shield" />}
       description={<>Upload a Netscape <code>cookies.txt</code> file from a logged-in Reddit session. Only <code>reddit.com</code> cookies are kept. This is the recovery path when Reddit blocks the browser login.</>}
       action={<span class={cn('text-xs uppercase tracking-tight px-2.5 py-0.5 rounded-md bg-muted border border-border text-muted-foreground font-semibold', statusLabel().class)}>{statusLabel().text}</span>}
     >
