@@ -68,10 +68,8 @@ test('operator journey keeps tenant shell stable across live polling', async ({ 
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/operations/)
   await page.getByRole('link', { name: 'Health' }).first().click()
   await expect(page).toHaveURL(/\/tenants\/[^/]+\/health/)
-  // The Heartbeat panel lives in the Overview work area, which is the
-  // page's default tab — it is already mounted on arrival; the press only
-  // asserts the strip is reachable the way an operator would use it.
-  await page.locator('#tab-overview').click()
+  // The overview section is the page's default content — no tab press, the
+  // Heartbeat panel is already mounted on arrival.
   await expect(page.getByRole('heading', { name: 'Heartbeat' })).toBeVisible()
 
   const tenantHeading = page.locator('h1').first()
