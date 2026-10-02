@@ -10,6 +10,7 @@ import type { FanCard, FanDetail, FanJourneyEntry } from '../lib/types'
 import { FanDetailDrawer } from './FanDetailDrawer'
 import { EmptyState } from './ui/empty-state'
 import { Section } from './layout'
+import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
 import { Button } from './app/button'
 import { FileInput } from './ui/file-input'
@@ -21,7 +22,7 @@ import { writeGuard } from '../lib/read-only'
 import { downloadTextFile, fansToCsv, parseFanCsv, type FanCsvParse } from '../lib/fan-csv'
 import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
-import { Download, SearchX, Upload, Users } from 'lucide-solid'
+import { Download, Search, SearchX, Upload, Users } from 'lucide-solid'
 
 const fanStatusTone = (status: string): 'success' | 'warning' | 'destructive' | 'muted' =>
   status === 'active' ? 'success' :
@@ -164,6 +165,7 @@ export function FanTablePanel(props: {
 
   return <Section
     title="Fan list"
+    icon={<SectionIcon name="users" />}
     count={filtered().length}
     // The upstream fan list is capped (100 rows); a full-length answer means
     // there may be more fans than are shown. Say so — a table that looks
@@ -175,14 +177,18 @@ export function FanTablePanel(props: {
         is occasional work, and it should not outrank the fan you came to
         find. They wrap under the search field on a phone. */}
     <div class="mb-3 flex flex-wrap items-center gap-2">
-      <Input
-        class="min-w-0 flex-1 basis-56"
-        type="search"
-        placeholder="Search by name, email, or locale…"
-        value={search()}
-        onInput={(e) => setSearch(e.currentTarget.value)}
-        aria-label="Search fans"
-      />
+      {/* The same search box as every DataTable: 36px, with the icon. */}
+      <div class="relative min-w-0 flex-1 basis-56">
+        <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          class="h-9 pl-9"
+          type="search"
+          placeholder="Search by name, email, or locale…"
+          value={search()}
+          onInput={(e) => setSearch(e.currentTarget.value)}
+          aria-label="Search fans"
+        />
+      </div>
       <div class="flex items-center gap-1.5">
         <Button
           variant="ghost"

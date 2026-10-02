@@ -19,7 +19,6 @@ import { SectionFailureCard } from '../components/SectionFailureCard'
 import { PageShell } from '../components/layout'
 import { DashHeader, SubPagePanel, useSubPage } from '../components/ui/dash'
 import { Alert } from '../components/app/alert'
-import { Button } from '../components/app/button'
 import { humanize } from '../lib/opportunity-labels'
 import { CommunityIntelligenceContent } from './CommunityIntelligenceContent'
 import { AudienceFirstScreen } from '../components/AudienceFirstScreen'
@@ -116,7 +115,8 @@ export function AudiencePage(props: { section: AudienceSection }) {
     refetchInterval: whileIncomplete(hasDegradedSections),
   }))
   const refresh = () => model.refetch()
-  const [showMessages, setShowMessages] = createSignal(window.location.hash.includes('message'))
+  // A Segments row's "Message" opens the draft drawer with that segment.
+  const [draftFor, setDraftFor] = createSignal<string | null>(null)
 
   // The merged-in portfolio model — fan sources and amplification consents.
   // The settings it used to carry moved to the tenant page's Workspace tab;
@@ -170,17 +170,9 @@ export function AudiencePage(props: { section: AudienceSection }) {
           <FanTablePanel slug={params().slug} fans={data.fans ?? []} onImported={() => void refresh()} />
         </Show>
         <Show when={!data.degraded.includes('segments')}>
-          <SegmentPanel slug={params().slug} segments={data.segments ?? []} />
+          <SegmentPanel slug={params().slug} segments={data.segments ?? []} onMessage={setDraftFor} />
         </Show>
-        {/* Messages to fans read their own campaign list; it loads when
-            opened so the page opens on the audience read alone. */}
-        <Show when={showMessages()} fallback={
-          <div class="mt-6 border-t border-border pt-6">
-            <Button variant="outline" size="sm" onClick={() => setShowMessages(true)}>Messages to fans</Button>
-          </div>
-        }>
-          <FanMessagesPanel slug={params().slug} />
-        </Show>
+        <FanMessagesPanel slug={params().slug} segments={data.segments ?? []} draftFor={draftFor()} onDraftClose={() => setDraftFor(null)} />
       </>}</Show>
     </SubPagePanel>
 

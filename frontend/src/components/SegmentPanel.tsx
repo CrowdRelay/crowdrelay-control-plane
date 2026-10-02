@@ -1,83 +1,88 @@
-import { For, Show, createSignal } from 'solid-js'
-import { Users } from 'lucide-solid'
-import { errorMessage } from '../lib/format'
-import { describeError } from '../lib/errors'
+import { Show } from 'solid-js'
+import { useQuery } from '@tanstack/solid-query'
+import { Send, Users } from 'lucide-solid'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
-import { cn } from '../lib/cn'
 import type { AudienceSegment } from '../lib/types'
 import { EmptyState } from './ui/empty-state'
+import { Pill } from './ui/dash'
 import { Section } from './layout'
+import { SectionIcon } from './SectionIcon'
 import { SkeletonBlock } from './Skeleton'
-import { Badge } from './app/badge'
 import { Button } from './app/button'
+import { DataTable, type ColumnDef } from './app/data-table'
 
+/// How many fans a segment holds right now. Each row asks for its own count,
+/// so the table reads as numbers instead of cards that had to be clicked
+/// one at a time to find out. Shared key with the message drawer.
+export const segmentSizeQuery = (slug: string, segment: string) => ({
+  queryKey: ['tenant', slug, 'segment-size', segment],
+  queryFn: () => api.audienceSegmentPreview(slug, segment).then(result => result.total),
+  staleTime: 5 * 60_000,
+  retry: 1,
+})
+
+export function SegmentSize(props: { slug: string; segment: string }) {
+  const size = useQuery(() => segmentSizeQuery(props.slug, props.segment))
+  return (
+    <Show when={!size.isPending} fallback={<span class="inline-block" aria-label="Counting fans"><SkeletonBlock height="16px" width="40px" /></span>}>
+      <Show when={size.data != null} fallback={<span class="text-muted-foreground" title="This segment's size couldn't be checked">—</span>}>
+        {size.data!.toLocaleString()}
+      </Show>
+    </Show>
+  )
+}
+
+// Segments are who a message can go to. One table: what each segment is, how
+// many fans it holds, whether it is live, and a way to message it from here.
+// They used to be cards that looked like buttons, and clicking one opened a
+// preview that never finished loading.
 export function SegmentPanel(props: {
   slug: string
   segments: AudienceSegment[]
+  /** Opens the message drawer with this segment chosen. */
+  onMessage?: (segment: string) => void
 }) {
-  const [previewSlug, setPreviewSlug] = createSignal<string | null>(null)
-  const [previewCount, setPreviewCount] = createSignal<number | null>(null)
-  const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal<string | null>(null)
+  const columns: ColumnDef<AudienceSegment, any>[] = [
+    {
+      id: 'segment', header: 'Segment', accessorFn: s => s.name, meta: { class: 'min-w-64' },
+      cell: c => <div class="max-w-lg">
+        <span class="font-medium text-foreground">{c.row.original.name}</span>
+        <Show when={c.row.original.description}>
+          <span class="block text-xs text-muted-foreground text-pretty">{c.row.original.description}</span>
+        </Show>
+      </div>,
+    },
+    {
+      id: 'fans', header: 'Fans', accessorFn: s => s.name, enableSorting: false, meta: { numeric: true },
+      cell: c => <SegmentSize slug={props.slug} segment={c.row.original.slug} />,
+    },
+    {
+      id: 'status', header: 'Status', accessorFn: s => s.active ? 'Active' : 'Inactive', meta: { class: 'whitespace-nowrap' },
+      cell: c => <Pill tone={c.row.original.active ? 'good' : 'muted'}>{c.row.original.active ? 'Active' : 'Inactive'}</Pill>,
+    },
+    {
+      id: 'actions', header: () => <span class="sr-only">Actions</span>, enableSorting: false, enableHiding: false, meta: { class: 'w-px whitespace-nowrap text-right' },
+      // An inactive segment can't be messaged (upstream refuses it), and its
+      // status already says why — no button rather than a disabled one.
+      cell: c => <Show when={c.row.original.active && props.onMessage}>
+        <Button variant="ghost" size="sm" writes onClick={() => props.onMessage!(c.row.original.slug)}>
+          <Send aria-hidden="true" /> Message<span class="sr-only"> {c.row.original.name}</span>
+        </Button>
+      </Show>,
+    },
+  ]
 
-  const previewSegment = async (slug: string) => {
-    if (previewSlug() === slug) {
-      setPreviewSlug(null)
-      setPreviewCount(null)
-      return
-    }
-    setPreviewSlug(slug)
-    setPreviewCount(null)
-    setError(null)
-    setLoading(true)
-    try {
-      const result = await api.audienceSegmentPreview(props.slug, slug)
-      setPreviewCount(result.total)
-    } catch (err) {
-      setError(describeError(err).kind === 'unreachable'
-        ? "A preview isn't available for this segment yet."
-        : `Couldn't preview this segment. ${errorMessage(err, '')}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return <Section title="Segments" count={props.segments.length} description="Segments group fans by behaviour, source or lifecycle stage. Click one to preview its size.">
-    {/* The panel's own description already says what a segment is. Repeating
-        it here — in the other spelling, and promising a "define segments"
-        control this panel does not have — read as two different screens
-        arguing. The empty state says the one thing the description cannot:
-        why there is nothing here yet. */}
-    <Show when={props.segments.length > 0} fallback={<EmptyState icon={<Users />} label="No segments yet" hint={authState.isPlatformLevel() ? 'The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion.' : 'Segments appear once fans are landing. Connect a source and they show up on the next import.'} />}>
-      <div class="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
-        <For each={props.segments}>{(segment) => (
-          <Button
-            type="button"
-            variant="outline"
-            class={cn(
-              'h-auto w-full flex-col items-stretch justify-start gap-1.5 whitespace-normal bg-background px-3 py-2.5 text-left font-normal hover:border-primary hover:bg-card',
-              previewSlug() === segment.slug && 'border-primary bg-card',
-            )}
-            onClick={() => previewSegment(segment.slug)}
-          >
-            <div class="flex justify-between items-center gap-2">
-              <strong>{segment.name}</strong>
-              <Show when={!segment.active}><Badge variant="muted">inactive</Badge></Show>
-            </div>
-            <Show when={segment.description}><p class="text-muted-foreground mt-1 text-sm leading-snug">{segment.description}</p></Show>
-            <Show when={previewSlug() === segment.slug}>
-              <div class="mt-2.5 pt-2.5 border-t border-border text-sm">
-                <Show when={loading}><SkeletonBlock height="18px" width="120px" /></Show>
-                <Show when={error}><span class="text-sm text-destructive">{error()}</span></Show>
-                <Show when={!loading && !error && previewCount() != null}>
-                  <span class="text-muted-foreground">~{previewCount()} fans in this segment</span>
-                </Show>
-              </div>
-            </Show>
-          </Button>
-        )}</For>
-      </div>
-    </Show>
+  return <Section title="Segments" icon={<SectionIcon name="target" />} count={props.segments.length} description="Groups of fans by behaviour, source or stage. A message goes to one segment.">
+    <DataTable
+      data={props.segments}
+      columns={columns}
+      getRowId={s => s.id}
+      pageSize={8}
+      initialSorting={[{ id: 'status', desc: false }]}
+      searchText={s => [s.name, s.description, s.slug].filter(Boolean).join(' ')}
+      searchPlaceholder="Search segments"
+      empty={<EmptyState icon={<Users />} label="No segments yet" hint={authState.isPlatformLevel() ? 'The audience model derives segments once fans are landing. Connect a source and they appear on the next ingestion.' : 'Segments appear once fans are landing. Connect a source and they show up on the next import.'} />}
+    />
   </Section>
 }
