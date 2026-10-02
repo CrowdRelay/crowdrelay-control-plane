@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, on } from 'solid-js'
+import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js'
 import { useQuery } from '@tanstack/solid-query'
 import { useParams, useRouterState } from '@tanstack/solid-router'
 import { CircleCheck } from 'lucide-solid'
@@ -22,13 +22,13 @@ import { OpportunityBoardPanel } from '../components/OpportunityBoardPanel'
 import { SectionFailureCard } from '../components/SectionFailureCard'
 import { hasDegradedSections } from '../lib/incomplete'
 import { EmptyState } from '../components/ui/empty-state'
-import { SignalOverviewPanel } from '../components/SignalOverviewPanel'
+import { SignalOverviewPanel, useSignalOverview } from '../components/SignalOverviewPanel'
 import { DeadQueuesPanel } from '../components/DeadQueuesPanel'
 import { ActionLedgerPanel } from '../components/ActionLedgerPanel'
 import { SkeletonSection, SkeletonKpiStrip, SkeletonRows } from '../components/Skeleton'
 import { SectionIcon } from '../components/SectionIcon'
 import { Spinner } from '../components/Spinner'
-import { KpiCard, KpiStrip, PageShell, ErrorCard, SectionTitle, PanelTitle } from '../components/layout'
+import { PageShell, ErrorCard, PanelTitle } from '../components/layout'
 import { Button } from '../components/app/button'
 import { Alert } from '../components/app/alert'
 import { Card } from '../components/app/card'
@@ -52,6 +52,23 @@ const formatPgVersion = (num: number | null | undefined): string => {
   const major = Math.floor(num / 10000)
   const minor = Math.floor((num % 10000) / 100)
   return minor === 0 ? `${major}` : `${major}.${minor}`
+}
+
+/** One labelled figure in a runtime card: the name in plain words, what it
+ *  means underneath, the value on the right. */
+function RuntimeStat(props: { label: string; hint?: string; value: JSX.Element; note?: string }) {
+  return (
+    <div class="flex items-baseline justify-between gap-4 border-b border-border py-2 last:border-0">
+      <dt class="min-w-0">
+        <span class="block text-sm text-foreground">{props.label}</span>
+        <Show when={props.hint}><span class="block text-xs text-muted-foreground">{props.hint}</span></Show>
+      </dt>
+      <dd class="shrink-0 text-right">
+        <span class="block text-sm font-medium tabular-nums text-foreground">{props.value}</span>
+        <Show when={props.note}><span class="block text-xs text-muted-foreground">{props.note}</span></Show>
+      </dd>
+    </div>
+  )
 }
 
 /** One reconciliation finding. The surround says how loud it is; this says
@@ -290,6 +307,7 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
     return out
   })
 
+  const signal = useSignalOverview(() => params().slug)
   const openAlerts = () => (attention.data?.alerts ?? []).filter(alert => alert.active)
   const oldestReply = () => {
     const days = (attention.data?.unanswered_replies ?? []).map(r => r.waiting_days)
@@ -357,7 +375,7 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
       <Show when={!summary.error && summary.data}>
         <div class="space-y-6">
           {/* The whole tab in six numbers — each one a queue below. */}
-          <Tiles cols={6}>
+          <Tiles cols={6} class="mb-6">
             <Tile
               label="Waiting for your yes"
               value={attention.data?.awaiting_approval ?? attention.data?.needs_you?.length ?? null}
@@ -507,30 +525,103 @@ export function TenantAttentionPage(props: { section: AttentionSection }) {
 
     {/* ─── Runtime ───────────────────────────────────────────────── */}
     <SubPagePanel when={areas.active() === 'runtime'}>
+      {/* One gap between every block on the page — the tiles, the two cards
+          and the app feed. The feed sat flush against the taller card. */}
+      <div class="space-y-6">
       <Show when={summary.error}>
         <ErrorCard title="Couldn't load the runtime summary" error={summary.error} />
       </Show>
-      <SectionTitle title="Database health" icon={<SectionIcon name="database" />} action={<Show when={summary.data}>{data => <StatusBadge status={data().database.async_io_active ? 'async I/O active' : 'check I/O'} tone={data().database.async_io_active ? 'good' : 'warn'} />}</Show>} />
       <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
-        {data => <KpiStrip class="mb-0" min="9rem">
-          <KpiCard label="Pool" value={`${data().database.pool_size}/${data().database.pool_max}`} sub={`${data().database.pool_idle} idle`} />
-          <KpiCard label="Postgres" value={formatPgVersion(data().database.server_version_num)} sub={data().database.io_method ?? 'I/O method unknown'} />
-          <KpiCard label="Effective I/O concurrency" value={data().database.effective_io_concurrency ?? '—'} sub={`workers ${data().database.io_workers ?? '—'}`} />
-          <KpiCard label="Maintenance I/O" value={data().database.maintenance_io_concurrency ?? '—'} sub={`max ${data().database.io_max_concurrency ?? '—'}`} />
-        </KpiStrip>}
-      </Show>
+        {data => {
+          const db = () => data().database
+          const area = () => data().area
+          const stale = () => staleAreaReservations(data())
+          const unreachable = () => signal.data?.unavailable_sources.length ?? null
+          return <div class="space-y-6">
+            {/* "Is the machinery OK" in four numbers; the detail is below. */}
+            <Tiles class="mb-6">
+              <Show when={authState.isPlatformLevel()} fallback={
+                <Tile label="Fans signed up" value={signal.data ? signal.data.summary.total_fans.toLocaleString() : null} sub="in the Signal app" />
+              }>
+                <Tile
+                  label="Database connections"
+                  value={`${db().pool_size}/${db().pool_max}`}
+                  valueTone={db().pool_size >= db().pool_max ? 'warn' : undefined}
+                  sub={`${db().pool_idle} idle`}
+                />
+              </Show>
+              <Tile
+                label="Stale reservations"
+                value={stale()}
+                valueTone={(stale() ?? 0) > 0 ? 'bad' : undefined}
+                sub={stale() == null ? 'not fully reported' : (stale() ?? 0) > 0 ? 'held too long' : 'none held too long'}
+              />
+              <Tile
+                label="Active fans"
+                value={signal.data ? signal.data.summary.active_fans.toLocaleString() : null}
+                sub={signal.data ? `of ${signal.data.summary.total_fans.toLocaleString()} in the app` : 'Signal app'}
+              />
+              <Tile
+                label="App sources"
+                value={unreachable() == null ? null : unreachable() === 0 ? 'All up' : `${unreachable()} down`}
+                valueTone={(unreachable() ?? 0) > 0 ? 'warn' : undefined}
+                sub="reporting to the Signal feed"
+              />
+            </Tiles>
 
-      <SectionTitle title="Reservation maintenance" icon={<SectionIcon name="map-pin" />} action={<Show when={summary.data}>{data => <StatusBadge status={(() => { const n = staleAreaReservations(data()); return n == null ? 'not fully reported' : n > 0 ? `${n} stale` : 'clean' })()} tone={(() => { const n = staleAreaReservations(data()); return n == null ? 'muted' : n > 0 ? 'bad' : 'good' })()} />}</Show>} />
-      <Show when={!summary.error && summary.data} fallback={<Show when={!summary.error}><SkeletonRows count={4} /></Show>}>
-        {data => <KpiStrip class="mb-0" min="9rem">
-          <KpiCard label="Stale vouchers" value={data().area.stale_voucher_reservations} sub={`${data().area.vouchers_issued} issued`} tone={data().area.stale_voucher_reservations > 0 ? 'bad' : 'default'} />
-          <KpiCard label="Stale ticket rewards" value={data().area.stale_ticket_reward_reservations} sub={`${data().area.ticket_rewards_issued} issued`} tone={data().area.stale_ticket_reward_reservations > 0 ? 'bad' : 'default'} />
-          <KpiCard label="Credits" value={data().area.credits_total} sub="current total" />
-          <KpiCard label="Legacy imports" value={data().area.legacy_imported_players} sub="players migrated" />
-        </KpiStrip>}
+            <div class="grid items-start gap-6 lg:grid-cols-2">
+              {/* Database tuning is operator machinery — a band account that
+                  reaches this URL directly gets the rest of the page. */}
+              <Show when={authState.isPlatformLevel()}>
+                <section class="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <div class="flex items-start justify-between gap-3">
+                    <PanelTitle as="h3" icon={<SectionIcon name="database" />}>Database</PanelTitle>
+                    <Pill tone={db().async_io_active ? 'good' : 'warn'}>{db().async_io_active ? 'Async I/O on' : 'Check I/O'}</Pill>
+                  </div>
+                  <p class="mt-1 text-sm text-muted-foreground">The Postgres server behind the console and how it is tuned.</p>
+                  <dl class="mt-3">
+                    <RuntimeStat label="Connections" hint="in use of allowed; idle ones are ready" value={`${db().pool_size}/${db().pool_max}`} note={`${db().pool_idle} idle`} />
+                    <RuntimeStat label="Postgres version" hint={db().io_method ? `I/O method: ${db().io_method}` : 'I/O method not reported'} value={formatPgVersion(db().server_version_num)} />
+                    <RuntimeStat label="Reads in parallel" hint="effective I/O concurrency" value={db().effective_io_concurrency ?? '—'} note={`${db().io_workers ?? '—'} I/O workers`} />
+                    <RuntimeStat label="Maintenance reads in parallel" hint="for vacuum and index builds" value={db().maintenance_io_concurrency ?? '—'} note={`max ${db().io_max_concurrency ?? '—'}`} />
+                  </dl>
+                </section>
+              </Show>
+
+              <section class="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+                <div class="flex items-start justify-between gap-3">
+                  <PanelTitle as="h3" icon={<SectionIcon name="map-pin" />}>Reservations</PanelTitle>
+                  <Pill tone={stale() == null ? 'muted' : (stale() ?? 0) > 0 ? 'bad' : 'good'}>
+                    {stale() == null ? 'Not fully reported' : (stale() ?? 0) > 0 ? `${stale()} stale` : 'Clean'}
+                  </Pill>
+                </div>
+                <p class="mt-1 text-sm text-muted-foreground text-pretty">
+                  Vouchers and ticket rewards held longer than they should be keep them from anyone else.
+                </p>
+                <div class="mt-3 grid grid-cols-2 gap-2.5">
+                  <Tile label="Stale vouchers" value={area().stale_voucher_reservations} valueTone={area().stale_voucher_reservations > 0 ? 'bad' : undefined} sub={`of ${area().vouchers_issued} issued`} />
+                  <Tile label="Stale ticket rewards" value={area().stale_ticket_reward_reservations} valueTone={area().stale_ticket_reward_reservations > 0 ? 'bad' : undefined} sub={`of ${area().ticket_rewards_issued} issued`} />
+                </div>
+                <Show when={(stale() ?? 0) > 0 && authState.isPlatformLevel()}>
+                  <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-sm text-muted-foreground">The cross-check on the Inbox lists them so they can be released.</p>
+                    <Button variant="outline" size="sm" onClick={() => revealAnchor('inbox', 'reconciliation-findings')}>Open the cross-check</Button>
+                  </div>
+                </Show>
+                {/* Ledger totals, not problems — a quieter row under the two
+                    numbers that can be. */}
+                <dl class="mt-3 border-t border-border pt-2">
+                  <RuntimeStat label="Credits" hint="current total" value={area().credits_total} />
+                  <RuntimeStat label="Legacy imports" hint="players migrated from the old system" value={area().legacy_imported_players} />
+                </dl>
+              </section>
+            </div>
+          </div>
+        }}
       </Show>
 
       <SignalOverviewPanel slug={params().slug} />
+      </div>
     </SubPagePanel>
 
     {/* ─── Trace ─────────────────────────────────────────────────── */}

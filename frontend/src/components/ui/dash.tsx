@@ -82,9 +82,13 @@ export function DashHeader(props: {
 }
 
 /** The row of numbers under the header — four by default, as the mockups. */
-export function Tiles(props: { children: JSX.Element; cols?: 2 | 3 | 4 | 5 | 6 }) {
+/** The row of numbers under the header, with its own `mb-3`. Tailwind 4's
+ *  `space-y-*` is a bottom margin on each child, and this margin replaces it
+ *  rather than adding to it — inside a `space-y-6` stack pass `class="mb-6"`,
+ *  and `mb-0` where the row is the last thing in its group. */
+export function Tiles(props: { children: JSX.Element; cols?: 2 | 3 | 4 | 5 | 6; class?: string }) {
   return (
-    <div class={cn('mb-3 grid grid-cols-2 gap-2.5', props.cols === 6 ? 'sm:grid-cols-3 xl:grid-cols-6' : props.cols === 5 ? 'lg:grid-cols-5' : props.cols === 3 ? 'lg:grid-cols-3' : props.cols === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4')}>
+    <div class={cn('mb-3 grid grid-cols-2 gap-2.5', props.class, props.cols === 6 ? 'sm:grid-cols-3 xl:grid-cols-6' : props.cols === 5 ? 'lg:grid-cols-5' : props.cols === 3 ? 'lg:grid-cols-3' : props.cols === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4')}>
       {props.children}
     </div>
   )
