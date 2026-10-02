@@ -152,7 +152,7 @@ export function DataTable<T>(props: {
                             <Button
                               variant="ghost"
                               size="sm"
-                              class={cn('-ml-3 h-8 data-[state=sorted]:text-foreground', meta?.numeric && '-mr-3 ml-auto')}
+                              class={cn('-ml-3 h-8 data-[state=sorted]:text-foreground', meta?.numeric && '-mr-2 ml-auto')}
                               data-state={header.column.getIsSorted() ? 'sorted' : undefined}
                               onClick={header.column.getToggleSortingHandler()}
                             >
