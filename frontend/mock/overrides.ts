@@ -55,6 +55,9 @@ export function applyOverrides(method: string, pathname: string, value: unknown)
     if (isObject(out) && isObject(out.tenant)) out = { ...out, tenant: asTenant(out.tenant, tenant) }
     if (method === 'GET' && tenantMatch[2] === '/operations/attention' && isObject(out)) out = withDeadQueues(out)
     if (method === 'GET' && tenantMatch[2] === '/content/model' && isObject(out)) out = withReadyPosts(out)
+    if (method === 'GET' && tenantMatch[2] === '/settings') out = demoSettings(tenant.displayName)
+    // The overview carries the settings too, and seeds the settings query from them.
+    if (method === 'GET' && isObject(out) && isObject(out.settings) && 'editable_keys' in out.settings) out = { ...out, settings: demoSettings(tenant.displayName) }
     return out
   }
 
@@ -64,6 +67,36 @@ export function applyOverrides(method: string, pathname: string, value: unknown)
 // The generator gives the three dead queues empty lists while the summary
 // counts hundreds, so the Queues page only ever showed its clean state. A
 // few rows per queue, with the summary's dead counts made to agree.
+/** The workspace settings with the real key names, so every Settings group
+ *  renders — generated keys are random words no group claims. */
+function demoSettings(displayName: string): Json {
+  const settings: Record<string, string> = {
+    brand_wordmark: displayName,
+    act_style: 'post-punk',
+    act_home_city: 'Warszawa',
+    member_site_base_url: 'https://nocnazmiana.example',
+    member_area_path: '/members',
+    live_page_path: 'shows',
+    signal_enabled: 'true',
+    synesthesia_enabled: 'false',
+    synesthesia_campaign_slug: '',
+    ticketing_enabled: 'false',
+    north_star_metric: '',
+    tenant_intent: '',
+    growth_cadence_moments_per_month: '2',
+    growth_cadence_fillers_enabled: 'true',
+    social_auto_post: 'false',
+    social_autopost_platforms: '["instagram"]',
+    join_ask_platforms: '["instagram","facebook"]',
+    join_ask_cadence_days: '7',
+    join_ask_variants: '["Join the list for first dibs on tickets."]',
+    join_ask_image_url: '',
+    crew_locale: 'pl',
+    team_weekly_ask_ceiling: '3',
+  }
+  return { settings, overridden: ['act_style', 'join_ask_cadence_days'], editable_keys: Object.keys(settings) }
+}
+
 function withDeadQueues(model: Json): Json {
   const day = 86_400_000
   const at = (daysAgo: number) => new Date(Date.now() - daysAgo * day).toISOString()

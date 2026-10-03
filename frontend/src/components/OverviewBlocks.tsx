@@ -93,7 +93,7 @@ const tenantItems = (t: CommandCenterTenantSummary): NeedsYouItem[] => {
     items.push({ ...attention('runtime', t.runtimeHealth === 'degraded' ? 0 : 2, `Runtime ${healthLabel(t.runtimeHealth)}`), to: '/tenants/$slug/health' })
   }
   if (t.enabledNotifierChannels === 0) {
-    items.push({ ...attention('notifier', 1, 'No notification channel', 'Approvals and alerts fan out to zero channels — nobody is told.'), to: '/tenants/$slug/settings/destinations' })
+    items.push({ ...attention('notifier', 1, 'No notification channel', 'Approvals and alerts fan out to zero channels — nobody is told.'), to: '/tenants/$slug/settings/notifications' })
   }
   return items
 }

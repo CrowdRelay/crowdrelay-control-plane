@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { TenantSecret } from '../lib/types'
-import { SectionIcon } from './SectionIcon'
-import { ErrorCard, Section } from './layout'
+import { ErrorCard } from './layout'
+import { confirmAction } from './Dialog'
+import { SaveActions, SettingsRow, SettingsSection } from './ui/settings'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
@@ -45,9 +46,8 @@ function looksRight(name: string, value: string): boolean {
 export function TenantSecretsPanel(props: { slug: string }) {
   const queryClient = useQueryClient()
   const [drafts, setDrafts] = createSignal<Record<string, string>>({})
-  const [pendingName, setPendingName] = createSignal<string | null>(null)
   const [errorText, setErrorText] = createSignal<string | null>(null)
-  const [savedName, setSavedName] = createSignal<string | null>(null)
+  const [saved, setSaved] = createSignal(false)
 
   const secrets = useQuery(() => ({
     queryKey: ['tenant-secrets', props.slug],
@@ -60,111 +60,98 @@ export function TenantSecretsPanel(props: { slug: string }) {
     secrets.data?.secrets.find(s => s.name === name)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['tenant-secrets', props.slug] })
+  const pasted = () => SECRETS.filter(row => (drafts()[row.name]?.trim().length ?? 0) > 0)
+  const blocked = () => {
+    const bad = pasted().find(row => !looksRight(row.name, drafts()[row.name] ?? ''))
+    return bad ? `${bad.label} should start with ${bad.prefixes.join(' or ')}.` : null
+  }
 
+  // Save sends every pasted key. The stored value never re-enters the page —
+  // each draft is dropped as it lands and the row shows the masked hint the
+  // server computed.
   const save = useMutation(() => ({
-    mutationFn: async (name: string) => {
-      setPendingName(name); setErrorText(null); setSavedName(null)
-      return api.setTenantSecret(props.slug, name, drafts()[name]?.trim() ?? '')
+    mutationFn: async () => {
+      setErrorText(null); setSaved(false)
+      for (const row of pasted()) {
+        await api.setTenantSecret(props.slug, row.name, drafts()[row.name]!.trim())
+        setDrafts(current => {
+          const next = { ...current }
+          delete next[row.name]
+          return next
+        })
+      }
     },
-    onSuccess: (_result, name) => {
-      // The stored value never re-enters the page — the draft is dropped and
-      // the row shows the masked hint the server just computed.
-      setDrafts(current => {
-        const next = { ...current }
-        delete next[name]
-        return next
-      })
-      setSavedName(name)
-      setPendingName(null)
-      refresh()
-    },
-    onError: (error) => {
-      setPendingName(null)
-      setErrorText(failureLine("Couldn't save your changes", error))
-    },
+    onSuccess: () => { setSaved(true); void refresh() },
+    onError: (error) => { setErrorText(failureLine("Couldn't save your changes", error)); void refresh() },
   }))
 
+  // Removing a key stops checkout at once, so it asks first.
   const remove = useMutation(() => ({
-    mutationFn: async (name: string) => {
-      setPendingName(name); setErrorText(null); setSavedName(null)
-      return api.deleteTenantSecret(props.slug, name)
-    },
-    onSuccess: () => {
-      setPendingName(null)
-      refresh()
-    },
-    onError: (error) => {
-      setPendingName(null)
-      setErrorText(failureLine("Couldn't remove it", error))
-    },
+    mutationFn: (name: string) => { setErrorText(null); return api.deleteTenantSecret(props.slug, name) },
+    onSuccess: () => { void refresh() },
+    onError: (error) => setErrorText(failureLine("Couldn't remove it", error)),
   }))
+  const confirmRemove = async (name: string, label: string) => {
+    const ok = await confirmAction({
+      title: `Remove the ${label.toLowerCase()}?`,
+      body: 'Checkout stops working until a new key is pasted.',
+      confirmLabel: 'Remove key',
+      destructive: true,
+    })
+    if (ok) remove.mutate(name)
+  }
 
-  return <Section
-    title="Stripe keys"
-    icon={<SectionIcon name="settings" />}
+  return <SettingsSection
+    title="Stripe"
     description={<>
       {authState.isPlatformLevel()
         ? 'The Stripe account this tenant sells tickets and merch through.'
         : 'The Stripe account your tickets and merch sell through.'}
-      {' '}Write-only: a key is stored encrypted and shown once as a masked hint — it can be replaced, never read back.
-      Turn on <em>Ticket sales</em> above only once these are set.
+      {' '}Write-only: a key is stored encrypted and shown as a masked hint — it can be replaced, never read back.
+      Turn on Ticket sales under Brand and apps only once both are set.
     </>}
+    actions={<SaveActions
+      dirty={pasted().length > 0}
+      pending={save.isPending}
+      blocked={blocked()}
+      saved={saved()}
+      saveLabel="Save keys"
+      onCancel={() => { setDrafts({}); setErrorText(null) }}
+      onSave={() => save.mutate()}
+    />}
   >
     <Show when={secrets.error}>
-      <ErrorCard title="Couldn't check your Stripe keys" error={secrets.error} onRetry={() => void secrets.refetch()} />
+      <div class="py-4"><ErrorCard title="Couldn't check your Stripe keys" error={secrets.error} onRetry={() => void secrets.refetch()} /></div>
     </Show>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-      <For each={SECRETS}>{row => (
-        <div class="flex flex-col gap-1.5">
-          <span class="text-sm text-foreground">
-            {row.label}
-            <Show when={current(row.name)}>{s => <>{' '}<Badge variant="secondary">{s().masked_hint}</Badge></>}</Show>
-            <Show when={!current(row.name)}>{' '}<Badge variant="warning">not set</Badge></Show>
-          </span>
+    <For each={SECRETS}>{row => (
+      <SettingsRow
+        for={`secret-${row.name}`}
+        label={row.label}
+        hint={row.band && !authState.isPlatformLevel() ? row.band : row.hint}
+      >
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2 text-sm">
+            <Show when={current(row.name)} fallback={<Badge variant="warning">not set</Badge>}>{s => <>
+              <Badge variant="secondary">{s().masked_hint}</Badge>
+              <span class="text-xs text-muted-foreground">set {new Date(s().updated_at).toLocaleDateString()}</span>
+              <Button size="sm" variant="destructive-ghost" class="ml-auto" writes disabled={remove.isPending} onClick={() => void confirmRemove(row.name, row.label)}>Remove</Button>
+            </>}</Show>
+          </div>
           <Input
+            id={`secret-${row.name}`}
             type="password"
             autocomplete="off"
             value={drafts()[row.name] ?? ''}
-            placeholder={current(row.name) ? 'Paste a new key to replace' : row.placeholder}
-            onInput={e => setDrafts(current => ({ ...current, [row.name]: e.currentTarget.value }))}
+            placeholder={current(row.name) ? 'Paste a new key to replace it' : row.placeholder}
+            aria-invalid={(drafts()[row.name]?.trim().length ?? 0) > 0 && !looksRight(row.name, drafts()[row.name] ?? '')}
+            onInput={e => { setSaved(false); setDrafts(current => ({ ...current, [row.name]: e.currentTarget.value })) }}
             {...writeGuard()}
           />
-          <small class="text-xs text-muted-foreground leading-relaxed">
-            {row.band && !authState.isPlatformLevel() ? row.band : row.hint}
-            <Show when={current(row.name)}>{s => <>{' '}Set {new Date(s().updated_at).toLocaleDateString()}.</>}</Show>
-          </small>
-          <div class="flex items-center gap-2 mt-1">
-            <Show when={(drafts()[row.name]?.trim().length ?? 0) > 0}>
-              <Button
-                size="sm"
-                writes
-                disabled={pendingName() !== null || !looksRight(row.name, drafts()[row.name] ?? '')}
-                title={looksRight(row.name, drafts()[row.name] ?? '') ? undefined : `Should start with ${row.prefixes.join(' or ')}`}
-                onClick={() => save.mutate(row.name)}
-              >
-                {pendingName() === row.name ? 'Saving…' : current(row.name) ? 'Replace key' : 'Save key'}
-              </Button>
-            </Show>
-            <Show when={current(row.name)}>
-              <Button
-                size="sm"
-                variant="ghost"
-                writes
-                disabled={pendingName() !== null}
-                onClick={() => remove.mutate(row.name)}
-              >
-                Remove
-              </Button>
-            </Show>
-            <Show when={savedName() === row.name && !(drafts()[row.name]?.trim())}>
-              <small class="text-xs text-muted-foreground">Saved ✓</small>
-            </Show>
-          </div>
         </div>
-      )}</For>
-    </div>
+      </SettingsRow>
+    )}</For>
     <Show when={errorText()}>
-      <ErrorCard>{errorText()}</ErrorCard>
+      <div class="py-4"><ErrorCard>{errorText()}</ErrorCard></div>
     </Show>
-  </Section>
+  </SettingsSection>
 }

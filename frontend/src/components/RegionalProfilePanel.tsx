@@ -1,19 +1,16 @@
-import { Show, createEffect, createMemo, createSignal, on } from 'solid-js'
+import { Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js'
 import { useMutation, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { RegionalProfile, TenantSummary } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { SectionIcon } from './SectionIcon'
-import { Spinner } from './Spinner'
-import { Dialog } from './Dialog'
-import { Section, ErrorCard } from './layout'
+import { ErrorCard } from './layout'
+import { SaveActions, SettingsRow, SettingsSection } from './ui/settings'
+import { writeGuard } from '../lib/read-only'
 import { Alert } from './app/alert'
-import { Button } from './app/button'
 import { Input } from './ui/input'
 import { cn } from '../lib/cn'
 import { NativeSelect } from './ui/native-select'
-import { Field, FieldGrid, ReadField, Unset } from './ui/field'
 
 type Props = { tenant: TenantSummary }
 
@@ -35,17 +32,12 @@ const NUMBER_FORMATS: Record<RegionalProfile['numberFormat'], string> = {
 
 /**
  * The regional profile is set once, at classification, and then read for the
- * life of the tenant. It was drawn as eight always-live inputs with bare
- * `<label>` elements — unstyled, so the field name, the box and the hint ran
- * together on one baseline — under a permanent Save button.
- *
- * A record that is rarely edited should read as a record. The values are shown;
- * the form is behind Edit, in the same modal shell every other form in the
- * console now uses.
+ * life of the tenant. Its fields are rows of the Settings layout, edited in
+ * place and sent together by the section's Save — the runtime may not guess
+ * any of them, so Save stays held until the four required ones are valid.
  */
 export function RegionalProfilePanel(props: Props) {
   const queryClient = useQueryClient()
-  const [editing, setEditing] = createSignal(false)
   const [draft, setDraft] = createSignal<RegionalProfile>(props.tenant.regionalProfile ?? empty())
   // Only re-sync from server when the profile actually changed, not on
   // every parent re-render — otherwise background refetches wipe unsaved
@@ -62,7 +54,6 @@ export function RegionalProfilePanel(props: Props) {
   const update = useMutation(() => ({
     mutationFn: () => api.regionalProfile(props.tenant.slug, draft()),
     onSuccess: async () => {
-      setEditing(false)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['tenant-overview', props.tenant.slug] }),
         queryClient.invalidateQueries({ queryKey: ['tenants'] }),
@@ -87,8 +78,6 @@ export function RegionalProfilePanel(props: Props) {
   const touchedError = (value: string, valid: boolean, message: string) =>
     value.trim() && !valid ? message : undefined
 
-  const open = () => { setDraft(profile() ?? empty()); setEditing(true) }
-
   // The country a fan is in decides which legal regime applies to their data;
   // the locale decides what language they are written to in. The panel used to
   // state neither, so both read as preferences.
@@ -102,164 +91,79 @@ export function RegionalProfilePanel(props: Props) {
       : `Your fans are written to in ${p.locale}, in ${p.currency}, on ${p.timezone} time. Their data is held in the ${p.dataRegion.toUpperCase()}.`
   })
 
+  const dirty = () => JSON.stringify(draft()) !== JSON.stringify(profile() ?? empty())
+  const [saved, setSaved] = createSignal(false)
+  const field = (id: string, label: string, hint: string, control: JSX.Element, error?: string) => (
+    <SettingsRow for={`region-${id}`} label={label} hint={hint}>
+      {control}
+      <Show when={error}><small class="mt-1.5 block text-xs text-destructive">{error}</small></Show>
+    </SettingsRow>
+  )
+
   return (
-    <Section
-      title="Regional profile"
-      icon={<SectionIcon name="globe" />}
+    <SettingsSection
+      title="Region and language"
       description={summary()}
-      action={<>
+      actions={<>
         <StatusBadge
           status={classified() ? `${profile()!.dataRegion.toUpperCase()} classified` : 'unclassified'}
           tone={classified() ? 'good' : 'warn'}
         />
-        {/* The opener is marked, not the eight fields behind it: a viewer that
-            can reach the form fills it in and then finds Save dead. */}
-        <Button variant={classified() ? 'ghost' : 'default'} size="sm" writes onClick={open}>
-          {classified() ? 'Edit' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
-        </Button>
+        <SaveActions
+          dirty={dirty()}
+          pending={update.isPending}
+          saved={saved()}
+          blocked={ready() ? null : 'Country, locale, timezone and currency are required.'}
+          saveLabel={classified() ? 'Save' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
+          onCancel={() => setDraft(profile() ?? empty())}
+          onSave={() => update.mutate(undefined, { onSuccess: () => setSaved(true) })}
+        />
       </>}
     >
       <Show when={!classified()}>
-        {/* This was warning text on the strong warning colour — a blank bar. */}
-        <Alert tone="warning" role="status" title="No persisted regional profile">
-          {authState.isPlatformLevel() ? 'The runtime' : 'The system'} must not infer locale, currency, timezone or data
-          residency from an IP address or a browser setting. {authState.isPlatformLevel()
-            ? 'Classify this tenant before the next deployment.'
-            : 'Classify your act before anything else ships.'}
-        </Alert>
+        <div class="py-4">
+          <Alert tone="warning" role="status" title="No persisted regional profile">
+            {authState.isPlatformLevel() ? 'The runtime' : 'The system'} must not infer locale, currency, timezone or data
+            residency from an IP address or a browser setting. {authState.isPlatformLevel()
+              ? 'Classify this tenant before the next deployment.'
+              : 'Classify your act before anything else ships.'}
+          </Alert>
+        </div>
       </Show>
-
-      <Show when={profile()}>{p => (
-        <FieldGrid min="150px">
-          <ReadField label="Country">{p().countryCode || <Unset />}</ReadField>
-          <ReadField label="Market region">{p().region.toUpperCase()}</ReadField>
-          <ReadField label="Locale" hint="Language of fan-facing copy">{p().locale || <Unset />}</ReadField>
-          <ReadField label="Timezone" hint="When sends are scheduled">{p().timezone || <Unset />}</ReadField>
-          <ReadField label="Currency">{p().currency || <Unset />}</ReadField>
-          <ReadField label="Date format">{DATE_FORMATS[p().dateFormat]}</ReadField>
-          <ReadField label="Number format">{NUMBER_FORMATS[p().numberFormat]}</ReadField>
-          <ReadField label="Data residency" hint="Changing this needs a migration, not an edit">
-            {p().dataRegion.toUpperCase()}
-          </ReadField>
-        </FieldGrid>
-      )}</Show>
-
-      <Dialog
-        open={editing()}
-        onClose={() => setEditing(false)}
-        label="Regional profile"
-        title={classified() ? 'Edit regional profile' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
-        description={authState.isPlatformLevel() ? 'These values are explicit for a reason: the runtime is not allowed to guess any of them from a request.' : 'These values are explicit for a reason: it is not allowed to guess any of them from a request.'}
-        class="max-w-2xl"
-        footer={<>
-          <span class="mr-auto text-xs text-muted-foreground" aria-live="polite">
-            {ready() ? 'Ready to save.' : 'Country, locale, timezone and currency are required.'}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
-          <Button size="sm" writes onClick={() => update.mutate()} disabled={update.isPending || !ready()}>
-            {update.isPending && <Spinner />} {update.isPending ? 'Saving…' : classified() ? 'Save profile' : authState.isPlatformLevel() ? 'Classify tenant' : 'Classify your act'}
-          </Button>
-        </>}
-      >
-        <Show when={update.error}>
-          <ErrorCard class="mb-4" title="Couldn't save the regional profile" error={update.error} />
-        </Show>
-        <FieldGrid>
-          <Field
-            label="Country code"
-            hint="ISO 3166-1 alpha-2, e.g. DE."
-            error={touchedError(draft().countryCode, countryValid(), 'Two letters, e.g. DE.')}
-          >
-            <Input
-              required maxlength="2" autocomplete="country"
-              class={cn(draft().countryCode && !countryValid() && 'border-destructive')}
-              aria-invalid={!countryValid()}
-              value={draft().countryCode}
-              onInput={e => set('countryCode', e.currentTarget.value.toUpperCase())}
-              placeholder="DE"
-            />
-          </Field>
-          <Field label="Market region" hint={authState.isPlatformLevel() ? 'Which market the tenant sells into.' : 'Which market your act sells into.'}>
-            <NativeSelect value={draft().region} onChange={e => set('region', e.currentTarget.value as 'eu' | 'us')}>
-              <option value="eu">EU</option>
-              <option value="us">US</option>
-            </NativeSelect>
-          </Field>
-          <Field
-            label="Locale"
-            hint="BCP-47 tag, e.g. de-DE. Decides the language and formatting of fan-facing copy."
-            error={touchedError(draft().locale, localeValid(), 'A language and a region, e.g. de-DE.')}
-          >
-            <Input
-              required maxlength="35"
-              class={cn(draft().locale && !localeValid() && 'border-destructive')}
-              aria-invalid={!localeValid()}
-              value={draft().locale}
-              onInput={e => set('locale', e.currentTarget.value)}
-              placeholder="de-DE"
-            />
-          </Field>
-          <Field
-            label="Timezone"
-            hint="IANA timezone, e.g. Europe/Berlin. Decides when scheduled sends land."
-            error={touchedError(draft().timezone, timezoneValid(), 'An IANA zone, e.g. Europe/Berlin.')}
-          >
-            <Input
-              required maxlength="64"
-              class={cn(draft().timezone && !timezoneValid() && 'border-destructive')}
-              aria-invalid={!timezoneValid()}
-              value={draft().timezone}
-              onInput={e => set('timezone', e.currentTarget.value)}
-              placeholder="Europe/Berlin"
-            />
-          </Field>
-          <Field
-            label="Currency"
-            hint="ISO 4217, e.g. EUR. Prices and payouts are denominated in it."
-            error={touchedError(draft().currency, currencyValid(), 'Three letters, e.g. EUR.')}
-          >
-            <Input
-              required maxlength="3"
-              class={cn(draft().currency && !currencyValid() && 'border-destructive')}
-              aria-invalid={!currencyValid()}
-              value={draft().currency}
-              onInput={e => set('currency', e.currentTarget.value.toUpperCase())}
-              placeholder="EUR"
-            />
-          </Field>
-          <Field label="Date format">
-            <NativeSelect value={draft().dateFormat} onChange={e => set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat'])}>
-              <option value="dmy">{DATE_FORMATS.dmy}</option>
-              <option value="mdy">{DATE_FORMATS.mdy}</option>
-              <option value="ymd">{DATE_FORMATS.ymd}</option>
-            </NativeSelect>
-          </Field>
-          <Field label="Number format">
-            <NativeSelect value={draft().numberFormat} onChange={e => set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat'])}>
-              <option value="comma_decimal">{NUMBER_FORMATS.comma_decimal}</option>
-              <option value="dot_decimal">{NUMBER_FORMATS.dot_decimal}</option>
-            </NativeSelect>
-          </Field>
-          <Field
-            label="Data residency"
-            note={classified() ? 'locked' : undefined}
-            hint={classified()
-              ? (authState.isPlatformLevel()
-                ? 'Set at classification. Moving a tenant\'s data between regions requires an explicit migration, so this field is not editable here.'
-                : 'Set at classification. Moving your act\'s data between regions needs a migration, so this field is not editable here.')
-              : 'Choose before deployment. Ordinary editing must never be able to move fan data to another region later.'}
-          >
-            <NativeSelect
-              disabled={classified()}
-              value={draft().dataRegion}
-              onChange={e => set('dataRegion', e.currentTarget.value as 'eu' | 'us')}
-            >
-              <option value="eu">EU residency</option>
-              <option value="us">US residency</option>
-            </NativeSelect>
-          </Field>
-        </FieldGrid>
-      </Dialog>
-    </Section>
+      <Show when={update.error}>
+        <div class="py-4"><ErrorCard title="Couldn't save the regional profile" error={update.error} /></div>
+      </Show>
+      {field('country', 'Country', 'ISO 3166-1 alpha-2, e.g. DE.',
+        <Input id="region-country" required maxlength="2" autocomplete="country" class={cn(draft().countryCode && !countryValid() && 'border-destructive')} aria-invalid={!countryValid()} value={draft().countryCode} onInput={e => { setSaved(false); set('countryCode', e.currentTarget.value.toUpperCase()) }} placeholder="DE" {...writeGuard()} />,
+        touchedError(draft().countryCode, countryValid(), 'Two letters, e.g. DE.'))}
+      {field('market', 'Market region', authState.isPlatformLevel() ? 'Which market the tenant sells into.' : 'Which market your act sells into.',
+        <NativeSelect id="region-market" value={draft().region} onChange={e => { setSaved(false); set('region', e.currentTarget.value as 'eu' | 'us') }} {...writeGuard()}>
+          <option value="eu">EU</option>
+          <option value="us">US</option>
+        </NativeSelect>)}
+      {field('locale', 'Language of fan copy', 'BCP-47 tag, e.g. de-DE. Decides the language and formatting of fan-facing copy.',
+        <Input id="region-locale" required maxlength="35" class={cn(draft().locale && !localeValid() && 'border-destructive')} aria-invalid={!localeValid()} value={draft().locale} onInput={e => { setSaved(false); set('locale', e.currentTarget.value) }} placeholder="de-DE" {...writeGuard()} />,
+        touchedError(draft().locale, localeValid(), 'A language and a region, e.g. de-DE.'))}
+      {field('timezone', 'Timezone', 'IANA timezone, e.g. Europe/Berlin. Decides when scheduled sends land.',
+        <Input id="region-timezone" required maxlength="64" class={cn(draft().timezone && !timezoneValid() && 'border-destructive')} aria-invalid={!timezoneValid()} value={draft().timezone} onInput={e => { setSaved(false); set('timezone', e.currentTarget.value) }} placeholder="Europe/Berlin" {...writeGuard()} />,
+        touchedError(draft().timezone, timezoneValid(), 'An IANA zone, e.g. Europe/Berlin.'))}
+      {field('currency', 'Currency', 'ISO 4217, e.g. EUR. Prices and payouts are denominated in it.',
+        <Input id="region-currency" required maxlength="3" class={cn(draft().currency && !currencyValid() && 'border-destructive')} aria-invalid={!currencyValid()} value={draft().currency} onInput={e => { setSaved(false); set('currency', e.currentTarget.value.toUpperCase()) }} placeholder="EUR" {...writeGuard()} />,
+        touchedError(draft().currency, currencyValid(), 'Three letters, e.g. EUR.'))}
+      {field('date', 'Date format', 'How dates read in fan messages.',
+        <NativeSelect id="region-date" value={draft().dateFormat} onChange={e => { setSaved(false); set('dateFormat', e.currentTarget.value as RegionalProfile['dateFormat']) }} {...writeGuard()}>
+          <option value="dmy">{DATE_FORMATS.dmy}</option>
+          <option value="mdy">{DATE_FORMATS.mdy}</option>
+          <option value="ymd">{DATE_FORMATS.ymd}</option>
+        </NativeSelect>)}
+      {field('number', 'Number format', 'How prices and counts read.',
+        <NativeSelect id="region-number" value={draft().numberFormat} onChange={e => { setSaved(false); set('numberFormat', e.currentTarget.value as RegionalProfile['numberFormat']) }} {...writeGuard()}>
+          <option value="comma_decimal">{NUMBER_FORMATS.comma_decimal}</option>
+          <option value="dot_decimal">{NUMBER_FORMATS.dot_decimal}</option>
+        </NativeSelect>)}
+      <SettingsRow label="Data residency" hint="Where fan data is held. Changing it needs a migration, not an edit.">
+        <p class="m-0 text-sm text-foreground">{(profile()?.dataRegion ?? draft().dataRegion).toUpperCase()}</p>
+      </SettingsRow>
+    </SettingsSection>
   )
 }

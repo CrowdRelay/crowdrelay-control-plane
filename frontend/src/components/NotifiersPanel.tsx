@@ -7,9 +7,8 @@ import { api } from '../lib/api'
 import { toast } from '../components/app/toast'
 import type { NotifierChannel, NotifierEvent, DiscoveredEndpoint, PlatformConfigItem, NotifiersOverview } from '../lib/types'
 import { NOTIFIER_EVENTS, NOTIFIER_EVENT_LABELS } from '../lib/types'
-import { SectionIcon } from '../components/SectionIcon'
 import { errorMessage, formatIsoAge } from '../lib/format'
-import { ChevronDown, Send, Plus } from 'lucide-solid'
+import { Send, Plus } from 'lucide-solid'
 import { writeGuard } from '../lib/read-only'
 import { whileIncomplete } from '../lib/incomplete'
 import { NotifierIcon } from '../components/ProviderIcon'
@@ -18,7 +17,9 @@ import { Checkbox } from '../components/app/checkbox'
 import { SkeletonNotifiersPage, SkeletonSection } from '../components/Skeleton'
 import { confirmAction } from '../components/Dialog'
 import { Spinner } from '../components/Spinner'
-import { ErrorCard, Section } from '../components/layout'
+import { ErrorCard } from '../components/layout'
+import { SettingsSection } from '../components/ui/settings'
+import { DataTable, type ColumnDef } from '../components/app/data-table'
 import { Button } from '../components/app/button'
 import { Switch } from '../components/app/switch'
 import { Badge } from '../components/app/badge'
@@ -113,6 +114,55 @@ export function NotifiersPanel(props: { slug: string }) {
   const items = () => channels.data?.items ?? []
   const platformItems = () => platformConfig.data?.items ?? []
   
+  const confirmDelete = async (ch: NotifierChannel) => {
+    const ok = await confirmAction({
+      title: `Delete channel "${ch.label}"?`,
+      body: 'Alerts routed to this channel stop being delivered.',
+      confirmLabel: 'Delete channel',
+      destructive: true,
+    })
+    if (ok) remove.mutate(ch.id)
+  }
+  const channelColumns: ColumnDef<NotifierChannel, any>[] = [
+    {
+      id: 'channel', header: 'Channel', accessorFn: ch => ch.label,
+      cell: c => {
+        const ch = c.row.original
+        return <div class="flex items-center gap-3 min-w-0">
+          <NotifierIcon kind={ch.kind} size={20} class="provider-icon flex-shrink-0" />
+          <div class="min-w-0">
+            <strong class="block font-medium text-foreground">{ch.label}</strong>
+            <small class="block text-xs text-muted-foreground">{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'}</small>
+            <Show when={testResult()[ch.id]}>
+              <small classList={{ 'block text-xs text-destructive': testResult()[ch.id]?.includes('failed'), 'block text-xs text-success-foreground': !testResult()[ch.id]?.includes('failed') }}>{testResult()[ch.id]}</small>
+            </Show>
+          </div>
+        </div>
+      },
+    },
+    { id: 'events', header: 'Events', accessorFn: ch => ch.events.length, cell: c => <span class="text-muted-foreground">{c.row.original.events.length ? c.row.original.events.map(evLabel).join(', ') : 'All events'}</span> },
+    {
+      id: 'enabled', header: 'On', accessorFn: ch => (ch.enabled ? 1 : 0),
+      cell: c => <Switch checked={c.row.original.enabled} label={`${c.row.original.label} enabled`} disabled={update.isPending} onChange={() => update.mutate({ id: c.row.original.id, enabled: !c.row.original.enabled })} />,
+    },
+    {
+      id: 'actions', header: '', enableSorting: false, enableHiding: false, meta: { class: 'text-right whitespace-nowrap' },
+      cell: c => <>
+        <Button writes variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(c.row.original.id)}>Send test</Button>
+        <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={() => void confirmDelete(c.row.original)}>Delete</Button>
+      </>,
+    },
+  ]
+  type Delivery = NonNullable<typeof outbox.data>['items'][number]
+  const deliveryColumns: ColumnDef<Delivery, any>[] = [
+    { id: 'event', header: 'Event', accessorFn: d => d.event, cell: c => <code class="text-xs">{c.row.original.event}</code> },
+    { id: 'channel', header: 'Channel', accessorFn: d => d.channel.label, cell: c => <>{c.row.original.channel.label}<span class="ml-1.5 text-xs text-muted-foreground">{kindLabel(c.row.original.channel.kind)}</span></> },
+    { id: 'status', header: 'Status', accessorFn: d => d.status, cell: c => <Badge variant={c.row.original.phase === 'failed' ? 'destructive' : c.row.original.phase === 'accepted' ? 'muted' : 'outline'}>{c.row.original.status}</Badge> },
+    { id: 'attempts', header: 'Attempts', accessorFn: d => d.attempts, meta: { numeric: true } },
+    { id: 'error', header: 'Last error', accessorFn: d => d.lastError ?? '', cell: c => <Show when={c.row.original.lastError} fallback="—"><span class="text-xs text-destructive">{c.row.original.lastError}</span></Show> },
+    { id: 'queued', header: 'Queued', accessorFn: d => d.createdAt, cell: c => <span class="text-xs text-muted-foreground">{formatIsoAge(c.row.original.createdAt)}</span> },
+  ]
+
   return <>
 
     {/* ── Create form ────────────────────────────────────────────── */}
@@ -122,13 +172,11 @@ export function NotifiersPanel(props: { slug: string }) {
 
     {/* ── This tenant's destinations, with the add form on demand ── */}
     <Show when={channels.data} fallback={!channels.error ? null : undefined}>
-      <Section
-        flush
-        title="Destinations"
-        icon={<SectionIcon name="bell" />}
-        count={items().length}
-        description="The places you added for this tenant's alerts. Send a test after saving; a wrong URL only fails at delivery time."
-        action={<Button writes variant="outline" size="sm" onClick={() => { create.reset(); setAddStep(0); setCreatedId(null); setAdding(true) }}><Plus aria-hidden="true" /> Add channel</Button>}
+      <SettingsSection
+        plain
+        title="Channels"
+        description="Where this tenant's alerts go. Send a test after saving; a wrong URL only fails at delivery time."
+        actions={<Button writes size="sm" onClick={() => { create.reset(); setAddStep(0); setCreatedId(null); setAdding(true) }}><Plus aria-hidden="true" /> Add channel</Button>}
       >
         <FormDrawer
           open={adding()}
@@ -225,61 +273,30 @@ export function NotifiersPanel(props: { slug: string }) {
         </FormDrawer>
 
         <Show when={items().length === 0} fallback={
-          <div class="grid gap-2.5 mt-4">
-            <For each={items()}>{ch => (
-              <div class="flex items-center justify-between gap-3 py-3 border-b border-border last:border-0">
-                <div class="flex items-center gap-3 min-w-0">
-                  <NotifierIcon kind={ch.kind} size={20} class="provider-icon flex-shrink-0" />
-                  <div class="grid gap-1 min-w-0">
-                    <strong class="text-foreground">{ch.label}</strong>
-                    <small class="text-sm text-muted-foreground">{kindLabel(ch.kind)} · {ch.config.to ?? ch.config.urlHost ?? 'endpoint'} · {ch.events.length ? ch.events.map(evLabel).join(', ') : 'all events'}</small>
-                    <Show when={testResult()[ch.id]}>
-                      <small classList={{ 'text-destructive text-sm': testResult()[ch.id]?.includes('failed'), 'text-success-foreground text-sm': !testResult()[ch.id]?.includes('failed') }}>{testResult()[ch.id]}</small>
-                    </Show>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <Button writes variant="ghost" size="sm" disabled={test.isPending} onClick={() => test.mutateAsync(ch.id)}>Send test</Button>
-                  <Switch
-                    checked={ch.enabled}
-                    label={`${ch.label} enabled`}
-                    disabled={update.isPending}
-                    onChange={() => update.mutate({ id: ch.id, enabled: !ch.enabled })}
-                  />
-                  <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
-                    const ok = await confirmAction({
-                      title: `Delete channel "${ch.label}"?`,
-                      body: 'Alerts routed to this channel stop being delivered.',
-                      confirmLabel: 'Delete channel',
-                      destructive: true,
-                    })
-                    if (ok) remove.mutate(ch.id)
-                  }}>Delete</Button>
-                </div>
-              </div>
-            )}</For>
-          </div>
+          <DataTable
+            data={items()}
+            columns={channelColumns}
+            getRowId={ch => ch.id}
+            searchText={ch => [ch.label, kindLabel(ch.kind), ch.config.to ?? ch.config.urlHost ?? '', ...ch.events.map(evLabel)].join(' ')}
+            searchPlaceholder="Search channels"
+            searchLabel="Search channels"
+          />
         }>
-          <EmptyState icon={<Send />} label="No destinations yet" hint="Add a channel to start receiving operational alerts." />
+          <EmptyState icon={<Send />} label="No channels yet" hint="Add a channel to start receiving operational alerts." />
         </Show>
-      </Section>
+      </SettingsSection>
     </Show>
 
     {/* ── PLATFORM / CONTROL PLANE ──────────────────────────────── */}
     <Show when={platformConfig.error}><ErrorCard title="Couldn't load platform settings" error={platformConfig.error} /></Show>
     <Show when={!platformConfig.error && !platformConfig.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={platformConfig.data}>
-      <section class="border-t border-border pt-6">
-        <details class="group">
-          <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-4">
-            <h2 class="flex items-center gap-2 text-base font-semibold text-foreground"><span class="text-muted-foreground"><SectionIcon name="server" /></span>Platform notification config<ChevronDown class="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></h2>
-          </summary>
-
-          <div class="mt-2">
-            <p class="text-sm text-muted-foreground leading-relaxed">Set once for the whole platform, not per tenant. Shown so you know where else an alert lands; changing these is a platform admin job.</p>
-            <p class="text-sm text-muted-foreground leading-relaxed mt-2">These are separate from any Discord or n8n you have configured elsewhere — each is read from its own variable in the control plane's deployment environment, and an unset one shows the variable to set.</p>
-
-            <div class="mt-4">
+      <SettingsSection
+        plain
+        title="Platform channels"
+        description="Set once for the whole platform, not per tenant, from the control plane's deployment environment. Shown so you know where else an alert lands; an unset one names the variable to set."
+      >
+            <div>
               <Table>
                 <TableHeader><TableRow><TableHead>Type</TableHead><TableHead>Source</TableHead><TableHead>Owner</TableHead><TableHead>Path</TableHead><TableHead>Destination</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
                 <TableBody>
@@ -306,21 +323,19 @@ export function NotifiersPanel(props: { slug: string }) {
                 </TableBody>
               </Table>
             </div>
-          </div>
-        </details>
-      </section>
+      </SettingsSection>
     </Show>
 
     {/* ── AUTOMATION / N8N ──────────────────────────────────────── */}
     {/* ── Discovered webhook endpoints ───────────────────────────── */}
     <Show when={discovered.error}>
-      <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />}>
+      <SettingsSection plain title="Webhooks in CrowdRelay">
         <ErrorCard title="Couldn't load webhook endpoints" error={discovered.error} />
-      </Section>
+      </SettingsSection>
     </Show>
     <Show when={!discovered.error && !discovered.data}><SkeletonSection titleWidth="200px" lines={3} minHeight="120px" /></Show>
     <Show when={discovered.data && discovered.data.endpoints.length > 0}>
-      <Section title="Discovered webhook endpoints" icon={<SectionIcon name="link" />} count={discovered.data?.endpoints.length} description="Outbound webhook delivery targets already configured in this tenant's CrowdRelay instance.">
+      <SettingsSection plain title="Webhooks in CrowdRelay" description="Outbound webhook targets already configured in this tenant's CrowdRelay instance. Read-only here.">
         <Table>
           <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Target</TableHead><TableHead>Active</TableHead></TableRow></TableHeader>
           <TableBody>
@@ -335,53 +350,31 @@ export function NotifiersPanel(props: { slug: string }) {
             </TableRow>}</For>
           </TableBody>
         </Table>
-      </Section>
+      </SettingsSection>
     </Show>
 
     {/* ── Recent deliveries — the control plane's own outbox ─────── */}
     <Show when={outbox.error}>
-      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />}>
+      <SettingsSection plain title="Recent deliveries">
         <ErrorCard title="Couldn't load recent deliveries" error={outbox.error} onRetry={() => void outbox.refetch()} />
-      </Section>
+      </SettingsSection>
     </Show>
     <Show when={!outbox.error && outbox.isPending}><SkeletonSection titleWidth="180px" lines={3} minHeight="120px" /></Show>
     <Show when={outbox.data && outbox.data.items.length === 0}>
-      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />} count={0} description="The last 50 notifications this tenant's channels were asked to send.">
+      <SettingsSection plain title="Recent deliveries" description="The last 50 notifications this tenant's channels were asked to send.">
         <EmptyState icon={<Send />} label="Nothing sent yet" hint="Notifications land here when an event fires for a channel — test deliveries included." />
-      </Section>
+      </SettingsSection>
     </Show>
     <Show when={outbox.data && outbox.data.items.length > 0}>
-      <Section title="Recent deliveries" icon={<SectionIcon name="mail" />} count={outbox.data?.items.length} description="The last 50 notifications this tenant's channels were asked to send.">
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Event</TableHead>
-            <TableHead>Channel</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Attempts</TableHead>
-            <TableHead>Last error</TableHead>
-            <TableHead>Queued</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            <For each={outbox.data?.items ?? []}>{item => <TableRow>
-              <TableCell><code class="text-xs">{item.event}</code></TableCell>
-              <TableCell>
-                {item.channel.label}
-                <span class="ml-1.5 text-xs text-muted-foreground">{kindLabel(item.channel.kind)}</span>
-              </TableCell>
-              <TableCell>
-                <Badge variant={item.phase === 'failed' ? 'destructive' : item.phase === 'accepted' ? 'muted' : 'outline'}>{item.status}</Badge>
-              </TableCell>
-              <TableCell>{item.attempts}</TableCell>
-              <TableCell>
-                <Show when={item.lastError} fallback="—">
-                  <span class="text-xs text-destructive">{item.lastError}</span>
-                </Show>
-              </TableCell>
-              <TableCell><span class="text-xs text-muted-foreground">{formatIsoAge(item.createdAt)}</span></TableCell>
-            </TableRow>}</For>
-          </TableBody>
-        </Table>
-      </Section>
+      <SettingsSection plain title="Recent deliveries" description="The last 50 notifications this tenant's channels were asked to send.">
+        <DataTable
+          data={outbox.data?.items ?? []}
+          columns={deliveryColumns}
+          searchText={item => [item.event, item.channel.label, kindLabel(item.channel.kind), item.status, item.lastError ?? ''].join(' ')}
+          searchPlaceholder="Search event, channel or error"
+          searchLabel="Search deliveries"
+        />
+      </SettingsSection>
     </Show>
     </>
 }

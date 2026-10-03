@@ -5,21 +5,24 @@ import { Link, useNavigate, useParams } from '@tanstack/solid-router'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { httpUrl } from '../lib/format'
-import { Check, Circle } from 'lucide-solid'
+import { Check, Circle, Users } from 'lucide-solid'
 import { cn } from '../lib/cn'
-import type { Palette, ProvisioningJob } from '../lib/types'
+import type { Palette, ProvisioningJob, TenantSummary } from '../lib/types'
 import { ReleaseConvergencePanel } from '../components/ReleaseConvergencePanel'
 import { StatusBadge } from '../components/StatusBadge'
 import { RegionalProfilePanel } from '../components/RegionalProfilePanel'
-import { SectionIcon } from '../components/SectionIcon'
 import { TenantAuditPanel } from '../components/TenantAuditPanel'
 import { TenantOperatorsPanel } from '../components/TenantOperatorsPanel'
 import { TenantSecretsPanel } from '../components/TenantSecretsPanel'
 import { NotifiersPanel } from '../components/NotifiersPanel'
 import { WorkspaceSettingsPanel } from '../components/WorkspaceSettingsPanel'
-import { Dialog } from '../components/Dialog'
 import { SkeletonTenantPage, SkeletonSection } from '../components/Skeleton'
-import { ErrorCard, PageShell, Section } from '../components/layout'
+import { ErrorCard, PageShell } from '../components/layout'
+import { SaveActions, SettingsRow, SettingsSection } from '../components/ui/settings'
+import { DataTable, type ColumnDef } from '../components/app/data-table'
+import { Badge } from '../components/app/badge'
+import { EmptyState } from '../components/ui/empty-state'
+import { confirmAction } from '../components/Dialog'
 import { Act, DashHeader, Pill, SubPagePanel, type Tone } from '../components/ui/dash'
 import { SettingsFirstScreen } from '../components/SettingsFirstScreen'
 import { Alert } from '../components/app/alert'
@@ -77,22 +80,36 @@ const provisionFailures: Record<string, { title: string; guidance: string; retry
   invalid_plan: { title: 'Deployment plan was rejected', guidance: 'The agent refused the plan as unsafe or malformed. This is a Control Plane defect; the plan must be corrected before retrying.', retryable: false },
 }
 
-export type SettingsSection = 'overview' | 'profile' | 'workspace' | 'deployment' | 'access' | 'destinations'
+export type SettingsSection = 'overview' | 'profile' | 'brand' | 'team' | 'workspace' | 'keys' | 'notifications' | 'deployment'
 
 // Sub-pages only a platform session gets — the band's sidebar does not list
 // them, and a pasted URL sends a band session back to the overview rather
 // than mounting a platform-only panel.
-const PLATFORM_ONLY: SettingsSection[] = ['deployment', 'access', 'destinations']
+const PLATFORM_ONLY: SettingsSection[] = ['notifications', 'deployment']
 const SECTION_TITLE: Record<SettingsSection, string> = {
-  overview: 'Settings', profile: 'Profile', workspace: 'Workspace', deployment: 'Deployment', access: 'Access', destinations: 'Destinations',
+  overview: 'Settings', profile: 'Profile', brand: 'Brand and apps', team: 'Team', workspace: 'Workspace',
+  keys: 'API keys', notifications: 'Notifications', deployment: 'Deployment',
+}
+// One line under each heading saying what the page is for.
+const SECTION_SUBTITLE: Record<SettingsSection, string> = {
+  overview: 'Who you are, and what the machine may do',
+  profile: 'How letters describe you, and the region fans are written to in',
+  brand: 'Which apps run, where they are published, and the colours they wear',
+  team: 'The crew the brain hands work to, and who can sign in',
+  workspace: 'Member links, what the brain chases, and social posting',
+  keys: 'Credentials for the services you sell through',
+  notifications: 'Where alerts go, and what was sent',
+  deployment: 'The CrowdRelay instance, its release and recent platform changes',
 }
 
 export const SettingsOverviewPage = () => <TenantPage section="overview" />
 export const SettingsProfilePage = () => <TenantPage section="profile" />
+export const SettingsBrandPage = () => <TenantPage section="brand" />
+export const SettingsTeamPage = () => <TenantPage section="team" />
 export const SettingsWorkspacePage = () => <TenantPage section="workspace" />
+export const SettingsKeysPage = () => <TenantPage section="keys" />
+export const SettingsNotificationsPage = () => <TenantPage section="notifications" />
 export const SettingsDeploymentPage = () => <TenantPage section="deployment" />
-export const SettingsAccessPage = () => <TenantPage section="access" />
-export const SettingsDestinationsPage = () => <TenantPage section="destinations" />
 
 export function TenantPage(props: { section: SettingsSection }) {
   const params = useParams({ strict: false }) as () => { slug: string }
@@ -150,10 +167,8 @@ export function TenantPage(props: { section: SettingsSection }) {
     staleTime: 30_000,
   }))
   const [palette, setPalette] = createSignal<Palette>(defaultPalette)
-  const [editingPalette, setEditingPalette] = createSignal(false)
   const [desiredVersion, setDesiredVersion] = createSignal('')
   const [preview, setPreview] = createSignal<ProvisioningJob | null>(null)
-  const [editingMobileApps, setEditingMobileApps] = createSignal(false)
   const [signalPlayUrl, setSignalPlayUrl] = createSignal('')
   const [synesthesiaPlayUrl, setSynesthesiaPlayUrl] = createSignal('')
   createEffect(() => { if (tenant.data?.brandingPalette) setPalette(tenant.data.brandingPalette) })
@@ -176,7 +191,7 @@ export function TenantPage(props: { section: SettingsSection }) {
     await queryClient.invalidateQueries({ queryKey: ['tenant-today', params().slug] })
   }
   const branding = useMutation(() => ({ mutationFn: (value: Palette | null) => api.branding(params().slug, value), onSuccess: refreshTenant }))
-  const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: async () => { setEditingMobileApps(false); await refreshTenant() } }))
+  const mobileApps = useMutation(() => ({ mutationFn: (input: { signalPlayStoreUrl?: string | null; synesthesiaPlayStoreUrl?: string | null }) => api.mobileApps(params().slug, input), onSuccess: refreshTenant }))
   const status = useMutation(() => ({ mutationFn: (action: 'suspend'|'resume') => action === 'suspend' ? api.suspend(params().slug) : api.resume(params().slug), onSuccess: refreshTenant }))
   const park = useMutation(() => ({ mutationFn: (reason?: string) => api.park(params().slug, reason), onSuccess: refreshTenant }))
   const unpark = useMutation(() => ({ mutationFn: () => api.unpark(params().slug), onSuccess: refreshTenant }))
@@ -234,256 +249,257 @@ export function TenantPage(props: { section: SettingsSection }) {
     const t = data()
 
 
-    // ── Settings — products, region, brand, publishing ──
-    const Settings = () => <>
-          <Section
-            title="Products"
-            icon={<SectionIcon name="shield" />}
-            description={authState.isPlatformLevel() ? 'Which apps this tenant is entitled to, and where each one is published.' : 'Which apps your act is entitled to, and where each one is published.'}
-            action={<Button writes variant="outline" size="sm" onClick={() => setEditingMobileApps(true)}>Edit Play Store URLs</Button>}
-          >
-            {/* Four hand-built three-column CSS grids, each declaring its own
-                template inline, is a table that has not admitted it is one. */}
-            <Table>
-              <TableHeader><TableRow><TableHead>Product</TableHead><TableHead>Where it lives</TableHead><TableHead class="text-right">Status</TableHead></TableRow></TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell><strong>CrowdRelay</strong></TableCell>
-                  <TableCell class="text-muted-foreground">{authState.isPlatformLevel() ? "The tenant's own API and workspace" : "Your act's own API and workspace"}</TableCell>
-                  <TableCell class="text-right"><StatusBadge status="enabled" tone="good" /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell><strong>Signal</strong></TableCell>
-                  <TableCell>
-                    <Show when={t.signalEnabled && httpUrl(t.signalPlayStoreUrl)} fallback={<span class="text-muted-foreground">{t.signalEnabled ? 'not published yet' : '—'}</span>}>
-                      {url => <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>}
-                    </Show>
-                  </TableCell>
-                  <TableCell class="text-right"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell><strong>AREA</strong></TableCell>
-                  <TableCell><Show when={authState.isPlatformLevel()} fallback={<span class="text-sm text-muted-foreground">—</span>}>
-                    <Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places/area" params={{ slug: t.slug }}>Manage rewards</Link>
-                  </Show></TableCell>
-                  <TableCell class="text-right"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell><strong>Synesthesia</strong></TableCell>
-                  <TableCell>
-                    <Show when={t.synesthesiaEnabled && httpUrl(t.synesthesiaPlayStoreUrl)} fallback={<span class="text-muted-foreground">{t.synesthesiaEnabled ? 'not published yet' : '—'}</span>}>
-                      {url => <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>}
-                    </Show>
-                  </TableCell>
-                  <TableCell class="text-right"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </Section>
-          <RegionalProfilePanel tenant={t} />
-          <Show when={(t.teamMembers ?? []).length > 0}>
-            <Section
-              title="Crew roster"
-              icon={<SectionIcon name="users" />}
-              description="The people the brain can hand work to. Collected at onboarding and shipped with every deploy — skills decide what the router may ask of each member."
-            >
-              <ul class="divide-y divide-border rounded-lg border border-border">
-                <For each={t.teamMembers}>{member => (
-                  <li class="flex items-start gap-3 p-3">
-                    <div class="min-w-0 flex-1">
-                      <strong class="text-sm text-foreground">{member.name}</strong>
-                      <small class="block break-words text-xs text-muted-foreground">{member.email} · {member.key}</small>
-                    </div>
-                    <div class="flex flex-wrap justify-end gap-1.5">
-                      <For each={member.skills}>{skill => (
-                        <span class="rounded-md border border-border bg-background px-2 py-0.5 text-xs text-muted-foreground">{skill.replaceAll('_', ' ')}</span>
-                      )}</For>
-                    </div>
-                  </li>
-                )}</For>
-              </ul>
-            </Section>
+    const tenantWord = (platformText: string, bandText: string) => platformView() ? platformText : bandText
+    const playBadge = (url: string | null | undefined, enabled: boolean) => (
+      <Show when={enabled && httpUrl(url)} fallback={<span class="text-muted-foreground">{enabled ? 'not published yet' : '—'}</span>}>
+        {href => <a href={href()} target="_blank" rel="noopener noreferrer" class="inline-block"><img src="/icons/google-play-badge.svg" alt="Get it on Google Play" width="100" height="30" /></a>}
+      </Show>
+    )
+
+    // ── Brand and apps — what the tenant runs and how it looks ──
+    const paletteDirty = () => JSON.stringify(palette()) !== JSON.stringify(t.brandingPalette ?? defaultPalette)
+    const playDirty = () => signalPlayUrl() !== (t.signalPlayStoreUrl ?? '') || synesthesiaPlayUrl() !== (t.synesthesiaPlayStoreUrl ?? '')
+    const resetPalette = async () => {
+      const ok = await confirmAction({
+        title: 'Reset the brand palette?',
+        body: 'The custom colours are removed and both apps fall back to their product defaults.',
+        confirmLabel: 'Reset palette',
+        destructive: true,
+      })
+      if (ok) branding.mutate(null)
+    }
+    const BrandAndApps = () => <>
+      <SettingsSection
+        plain
+        title="Products"
+        description={tenantWord('Which apps this tenant is entitled to, and where each one is published.', 'Which apps your act is entitled to, and where each one is published.')}
+      >
+        {/* Four hand-built three-column CSS grids, each declaring its own
+            template inline, is a table that has not admitted it is one. */}
+        <Table>
+          <TableHeader><TableRow><TableHead>Product</TableHead><TableHead>Where it lives</TableHead><TableHead class="text-right">Status</TableHead></TableRow></TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell><strong>CrowdRelay</strong></TableCell>
+              <TableCell class="text-muted-foreground">{tenantWord("The tenant's own API and workspace", "Your act's own API and workspace")}</TableCell>
+              <TableCell class="text-right"><StatusBadge status="enabled" tone="good" /></TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell><strong>Signal</strong></TableCell>
+              <TableCell>{playBadge(t.signalPlayStoreUrl, t.signalEnabled)}</TableCell>
+              <TableCell class="text-right"><StatusBadge status={t.signalEnabled ? 'enabled' : 'disabled'} tone={t.signalEnabled ? 'good' : 'muted'} /></TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell><strong>AREA</strong></TableCell>
+              <TableCell><Show when={platformView()} fallback={<span class="text-sm text-muted-foreground">—</span>}>
+                <Link class={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/tenants/$slug/places/area" params={{ slug: t.slug }}>Manage rewards</Link>
+              </Show></TableCell>
+              <TableCell class="text-right"><StatusBadge status={t.areaEnabled ? 'enabled' : 'disabled'} tone={t.areaEnabled ? 'good' : 'muted'} /></TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell><strong>Synesthesia</strong></TableCell>
+              <TableCell>{playBadge(t.synesthesiaPlayStoreUrl, t.synesthesiaEnabled)}</TableCell>
+              <TableCell class="text-right"><StatusBadge status={t.synesthesiaEnabled ? 'enabled' : 'disabled'} tone={t.synesthesiaEnabled ? 'good' : 'muted'} /></TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </SettingsSection>
+
+      <WorkspaceSettingsPanel slug={t.slug} groups={['apps']} />
+
+      <Show when={t.signalEnabled || t.synesthesiaEnabled}>
+        <SettingsSection
+          title="Play Store listings"
+          description={tenantWord(
+            "Where this tenant's mobile apps are published. Each step is automated by the onboarding script in the virya-signal repo.",
+            'Where your apps are published. The crew publishes them for you; leave a field blank until an app is on the store.',
+          )}
+          actions={<SaveActions
+            dirty={playDirty()}
+            pending={mobileApps.isPending}
+            onCancel={() => { setSignalPlayUrl(t.signalPlayStoreUrl ?? ''); setSynesthesiaPlayUrl(t.synesthesiaPlayStoreUrl ?? '') }}
+            onSave={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })}
+          />}
+        >
+          <Show when={mobileApps.error}><div class="py-4"><ErrorCard title="Couldn't update Play Store URLs" error={mobileApps.error} /></div></Show>
+          <Show when={t.signalEnabled}>
+            <SettingsRow for="play-signal" label="Signal" hint={`Package music.${t.slug}.signal`}>
+              <Input id="play-signal" type="url" value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.signal`} {...writeGuard()} />
+            </SettingsRow>
           </Show>
-          <Section
-            title="Brand palette"
-            icon={<SectionIcon name="palette" />}
-            description={authState.isPlatformLevel() ? "Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults." : "Ten colours sent to your CrowdRelay and Signal builds. Nothing changes until you save; resetting removes the override and both apps fall back to product defaults."}
-            action={t.brandingPalette
-              ? <Button writes variant="outline" size="sm" disabled={branding.isPending} onClick={() => branding.mutate(null)}>{branding.isPending && <Spinner />} Reset to defaults</Button>
-              : <StatusBadge status="product defaults" />}
-          >
-            <Show when={t.brandingPalette || editingPalette()} fallback={
-              <div class="flex flex-wrap items-center gap-3">
-                <p class="m-0 text-sm text-muted-foreground">No custom palette stored. Both apps use their own default colours.</p>
-                <Button writes variant="outline" size="sm" onClick={() => setEditingPalette(true)}>Create custom palette</Button>
+          <Show when={t.synesthesiaEnabled}>
+            <SettingsRow for="play-synesthesia" label="Synesthesia" hint={`Package music.${t.slug}.synesthesia`}>
+              <Input id="play-synesthesia" type="url" value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.synesthesia`} {...writeGuard()} />
+            </SettingsRow>
+          </Show>
+          <SettingsRow label="Setup steps" hint="What is left before the apps are on the store.">
+            <ul class="m-0 flex list-none flex-col gap-3 p-0">
+              <For each={[
+                { show: true, done: Boolean(t.brandingPalette), title: 'Brand palette', detail: t.brandingPalette ? 'Custom palette set' : 'Using product defaults — set a palette below for custom app icons' },
+                { show: t.signalEnabled, done: Boolean(t.signalPlayStoreUrl), title: 'Signal app published', detail: tenantWord('Run the onboarding script to build and publish', 'The crew publishes this for you') },
+                { show: t.synesthesiaEnabled, done: Boolean(t.synesthesiaPlayStoreUrl), title: 'Synesthesia app published', detail: tenantWord('Run the onboarding script in the synesthesia repo', 'The crew publishes this for you') },
+              ].filter(step => step.show)}>{step => (
+                <li class="flex items-start gap-3">
+                  {/* The done mark painted a green check on a green disc. */}
+                  <span class={cn('mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold', step.done ? 'bg-success text-success-foreground' : 'border border-border text-muted-foreground')}>
+                    <Show when={step.done} fallback={<Circle size={10} aria-hidden="true" />}><Check size={12} stroke-width={3} aria-hidden="true" /></Show>
+                    <span class="sr-only">{step.done ? 'Done' : 'To do'}</span>
+                  </span>
+                  <div class="min-w-0">
+                    <strong class="block text-sm font-medium text-foreground">{step.title}</strong>
+                    <small class="block text-xs text-muted-foreground">{step.detail}</small>
+                  </div>
+                </li>
+              )}</For>
+            </ul>
+            {/* The onboarding command is operator runbook material — it
+                names an admin-token env var the band has no use for. */}
+            <Show when={!t.signalPlayStoreUrl && t.signalEnabled && platformView()}>
+              <div class="mt-4 rounded-lg border border-border bg-background p-3">
+                <p class="mb-2 text-sm text-muted-foreground">Run in the virya-signal repo to onboard the Signal app:</p>
+                <pre class="overflow-x-auto text-xs text-foreground"><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
               </div>
-            }>
-              <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
-                <For each={paletteFields}>{field => (
-                  <label class="flex min-w-0 flex-col gap-1.5">
-                    <span class="text-sm font-medium leading-none text-foreground">{paletteLabels[field].label}</span>
-                    <div class="flex items-center gap-2">
-                      <ColorInput writes aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))} />
-                      <code class="text-xs tabular-nums text-muted-foreground">{palette()[field]}</code>
-                    </div>
-                    <span class="text-xs leading-relaxed text-muted-foreground">{paletteLabels[field].role}</span>
-                  </label>
-                )}</For>
-              </div>
-              <Button writes size="sm" class="mt-4" onClick={() => branding.mutate(palette())} disabled={branding.isPending}>{branding.isPending && <Spinner />} {branding.isPending ? 'Saving…' : 'Save custom palette'}</Button>
             </Show>
-          </Section>
+          </SettingsRow>
+        </SettingsSection>
+      </Show>
 
-          <Show when={t.signalEnabled || t.synesthesiaEnabled}>
-            <Section
-              title="Google Play setup"
-              icon={<SectionIcon name="play" />}
-              description={authState.isPlatformLevel()
-                ? "Onboarding this tenant's mobile apps. Each step is automated by the onboarding script in the virya-signal repo."
-                : 'Getting your apps onto the Play Store.'}
-            >
-              <ul class="divide-y divide-border rounded-lg border border-border">
-                <For each={[
-                  {
-                    show: true,
-                    done: Boolean(t.brandingPalette),
-                    title: 'Branding palette',
-                    detail: t.brandingPalette ? 'Custom palette configured' : 'Using product defaults — set a palette for custom app icons',
-                    url: null as string | null,
-                  },
-                  {
-                    show: t.signalEnabled,
-                    done: Boolean(t.signalPlayStoreUrl),
-                    title: 'Signal app published',
-                    detail: authState.isPlatformLevel()
-                      ? `Package: music.${t.slug}.signal — run the onboarding script to build and publish`
-                      : `Package: music.${t.slug}.signal — the crew publishes this for you`,
-                    url: t.signalPlayStoreUrl ?? null,
-                  },
-                  {
-                    show: t.synesthesiaEnabled,
-                    done: Boolean(t.synesthesiaPlayStoreUrl),
-                    title: 'Synesthesia app published',
-                    detail: authState.isPlatformLevel()
-                      ? `Package: music.${t.slug}.synesthesia — run the onboarding script in the synesthesia repo`
-                      : `Package: music.${t.slug}.synesthesia — the crew publishes this for you`,
-                    url: t.synesthesiaPlayStoreUrl ?? null,
-                  },
-                ].filter(step => step.show)}>{step => (
-                  <li class="flex items-start gap-3 p-3">
-                    {/* The done mark painted a green check on a green disc. */}
-                    <span class={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold', step.done ? 'bg-success text-success-foreground' : 'border border-border text-muted-foreground')}>
-                      <Show when={step.done} fallback={<Circle size={10} aria-hidden="true" />}><Check size={12} stroke-width={3} aria-hidden="true" /></Show>
-                    </span>
-                    <div class="min-w-0">
-                      <strong class="text-sm text-foreground">{step.title}</strong>
-                      <small class="block break-words text-xs text-muted-foreground">
-                        <Show when={httpUrl(step.url)} fallback={step.detail}>
-                          <a href={step.url!} target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary/80">{step.url}</a>
-                        </Show>
-                      </small>
-                    </div>
-                  </li>
-                )}</For>
-              </ul>
-              {/* The onboarding command is operator runbook material — it
-                  names an admin-token env var the band has no use for. */}
-              <Show when={!t.signalPlayStoreUrl && t.signalEnabled && authState.isPlatformLevel()}>
-                <div class="mt-3 rounded-lg border border-border bg-background p-3">
-                  <p class="mb-2 text-sm text-muted-foreground">Run in the virya-signal repo to onboard the Signal app:</p>
-                  <pre class="overflow-x-auto text-xs text-foreground"><code>bash scripts/onboard-tenant-app.sh \<br/>  --tenant {t.slug} \<br/>  --control-plane-url {window.location.origin.replace(/:\d+$/, '')} \<br/>  --token $CONTROL_PLANE_ADMIN_TOKEN \<br/>  --version 0.1.0 --version-code 1</code></pre>
-                </div>
-              </Show>
-            </Section>
+      <SettingsSection
+        title="Brand palette"
+        description={tenantWord(
+          "Ten colours sent to this tenant's CrowdRelay and Signal builds. Nothing changes until you save.",
+          'Ten colours sent to your CrowdRelay and Signal builds. Nothing changes until you save.',
+        )}
+        actions={<>
+          <Show when={t.brandingPalette} fallback={<StatusBadge status="product defaults" />}>
+            <Button writes variant="ghost" size="sm" disabled={branding.isPending} onClick={() => void resetPalette()}>Reset to defaults</Button>
           </Show>
-
-          <Dialog
-            open={editingMobileApps()}
-            onClose={() => setEditingMobileApps(false)}
-            label="Google Play Store URLs"
-            title="Google Play Store URLs"
-            description={authState.isPlatformLevel() ? "Where each of this tenant's mobile apps is published. Leave a field blank if that app is not on the store yet." : "Where each of your apps is published. Leave a field blank if that app is not on the store yet."}
-            class="max-w-lg"
-            footer={<>
-              <Button variant="ghost" size="sm" onClick={() => setEditingMobileApps(false)}>Cancel</Button>
-              <Button writes size="sm" onClick={() => mobileApps.mutate({ signalPlayStoreUrl: signalPlayUrl().trim() || null, synesthesiaPlayStoreUrl: synesthesiaPlayUrl().trim() || null })} disabled={mobileApps.isPending}>{mobileApps.isPending && <Spinner />} {mobileApps.isPending ? 'Saving…' : 'Save URLs'}</Button>
-            </>}
-          >
-            <Show when={mobileApps.error}><ErrorCard class="mb-4" title="Couldn't update Play Store URLs" error={mobileApps.error} /></Show>
-            {/* These placeholders were written as plain attribute strings
-                containing `{t.slug}`, which JSX passes through literally — the
-                field suggested a URL with a brace in it. */}
-            <div class="flex flex-col gap-4">
-              <Field label="Signal Play Store URL">
-                <Input value={signalPlayUrl()} onInput={(e) => setSignalPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.signal`} {...writeGuard()} />
-              </Field>
-              <Field label="Synesthesia Play Store URL">
-                <Input value={synesthesiaPlayUrl()} onInput={(e) => setSynesthesiaPlayUrl(e.currentTarget.value)} placeholder={`https://play.google.com/store/apps/details?id=music.${t.slug}.synesthesia`} {...writeGuard()} />
-              </Field>
+          <SaveActions
+            dirty={paletteDirty()}
+            pending={branding.isPending}
+            saveLabel={t.brandingPalette ? 'Save' : 'Save custom palette'}
+            onCancel={() => setPalette(t.brandingPalette ?? defaultPalette)}
+            onSave={() => branding.mutate(palette())}
+          />
+        </>}
+      >
+        <For each={paletteFields}>{field => (
+          <SettingsRow for={`palette-${field}`} label={paletteLabels[field].label} hint={paletteLabels[field].role}>
+            <div class="flex items-center gap-3">
+              <ColorInput writes id={`palette-${field}`} aria-label={paletteLabels[field].label} value={palette()[field]} onInput={(e) => setPalette(current => ({ ...current, [field]: e.currentTarget.value }))} />
+              <code class="text-xs tabular-nums text-muted-foreground">{palette()[field]}</code>
             </div>
-          </Dialog>
-
-          {/* Tenant-initiated opt-out. Tenant operators only — platform
-              staff never see it (a viewer would get a disabled tenant-facing
-              form), and it renders inside the band's Settings view rather
-              than under the daily read. Records the request in the audit
-              trail; the crew then uses the admin-side Remove button to
-              complete it. */}
-          <Show when={!authState.isPlatformLevel() && capabilities()?.canOptOut === true}>
-            <Section
-              title="Opt out of the platform"
-              icon={<SectionIcon name="alert-triangle" />}
-              description="Your request is recorded and sent to the crew, who contact you to confirm before removing any of your act's data. Your CrowdRelay setup keeps running until it is shut down separately."
-            >
-              <Show when={optOutDone()} fallback={
-                <>
-                  <Show when={optOut.isError}>
-                    <ErrorCard class="mb-3" title="Couldn't send the opt-out request" error={optOut.error} />
-                  </Show>
-                  <div class="max-w-md">
-                    {/* This mailto was a plain attribute string containing
-                        `{encodeURIComponent(...)}`, so the braces went into the
-                        URL literally and the link opened a mail draft with a
-                        subject reading `{encodeURIComponent(t.displayName)}`. */}
-                    <Field
-                      label={<>Type <code>{t.slug}</code> to confirm</>}
-                      hint={<>To expedite, also email <a href={`mailto:virya.crew@gmail.com?subject=${encodeURIComponent(`Opt out: ${t.displayName}`)}&body=${encodeURIComponent(`Tenant: ${t.slug}\n\nI want to opt out of the CrowdRelay platform. Please remove my tenant data.`)}`} class="text-primary hover:text-primary/80">virya.crew@gmail.com</a>.</>}
-                    >
-                      <Input
-                        value={optOutConfirm()}
-                        placeholder={t.slug}
-                        autocomplete="off"
-                        onInput={(e) => setOptOutConfirm(e.currentTarget.value)}
-                      />
-                    </Field>
-                  </div>
-                  <div class="mt-4 flex justify-end gap-2">
-                    <Button writes
-                      variant="destructive-ghost"
-                      size="sm"
-                      disabled={optOutConfirm().trim() !== t.slug || optOut.isPending}
-                      onClick={() => optOut.mutate()}
-                    >
-                      {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
-                    </Button>
-                  </div>
-                </>
-              }>
-                <Alert tone="success" role="status" title="Opt-out request received">
-                  The crew has been notified and will contact you to confirm before removing your
-                  data. No further action is needed from your side.
-                </Alert>
-              </Show>
-            </Section>
-          </Show>
+          </SettingsRow>
+        )}</For>
+      </SettingsSection>
     </>
+
+    // ── Team — the people the brain hands work to, and who signs in ──
+    type Member = TenantSummary['teamMembers'][number]
+    const crewColumns: ColumnDef<Member, any>[] = [
+      { id: 'name', header: 'Name', accessorFn: m => m.name, cell: c => <div class="min-w-0"><strong class="block font-medium text-foreground">{c.row.original.name}</strong><small class="block text-xs text-muted-foreground">{c.row.original.email}</small></div> },
+      { id: 'key', header: 'Handle', accessorFn: m => m.key, cell: c => <code class="text-xs text-muted-foreground">{c.row.original.key}</code> },
+      {
+        id: 'skills', header: 'Can be asked to', accessorFn: m => m.skills.length, enableSorting: false,
+        cell: c => <div class="flex flex-wrap gap-1.5"><For each={c.row.original.skills}>{skill => <Badge variant="muted">{skill.replaceAll('_', ' ')}</Badge>}</For></div>,
+      },
+    ]
+    const Team = () => <>
+      <SettingsSection
+        plain
+        title="Crew roster"
+        description="The people the brain can hand work to. Collected at onboarding and shipped with every deploy — skills decide what the router may ask of each member."
+      >
+        <Show when={(t.teamMembers ?? []).length > 0} fallback={<EmptyState icon={<Users />} label="No crew yet" hint="The crew is collected at onboarding. Ask the platform team to add people." />}>
+          <DataTable
+            data={t.teamMembers}
+            columns={crewColumns}
+            getRowId={m => m.key}
+            searchText={m => [m.name, m.email, m.key, ...m.skills].join(' ')}
+            searchPlaceholder="Search by name, email or skill"
+            searchLabel="Search the crew"
+          />
+        </Show>
+      </SettingsSection>
+      <WorkspaceSettingsPanel slug={t.slug} groups={['crew']} />
+      <TenantOperatorsPanel slug={t.slug} />
+    </>
+
+    // ── Danger zone — the actions that stop or remove the tenant ──
+    // Park, suspend and resume sat in the page header as one-click buttons on
+    // every page. They change what the tenant is allowed to do, so they sit
+    // with removal at the foot of Profile, boxed apart from everything else.
+    const showStatusControls = () => capabilities()?.canPark || capabilities()?.canUnpark || (capabilities()?.canSuspend !== false && t.status !== 'parked')
+    // Removal renders from the server's capability flag, never from the slug,
+    // and `=== true`: for a destructive action an absent or still-loading
+    // capability must read as "not allowed".
+    const showRemove = () => isAdmin() && capabilities()?.canRemove === true
+    const showOptOut = () => !platformView() && capabilities()?.canOptOut === true
+    const DangerZone = () => <Show when={(platformView() && (showStatusControls() || showRemove())) || showOptOut()}>
+      <SettingsSection tone="danger" title="Danger zone" description="These change what the tenant may do, or remove it. Each one asks before it acts.">
+        <Show when={platformView() && showStatusControls()}>
+          <SettingsRow
+            label={<span class="flex items-center gap-2">Tenant status <StatusBadge status={t.status} tone={statusTone(t.status)} /></span>}
+            hint="Parking stops automated work — no new tasks or outreach — while pending deliveries drain; use it for non-payment. Suspending stops the tenant."
+          >
+            <div class="flex flex-wrap gap-2">
+              <Show when={capabilities()?.canPark}><Button writes variant="outline" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show>
+              <Show when={capabilities()?.canUnpark}><Button writes size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show>
+              <Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button writes variant={t.status === 'suspended' ? 'default' : 'destructive-ghost'} size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show>
+            </div>
+          </SettingsRow>
+        </Show>
+        <Show when={showRemove()}>
+          <SettingsRow
+            for="remove-confirm"
+            label="Remove tenant"
+            hint={<>Unregisters <strong class="text-foreground">{t.displayName}</strong> from the control plane: operators, runtime status and provisioning history are deleted. The CrowdRelay workspace keeps running until shut down separately. The audit trail survives.</>}
+          >
+            <Show when={remove.isError}><ErrorCard class="mb-3" title="Couldn't remove the tenant" error={remove.error} /></Show>
+            <Field label={<>Type <code>{t.slug}</code> to confirm</>} hint="This cannot be undone from this screen.">
+              <Input id="remove-confirm" value={removalConfirm()} placeholder={t.slug} autocomplete="off" onInput={(e) => setRemovalConfirm(e.currentTarget.value)} />
+            </Field>
+            <Button writes variant="destructive-ghost" size="sm" class="mt-3" disabled={removalConfirm().trim() !== t.slug || remove.isPending} onClick={() => remove.mutate()}>
+              {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
+            </Button>
+          </SettingsRow>
+        </Show>
+        {/* Tenant-initiated opt-out. Tenant operators only; it records the
+            request in the audit trail and the crew completes it with Remove. */}
+        <Show when={showOptOut()}>
+          <SettingsRow
+            for="opt-out-confirm"
+            label="Opt out of the platform"
+            hint="Your request is recorded and sent to the crew, who contact you to confirm before removing any of your act's data. Your CrowdRelay setup keeps running until it is shut down separately."
+          >
+            <Show when={optOutDone()} fallback={<>
+              <Show when={optOut.isError}><ErrorCard class="mb-3" title="Couldn't send the opt-out request" error={optOut.error} /></Show>
+              <Field
+                label={<>Type <code>{t.slug}</code> to confirm</>}
+                hint={<>To expedite, also email <a href={`mailto:virya.crew@gmail.com?subject=${encodeURIComponent(`Opt out: ${t.displayName}`)}&body=${encodeURIComponent(`Tenant: ${t.slug}\n\nI want to opt out of the CrowdRelay platform. Please remove my tenant data.`)}`} class="text-primary hover:text-primary/80">virya.crew@gmail.com</a>.</>}
+              >
+                <Input id="opt-out-confirm" value={optOutConfirm()} placeholder={t.slug} autocomplete="off" onInput={(e) => setOptOutConfirm(e.currentTarget.value)} />
+              </Field>
+              <Button writes variant="destructive-ghost" size="sm" class="mt-3" disabled={optOutConfirm().trim() !== t.slug || optOut.isPending} onClick={() => optOut.mutate()}>
+                {optOut.isPending && <Spinner />} {optOut.isPending ? 'Sending request…' : 'Request opt-out'}
+              </Button>
+            </>}>
+              <Alert tone="success" role="status" title="Opt-out request received">
+                The crew has been notified and will contact you to confirm before removing your
+                data. No further action is needed from your side.
+              </Alert>
+            </Show>
+          </SettingsRow>
+        </Show>
+      </SettingsSection>
+    </Show>
 
     return <>
       <DashHeader
         title={SECTION_TITLE[section()]}
-        subtitle={platformView()
-          ? `Who you are, and what the machine may do · ${t.slug} · ${t.defaultCountryCode}`
-          : 'Who you are, and what the machine may do'}
+        subtitle={platformView() && section() === 'overview'
+          ? `${SECTION_SUBTITLE.overview} · ${t.slug} · ${t.defaultCountryCode}`
+          : SECTION_SUBTITLE[section()]}
         actions={<>
           <Show when={t.status !== 'active'}><Pill tone={statusTone(t.status) as Tone}>{t.status}</Pill></Show>
           {/* The capability map — where each feature lives. Operator-only
@@ -520,28 +536,38 @@ export function TenantPage(props: { section: SettingsSection }) {
         <SettingsFirstScreen slug={t.slug} tenant={t} />
       </SubPagePanel>
 
-      {/* Each sub-page body is one vertical rhythm. Sections draw a hairline and
-          24px above their heading, but nothing below their content, so
-          without the gap each section's last line sat on the next one's rule. */}
+      {/* Every sub-page is a stack of settings sections — heading, sentence,
+          Cancel / Save, then two-column rows (components/ui/settings.tsx). */}
       <SubPagePanel when={section() === 'profile'}>
-        <div class="space-y-8"><Settings /></div>
-      </SubPagePanel>
-
-      <SubPagePanel when={section() === 'workspace'}>
-        <div class="space-y-8">
-          <WorkspaceSettingsPanel slug={t.slug} />
-          {/* The band keeps its API keys here because Access is a
-              platform-only page — moving secrets there would take the write
-              away from the people who own the accounts. Platform sessions
-              see the same panel under Access. */}
-          <Show when={!platformView()}>
-            <TenantSecretsPanel slug={t.slug} />
-          </Show>
+        <div class="space-y-10">
+          <WorkspaceSettingsPanel slug={t.slug} groups={['identity']} />
+          <RegionalProfilePanel tenant={t} />
+          <DangerZone />
         </div>
       </SubPagePanel>
 
+      <SubPagePanel when={section() === 'brand'}>
+        <div class="space-y-10"><BrandAndApps /></div>
+      </SubPagePanel>
+
+      <SubPagePanel when={section() === 'team'}>
+        <div class="space-y-10"><Team /></div>
+      </SubPagePanel>
+
+      <SubPagePanel when={section() === 'workspace'}>
+        <div class="space-y-10">
+          <WorkspaceSettingsPanel slug={t.slug} groups={['links', 'growth', 'social', 'advanced']} />
+        </div>
+      </SubPagePanel>
+
+      {/* One home for the tenant's API keys, for the band and platform alike —
+          it was on Workspace for one and Access for the other. */}
+      <SubPagePanel when={section() === 'keys'}>
+        <div class="space-y-10"><TenantSecretsPanel slug={t.slug} /></div>
+      </SubPagePanel>
+
       <SubPagePanel when={section() === 'deployment'}>
-        <div class="space-y-8">
+        <div class="space-y-10">
           {/* The tenant as one process instance — how far this deploy got
               and where it is stuck. Reads the overview model only, so it
               does not wait on the operations read. */}
@@ -557,12 +583,11 @@ export function TenantPage(props: { section: SettingsSection }) {
           />
           <Show when={operations.isPending}><SkeletonSection titleWidth="180px" lines={4} minHeight="180px" /></Show>
           <Show when={operations.error}><ErrorCard title="Couldn't load operations" error={operations.error} onRetry={() => void operations.refetch()} /></Show>
-          <Section
-            flush
+          <SettingsSection
+            plain
             title="CrowdRelay instance"
-            icon={<SectionIcon name="server" />}
             description="Set the desired state here. A separate deploy agent picks up the job and runs the deployment — this page never touches Docker itself."
-            action={<Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>}
+            actions={<Show when={latestJob()}>{job => <StatusBadge status={job().status} tone={provisionTone(job().status)} />}</Show>}
           >
             <Show when={capabilities()?.canProvision !== false} fallback={<p class="text-sm text-muted-foreground">This tenant stays on its existing production CrowdRelay deployment.</p>}>
               <FieldGrid min="220px">
@@ -653,96 +678,27 @@ export function TenantPage(props: { section: SettingsSection }) {
                 <Show when={['planned','approved'].includes(job().status)}><Button writes variant="destructive-ghost" size="sm" class="mt-3" onClick={() => cancel.mutate()} disabled={cancel.isPending}>Cancel queued deployment</Button></Show>
               </div>}</Show>
             </Show>
-          </Section>
+          </SettingsSection>
 
           {/* Live health, switches and redeploy were drawn here a second time —
               the same controls the Health page's Switches tab owns. One home,
               and a door to it. */}
-          <Section
+          <SettingsSection
             title="Runtime and switches"
-            icon={<SectionIcon name="activity" />}
             description="Live health, feature flags and redeploy for this tenant live on the Health page."
-            action={<Link to="/tenants/$slug/health/switches" params={{ slug: t.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open Health</Link>}
-          >{null}</Section>
+            actions={<Link to="/tenants/$slug/health/switches" params={{ slug: t.slug }} class={buttonVariants({ variant: 'outline', size: 'sm' })}>Open Health</Link>}
+          />
 
           <ReleaseConvergencePanel releaseLedger={operations.data?.autopilot?.release_ledger ?? null} />
-        </div>
-      </SubPagePanel>
-
-      <SubPagePanel when={section() === 'access'}>
-        <div class="space-y-8">
-          <TenantOperatorsPanel slug={t.slug} />
-          {/* Tenant-held credentials moved here from Audience: the keys are
-              access material, not audience data. The band's copy lives on the
-              Workspace page because this page is platform-only. */}
-          <Show when={platformView()}>
-            <TenantSecretsPanel slug={t.slug} />
-          </Show>
           <TenantAuditPanel items={model.data?.audit.items ?? []} />
-
-          {/* Park, suspend and resume sat in the page header as one-click
-              buttons beside the tenant's name, on every page. They change what
-              the tenant is allowed to do, so they live with the other access
-              decisions — and the banner above the page offers Resume when it
-              matters. */}
-          <Show when={capabilities()?.canPark || capabilities()?.canUnpark || (capabilities()?.canSuspend !== false && t.status !== 'parked')}>
-            <Section
-              title="Tenant status"
-              icon={<SectionIcon name="shield" />}
-              description="Parking stops automated work — no new tasks or outreach — while pending deliveries drain; use it for non-payment. Suspending stops the tenant."
-              action={<StatusBadge status={t.status} tone={statusTone(t.status)} />}
-            >
-              <div class="flex flex-wrap gap-2">
-                <Show when={capabilities()?.canPark}><Button writes variant="outline" size="sm" disabled={park.isPending} onClick={() => park.mutate('non-payment')} aria-label={park.isPending ? 'Parking tenant' : 'Park tenant'}>{park.isPending && <Spinner />} {park.isPending ? 'Parking…' : 'Park'}</Button></Show>
-                <Show when={capabilities()?.canUnpark}><Button writes size="sm" disabled={unpark.isPending} onClick={() => unpark.mutate()} aria-label={unpark.isPending ? 'Resuming tenant' : 'Resume tenant'}>{unpark.isPending && <Spinner />} {unpark.isPending ? 'Resuming…' : 'Resume'}</Button></Show>
-                <Show when={capabilities()?.canSuspend !== false && t.status !== 'parked'}><Button writes variant={t.status === 'suspended' ? 'default' : 'destructive-ghost'} size="sm" disabled={status.isPending} onClick={() => status.mutate(t.status === 'suspended' ? 'resume' : 'suspend')} aria-label={status.isPending ? 'Updating status' : (t.status === 'suspended' ? 'Resume tenant' : 'Suspend tenant')}>{status.isPending && <Spinner />} {status.isPending ? 'Updating…' : t.status === 'suspended' ? 'Resume' : 'Suspend'}</Button></Show>
-              </div>
-            </Section>
-          </Show>
-          {/* Admin-only removal. Rendered from the server's capability flag, never
-              from the slug. And `=== true` rather than `!== false`: for a
-              destructive action an absent or still-loading capability must read
-              as "not allowed", which is the opposite default from the reads
-              above. Tenant operators never see this — they use Opt out instead. */}
-          <Show when={isAdmin() && capabilities()?.canRemove === true}>
-            <Section
-              title="Remove tenant"
-              icon={<SectionIcon name="alert-triangle" />}
-              description={<>Unregisters <strong class="text-foreground">{t.displayName}</strong> from the control plane: operators, runtime status and provisioning history are deleted. The tenant's CrowdRelay workspace is not touched — it keeps running until shut down separately. The audit trail survives.</>}
-            >
-              <Show when={remove.isError}>
-                <ErrorCard class="mb-3" title="Couldn't remove the tenant" error={remove.error} />
-              </Show>
-              <div class="max-w-md">
-                <Field label={<>Type <code>{t.slug}</code> to confirm</>} hint="This cannot be undone from this screen.">
-                  <Input
-                    value={removalConfirm()}
-                    placeholder={t.slug}
-                    autocomplete="off"
-                    onInput={(e) => setRemovalConfirm(e.currentTarget.value)}
-                  />
-                </Field>
-              </div>
-              <div class="mt-4 flex justify-end gap-2">
-                <Button writes
-                  variant="destructive-ghost"
-                  size="sm"
-                  disabled={removalConfirm().trim() !== t.slug || remove.isPending}
-                  onClick={() => remove.mutate()}
-                >
-                  {remove.isPending && <Spinner />} {remove.isPending ? 'Removing…' : 'Remove this tenant'}
-                </Button>
-              </div>
-            </Section>
-          </Show>
         </div>
       </SubPagePanel>
 
       {/* Where the tenant's alerts go — the notifier channels, platform
-          config and automation routing that used to be a top-level nav
-          item. Its own queries; nothing here loads until the page does. */}
-      <SubPagePanel when={section() === 'destinations'}>
-        <NotifiersPanel slug={t.slug} />
+          config and delivery log. Its own queries; nothing loads until the
+          page does. */}
+      <SubPagePanel when={section() === 'notifications'}>
+        <div class="space-y-10"><NotifiersPanel slug={t.slug} /></div>
       </SubPagePanel>
     </>
   }}</Show></PageShell>
