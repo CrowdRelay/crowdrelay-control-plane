@@ -1,6 +1,6 @@
 {
-  "radius_variants": 11,
-  "shadows_outside_overlays": 6,
+  "radius_variants": 9,
+  "shadows_outside_overlays": 4,
   "arbitrary_px_outside_skeleton": 32,
   "hex_outside_exempt": 19,
   "raw_form_elements": 0

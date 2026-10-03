@@ -32,7 +32,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { Bar, ItemRow, MoreRow, Pill, Ring as DashRing, RowButton, StatRow, Steps, Tile } from '~/components/ui/dash'
-import { CommandBlock, DataRow, ShowMore } from '~/components/layout'
+import { ShowMore } from '~/components/layout'
 import { StatusBadge } from '~/components/StatusBadge'
 import { Sparkline } from '~/components/Sparkline'
 import { FunnelChart } from '~/components/FunnelChart'
@@ -361,22 +361,14 @@ export const dataEntries: DocEntry[] = [
           </Example>
           <PropTable rows={[['label', 'string', '—', 'What is counted.'], ['value', 'JSX | null', '—', 'null renders “—”.'], ['sub', 'JSX.Element', '—', 'Against what: “of 300”, “+62 this week”.'], ['valueTone', 'Tone', '—', 'Only when the number itself is good or bad.']]} />
         </DocSection>
-        <DocSection title="Three number rows exist — use Tiles" description="Tiles (31 files) is the dashboard row. Metric / MetricRow (a hairline rail, used through the KpiStrip / KpiCard aliases in 25 files) and CommandBlock (1 file) draw the same thing differently. New pages use Tiles; see Inventory → Consolidate.">
-          <Example title="Metric / KpiStrip (legacy look)">
+        <DocSection title="Three number rows exist — use Tiles" description="Tiles is the canonical dashboard number row. Metric / MetricRow keeps the compatibility API used by KpiStrip / KpiCard, but now shares the same quiet tile geometry instead of drawing a second visual system.">
+          <Example title="Metric / KpiStrip compatibility API">
             <MetricRow>
               <Metric label="Active fans" value="1,284" sub="+62 this week" tone="primary" />
               <Metric label="Consented" value="918" sub="71% of active" tone="good" />
               <Metric label="Unanswered" value="14" sub="oldest 2 days" tone="warn" />
               <Metric label="Failed sends" value="3" sub="last 24h" tone="bad" />
             </MetricRow>
-          </Example>
-          <Example title="CommandBlock (legacy)">
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <CommandBlock eyebrow="Aggregate" metric="1,284" label="fans" detail={<span>+62 this week</span>} />
-              <CommandBlock eyebrow="Engage" metric="14" label="replies" tone="active" />
-              <CommandBlock eyebrow="Convert" metric="41" label="tickets" tone="good" />
-              <CommandBlock eyebrow="Deliver" metric="3" label="failed" tone="warn" />
-            </div>
           </Example>
         </DocSection>
       </>
@@ -418,11 +410,9 @@ export const dataEntries: DocEntry[] = [
               </div>
             </Example>
           </DocSection>
-          <DocSection title="DataRow & ShowMore (legacy)" description="The older row from layout.tsx; prefer Row / StatRow.">
+          <DocSection title="ShowMore compatibility control" description="Existing long feature lists still use this bounded-list control; new dashboard lists end with MoreRow.">
             <Example>
               <div class="max-w-md">
-                <DataRow><span class="text-sm">Auto-reply</span><StatusBadge status="on" tone="good" /></DataRow>
-                <DataRow last><span class="text-sm">Weekly digest</span><StatusBadge status="off" tone="muted" /></DataRow>
                 <ShowMore hidden={9} expanded={expanded()} onToggle={() => setExpanded(v => !v)} noun="settings" />
               </div>
             </Example>

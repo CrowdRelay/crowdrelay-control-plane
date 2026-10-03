@@ -47,7 +47,7 @@ export function KpiCard(props: {
 }
 
 export function KpiStrip(props: { children: JSX.Element; class?: string; min?: string }) {
-  return <MetricRow class={cn('mb-5', props.class)} min={props.min}>{props.children}</MetricRow>
+  return <MetricRow class={cn('mb-3', props.class)} min={props.min}>{props.children}</MetricRow>
 }
 
 // ─── SectionPanel ───────────────────────────────────────────────────────
@@ -647,43 +647,6 @@ export function Eyebrow(props: { children: JSX.Element; class?: string }) {
   )
 }
 
-// ─── CommandBlock ──────────────────────────────────────────────────────
-// Replaces the hand-rolled `.command-block` CSS class. A card-like link
-// with an eyebrow, a big metric, and detail text. Used on the overview page
-// for the Aggregate → Engage → Convert flow and the operations signal blocks.
-
-export function CommandBlock(props: {
-  eyebrow: string
-  metric: JSX.Element
-  label: string
-  detail?: JSX.Element
-  tone?: 'default' | 'active' | 'warn' | 'good'
-  class?: string
-}) {
-  const toneClass = {
-    default: 'border-border',
-    active: 'border-primary/40',
-    warn: 'border-warning-solid/40',
-    good: 'border-success-solid/40',
-  }
-  return (
-    <Card data-slot="command-block" class={cn('p-4 transition-colors hover:border-input cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>
-      <div data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</div>
-      <div class="mt-2 flex items-baseline gap-2">
-        <span class="text-xl font-bold tabular-nums text-foreground">{props.metric}</span>
-        <span class="text-xs text-muted-foreground">{props.label}</span>
-      </div>
-      {/* Callers pass a fragment of sibling `<span>`s. `space-y-*` sets margins
-          on block children only, so inline spans ran together into one string —
-          "4 unknownNo actions in flight". Flex makes every child its own line
-          whatever element the caller chose. */}
-      <Show when={props.detail}>
-        <div class="mt-2 flex flex-col gap-0.5 text-xs text-muted-foreground">{props.detail}</div>
-      </Show>
-    </Card>
-  )
-}
-
 // ─── QueryBoundary ─────────────────────────────────────────────────────
 // A panel that guards its body with `<Show when={query.data}>` and no fallback
 // renders its heading over an empty rectangle for as long as the request takes.
@@ -728,24 +691,6 @@ export function QueryBoundary<T>(props: {
     </Switch>
   )
 }
-
-// ─── DataRow ───────────────────────────────────────────────────────────
-// A horizontal key-value row with a bottom border. Replaces `.product-row`,
-// `.audit-row`, `.flag-row` patterns.
-
-export function DataRow(props: {
-  children: JSX.Element
-  class?: string
-  last?: boolean
-}) {
-  return (
-    <div class={cn('flex items-center justify-between gap-4 py-3', !props.last && 'border-b border-border', props.class)}>
-      {props.children}
-    </div>
-  )
-}
-
-
 
 // ─── Deferred ───────────────────────────────────────────────────────────
 // A below-fold section should not spend its queries and DOM on first paint —

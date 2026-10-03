@@ -209,13 +209,13 @@ type Group = { title: string; why: string; action: string; items: Candidate[] }
 
 const GROUPS: Group[] = [
   {
-    title: 'Number rows', why: 'Three components draw “a row of numbers”, each with its own look.',
-    action: 'Keep Tiles / Tile. Point KpiStrip / KpiCard at Tile, then retire Metric and CommandBlock.',
+    title: 'Number rows', why: 'Tiles is canonical; KpiStrip / KpiCard remains as a compatibility API on the same visual grammar.',
+    action: 'New pages use Tiles / Tile. Migrate compatibility callers opportunistically; do not introduce another number-row primitive.',
     items: [
       { module: 'components/ui/dash.tsx', name: 'Tiles', keep: true }, { module: 'components/ui/dash.tsx', name: 'Tile', keep: true },
       { module: 'components/layout.tsx', name: 'KpiStrip' }, { module: 'components/layout.tsx', name: 'KpiCard' },
       { module: 'components/ui/metric.tsx', name: 'MetricRow' }, { module: 'components/ui/metric.tsx', name: 'Metric' },
-      { module: 'components/layout.tsx', name: 'CommandBlock' }, { module: 'components/KpiValue.tsx', name: 'KpiValue' },
+      { module: 'components/KpiValue.tsx', name: 'KpiValue' },
     ],
   },
   {
@@ -246,12 +246,12 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Rows', why: 'layout.tsx’s DataRow predates the dash rows.',
-    action: 'Use Row / ItemRow / StatRow; migrate DataRow and ShowMore (→ MoreRow).',
+    title: 'Rows', why: 'Dash rows are canonical; only the bounded-list ShowMore compatibility control remains in layout.tsx.',
+    action: 'Use Row / ItemRow / StatRow for new work and MoreRow when a dashboard list needs a final navigation row.',
     items: [
       { module: 'components/ui/dash.tsx', name: 'ItemRow', keep: true }, { module: 'components/ui/dash.tsx', name: 'StatRow', keep: true },
       { module: 'components/ui/dash.tsx', name: 'Row', keep: true },
-      { module: 'components/layout.tsx', name: 'DataRow' }, { module: 'components/layout.tsx', name: 'ShowMore' },
+      { module: 'components/layout.tsx', name: 'ShowMore' },
     ],
   },
   {
