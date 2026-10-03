@@ -13,37 +13,6 @@ import { CircleAlert, Clock, CloudOff, Hourglass, Lock, RotateCw, SearchX, Trian
 import { describeError, type ErrorKind } from '../lib/errors'
 import { TechId, TechnicalDetails } from './ui/TechnicalDetails'
 
-// ─── PageHeader ─────────────────────────────────────────────────────────
-// Every page starts with the same structure: eyebrow + title + description
-// on the left, optional actions on the right. This replaces the
-// hand-rolled `<div class="page-head">` pattern with a typed primitive
-// that uses Tailwind utilities at operator-console density.
-
-export function PageHeader(props: {
-  eyebrow?: string
-  title: string
-  description?: string
-  actions?: JSX.Element
-  class?: string
-}) {
-  return (
-    <div class={cn('flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6 mb-5', props.class)}>
-      <div class="min-w-0">
-        <Show when={props.eyebrow}>
-          <span data-slot="eyebrow" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">{props.eyebrow}</span>
-        </Show>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground mt-1 break-words">{props.title}</h1>
-        <Show when={props.description}>
-          <p class="text-sm text-muted-foreground mt-1.5 leading-relaxed break-words">{props.description}</p>
-        </Show>
-      </div>
-      <Show when={props.actions}>
-        <div class="flex items-center gap-2 sm:flex-shrink-0">{props.actions}</div>
-      </Show>
-    </div>
-  )
-}
-
 // ─── KpiCard / KpiStrip ─────────────────────────────────────────────────
 // Both are now thin names over `Metric` and `MetricRow` (components/ui/metric).
 // They stay because ninety-odd call sites read well as "KPI", and because the
