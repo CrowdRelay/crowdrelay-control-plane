@@ -35,7 +35,7 @@ const COMPOSITES = new Set([
   'components/StatusBadge.tsx', 'components/Spinner.tsx', 'components/Sparkline.tsx', 'components/ProgressRing.tsx',
   'components/FunnelChart.tsx', 'components/KpiValue.tsx', 'components/NavIcon.tsx', 'components/SectionIcon.tsx',
   'components/Dialog.tsx', 'components/ModeToggle.tsx', 'components/TenantSwitcher.tsx', 'components/ErrorBoundaryPanel.tsx',
-  'components/SectionFailureCard.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx', 'components/chat-icons.tsx',
+  'components/SectionFailureCard.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx',
 ])
 
 function layerOf(path: string): Layer {
