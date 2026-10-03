@@ -206,62 +206,6 @@ export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (
   onCleanup(() => abortController?.abort())
 
   return (
-    <>
-      {/* Floating button. 16px from the edge is right on a phone, where
-          the screen is the window; on a desktop the same 16px reads as
-          stuck to the browser frame. The panel below moves with it so
-          the two stay on one corner. */}
-      <Show when={!open()}>
-        <Button
-          ref={focusLauncher}
-          class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-40 h-auto gap-2 rounded-full px-4 py-3 shadow-lg"
-          onClick={() => setOpen(true)}
-          title="Ask AI Assistant"
-          aria-label="Open AI Assistant"
-        >
-          <SparkIcon />
-          <span class="text-sm font-medium">AI Assistant</span>
-        </Button>
-      </Show>
-
-      {/* Chat panel */}
-      <Show when={open()}>
-        <div class="fixed inset-0 z-40 bg-black/50" onClick={() => close()} />
-        <div class="fixed bottom-4 right-4 lg:bottom-6 lg:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-2rem)] rounded-lg border border-border bg-card shadow-xl flex flex-col overflow-hidden" ref={panelRef} role="dialog" aria-modal="true" aria-label="AI assistant" onKeyDown={trapTab}>
-          <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 flex-shrink-0">
-            <div class="flex items-center gap-2 min-w-0">
-              <SparkIcon />
-              <div>
-                <div class="text-sm font-semibold text-foreground">AI Assistant</div>
-                <div class="text-xs text-muted-foreground">Free • Powered by Laguna S 2.1</div>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground" onClick={() => close()} aria-label="Close chat">
-              <CloseIcon />
-            </Button>
-          </div>
-
-          <div class="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef} role="log" aria-live="polite" aria-label="Chat conversation">
-            <Show when={messages().length === 0}>
-              <div class="flex flex-col items-center justify-center h-full text-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary"><SparkIcon /></div>
-                <h3>AI Assistant</h3>
-                <p>{authState.isPlatformLevel() ? 'Ask about operations, growth metrics, autopilot, or platform health. Try one of these to start:' : 'Ask about your shows, fans, or what it decided. Try one of these to start:'}</p>
-                <div class="flex flex-col gap-2 w-full max-w-xs">
-                  <For each={authState.isPlatformLevel() ? CHAT_SUGGESTIONS : BAND_CHAT_SUGGESTIONS}>
-                    {(s) => (
-                      <Button writes variant="outline" class="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm font-normal text-muted-foreground hover:text-foreground" onClick={() => send(s)}>{s}</Button>
-                    )}
-                  </For>
-                </div>
-              </div>
-            </Show>
-
-            <For each={messages()}>
-              {(msg, index) => {
-                const isStreamingMsg = () =>
-                  streaming() && msg.role === 'assistant' && index() === messages().length - 1
-                return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         position="right"
@@ -336,10 +280,7 @@ export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (
                       />
                     }
                   >
-                    <div
-                      data-slot="chat-message"
-                      class="w-full break-words py-1 text-sm leading-relaxed text-foreground"
-                    >
+                    <div data-slot="chat-message" class="w-full break-words py-1 text-sm leading-relaxed text-foreground">
                       {streamingContent()}
                     </div>
                   </Show>
