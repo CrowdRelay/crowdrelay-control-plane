@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { Show, createSignal } from 'solid-js'
 import { FormDrawer } from './app/form-drawer'
 import { Field } from './ui/field'
 import { Users, Plus } from 'lucide-solid'
@@ -7,10 +7,11 @@ import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import { confirmAction } from './Dialog'
 import { EmptyState } from './ui/empty-state'
-import { SectionIcon } from './SectionIcon'
-import { Section, ErrorCard } from './layout'
+import { ErrorCard } from './layout'
+import { SettingsSection } from './ui/settings'
+import { DataTable, type ColumnDef } from './app/data-table'
+import { StatusBadge } from './StatusBadge'
 import { Button } from './app/button'
-import { Badge } from './app/badge'
 import { Input } from './ui/input'
 
 // Platform-admin-only management of a tenant's scoped operator accounts.
@@ -46,15 +47,31 @@ export function TenantOperatorsPanel(props: { slug: string }) {
     onSuccess: refresh,
   }))
 
-  {/* A card holding a boxed form and a boxed empty state and boxed rows —
-      three levels of border for one list. It is a section now. */}
-  return <Show when={isAdmin()}><Section
-    flush
+  type Account = NonNullable<typeof accounts.data>['items'][number]
+  const confirmRemove = async (account: Account) => {
+    const ok = await confirmAction({
+      title: `Remove operator “${account.username}”?`,
+      body: 'Their sessions stop working immediately.',
+      confirmLabel: 'Remove operator',
+      destructive: true,
+    })
+    if (ok) remove.mutate(account.id)
+  }
+  const columns: ColumnDef<Account, any>[] = [
+    { id: 'username', header: 'Username', accessorFn: a => a.username, cell: c => <strong class="font-medium text-foreground">{c.row.original.username}</strong> },
+    { id: 'status', header: 'Status', accessorFn: a => (a.active ? 'active' : 'disabled'), cell: c => <StatusBadge status={c.row.original.active ? 'active' : 'disabled'} tone={c.row.original.active ? 'good' : 'muted'} /> },
+    { id: 'role', header: 'Role', accessorFn: () => 'Tenant operator', cell: () => <span class="text-muted-foreground">Tenant operator</span> },
+    {
+      id: 'actions', header: '', enableSorting: false, enableHiding: false, meta: { class: 'text-right' },
+      cell: c => <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={() => void confirmRemove(c.row.original)}>Remove</Button>,
+    },
+  ]
+
+  return <Show when={isAdmin()}><SettingsSection
+    plain
     title="Operator accounts"
-    icon={<SectionIcon name="users" />}
-    count={accounts.data?.items.length}
     description={<>These operators sign in with a username and password and see only <strong class="font-medium text-foreground">{props.slug}</strong>. The platform admin keeps full access through its own credential.</>}
-    action={<Button writes variant="outline" size="sm" onClick={() => { create.reset(); setAdding(true) }}><Plus aria-hidden="true" /> Add operator</Button>}
+    actions={<Button writes size="sm" onClick={() => { create.reset(); setAdding(true) }}><Plus aria-hidden="true" /> Add operator</Button>}
   >
     <FormDrawer
       open={adding()}
@@ -80,26 +97,20 @@ export function TenantOperatorsPanel(props: { slug: string }) {
       </Field>
     </FormDrawer>
 
-    <Show when={remove.error}><ErrorCard class="mt-3" title="Couldn't remove the operator" error={remove.error} /></Show>
-    <Show when={accounts.error}><ErrorCard class="mt-3" title="Couldn't load operator accounts" error={accounts.error} onRetry={() => void accounts.refetch()} /></Show>
+    <Show when={remove.error}><ErrorCard class="mb-3" title="Couldn't remove the operator" error={remove.error} /></Show>
+    <Show when={accounts.error}><ErrorCard class="mb-3" title="Couldn't load operator accounts" error={accounts.error} onRetry={() => void accounts.refetch()} /></Show>
     <Show when={(accounts.data?.items.length ?? 0) === 0 && !accounts.isPending && !accounts.error}>
       <EmptyState icon={<Users />} label="No operator accounts yet" hint="Only the platform admin can reach this tenant right now. Add an operator to give the team its own scoped login." />
     </Show>
     <Show when={(accounts.data?.items.length ?? 0) > 0}>
-    <ul class="mt-4 divide-y divide-border rounded-lg border border-border"><For each={accounts.data?.items ?? []}>{account =>
-      <li class="flex items-center justify-between gap-3 px-4 py-2.5">
-        <div class="grid gap-1"><strong class="text-sm text-foreground">{account.username}</strong><small class="text-xs text-muted-foreground">{account.active ? 'active' : 'disabled'} · <Badge variant="muted">tenant_operator</Badge></small></div>
-        <Button writes variant="destructive-ghost" size="sm" disabled={remove.isPending} onClick={async () => {
-          const ok = await confirmAction({
-            title: `Remove operator “${account.username}”?`,
-            body: 'Their sessions stop working immediately.',
-            confirmLabel: 'Remove operator',
-            destructive: true,
-          })
-          if (ok) remove.mutate(account.id)
-        }}>Remove</Button>
-      </li>
-    }</For></ul>
+      <DataTable
+        data={accounts.data?.items ?? []}
+        columns={columns}
+        getRowId={a => a.id}
+        searchText={a => a.username}
+        searchPlaceholder="Search operators"
+        searchLabel="Search operators"
+      />
     </Show>
-  </Section></Show>
+  </SettingsSection></Show>
 }

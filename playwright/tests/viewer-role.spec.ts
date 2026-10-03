@@ -65,18 +65,20 @@ test('the notifiers page offers no write @viewer', async ({ page }) => {
 
 test('the tenant settings page offers no write @viewer', async ({ page }) => {
   await assertViewerSession(page)
-  // The bare tenant URL is Today now — settings are sub-pages of /settings,
-  // Profile for the Play URLs and Access for Suspend/Park.
-  await page.goto(`/tenants/${SLUG}/settings/access`)
+  // The bare tenant URL is Today now — settings are sub-pages of /settings:
+  // Suspend/Park sit in Profile's Danger zone, the Play URLs on Brand and apps.
+  await page.goto(`/tenants/${SLUG}/settings/profile`)
   await page.waitForLoadState('networkidle')
-  for (const name of ['Suspend', 'Park']) {
+  for (const name of ['Suspend tenant', 'Park tenant']) {
     const button = page.getByRole('button', { name, exact: true })
     if (await button.count() > 0) await expect(button.first()).toBeDisabled()
   }
-  await page.goto(`/tenants/${SLUG}/settings/profile`)
+  await page.goto(`/tenants/${SLUG}/settings/brand`)
   await page.waitForLoadState('networkidle')
-  const edit = page.getByRole('button', { name: 'Edit Play Store URLs', exact: true })
-  if (await edit.count() > 0) await expect(edit.first()).toBeDisabled()
+  for (const label of ['Signal', 'Synesthesia']) {
+    const field = page.getByLabel(label, { exact: true })
+    if (await field.count() > 0) await expect(field.first()).toBeDisabled()
+  }
 })
 
 test('the workspace tab offers no write @viewer', async ({ page }) => {

@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import { authState } from '../lib/auth'
 import type { PortfolioSettingsReadModel } from '../lib/types'
-import { SectionIcon } from './SectionIcon'
-import { ErrorCard, Section } from './layout'
+import { ErrorCard } from './layout'
+import { SaveActions, SettingsRow, SettingsSection } from './ui/settings'
 import { Button } from './app/button'
 import { Badge } from './app/badge'
 import { Input } from './ui/input'
@@ -45,33 +45,47 @@ const LABELS: Record<string, string> = {
 // groups below are the questions an operator actually brings to the page.
 // A key the server adds later lands in Advanced rather than rendering
 // unlabelled or vanishing.
-const GROUPS: { title: string; description: string; bandDescription?: string; keys: string[] }[] = [
+// Each group is one Settings section with its own Cancel / Save, and each
+// Settings sub-page shows the groups that belong to it: identity on Profile,
+// app switches on Brand and apps, crew on Team, the rest on Workspace.
+export type WorkspaceGroupId = 'identity' | 'links' | 'apps' | 'growth' | 'social' | 'crew' | 'advanced'
+
+const GROUPS: { id: WorkspaceGroupId; title: string; description: string; bandDescription?: string; keys: string[] }[] = [
   {
-    title: 'Fan-facing identity',
-    description: 'The name fan messages carry, and where the member links in emails, Signal and QR codes point.',
-    bandDescription: 'The name your fan messages carry, and where the member links in emails, Signal and QR codes point.',
-    keys: ['brand_wordmark', 'member_site_base_url', 'member_area_path', 'live_page_path'],
+    id: 'identity',
+    title: 'How letters describe you',
+    description: 'The name, sound and home city outreach drafts and fan messages use. "I am writing from …" is built from these.',
+    keys: ['brand_wordmark', 'act_style', 'act_home_city'],
   },
   {
-    title: 'Products',
+    id: 'links',
+    title: 'Member links',
+    description: 'Where the member links in emails, Signal and QR codes point.',
+    keys: ['member_site_base_url', 'member_area_path', 'live_page_path'],
+  },
+  {
+    id: 'apps',
+    title: 'App switches',
     description: 'Which parts of the platform this tenant runs.',
     bandDescription: 'Which parts of the platform your act runs.',
     keys: ['signal_enabled', 'synesthesia_enabled', 'synesthesia_campaign_slug', 'ticketing_enabled'],
   },
   {
+    id: 'growth',
     title: 'Growth brain',
     description: 'What the planner optimises for and how much it schedules.',
-    bandDescription: 'What the planner optimises for and how much it schedules.',
-    keys: ['north_star_metric', 'tenant_intent', 'act_style', 'act_home_city', 'growth_cadence_moments_per_month', 'growth_cadence_fillers_enabled'],
+    keys: ['north_star_metric', 'tenant_intent', 'growth_cadence_moments_per_month', 'growth_cadence_fillers_enabled'],
   },
   {
+    id: 'social',
     title: 'Social & join-ask',
     description: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
     bandDescription: 'Posting to your own channels, and the words the weekly ask carries. Channels connect under Audience → Sources.',
     keys: ['social_auto_post', 'social_autopost_platforms', 'join_ask_platforms', 'join_ask_cadence_days', 'join_ask_variants', 'join_ask_image_url'],
   },
   {
-    title: 'Crew',
+    id: 'crew',
+    title: 'How the crew is asked',
     description: 'How the people doing the work are spoken to and how much they are asked.',
     bandDescription: 'How the people doing the work are spoken to and how much they are asked.',
     keys: ['crew_locale', 'team_weekly_ask_ceiling'],
@@ -219,7 +233,8 @@ function parseVariants(raw: string | undefined): string[] {
   }
 }
 
-export function WorkspaceSettingsPanel(props: { slug: string }) {
+export function WorkspaceSettingsPanel(props: { slug: string; groups?: WorkspaceGroupId[] }) {
+  const showGroup = (id: WorkspaceGroupId) => !props.groups || props.groups.includes(id)
   const queryClient = useQueryClient()
   const model = useQuery(() => ({
     queryKey: ['tenant-settings', props.slug],
@@ -230,9 +245,9 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
   const settingsModel = () => model.data as PortfolioSettingsReadModel | undefined
 
   const [drafts, setDrafts] = createSignal<Record<string, string>>({})
-  const [pendingKey, setPendingKey] = createSignal<string | null>(null)
-  const [errorText, setErrorText] = createSignal<string | null>(null)
-  const [savedKey, setSavedKey] = createSignal<string | null>(null)
+  const [pendingGroup, setPendingGroup] = createSignal<string | null>(null)
+  const [errorText, setErrorText] = createSignal<{ group: string; text: string } | null>(null)
+  const [savedGroup, setSavedGroup] = createSignal<string | null>(null)
   const [uploadError, setUploadError] = createSignal<string | null>(null)
   const [uploading, setUploading] = createSignal(false)
 
@@ -279,26 +294,40 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
   const dirty = (key: string) =>
     drafts()[key] !== undefined && drafts()[key] !== settingsModel()?.settings[key]
 
+  // A section's Save sends every changed key in it, one call per key — the
+  // endpoint takes one key at a time. A failure stops there and keeps the
+  // unsent drafts, so nothing the operator typed is lost.
   const save = useMutation(() => ({
-    mutationFn: async (key: string) => {
-      setPendingKey(key); setErrorText(null); setSavedKey(null)
-      return api.updatePortfolioSetting(props.slug, key, drafts()[key] ?? '')
+    mutationFn: async ({ group, groupKeys }: { group: string; groupKeys: string[] }) => {
+      setPendingGroup(group); setErrorText(null); setSavedGroup(null)
+      for (const key of groupKeys.filter(dirty)) {
+        await api.updatePortfolioSetting(props.slug, key, drafts()[key] ?? '')
+        setDrafts(current => {
+          const next = { ...current }
+          delete next[key]
+          return next
+        })
+      }
     },
-    onSuccess: async (_result, key) => {
-      setDrafts(current => {
-        const next = { ...current }
-        delete next[key]
-        return next
-      })
-      setSavedKey(key)
-      setPendingKey(null)
+    onSuccess: async (_result, { group }) => {
+      setSavedGroup(group)
+      setPendingGroup(null)
       await queryClient.invalidateQueries({ queryKey: ['tenant-settings', props.slug] })
     },
-    onError: (error) => {
-      setPendingKey(null)
-      setErrorText(failureLine("Couldn't save your changes", error))
+    onError: async (error, { group }) => {
+      setPendingGroup(null)
+      setErrorText({ group, text: failureLine("Couldn't save your changes", error) })
+      await queryClient.invalidateQueries({ queryKey: ['tenant-settings', props.slug] })
     },
   }))
+  const cancelGroup = (groupKeys: string[]) => {
+    setDrafts(current => {
+      const next = { ...current }
+      for (const key of groupKeys) delete next[key]
+      return next
+    })
+    setErrorText(null)
+  }
 
   const uploadImage = async (file: File) => {
     setUploading(true); setUploadError(null)
@@ -340,13 +369,17 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
   }
 
   const row = (key: string) => (
-    <label class="flex flex-col gap-1.5">
-      <span class="text-sm text-foreground">
+    <SettingsRow
+      for={`setting-${key}`}
+      label={<>
         {LABELS[key] ?? key}
         <Show when={settingsModel()?.overridden.includes(key)}>
           {' '}<Badge variant="warning">override</Badge>
         </Show>
-      </span>
+      </>}
+      hint={HINTS[key] ? <>{HINTS[key]!.band && !authState.isPlatformLevel() ? HINTS[key]!.band : HINTS[key]!.hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_image_url' && !PLATFORM_PICKER_OPTIONS[key] && HINTS[key]!.example}> Example: <code class="text-xs">{HINTS[key]!.example}</code></Show></> : undefined}
+    >
+    <div class="flex flex-col gap-1.5">
       <Show
         when={BOOLEAN_KEYS.has(key)}
         fallback={
@@ -362,7 +395,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
                       <Show
                         when={key === 'join_ask_image_url'}
                         fallback={
-                          <Input
+                          <Input id={`setting-${key}`}
                             type={NUMBER_KEYS.has(key) ? 'number' : 'text'}
                             value={value(key)}
                             placeholder={HINTS[key]?.example}
@@ -447,7 +480,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
             }
           >
             {options => (
-              <NativeSelect value={value(key)}
+              <NativeSelect id={`setting-${key}`} value={value(key)}
                 onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
                 {...writeGuard()}
               >
@@ -459,7 +492,7 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
           </Show>
         }
       >
-        <NativeSelect value={value(key) || 'false'}
+        <NativeSelect id={`setting-${key}`} value={value(key) || 'false'}
           onChange={e => setDrafts(current => ({ ...current, [key]: e.currentTarget.value }))}
           {...writeGuard()}
         >
@@ -467,7 +500,6 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
           <option value="false">Disabled</option>
         </NativeSelect>
       </Show>
-      <Show when={HINTS[key]}>{h => <small class="text-xs text-muted-foreground leading-relaxed">{h().band && !authState.isPlatformLevel() ? h().band : h().hint}<Show when={!BOOLEAN_KEYS.has(key) && !NUMBER_KEYS.has(key) && key !== 'north_star_metric' && key !== 'join_ask_image_url' && !PLATFORM_PICKER_OPTIONS[key]}> Example: <code class="text-xs">{h().example}</code></Show></small>}</Show>
       <Show when={key === 'tenant_intent'}>
         {(() => {
           const current = () => value(key)
@@ -504,59 +536,50 @@ export function WorkspaceSettingsPanel(props: { slug: string }) {
           </>
         })()}
       </Show>
-      <Show when={dirty(key)} fallback={
-        <Show when={savedKey() === key}><small class="text-xs text-muted-foreground">Saved ✓</small></Show>
-      }>
-        <div class="mt-1 flex items-center gap-2">
-          <Button
-            size="sm"
-            writes
-            disabled={pendingKey() !== null || saveBlockedReason(key) !== null}
-            onClick={() => save.mutate(key)}
-          >
-            {pendingKey() === key ? 'Saving…' : 'Save'}
-          </Button>
-          <Show when={saveBlockedReason(key)}>{reason =>
-            <small class="text-xs text-amber-400/90">{reason()}</small>
-          }</Show>
-        </div>
-      </Show>
-    </label>
+      <Show when={saveBlockedReason(key)}>{reason =>
+        <small class="text-xs text-warning-foreground">{reason()}</small>
+      }</Show>
+    </div>
+    </SettingsRow>
   )
 
-  const group = (title: string, description: string, bandDescription: string | undefined, groupKeys: string[]) => (
-    <Show when={groupKeys.some(k => keys().includes(k))}>
-      <div>
-        <h3 class="m-0 text-sm font-medium text-foreground">{title}</h3>
-        <p class="m-0 mt-1 text-xs text-muted-foreground">
-          {bandDescription && !authState.isPlatformLevel() ? bandDescription : description}
-        </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-          <For each={groupKeys.filter(k => keys().includes(k))}>{key => row(key)}</For>
-        </div>
-      </div>
+  const group = (id: string, title: string, description: string, bandDescription: string | undefined, groupKeys: string[]) => {
+    const shown = () => groupKeys.filter(k => keys().includes(k))
+    const groupDirty = () => shown().some(dirty)
+    const blocked = () => shown().map(saveBlockedReason).find(Boolean) ?? null
+    return <Show when={shown().length > 0}>
+      <SettingsSection
+        title={title}
+        description={bandDescription && !authState.isPlatformLevel() ? bandDescription : description}
+        actions={<SaveActions
+          dirty={groupDirty()}
+          pending={pendingGroup() === id}
+          blocked={blocked() ? 'Fix the highlighted field first.' : null}
+          saved={savedGroup() === id}
+          onCancel={() => cancelGroup(shown())}
+          onSave={() => save.mutate({ group: id, groupKeys: shown() })}
+        />}
+      >
+        <For each={shown()}>{key => row(key)}</For>
+        <Show when={errorText()?.group === id}>
+          <div class="py-4"><ErrorCard>{errorText()!.text}</ErrorCard></div>
+        </Show>
+      </SettingsSection>
     </Show>
-  )
+  }
 
-  return <Section
-    title="Workspace settings"
-    icon={<SectionIcon name="settings" />}
-    description={<>{authState.isPlatformLevel() ? "The knobs this tenant's machinery reads." : 'The knobs your machinery reads.'} Each field is live as soon as it is saved. An empty field runs the shipped default; <Badge variant="warning">override</Badge> marks a replaced one.</>}
-  >
+  return <>
     <Show when={model.isPending}>
       <SkeletonRows count={4} />
     </Show>
     <Show when={model.error}>{error => <ErrorCard title="Couldn't load settings" error={error()} onRetry={() => void model.refetch()} />}</Show>
     <Show when={settingsModel()}>
-      <div class="flex flex-col gap-8 mt-4">
-        <For each={GROUPS}>{g => group(g.title, g.description, g.bandDescription, g.keys)}</For>
-        {group('Advanced', 'Editable keys the groups above do not name yet — new settings land here until they get a home and a label.', undefined, advancedKeys())}
-      </div>
+      <For each={GROUPS.filter(g => showGroup(g.id))}>{g => group(g.id, g.title, g.description, g.bandDescription, g.keys)}</For>
+      <Show when={showGroup('advanced')}>
+        {group('advanced', 'Advanced', 'Editable keys the groups above do not name yet — new settings land here until they get a home and a label.', undefined, advancedKeys())}
+      </Show>
     </Show>
-    <Show when={errorText()}>
-      <ErrorCard>{errorText()}</ErrorCard>
-    </Show>
-  </Section>
+  </>
 }
 
 // The join-ask posts as the band writes them: rows of text, not a JSON blob.

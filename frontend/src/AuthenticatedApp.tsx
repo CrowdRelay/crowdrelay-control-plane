@@ -41,8 +41,10 @@ const SettingsOverviewPage = lazyRouteComponent(() => import('./pages/TenantPage
 const SettingsProfilePage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsProfilePage')
 const SettingsWorkspacePage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsWorkspacePage')
 const SettingsDeploymentPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsDeploymentPage')
-const SettingsAccessPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsAccessPage')
-const SettingsDestinationsPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsDestinationsPage')
+const SettingsBrandPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsBrandPage')
+const SettingsTeamPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsTeamPage')
+const SettingsKeysPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsKeysPage')
+const SettingsNotificationsPage = lazyRouteComponent(() => import('./pages/TenantPage'), 'SettingsNotificationsPage')
 const AttentionOverviewPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionOverviewPage')
 const AttentionDecisionsPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionDecisionsPage')
 const AttentionInboxPage = lazyRouteComponent(() => import('./pages/TenantAttentionPage'), 'AttentionInboxPage')
@@ -139,7 +141,7 @@ const tenantWizardRoute = createRoute({ getParentRoute: () => rootRoute, path: '
 // `about` tab was the Profile, and `?tab=profile` (the old sidebar link) now
 // means the Profile page it was named after. A legacy `?tab=today` follows
 // the content to its one home.
-const SETTINGS_TABS: Record<string, string> = { overview: '', profile: '/profile', about: '/profile', workspace: '/workspace', deployment: '/deployment', access: '/access', destinations: '/destinations' }
+const SETTINGS_TABS: Record<string, string> = { overview: '', profile: '/profile', about: '/profile', workspace: '/workspace', deployment: '/deployment', access: '/team', destinations: '/notifications', brand: '/brand', team: '/team', keys: '/keys', notifications: '/notifications' }
 const tenantRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug', beforeLoad: ({ params, search }) => {
   const tab = (search as { tab?: string }).tab
   if (tab == null || tab === 'today') throw redirect({ href: `/tenants/${params.slug}/operations` })
@@ -150,8 +152,14 @@ const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ten
 const settingsProfileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/profile', component: SettingsProfilePage, loader: warmSettings })
 const settingsWorkspaceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/workspace', component: SettingsWorkspacePage, loader: warmSettings })
 const settingsDeploymentRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/deployment', component: SettingsDeploymentPage, loader: warmSettings })
-const settingsAccessRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/access', component: SettingsAccessPage, loader: warmSettings })
-const settingsDestinationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/destinations', component: SettingsDestinationsPage, loader: warmSettings })
+const settingsBrandRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/brand', component: SettingsBrandPage, loader: warmSettings })
+const settingsTeamRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/team', component: SettingsTeamPage, loader: warmSettings })
+const settingsKeysRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/keys', component: SettingsKeysPage, loader: warmSettings })
+const settingsNotificationsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/notifications', component: SettingsNotificationsPage, loader: warmSettings })
+// Access split into Team (operators) and Profile's Danger zone; Destinations
+// is Notifications. Old links follow their content.
+const settingsAccessRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/access', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/settings/team` }) } })
+const settingsDestinationsRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/settings/destinations', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/settings/notifications` }) } })
 const portfolioRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/portfolio', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=portfolio` }) } })
 // The places tab became a first-class destination — `?tab=places` follows it.
 const audienceRouteLoader = ({ params }: { params: { slug: string } }) => warm(['tenant-audience', params.slug], () => api.audienceModel(params.slug))()
@@ -247,7 +255,7 @@ const integrationsTasksRoute = createRoute({ getParentRoute: () => rootRoute, pa
 const integrationsUsageRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/integrations/usage', component: IntegrationsUsagePage })
 // Notifiers live on Settings → Destinations — the route redirects rather
 // than keep a second copy of the same panel alive.
-const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/settings/destinations` }) } })
+const tenantNotifiersRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/notifiers', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/settings/notifications` }) } })
 const tenantAutomationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/automation', component: AutomationOverviewPage, beforeLoad: ({ params, search }) => {
   const tab = (search as { tab?: string }).tab
   if (tab != null && AUTOMATION_TABS[tab]) throw redirect({ href: `/tenants/${params.slug}/automation/${AUTOMATION_TABS[tab]}` })
@@ -274,7 +282,7 @@ const tenantActionsRedirect = createRoute({ getParentRoute: () => rootRoute, pat
 const funnelRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/funnel', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/intelligence/decisions` }) } })
 const communityRedirect = createRoute({ getParentRoute: () => rootRoute, path: '/tenants/$slug/communities', beforeLoad: ({ params }) => { throw redirect({ href: `/tenants/${params.slug}/audience?tab=communities` }) } })
 
-const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, settingsRoute, settingsProfileRoute, settingsWorkspaceRoute, settingsDeploymentRoute, settingsAccessRoute, settingsDestinationsRoute, tenantActionsRedirect, tenantAttentionRoute, tenantAttentionDecisionsRoute, tenantAttentionInboxRoute, tenantAttentionQueuesRoute, tenantAttentionRuntimeRoute, tenantAttentionTraceRoute, tenantOperationsRoute, tenantOperationsRepliesRoute, tenantOperationsOutreachRoute, tenantOperationsNegotiationsRoute, tenantOperationsPressRoute, tenantOperationsReleasesRoute, tenantOperationsPlaysRoute, tenantOperationsGrowthRoute, tenantInMotionRoute, tenantInMotionRelaysRoute, tenantHealthRoute, healthDeliveryRoute, healthPoliciesRoute, healthSwitchesRoute, tenantIntelligenceRoute, intelligenceBriefRoute, intelligenceStandingRoute, intelligenceDecisionsRoute, intelligenceLearningRoute, tenantProofRoute, tenantProofListingRoute, tenantProofCardsRoute, tenantProofReportsRoute, tenantProofStoryRoute, tenantCapabilitiesRoute, tenantContentRoute, tenantContentHooksRoute, tenantContentLinksRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, integrationsProvidersRoute, integrationsTasksRoute, integrationsUsageRoute, tenantNotifiersRoute, tenantAutomationRoute, automationRoutingRoute, automationEventsRoute, communityRedirect, portfolioRoute, audienceRoute, audienceFansRoute, audienceSourcesRoute, audienceContactsRoute, audienceCommunitiesRoute, audiencePortfolioRoute, placesRoute, placesCitiesRoute, placesRoomsRoute, placesOnlineRoute, placesAreaRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowsBookingRoute, tenantShowsMerchRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
+const routeTree = rootRoute.addChildren([overviewRoute, flowRoute, tenantsRoute, tenantWizardRoute, operatorAttentionRedirect, automationRedirect, tenantRoute, settingsRoute, settingsProfileRoute, settingsWorkspaceRoute, settingsDeploymentRoute, settingsBrandRoute, settingsTeamRoute, settingsKeysRoute, settingsNotificationsRoute, settingsAccessRedirect, settingsDestinationsRedirect, tenantActionsRedirect, tenantAttentionRoute, tenantAttentionDecisionsRoute, tenantAttentionInboxRoute, tenantAttentionQueuesRoute, tenantAttentionRuntimeRoute, tenantAttentionTraceRoute, tenantOperationsRoute, tenantOperationsRepliesRoute, tenantOperationsOutreachRoute, tenantOperationsNegotiationsRoute, tenantOperationsPressRoute, tenantOperationsReleasesRoute, tenantOperationsPlaysRoute, tenantOperationsGrowthRoute, tenantInMotionRoute, tenantInMotionRelaysRoute, tenantHealthRoute, healthDeliveryRoute, healthPoliciesRoute, healthSwitchesRoute, tenantIntelligenceRoute, intelligenceBriefRoute, intelligenceStandingRoute, intelligenceDecisionsRoute, intelligenceLearningRoute, tenantProofRoute, tenantProofListingRoute, tenantProofCardsRoute, tenantProofReportsRoute, tenantProofStoryRoute, tenantCapabilitiesRoute, tenantContentRoute, tenantContentHooksRoute, tenantContentLinksRoute, tenantContentMaterialRoute, tenantIntegrationsRoute, integrationsProvidersRoute, integrationsTasksRoute, integrationsUsageRoute, tenantNotifiersRoute, tenantAutomationRoute, automationRoutingRoute, automationEventsRoute, communityRedirect, portfolioRoute, audienceRoute, audienceFansRoute, audienceSourcesRoute, audienceContactsRoute, audienceCommunitiesRoute, audiencePortfolioRoute, placesRoute, placesCitiesRoute, placesRoomsRoute, placesOnlineRoute, placesAreaRoute, funnelRedirect, beaconsRoute, areaRoute, tenantCityRoute, tenantShowsRoute, tenantShowsBookingRoute, tenantShowsMerchRoute, tenantShowRoute, tenantShowScanRoute, tenantShowReportRoute])
 // `defaultPendingMs: 0` shows the skeleton on the first frame. The default
 // (500ms) leaves the previous page frozen on screen while a route chunk loads,
 // which reads as a hang rather than as loading — the blank operator screen this

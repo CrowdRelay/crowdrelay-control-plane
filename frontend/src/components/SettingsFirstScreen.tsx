@@ -6,6 +6,7 @@ import { whileIncomplete, hasDegradedSections } from '../lib/incomplete'
 import { Act, Card, Note, Row, Split, Tile, Tiles } from './ui/dash'
 import { Bot, Mail } from 'lucide-solid'
 import { cn } from '../lib/cn'
+import { authState } from '../lib/auth'
 
 // Settings, first screen (mockup `console-mockups/settings.html`): who you
 // are, and what the machine may do. How letters describe the act (the
@@ -62,7 +63,7 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
   return (
     <>
       <Split even>
-        <Card title="How letters describe you" icon={<Mail />} aside={<Act to="/tenants/$slug/settings/workspace" params={{ slug: props.slug }}>Edit</Act>}>
+        <Card title="How letters describe you" icon={<Mail />} aside={<Act to="/tenants/$slug/settings/profile" params={{ slug: props.slug }}>Edit</Act>}>
           {fact('Name', props.tenant.displayName)}
           {fact('Sound', style())}
           {fact('From', city(), 'not set · letters guess it from where you played most')}
@@ -85,7 +86,9 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
             )}</For>
             <Note>
               {policies().filter(alone).length} areas act alone · {policies().filter(p => !alone(p) && !suggest(p)).length} ask first · {policies().filter(suggest).length} only suggest.{' '}
-              <Act to="/tenants/$slug/settings/profile" params={{ slug: props.slug }}>All {policies().length}</Act>
+              <Show when={authState.isPlatformLevel()} fallback={`${policies().length} areas in all.`}>
+                <Act to="/tenants/$slug/health/policies" params={{ slug: props.slug }}>All {policies().length}</Act>
+              </Show>
             </Note>
           </Show>
         </Card>

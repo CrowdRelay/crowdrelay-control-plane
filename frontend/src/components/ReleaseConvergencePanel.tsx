@@ -1,9 +1,9 @@
 import { For, Show } from 'solid-js'
-import { KpiCard, KpiStrip, Section } from './layout'
+import { KpiCard, KpiStrip } from './layout'
+import { SettingsSection } from './ui/settings'
 import { Alert } from './app/alert'
 import type { ReleaseLedgerOverview } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { SectionIcon } from './SectionIcon'
 import { Badge } from './app/badge'
 
 const staleReleaseComponents = (ledger: ReleaseLedgerOverview | null) =>
@@ -61,11 +61,11 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
   const ledger = () => props.releaseLedger
   const stale = () => staleReleaseComponents(ledger())
 
-  return <Section
+  return <SettingsSection
+    plain
     title="Production convergence"
-    icon={<SectionIcon name="git-branch" />}
     description="Every expected production component reports its own release receipt. Missing or stale receipts stay visible until the ecosystem converges."
-    action={<StatusBadge status={releaseLabel(ledger())} tone={releaseTone(ledger())} />}
+    actions={<StatusBadge status={releaseLabel(ledger())} tone={releaseTone(ledger())} />}
   >
     <Show when={ledger()} fallback={<p class="text-sm text-muted-foreground">Production release convergence is currently unavailable for this tenant.</p>}>
       {current => <>
@@ -139,5 +139,5 @@ export function ReleaseConvergencePanel(props: { releaseLedger: ReleaseLedgerOve
         </div>
       </>}
     </Show>
-  </Section>
+  </SettingsSection>
 }

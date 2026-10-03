@@ -51,7 +51,7 @@ const SUBPAGES: Array<{ suffix: string; label: string; icon: string; search?: Re
   { suffix: '/health', label: 'Health', icon: 'sliders' },
   { suffix: '/operations', label: 'Today', icon: 'operations' },
   { suffix: '/integrations', label: 'AI Integrations', icon: 'integrations' },
-  { suffix: '/settings/destinations', label: 'Destinations', icon: 'notifiers' },
+  { suffix: '/settings/notifications', label: 'Notifications', icon: 'notifiers' },
   { suffix: '/audience', label: 'Audience', icon: 'fan-intel' },
   { suffix: '/places', label: 'Places', icon: 'places' },
   { suffix: '/proof', label: 'Proof', icon: 'proof' },
