@@ -8,7 +8,7 @@ import { Button } from '~/components/app/button'
 import { Input } from '~/components/ui/input'
 import { NativeSelect } from '~/components/ui/native-select'
 import { Card as DashCard, DashHeader, ItemRow, Pill, Split, StatRow, Tile, Tiles } from '~/components/ui/dash'
-import { PageHeader, PageShell, Section, SectionTitle, TabBar } from '~/components/layout'
+import { PageShell, Section, SectionTitle, TabBar } from '~/components/layout'
 import { SaveActions, SettingsRow, SettingsSection } from '~/components/ui/settings'
 import { tenantNavGroups } from '~/lib/nav'
 import type { TenantSummary } from '~/lib/types'
@@ -274,7 +274,7 @@ export const layoutEntries: DocEntry[] = [
   {
     id: 'page-header', tab: 'layout', group: 'Page', title: 'Page header',
     summary: 'DashHeader: title, one line under it, status and actions on the right. One per page.',
-    sources: ['components/ui/dash.tsx'], keywords: 'title heading DashHeader PageHeader back',
+    sources: ['components/ui/dash.tsx'], keywords: 'title heading DashHeader back',
     render: () => (
       <>
         <DocSection title="DashHeader" description="The page title the console uses on 24 pages.">
@@ -294,11 +294,6 @@ export const layoutEntries: DocEntry[] = [
             ['back', '{ label, to, params?, search? }', '—', '“← Places” above the title.'],
             ['actions', 'JSX.Element', '—', 'Status pill first, then at most one primary button.'],
           ]} />
-        </DocSection>
-        <DocSection title="PageHeader (legacy)" description="Bigger, with an eyebrow. Two call sites left; new pages use DashHeader.">
-          <Example>
-            <PageHeader eyebrow="Platform" title="Tenants" description="Every workspace on this control plane." actions={<Button size="sm">New tenant</Button>} class="mb-0" />
-          </Example>
         </DocSection>
         <DocSection title="Do and don’t">
           <DoDont
