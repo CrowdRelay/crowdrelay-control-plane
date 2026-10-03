@@ -6,6 +6,8 @@ import { commandPaletteOpen, toggleCommandPalette } from './command-palette-stat
 import { api } from '../lib/api'
 import { ToastContainer } from './app/toast'
 import { RefreshControl } from './RefreshControl'
+import { Button } from './app/button'
+import { Bot } from 'lucide-solid'
 
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
 import { SkeletonPage } from './Skeleton'
@@ -60,6 +62,12 @@ export const Shell: Component = () => {
   const navigate = useNavigate()
   const [paletteLoaded, setPaletteLoaded] = createSignal(false)
   createEffect(() => { if (commandPaletteOpen()) setPaletteLoaded(true) })
+  // Chat is a large optional surface. Keep only its tiny launcher in the shell;
+  // load and mount the chat chunk after the first explicit open.
+  const [chatOpen, setChatOpen] = createSignal(false)
+  const [chatLoaded, setChatLoaded] = createSignal(false)
+  createEffect(() => { if (chatOpen()) setChatLoaded(true) })
+  createEffect(() => { slug(); setChatOpen(false) })
   const router = useRouter()
   const pathname = () => router.state.location.pathname
   const searchTab = () => (router.state.location.search as { tab?: string }).tab
@@ -232,10 +240,29 @@ export const Shell: Component = () => {
         <ConfirmHost />
       </SidebarInset>
       <ReauthModal />
-      {/* `keyed` remounts the widget on tenant switch — without it the same
-          instance keeps its message history and streams tenant A's
-          conversation inside tenant B's page. */}
-      <Show when={slug()} keyed>{(s) => <Suspense fallback={null}><ChatWidget slug={s} /></Suspense>}</Show>
+      {/* Keep the launcher cheap. The 600+ line chat chunk is fetched only
+          after a person asks for it; `keyed` still resets tenant-specific
+          history when the selected tenant changes. */}
+      <Show when={slug()} keyed>{(s) => (
+        <>
+          <Button
+            variant="outline"
+            class="fixed bottom-4 right-4 z-40 gap-2 bg-background shadow-overlay lg:bottom-6 lg:right-6"
+            onClick={() => setChatOpen(true)}
+            aria-label="Ask CrowdRelay"
+            title="Ask CrowdRelay"
+          >
+            <Bot class="size-4" aria-hidden="true" />
+            <span class="hidden sm:inline">Ask CrowdRelay</span>
+            <span class="sm:hidden">Ask</span>
+          </Button>
+          <Show when={chatLoaded()}>
+            <Suspense fallback={null}>
+              <ChatWidget slug={s} open={chatOpen()} onOpenChange={setChatOpen} />
+            </Suspense>
+          </Show>
+        </>
+      )}</Show>
     </SidebarProvider>
   </>
 }
