@@ -18,12 +18,20 @@ const toneForValue = (v: number): 'good' | 'warn' | 'bad' => {
   return 'bad'
 }
 
+// The arc is a fill (vivid `-solid`); the number inside is text and takes
+// the `-foreground` that clears 4.5:1.
 const toneColor: Record<string, string> = {
-  good: 'var(--color-success-foreground)',
-  warn: 'var(--color-warning-foreground)',
+  good: 'var(--color-success-solid)',
+  warn: 'var(--color-warning-solid)',
   bad: 'var(--color-destructive)',
   // "We have no reading" is not "everything is on fire": a fleet that has
   // never reported must not render in the same red as a failing one.
+  muted: 'var(--color-muted-foreground)',
+}
+const toneText: Record<string, string> = {
+  good: 'var(--color-success-foreground)',
+  warn: 'var(--color-warning-foreground)',
+  bad: 'var(--color-destructive)',
   muted: 'var(--color-muted-foreground)',
 }
 
@@ -125,7 +133,7 @@ export const ProgressRing: Component<{
         'font-size': `${size() * (showValue() ? 0.22 : 0.26)}px`,
         'font-weight': '800',
         'font-variant-numeric': 'tabular-nums',
-        color: color(),
+        color: toneText[tone()] ?? 'var(--color-primary)',
       }}>
         {showValue() ? `${Math.round(animatedValue())}${props.label ? '' : '%'}` : '—'}
       </span>

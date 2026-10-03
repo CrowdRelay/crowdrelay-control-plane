@@ -136,7 +136,7 @@ const MovementBar: Component<{ delta: number | null; max: number }> = (props) =>
       <Show when={half() > 0}>
         <div
           class="absolute inset-y-0 rounded-sm transition-[width] duration-[400ms] ease-out"
-          classList={{ 'bg-success-foreground': up(), 'bg-destructive': !up() }}
+          classList={{ 'bg-success-solid': up(), 'bg-destructive': !up() }}
           style={up()
             ? { left: '50%', width: `${half()}%` }
             : { right: '50%', width: `${half()}%` }}
@@ -455,7 +455,7 @@ export function GrowthMetricsPanel(props: { slug: string }) {
                   const d24 = trend.delta_24h != null ? v - trend.delta_24h : d7
                   return [d28, d7, d24, v].map(n => Math.max(0, n))
                 }
-                const sparkColor = dir === 'up' ? 'var(--color-success-foreground)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
+                const sparkColor = dir === 'up' ? 'var(--color-success-solid)' : dir === 'down' ? 'var(--color-destructive)' : 'var(--color-muted-foreground)'
                 return (
                   <div class="bg-muted border border-border rounded-lg p-4 flex flex-col gap-1">
                     <div class="flex justify-between items-center">

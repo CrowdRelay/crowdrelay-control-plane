@@ -589,13 +589,13 @@ export function TierBadge(props: { tier: 'free' | 'premium' | 'connected' | 'bet
   const s = props.size ?? 10
   if (props.tier === 'connected') {
     return (
-      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-muted flex items-center justify-center leading-none bg-success-foreground text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
+      <span class="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-muted flex items-center justify-center leading-none bg-success-solid text-background" style={{ width: `${s}px`, height: `${s}px` }} aria-label="connected">
         <Check size={s} stroke-width={3} aria-hidden="true" />
       </span>
     )
   }
   if (props.tier === 'beta') {
-    return <span class="absolute -bottom-1.5 -right-1.5 rounded-full flex items-center justify-center leading-none bg-warning-foreground text-muted text-xs font-bold px-1 py-0.5 border-none tracking-wider" aria-label="beta">beta</span>
+    return <span class="absolute -bottom-1.5 -right-1.5 rounded-full flex items-center justify-center leading-none bg-warning text-warning-foreground text-xs font-bold px-1 py-0.5 border-none tracking-wider" aria-label="beta">beta</span>
   }
   const color = props.tier === 'free' ? '#22c55e' : '#a78bfa'
   return (

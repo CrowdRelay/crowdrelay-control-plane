@@ -392,7 +392,7 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm" aria-live="polite">
             <span class="flex items-center gap-2">
-              <span class={cn('inline-block w-2 h-2 rounded-full', step1Ready() && operatorFieldsReady() ? 'bg-success-foreground' : 'bg-muted-foreground')} />
+              <span class={cn('inline-block w-2 h-2 rounded-full', step1Ready() && operatorFieldsReady() ? 'bg-success-solid' : 'bg-muted-foreground')} />
               {step1Blocker() ?? 'Identity and region are complete.'}
             </span>
           </div>
@@ -655,7 +655,7 @@ export function TenantWizardPage() {
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm" aria-live="polite">
             <span class="flex items-center gap-2">
-              <span class={cn('inline-block w-2 h-2 rounded-full', deployFieldsReady() ? 'bg-success-foreground' : 'bg-muted-foreground')} />
+              <span class={cn('inline-block w-2 h-2 rounded-full', deployFieldsReady() ? 'bg-success-solid' : 'bg-muted-foreground')} />
               {deployBlocker() ?? (deployNow() ? 'Ready to create the tenant and queue its deployment.' : 'Ready to create the tenant. Nothing is deployed yet.')}
             </span>
           </div>

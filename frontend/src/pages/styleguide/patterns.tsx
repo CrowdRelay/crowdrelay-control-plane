@@ -330,7 +330,7 @@ export const patternEntries: DocEntry[] = [
     render: () => (
       <DocSection title="How">
         <Example stage="flush">
-          <div class="flex items-center gap-2 border-b border-warning-foreground/30 bg-warning px-4 py-2 text-xs text-warning-foreground" role="status">
+          <div class="flex items-center gap-2 border-b border-warning-solid/30 bg-warning px-4 py-2 text-xs text-warning-foreground" role="status">
             <strong class="font-semibold">Read-only session.</strong>
             <span>This account can look at everything and change nothing. Controls that would write are disabled.</span>
           </div>

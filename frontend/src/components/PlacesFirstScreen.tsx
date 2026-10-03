@@ -52,7 +52,7 @@ export function PlacesFirstScreen(props: { slug: string; model: TenantPlacesCiti
               <Row>
                 <Link to="/tenants/$slug/cities/$cityId" params={{ slug: props.slug, cityId: row.city_slug }} class="w-28 shrink-0 truncate text-sm text-foreground hover:underline">{row.city_name}</Link>
                 <div class="h-2 flex-1 overflow-hidden rounded bg-muted/55">
-                  <div class="h-full rounded bg-info-foreground/75" style={{ width: `${Math.max(2, Math.round((row.fans / barMax()) * 100))}%` }} />
+                  <div class="h-full rounded bg-info-solid/75" style={{ width: `${Math.max(2, Math.round((row.fans / barMax()) * 100))}%` }} />
                 </div>
                 <span class="w-24 shrink-0 text-right text-xs text-muted-foreground">{row.fans} {row.fans === 1 ? 'fan' : 'fans'} · +{row.new_30d}</span>
               </Row>

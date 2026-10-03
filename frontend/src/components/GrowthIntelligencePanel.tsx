@@ -162,7 +162,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           <h3 class="flex items-center gap-2 text-sm font-semibold text-foreground"><IntelligenceIcon size={18} /> {authState.isPlatformLevel() ? 'Approval Queue' : 'Waiting for approval'}</h3>
           <Show when={pendingGrowthActions().length > 0}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-warning-foreground" />
+              <span class="w-2 h-2 rounded-full bg-warning-solid" />
               {pendingGrowthActions().length} pending
             </span>
           </Show>
@@ -213,7 +213,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
                         words and left them to guess whether approving was safe.
                         Say what is missing and what approving will actually do. */}
                     <Show when={!action.executor_ready && action.required_capability}>
-                      <div class="flex flex-col gap-1 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
+                      <div class="flex flex-col gap-1 rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-4 text-sm text-warning-foreground" title={action.required_capability ?? undefined}>
                         <strong>Nothing can run this yet</strong>
                         <span>{authState.isPlatformLevel()
                           ? <>“{labelOr(CAPABILITY_LABELS, action.required_capability!)}” has no worker running. You can approve it — it will wait in the queue until one starts.</>
@@ -290,7 +290,7 @@ export function GrowthIntelligencePanel(props: { slug: string; active?: boolean 
           <h3 class="text-sm font-semibold text-foreground">{authState.isPlatformLevel() ? 'Worker runs' : 'AI job runs'}</h3>
           <Show when={overview.data}>
             <span class="text-muted-foreground text-sm flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-success-foreground" />
+              <span class="w-2 h-2 rounded-full bg-success-solid" />
               {overview.data!.succeeded_24h} succeeded · {overview.data!.failed_24h} failed (24h)
             </span>
           </Show>

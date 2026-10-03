@@ -43,7 +43,7 @@ const CommandDialog: Component<CommandDialogProps> = (props) => {
     <Dialog {...others}>
       <DialogContent
         showCloseButton={false}
-        class={cn("top-1/3 w-[calc(100vw-2rem)] max-w-lg gap-0 overflow-hidden rounded-xl p-0 ease-out data-[expanded]:slide-in-from-bottom-2 data-[closed]:slide-out-to-bottom-2 sm:rounded-xl", local.class)}
+        class={cn("top-1/3 max-w-lg gap-0 overflow-hidden p-0 data-[expanded]:animate-quick-show data-[closed]:animate-quick-hide", local.class)}
       >
         <DialogTitle class="sr-only">{local.title ?? "Command palette"}</DialogTitle>
         <DialogDescription class="sr-only">{local.description ?? "Search for a command to run…"}</DialogDescription>

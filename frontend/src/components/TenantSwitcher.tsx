@@ -26,7 +26,7 @@ const healthLabel = (tenant: TenantSummary) => {
   return 'not reporting'
 }
 
-const dotClass = { good: 'bg-success-foreground', warn: 'bg-warning-foreground', bad: 'bg-destructive', muted: 'bg-muted-foreground' } as const
+const dotClass = { good: 'bg-success-solid', warn: 'bg-warning-solid', bad: 'bg-destructive', muted: 'bg-muted-foreground' } as const
 
 /** A tenant's mark: its initial on the sidebar primary, health as a corner dot. */
 function TenantMark(props: { tenant?: TenantSummary; name: string; small?: boolean }) {
@@ -36,8 +36,12 @@ function TenantMark(props: { tenant?: TenantSummary; name: string; small?: boole
       props.small ? 'size-6 rounded-md border text-xs' : 'size-8 rounded-lg bg-sidebar-primary text-sm text-sidebar-primary-foreground',
     )}>
       {props.name.slice(0, 1).toUpperCase()}
+      {/* Inside the mark's box, not hanging off it: the collapsed rail shrinks
+          the menu button to the mark's exact size and clips its overflow, so a
+          dot (or a ring drawn as a shadow) outside the box was cut off. The
+          sidebar-coloured border reads as the same cut-out ring. */}
       <Show when={props.tenant}>
-        {t => <span class={cn('absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-sidebar', dotClass[healthDot(t())])} />}
+        {t => <span class={cn('absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-sidebar', dotClass[healthDot(t())])} />}
       </Show>
     </div>
   )

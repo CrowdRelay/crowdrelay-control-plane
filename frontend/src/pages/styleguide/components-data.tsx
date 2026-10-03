@@ -166,7 +166,7 @@ export const dataEntries: DocEntry[] = [
   {
     id: 'text-inputs', tab: 'components', group: 'Forms', title: 'Input, Textarea, Select', status: 'stable',
     summary: 'Text and choice-from-a-list controls. Native elements, styled — no raw <input> outside components/ui.',
-    sources: ['components/ui/input.tsx', 'components/ui/textarea.tsx', 'components/ui/native-select.tsx', 'components/ui/text-field.tsx'], keywords: 'input text select dropdown textarea',
+    sources: ['components/ui/input.tsx', 'components/ui/textarea.tsx', 'components/ui/native-select.tsx', 'components/ui/select.tsx', 'components/ui/text-field.tsx'], keywords: 'input text select dropdown textarea listbox combobox',
     render: () => (
       <>
         <DocSection title="Input">
@@ -184,12 +184,18 @@ export const dataEntries: DocEntry[] = [
             <Field label="Note for the other bands" hint="Resizes vertically."><Textarea rows={3} placeholder="Load-in is at 17:00…" /></Field>
           </Example>
         </DocSection>
-        <DocSection title="NativeSelect" description="The native select, styled. size=&quot;sm&quot; for filters in a toolbar.">
-          <Example code={`<NativeSelect><option>Instagram</option>…</NativeSelect>
-<NativeSelect size="sm">…</NativeSelect>`}>
+        <DocSection title="Select" description="shadcn's Select on Kobalte: a trigger that reads like an input, a popup the trigger's width, a check on the chosen item, typeahead and full keyboard support. Write it like a native select — option children, value, onChange reading event.currentTarget.value, required — because a real <select> stays underneath for forms and validation. size=&quot;sm&quot; for toolbar filters; <optgroup> becomes a labelled group.">
+          <Example code={`<Field label="Channel">
+  <NativeSelect value={channel()} onChange={e => setChannel(e.currentTarget.value)}>
+    <option value="instagram">Instagram</option>
+    …
+  </NativeSelect>
+</Field>`}>
             <FieldGrid min="220px">
               <Field label="Channel"><NativeSelect><option>Instagram</option><option>TikTok</option><option>Reddit</option></NativeSelect></Field>
-              <Field label="Filter (sm)"><NativeSelect size="sm"><option>All tenants</option></NativeSelect></Field>
+              <Field label="Filter (sm)"><NativeSelect size="sm"><option>All tenants</option><option>Active</option><option>Parked</option></NativeSelect></Field>
+              <Field label="Grouped"><NativeSelect><option value="" disabled selected>Choose a city…</option><optgroup label="Poland"><option>Warszawa</option><option>Kraków</option></optgroup><optgroup label="Germany"><option>Berlin</option><option>Leipzig</option></optgroup></NativeSelect></Field>
+              <Field label="Disabled"><NativeSelect disabled><option>Locked</option></NativeSelect></Field>
             </FieldGrid>
           </Example>
           <p class="m-0 text-sm text-muted-foreground"><code>ui/text-field.tsx</code> (Kobalte TextField) is used only by the stock sidebar’s search slot; forms use Input inside Field.</p>

@@ -471,7 +471,7 @@ export function ServicesRow(props: { services: PlatformHealthEntry[] }) {
         <Tooltip>
           <TooltipTrigger as="span" class="inline-flex">
             <Badge variant={svc.healthy ? 'outline' : 'destructive'} class="gap-1.5 font-medium">
-              <span class={cn('size-1.5 rounded-full', svc.healthy ? 'bg-success-foreground' : 'bg-destructive')} aria-hidden="true" />
+              <span class={cn('size-1.5 rounded-full', svc.healthy ? 'bg-success-solid' : 'bg-destructive')} aria-hidden="true" />
               {svc.label}
               <span class="sr-only">{svc.healthy ? ', healthy' : ', not answering'}</span>
             </Badge>

@@ -145,7 +145,7 @@ export function DoDont(props: {
   const cell = (kind: 'do' | 'dont', item: { children: JSX.Element; caption: JSX.Element }) => (
     <figure class="m-0 flex min-w-0 flex-col overflow-hidden rounded-lg border border-border">
       <div class="flex min-h-28 flex-wrap items-center justify-center gap-3 bg-background p-6">{item.children}</div>
-      <figcaption class={cn('border-t-2 px-4 py-3 text-sm leading-relaxed', kind === 'do' ? 'border-success-foreground' : 'border-destructive')}>
+      <figcaption class={cn('border-t-2 px-4 py-3 text-sm leading-relaxed', kind === 'do' ? 'border-success-solid' : 'border-destructive')}>
         <strong class={cn('mr-1.5 font-semibold', kind === 'do' ? 'text-success-foreground' : 'text-destructive')}>{kind === 'do' ? 'Do' : "Don't"}</strong>
         <span class="text-muted-foreground">{item.caption}</span>
       </figcaption>
@@ -187,7 +187,7 @@ export function PropTable(props: { rows: PropRow[] }) {
 /** A quiet callout for a rule or a caveat. */
 export function Callout(props: { title?: string; tone?: 'info' | 'warn'; children: JSX.Element }) {
   return (
-    <div class={cn('rounded-lg border-l-2 bg-muted/40 px-4 py-3 text-sm leading-relaxed', props.tone === 'warn' ? 'border-warning-foreground' : 'border-info-foreground')}>
+    <div class={cn('rounded-lg border-l-2 bg-muted/40 px-4 py-3 text-sm leading-relaxed', props.tone === 'warn' ? 'border-warning-solid' : 'border-info-solid')}>
       <Show when={props.title}><p class="m-0 mb-1 font-medium text-foreground">{props.title}</p></Show>
       <div class="text-muted-foreground [&_code]:text-foreground">{props.children}</div>
     </div>

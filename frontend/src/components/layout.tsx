@@ -426,7 +426,7 @@ export function ErrorCard(props: {
     <div
       class={cn(
         'error-card flex gap-3 rounded-lg border bg-card p-4 text-sm break-words',
-        temporary() ? 'border-warning-foreground/30' : 'border-destructive/30',
+        temporary() ? 'border-warning-solid/30' : 'border-destructive/30',
         props.class,
       )}
       role="alert"
@@ -694,8 +694,8 @@ export function CommandBlock(props: {
   const toneClass = {
     default: 'border-border',
     active: 'border-primary/40',
-    warn: 'border-warning-foreground/40',
-    good: 'border-success-foreground/40',
+    warn: 'border-warning-solid/40',
+    good: 'border-success-solid/40',
   }
   return (
     <Card data-slot="command-block" class={cn('p-4 transition-colors hover:border-input cursor-pointer', toneClass[props.tone ?? 'default'], props.class)}>

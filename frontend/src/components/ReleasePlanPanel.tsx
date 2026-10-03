@@ -67,9 +67,9 @@ const time = (iso: string) => {
 // Shape carries the state, colour only reinforces it: a filled dot is done,
 // a thick ring is open (due or parked), a thin outline is still to come.
 const DOT: Record<ReleaseStep['state'], string> = {
-  done: 'border border-success-foreground bg-success-foreground',
-  due: 'border-2 border-warning-foreground',
-  parked: 'border-2 border-warning-foreground',
+  done: 'border border-success-solid bg-success-solid',
+  due: 'border-2 border-warning-solid',
+  parked: 'border-2 border-warning-solid',
   upcoming: 'border border-muted-foreground/60',
   disabled: 'border border-dashed border-muted-foreground/40',
 }

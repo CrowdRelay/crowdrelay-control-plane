@@ -256,9 +256,9 @@ function StageStepper(props: { steps: ShowTimelineStep[] }) {
         const state = () => stageState(stage.keys)
         return (
           <li class={cn('border-t-4 pt-1.5 text-center text-xs',
-            state() === 'done' ? 'border-success-foreground text-foreground'
-            : state() === 'due' ? 'border-warning-foreground font-medium text-foreground'
-            : state() === 'active' ? 'border-info-foreground font-medium text-foreground'
+            state() === 'done' ? 'border-success-solid text-foreground'
+            : state() === 'due' ? 'border-warning-solid font-medium text-foreground'
+            : state() === 'active' ? 'border-info-solid font-medium text-foreground'
             : 'border-border text-muted-foreground')}>
             {stage.label}
             <Show when={state() === 'due'}><span class="block text-muted-foreground">behind</span></Show>

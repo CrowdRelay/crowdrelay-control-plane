@@ -1,7 +1,7 @@
 import { Search } from 'lucide-solid'
 import { Button } from '~/components/ui/button'
 import { Kbd, KbdGroup } from '~/components/ui/kbd'
-import { toggleCommandPalette } from '../command-palette-state'
+import { preloadCommandPalette, toggleCommandPalette } from '../command-palette-state'
 
 /**
  * The top bar's way into the command palette — shadcn's docs-site search
@@ -16,6 +16,8 @@ export function CommandTrigger() {
         type="button"
         class="hidden h-9 w-56 justify-start gap-2 bg-muted/50 pl-3 pr-1.5 font-normal text-muted-foreground shadow-none sm:inline-flex lg:w-72"
         onClick={() => toggleCommandPalette()}
+        onPointerEnter={preloadCommandPalette}
+        onFocus={preloadCommandPalette}
         aria-label="Search or run a command"
         aria-haspopup="dialog"
       >
@@ -32,6 +34,8 @@ export function CommandTrigger() {
         type="button"
         class="size-9 text-muted-foreground sm:hidden"
         onClick={() => toggleCommandPalette()}
+        onPointerEnter={preloadCommandPalette}
+        onFocus={preloadCommandPalette}
         aria-label="Search or run a command"
         aria-haspopup="dialog"
       >

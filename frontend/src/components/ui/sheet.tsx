@@ -6,6 +6,7 @@ import type { PolymorphicProps } from "@kobalte/core/polymorphic"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "~/lib/utils"
+import { returnFocusHandlers } from "~/lib/return-focus"
 import { X } from "lucide-solid"
 
 const Sheet = SheetPrimitive.Root
@@ -46,7 +47,7 @@ const SheetOverlay = <T extends ValidComponent = "div">(
   return (
     <SheetPrimitive.Overlay
       class={cn(
-        "fixed inset-0 z-50 bg-black/80 data-[expanded=]:animate-in data-[closed=]:animate-out data-[closed=]:fade-out-0 data-[expanded=]:fade-in-0",
+        "fixed inset-0 z-50 bg-scrim backdrop-blur-xs data-[expanded=]:animate-overlay-show data-[closed=]:animate-overlay-hide",
         local.class
       )}
       {...others}
@@ -55,7 +56,7 @@ const SheetOverlay = <T extends ValidComponent = "div">(
 }
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-out data-[closed=]:duration-200 data-[expanded=]:duration-300 data-[expanded=]:animate-in data-[closed=]:animate-out",
+  "fixed z-50 gap-4 bg-background p-6 shadow-overlay ease-out data-[closed=]:duration-200 data-[expanded=]:duration-300 data-[expanded=]:animate-in data-[closed=]:animate-out",
   {
     variants: {
       position: {
@@ -79,21 +80,23 @@ type DialogContentProps<T extends ValidComponent = "div"> = SheetPrimitive.Dialo
 const SheetContent = <T extends ValidComponent = "div">(
   props: PolymorphicProps<T, DialogContentProps<T>>
 ) => {
-  const [local, others] = splitProps(props as DialogContentProps, ["position", "class", "children"])
+  const [local, others] = splitProps(props as DialogContentProps, ["position", "class", "children", "onOpenAutoFocus", "onCloseAutoFocus"])
+  const focus = returnFocusHandlers(local)
   return (
     <SheetPortal position={local.position}>
       <SheetOverlay />
       <SheetPrimitive.Content
         class={cn(
           sheetVariants({ position: local.position }),
-          "max-h-screen overflow-y-auto",
+          "max-h-dvh overflow-y-auto overscroll-contain",
           local.class
         )}
         {...others}
+        {...focus}
       >
         {local.children}
-        <SheetPrimitive.CloseButton class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none bg-secondary">
-          <X class="size-4" />
+        <SheetPrimitive.CloseButton class="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none">
+          <X class="size-4" aria-hidden="true" />
           <span class="sr-only">Close</span>
         </SheetPrimitive.CloseButton>
       </SheetPrimitive.Content>

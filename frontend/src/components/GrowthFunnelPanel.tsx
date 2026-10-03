@@ -179,7 +179,7 @@ export function GrowthFunnelPanel(props: { slug: string }) {
       <Show when={funnel.data}>
         {/* Bottleneck highlight */}
         <Show when={bottleneck()}>{(b) => (
-          <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground mt-3">
+          <div class="rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-4 text-sm text-warning-foreground mt-3">
             <strong>Pipeline bottleneck: {b().stage.label}</strong><br />
             <span>Only {b().rate}% progressed to {b().nextStage.label}. {b().stage.value} → {b().nextStage.value}.<br />{authState.isPlatformLevel() ? <>Consider dispatching more {b().stage.label.toLowerCase()} or reviewing the intelligence's growth intelligence policy.</> : <>Consider running more {b().stage.label.toLowerCase()} or reviewing what the brain may do.</>}</span>
           </div>

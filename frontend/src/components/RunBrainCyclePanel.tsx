@@ -160,14 +160,14 @@ export function RunBrainCyclePanel(props: { slug: string }) {
             {/* A gap here is measurement debt, not audience loss: the platform is
                 configured but its newest reading is too old to act on. */}
             <Show when={data().connectedPlatforms > data().freshPlatforms}>
-              <p class="mt-3 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
+              <p class="mt-3 rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-4 text-sm text-warning-foreground">
                 {data().connectedPlatforms - data().freshPlatforms} connected platform(s) have no
                 recent reading. The brain is deciding without them.
               </p>
             </Show>
 
             <Show when={!data().hasAnyConnectedPlatform}>
-              <p class="mt-3 rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground">
+              <p class="mt-3 rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-4 text-sm text-warning-foreground">
                 No platform is connected yet, so a cycle would correctly decide to do nothing.
                 {authState.isPlatformLevel() ? 'Connect a fan source first in Portfolio.' : 'Connect a fan source on the Audience page first.'}
               </p>
@@ -183,7 +183,7 @@ export function RunBrainCyclePanel(props: { slug: string }) {
                         <ArrowRight class="size-3.5 text-muted-foreground" aria-hidden="true" />
                       </Show>
                       <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-card border border-border text-sm text-secondary-foreground">
-                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-muted-foreground text-xs font-bold" classList={{ 'bg-success-foreground/10 text-success-foreground': index() === 0 }}>{index() + 1}</span>
+                        <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-accent text-muted-foreground text-xs font-bold" classList={{ 'bg-success-solid/10 text-success-foreground': index() === 0 }}>{index() + 1}</span>
                         <span class="capitalize whitespace-nowrap">{template.replaceAll('-', ' ')}</span>
                       </div>
                     </>

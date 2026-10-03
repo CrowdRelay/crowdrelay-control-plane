@@ -178,7 +178,7 @@ export function FlowPage() {
                     to={STAGE_PAGE[stage.key] ?? '/tenants/$slug/intelligence'}
                     params={{ slug: slug() }}
                     class={cn('min-w-0 flex-1 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30',
-                      stage.key === stuck()?.key ? 'border-warning-foreground/70 bg-warning-foreground/10' : 'border-border bg-muted/55')}
+                      stage.key === stuck()?.key ? 'border-warning-solid/70 bg-warning-solid/10' : 'border-border bg-muted/55')}
                   >
                     <p class="m-0 text-sm font-medium text-foreground">{STAGE_NAME[stage.key] ?? stage.label}</p>
                     <p class={cn('m-0 text-xs', stage.key === stuck()?.key ? 'text-warning-foreground' : 'text-muted-foreground')}>

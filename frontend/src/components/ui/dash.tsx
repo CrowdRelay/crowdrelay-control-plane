@@ -26,11 +26,11 @@ import { SkeletonTabContent } from '../Skeleton'
 export type Tone = 'good' | 'warn' | 'bad' | 'muted' | 'accent'
 
 const PILL: Record<Tone, string> = {
-  good: 'bg-success-foreground/15 text-success-foreground',
-  warn: 'bg-warning-foreground/15 text-warning-foreground',
-  bad: 'bg-error-foreground/15 text-error-foreground',
+  good: 'bg-success-solid/15 text-success-foreground',
+  warn: 'bg-warning-solid/15 text-warning-foreground',
+  bad: 'bg-error-solid/15 text-error-foreground',
   muted: 'bg-muted text-muted-foreground',
-  accent: 'bg-info-foreground/15 text-info-foreground',
+  accent: 'bg-info-solid/15 text-info-foreground',
 }
 
 const TEXT: Record<Tone, string> = {
@@ -120,7 +120,7 @@ export function Card(props: {
   tone?: 'warn'
 }) {
   return (
-    <section class={cn('min-w-0 rounded-xl border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-foreground/50' : 'border-border', props.class)}>
+    <section class={cn('min-w-0 rounded-xl border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-solid/50' : 'border-border', props.class)}>
       <Show when={props.title || props.aside}>
         <div class="flex items-baseline justify-between gap-3">
           <h2 class="m-0 flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -225,7 +225,7 @@ export function Act(props: {
 export function Bar(props: { label: JSX.Element; value: number | null | undefined; max: number; tone?: Tone; display?: string; labelWidth?: 'sm' | 'md' }) {
   const width = () => (props.value == null || props.max <= 0 ? 0 : Math.max(2, Math.round((props.value / props.max) * 100)))
   const fill: Record<Tone, string> = {
-    good: 'bg-success-foreground', warn: 'bg-warning-foreground', bad: 'bg-error-foreground', muted: 'bg-muted-foreground/60', accent: 'bg-info-foreground/75',
+    good: 'bg-success-solid', warn: 'bg-warning-solid', bad: 'bg-error-solid', muted: 'bg-muted-foreground/60', accent: 'bg-info-solid/75',
   }
   return (
     <Row class="text-xs">
@@ -242,7 +242,7 @@ export function Bar(props: { label: JSX.Element; value: number | null | undefine
 export function Ring(props: { share: number; label: string; tone?: Tone; title?: string }) {
   const pct = () => Math.max(0, Math.min(100, Math.round(props.share * 100)))
   const stroke: Record<Tone, string> = {
-    good: 'stroke-success-foreground', warn: 'stroke-warning-foreground', bad: 'stroke-error-foreground', muted: 'stroke-muted-foreground', accent: 'stroke-info-foreground',
+    good: 'stroke-success-solid', warn: 'stroke-warning-solid', bad: 'stroke-error-solid', muted: 'stroke-muted-foreground', accent: 'stroke-info-solid',
   }
   return (
     <svg width="56" height="56" viewBox="0 0 36 36" role="img" aria-label={props.title ?? props.label} class="shrink-0">
@@ -260,9 +260,9 @@ export function Steps(props: { steps: { label: JSX.Element; state: 'done' | 'due
       <For each={props.steps}>{step => (
         <li class="flex items-center gap-2">
           <span class={cn('inline-block size-2.5 shrink-0 rounded-full border',
-            step.state === 'done' ? 'border-success-foreground bg-success-foreground'
-            : step.state === 'due' ? 'border-warning-foreground bg-warning-foreground/40'
-            : step.state === 'active' ? 'border-info-foreground bg-info-foreground/40'
+            step.state === 'done' ? 'border-success-solid bg-success-solid'
+            : step.state === 'due' ? 'border-warning-solid bg-warning-solid/40'
+            : step.state === 'active' ? 'border-info-solid bg-info-solid/40'
             : 'border-muted-foreground/60')} aria-hidden="true" />
           <span class={cn('min-w-0 flex-1 truncate', step.state === 'done' ? 'text-foreground' : 'text-foreground')}>
             {step.label}{step.note ? <span class="text-muted-foreground"> · {step.note}</span> : null}

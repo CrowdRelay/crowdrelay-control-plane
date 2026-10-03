@@ -442,7 +442,7 @@ function UpcomingCard(props: { show: TenantShow; slug: string }) {
     <Link
       to="/tenants/$slug/shows/$eventSlug"
       params={{ slug: props.slug, eventSlug: props.show.slug }}
-      class={`block rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30 ${warn() ? 'border-warning-foreground/60' : 'border-border'}`}
+      class={`block rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/30 ${warn() ? 'border-warning-solid/60' : 'border-border'}`}
     >
       <div class="flex items-baseline justify-between gap-2">
         <span class="truncate text-sm font-medium text-foreground">{props.show.city ?? props.show.title}</span>
@@ -452,7 +452,7 @@ function UpcomingCard(props: { show: TenantShow; slug: string }) {
         {[shortDate(props.show.starts_at), roomOf(props.show), props.show.city ? props.show.title : null].filter(Boolean).join(' · ')}
       </p>
       <div class="my-2 h-1.5 overflow-hidden rounded bg-muted/55">
-        <div class="h-full rounded bg-info-foreground" style={{ width: `${Math.max(share(), sold() === 0 ? 2 : 0)}%` }} />
+        <div class="h-full rounded bg-info-solid" style={{ width: `${Math.max(share(), sold() === 0 ? 2 : 0)}%` }} />
       </div>
       <p class="m-0 text-xs text-muted-foreground">
         {sold() == null ? 'no ticket sale' : `${sold()} ${cap() ? `of ${cap()} ` : ''}tickets`}

@@ -118,7 +118,7 @@ export function OpportunityShortlistPanel() {
 
     <Show when={data()}>{d => <>
       <Show when={d().degraded.length > 0}>
-        <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-3 text-sm text-warning-foreground mb-3" role="status">
+        <div class="rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-3 text-sm text-warning-foreground mb-3" role="status">
           Part of this list didn't load, so it may be incomplete. It retries on its own.
         </div>
       </Show>
