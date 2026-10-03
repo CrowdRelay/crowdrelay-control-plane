@@ -247,7 +247,7 @@ export const Shell: Component = () => {
         <>
           <Button
             variant="outline"
-            class="fixed bottom-4 right-4 z-40 gap-2 bg-background shadow-overlay lg:bottom-6 lg:right-6"
+            class="fixed bottom-4 right-4 z-40 gap-2 border-border bg-background lg:bottom-6 lg:right-6"
             onClick={() => setChatOpen(true)}
             aria-label="Ask CrowdRelay"
             title="Ask CrowdRelay"
