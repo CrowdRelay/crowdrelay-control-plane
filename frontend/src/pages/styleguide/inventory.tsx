@@ -228,8 +228,8 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Cards', why: 'Four bordered-block components with different padding and radius (dash Card is rounded-xl, the others rounded-lg).',
-    action: 'Dash Card for dashboard blocks, stock Card for standalone panels and forms. Fold Widget and SectionPanel into those; align dash Card to rounded-lg.',
+    title: 'Cards', why: 'Four bordered-block components remain even though the two canonical Cards now share one rounded-lg geometry.',
+    action: 'Dash Card for dashboard blocks, stock Card for standalone panels and forms. Fold Widget and SectionPanel into those; keep both canonical Cards on rounded-lg.',
     items: [
       { module: 'components/ui/dash.tsx', name: 'Card', label: 'Card (dash)', keep: true },
       { module: 'components/app/card.tsx', name: 'Card', label: 'Card (app)', keep: true },
