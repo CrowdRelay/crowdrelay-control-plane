@@ -338,7 +338,7 @@ export const foundationEntries: DocEntry[] = [
   {
     id: 'iconography', tab: 'foundations', group: 'Foundations', title: 'Iconography',
     summary: 'Lucide (lucide-solid) only. 16px in controls, 18px in the sidebar, one icon per meaning.',
-    sources: ['components/NavIcon.tsx', 'components/SectionIcon.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx', 'components/chat-icons.tsx'], keywords: 'icons lucide svg',
+    sources: ['components/NavIcon.tsx', 'components/SectionIcon.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx'], keywords: 'icons lucide svg',
     render: () => (
       <>
         <DocSection title="Rules">
