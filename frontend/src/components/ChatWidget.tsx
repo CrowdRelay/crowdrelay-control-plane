@@ -9,12 +9,11 @@ import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
 import { Button } from './app/button'
-import { SparkIcon, SendIcon } from './chat-icons'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet'
 import { renderMarkdown } from '../lib/chat-markdown'
 import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
 import { runChatAction } from '../lib/chat-actions'
-import { Square } from 'lucide-solid'
+import { Bot, Send, Square } from 'lucide-solid'
 
 export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [messages, setMessages] = createSignal<ChatMessage[]>([])
@@ -34,6 +33,7 @@ export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (
   // Auto-scroll to bottom on new messages or streaming text
   createEffect(() => {
     const msgs = messages()
+    streamingContent()
     if (msgs.length > 0 && scrollRef) {
       const t = setTimeout(() => { if (scrollRef) scrollRef.scrollTop = scrollRef.scrollHeight }, 0)
       onCleanup(() => clearTimeout(t))
@@ -213,7 +213,7 @@ export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (
       >
         <SheetHeader class="shrink-0 border-b px-4 py-3 pr-12 text-left">
           <div class="flex items-center gap-2">
-            <SparkIcon />
+            <Bot class="size-4" aria-hidden="true" />
             <div class="min-w-0">
               <SheetTitle class="text-sm">CrowdRelay</SheetTitle>
               <SheetDescription class="text-xs">
@@ -361,7 +361,7 @@ export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (
                 onClick={() => send()}
                 aria-label="Send message"
               >
-                <SendIcon />
+                <Send class="size-4" aria-hidden="true" />
               </Button>
             </Show>
           </div>
