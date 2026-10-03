@@ -38,7 +38,7 @@ const subFor = (row: Row) => {
   ].filter(Boolean).join(' · ')
 }
 
-export function FleetList(props: { rows: Row[]; canCreate: boolean; limit?: number }) {
+export function FleetList(props: { rows: Row[]; canCreate: boolean; limit?: number; showAllLink?: boolean }) {
   const sorted = () => [...props.rows].sort((a, b) => urgency(a) - urgency(b) || a.displayName.localeCompare(b.displayName))
   return (
     <Card title="Tenants, most urgent first" icon={<Building2 />} class="mb-3">
@@ -51,6 +51,9 @@ export function FleetList(props: { rows: Row[]; canCreate: boolean; limit?: numb
             action={<Act to="/tenants/$slug/operations" params={{ slug: row.slug }}>Open</Act>}
           />
         )}</For>
+      </Show>
+      <Show when={props.showAllLink && props.limit != null && sorted().length > props.limit}>
+        <div class="mt-3"><Act to="/tenants">View all tenants</Act></div>
       </Show>
       <Show when={props.canCreate}>
         <div class="mt-3"><Act to="/tenants/new">+ New tenant</Act></div>
