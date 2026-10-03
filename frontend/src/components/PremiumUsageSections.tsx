@@ -57,7 +57,7 @@ export function UsageKpiStrip(props: {
         sub={`of ${formatUsd(props.usage.budget_micro_usd)}`}
         tone={budgetPctValue() > 80 ? 'warn' : 'default'}
       />
-      <KpiCard label="Connected" value={props.connectedCount} sub="providers" />
+      <KpiCard label="Your keys" value={props.connectedCount} sub="paid providers you added" />
       <KpiCard label="Models" value={props.availableModelCount} sub="available" />
       <KpiCard label="Tasks run" value={props.usage.tasks.length} sub={<>
         in the last 30 days

@@ -39,7 +39,7 @@ export async function runChatAction(
           prompt: action.params.prompt,
         }),
       })
-      return { reply: authState.isPlatformLevel() ? `Task started! You can check the result on the [Integrations page](/tenants/${slug}/integrations).` : 'Task started — the result shows up in what it produces.' }
+      return { reply: authState.isPlatformLevel() ? `Task started! You can check the result on the [Tasks and schedules page](/tenants/${slug}/integrations/tasks).` : 'Task started — the result shows up in what it produces.' }
     }
     case 'create_schedule': {
       await request(`/tenants/${tenant}/agents/schedules`, {
@@ -62,7 +62,7 @@ export async function runChatAction(
       return { reply: authState.isPlatformLevel() ? `Autopilot ${action.params.enabled ? 'enabled' : 'disabled'} for all contexts.` : `Automated work ${action.params.enabled ? 'resumed' : 'paused'} everywhere.` }
     }
     case 'paste_api_key': {
-      navigate(`/tenants/${slug}/integrations`)
+      navigate(`/tenants/${slug}/integrations/providers`)
       return { closePanel: true }
     }
     case 'create_notifier': {

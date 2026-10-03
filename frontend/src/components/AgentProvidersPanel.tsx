@@ -1,17 +1,21 @@
 import { For, Show, createSignal, createMemo } from 'solid-js'
-import { CircleCheck } from 'lucide-solid'
+import { Plus } from 'lucide-solid'
 import { useQuery } from '@tanstack/solid-query'
 import { api, request } from '../lib/api'
 import { errorMessage, formatIsoAge, humanizeToken } from '../lib/format'
 import { describeError, unavailableError } from '../lib/errors'
 import { toast } from './app/toast'
-import { EmptyState } from './ui/empty-state'
 import { Hint } from './ui/hint'
 import { ErrorCard } from './layout'
 import { StatusBadge } from './StatusBadge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './app/table'
 import { Alert } from './app/alert'
-import { credentialHealth } from '../lib/credential-health'
+import { credentialHealth, errorFix, errorWord } from '../lib/credential-health'
+import { Button } from './app/button'
+import { FormDrawer } from './app/form-drawer'
+import { Field } from './ui/field'
+import { Input } from './ui/input'
+import { NativeSelect } from './ui/native-select'
 import { ProviderCard, type ProviderCardContext } from './ProviderCard'
 import { UsageKpiStrip, PremiumModelsSection, PremiumTasksSection } from './PremiumUsageSections'
 import { KeyIcon, SparkIcon } from './provider-icons'
@@ -46,10 +50,6 @@ export function AgentProvidersPanel(props: {
   sectionsLoading?: boolean
   /** The page already says the agent service is down; do not say it again. */
   serviceDown?: boolean
-  /** `in-use` shows the pool the router picks from. `library` shows what is
-   *  not connected yet. They are separate tabs so an operator opening this
-   *  page sees their own providers, not a catalogue. */
-  mode?: 'in-use' | 'library'
   refetchCreds?: () => void
   /** When false (tab hidden), resources don't refetch on global refreshTick. */
   active?: boolean
@@ -66,6 +66,10 @@ export function AgentProvidersPanel(props: {
   const [testResult, setTestResult] = createSignal<Record<string, { ok: boolean; message: string } | null>>({})
   const [apiKeyInput, setApiKeyInput] = createSignal('')
   const [showKeyInputFor, setShowKeyInputFor] = createSignal<string | null>(null)
+  // Adding a provider opens the form drawer, like every other add in the
+  // console. It was a tab of catalogue cards, each with its own key field.
+  const [adding, setAdding] = createSignal(false)
+  const [addProvider, setAddProvider] = createSignal('')
 
   // Premium usage is unique to this panel — always fetch here.
   // The try/catch ensures the error signal is set even when the tab is
@@ -142,7 +146,7 @@ export function AgentProvidersPanel(props: {
   const health = useQuery(() => ({
     queryKey: ['agent-health', props.slug],
     queryFn: () => api.agentHealth(props.slug),
-    enabled: props.active !== false && props.mode !== 'library',
+    enabled: props.active !== false,
     refetchOnWindowFocus: false,
     staleTime: 15_000,
   }))
@@ -180,9 +184,7 @@ export function AgentProvidersPanel(props: {
   // is something the operator has to see, not something to hide back in the
   // catalogue.
   const inUseProviders = createMemo(() =>
-    props.mode === 'library'
-      ? []
-      : allProviders().filter(p => isConnectedProvider(p) && credentialHealth(credentialFor(p.id)).state === 'working')
+    allProviders().filter(p => isConnectedProvider(p) && credentialHealth(credentialFor(p.id)).state === 'working')
   )
 
   const libraryProviders = createMemo(() =>
@@ -218,9 +220,9 @@ export function AgentProvidersPanel(props: {
   // Memoize budget percentage so it's computed once per render, not 5x.
   // ─── Connect / disconnect handlers ──────────────────────────────────
 
-  const handleConnectApiKey = async (providerId: string) => {
+  const handleConnectApiKey = async (providerId: string): Promise<boolean> => {
     const key = apiKeyInput().trim()
-    if (!key) return
+    if (!key) return false
     setConnectingProvider(providerId)
     setError(null)
     setServiceDownError(false)
@@ -261,10 +263,12 @@ export function AgentProvidersPanel(props: {
       }
       refetchCreds()
       triggerLocalRefresh()
+      return verified
     } catch (e) {
       setError(`Couldn't connect the provider. ${errorMessage(e, '')}`)
       setServiceDownError(isDown(e))
       toast.error("Couldn't connect the provider", e)
+      return false
     } finally {
       setConnectingProvider(null)
     }
@@ -362,7 +366,7 @@ export function AgentProvidersPanel(props: {
           Free models keep working. Premium features return when the service answers again.
         </Alert>
       </Show>
-      <Show when={error() && !isServiceDown()}>
+      <Show when={error() && !isServiceDown() && !adding()}>
         <ErrorCard class="rounded-md p-3">{error()}</ErrorCard>
       </Show>
 
@@ -373,14 +377,43 @@ export function AgentProvidersPanel(props: {
 
       {/* The spend strip describes what this tenant is doing. It gates only
           itself — a failed usage read must not hide the provider controls. */}
-      <Show when={props.mode !== 'library'}>
-        <Show when={usage.data} fallback={
-          <Show when={!isServiceDown() && !error() && !props.serviceDown}>
-            <div class="h-20 rounded-lg border border-border bg-muted" />
-          </Show>
-        }>
-          <UsageKpiStrip usage={usage.data!} connectedCount={connectedCount()} availableModelCount={availableModelCount()} />
+      {/* Nothing left to add when every supported provider has a key. */}
+      <div class="flex justify-end" hidden={libraryProviders().length === 0}>
+        <Button writes size="sm" onClick={() => { setAddProvider(''); setApiKeyInput(''); setError(null); setAdding(true) }}>
+          <Plus aria-hidden="true" /> Add provider
+        </Button>
+      </div>
+      <FormDrawer
+        open={adding()}
+        onOpenChange={open => { setAdding(open); if (!open) { setApiKeyInput(''); setError(null) } }}
+        title="Add provider"
+        description="Paste an API key from the provider's own console. Keys are encrypted at rest. Adding one switches nothing off — it gives the autopilot one more option for writing a person will read."
+        submitLabel="Add provider"
+        pendingLabel="Checking the key…"
+        pending={connectingProvider() != null}
+        error={adding() ? error() : undefined}
+        errorTitle="Couldn't add the provider"
+        onSubmit={() => { void handleConnectApiKey(addProvider()).then(ok => { if (ok) setAdding(false) }) }}
+      >
+        <Field label="Provider">
+          <NativeSelect required value={addProvider()} onChange={e => setAddProvider(e.currentTarget.value)}>
+            <option value="">Choose…</option>
+            <For each={libraryProviders()}>{provider => (
+              <option value={provider.id}>{provider.name} — {provider.modelCount} models{provider.freeTier ? ', free tier' : ''}</option>
+            )}</For>
+          </NativeSelect>
+        </Field>
+        <Field label="API key" hint="We check it with the provider before saving.">
+          <Input type="password" required autocomplete="off" value={apiKeyInput()} onInput={e => setApiKeyInput(e.currentTarget.value)} />
+        </Field>
+      </FormDrawer>
+
+      <Show when={usage.data} fallback={
+        <Show when={!isServiceDown() && !error() && !props.serviceDown}>
+          <div class="h-20 rounded-lg border border-border bg-muted" />
         </Show>
+      }>
+        <UsageKpiStrip usage={usage.data!} connectedCount={connectedCount()} availableModelCount={availableModelCount()} />
       </Show>
 
       <Show when={providersResolved()} fallback={
@@ -396,7 +429,7 @@ export function AgentProvidersPanel(props: {
             A connected provider that buys nothing is worse than an unconnected
             one: the operator believes it is covered. It leads the page when it
             happens, and does not exist when it does not. */}
-        <Show when={props.mode !== 'library' && brokenProviders().length > 0}>
+        <Show when={brokenProviders().length > 0}>
           <section>
             <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-destructive">
               <KeyIcon size={16} /> Connected but not working
@@ -421,20 +454,20 @@ export function AgentProvidersPanel(props: {
             operator find their own two every time they open the page. */}
         {/* Nothing connected is a normal starting state, not an error. It
             says what happens meanwhile and where to go. */}
-        <Show when={props.mode !== 'library' && inUseProviders().length === 0 && brokenProviders().length === 0 && !props.providersError && !props.credentialsError}>
+        <Show when={inUseProviders().length === 0 && brokenProviders().length === 0 && !props.providersError && !props.credentialsError}>
           <section>
             <div class="mb-1 flex items-center gap-2">
               <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
-                <SparkIcon size={16} /> No AI provider connected
+                <SparkIcon size={16} /> No paid provider of your own
               </h3>
-              <Hint label="What happens without a provider">
+              <Hint label="What happens without your own provider">
                 Work still runs. Everything goes to the free models the platform ships with, which are
                 good enough for scanning, sorting and summarising. What suffers is the writing a
                 person reads — outreach, press pitches, replies.
               </Hint>
             </div>
             <p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              Nothing is blocked — the intelligence is running everything on free models. Connect a
+              Nothing is blocked — the autopilot runs on the models the platform provides. Add a
               paid provider and it will use that one for anything a person will read.
             </p>
           </section>
@@ -460,7 +493,7 @@ export function AgentProvidersPanel(props: {
               </Hint>
             </div>
             <p class="mb-3 text-sm leading-relaxed text-muted-foreground">
-              The pool the intelligence picks from right now.
+              The pool the autopilot picks from right now.
             </p>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               <For each={inUseProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>
@@ -471,16 +504,16 @@ export function AgentProvidersPanel(props: {
         {/* ─── Probe results ──────────────────────────────────────
             What the health checker last saw per model — the card grid says
             what is connected, this says whether it answers. */}
-        <Show when={props.mode !== 'library' && health.error}>
+        <Show when={health.error}>
           <ErrorCard title="Couldn't load provider health" error={health.error} recovery="It retries on its own." />
         </Show>
-        <Show when={props.mode !== 'library' && healthRows().length > 0}>
+        <Show when={healthRows().length > 0}>
           <section>
             <div class="mb-1 flex items-center gap-2">
               <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
-                <SparkIcon size={16} /> Probe results
+                <SparkIcon size={16} /> Model health check
               </h3>
-              <Hint label="What the probe does">
+              <Hint label="What the health check does">
                 The agent service pings each model on a schedule and stores what it saw — status,
                 latency, and the last error. A connected provider can still be degraded here when the
                 provider itself is refusing (rate limits, billing) or down.
@@ -507,7 +540,8 @@ export function AgentProvidersPanel(props: {
                   <TableCell><span class="text-xs text-muted-foreground">{formatIsoAge(row.last_checked_at)}</span></TableCell>
                   <TableCell>
                     <Show when={row.last_error} fallback="—">
-                      <span class="text-xs text-destructive">{row.last_error}</span>
+                      <span class="block text-sm text-destructive">{errorWord(row.last_error)}</span>
+                      <Show when={errorFix(errorWord(row.last_error))}>{fix => <span class="block text-xs text-muted-foreground">{fix()}</span>}</Show>
                     </Show>
                   </TableCell>
                 </TableRow>}</For>
@@ -516,31 +550,7 @@ export function AgentProvidersPanel(props: {
           </section>
         </Show>
 
-        {/* ─── Library ─────────────────────────────────────────────
-            Only rendered in library mode, which is its own tab. */}
-        <Show when={props.mode === 'library'}>
-          <section>
-            <h3 class="m-0 flex items-center gap-2 text-base font-semibold text-foreground">
-              <KeyIcon size={16} /> Providers you have not connected
-            </h3>
-            <p class="mb-3 mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              Paste an API key from the provider's own console to add it to the pool. Keys are
-              encrypted at rest. Connecting one does not switch anything off — it gives the
-              intelligence one more option for the work that needs a paid model.
-            </p>
-            <Show
-              when={libraryProviders().length > 0}
-              fallback={props.providersError || props.serviceDown ? null : <EmptyState icon={<CircleCheck />} label="Everything is connected" hint="Every provider we support already has a key on this tenant." />}
-            >
-              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                <For each={libraryProviders()}>{provider => <ProviderCard provider={provider} ctx={cardCtx} />}</For>
-              </div>
-            </Show>
-          </section>
-        </Show>
-
-
-        <Show when={props.mode !== 'library' && usage.data}>
+        <Show when={usage.data}>
         <PremiumModelsSection usage={usage.data!} />
         <PremiumTasksSection usage={usage.data!} />
         </Show>
