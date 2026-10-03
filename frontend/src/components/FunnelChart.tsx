@@ -70,8 +70,8 @@ export const FunnelChart: Component<{
   const stageColors = [
     'var(--color-primary)',
     'var(--accent-2, var(--color-primary))',
-    'var(--color-success-foreground)',
-    'var(--color-warning-foreground)',
+    'var(--color-success-solid)',
+    'var(--color-warning-solid)',
     'var(--color-destructive)',
   ]
 

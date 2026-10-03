@@ -590,7 +590,7 @@ export function FanSourcesPanel(props: {
         : "Where your fans already are. Each connection syncs follower and engagement numbers on its own schedule."}
       action={<Show when={connectedCount() > 0}>
         <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <span class="inline-block h-2 w-2 rounded-full bg-success-foreground" />
+          <span class="inline-block h-2 w-2 rounded-full bg-success-solid" />
           {connectedCount()} connected
         </span>
       </Show>}
@@ -621,7 +621,7 @@ export function FanSourcesPanel(props: {
               // horizontal line, so "SoundCloud" broke across two lines inside
               // its own tile. The name gets the top row; everything that
               // explains it goes underneath at full tile width.
-              <div class="flex flex-col gap-2 rounded-lg border p-4" classList={{ 'border-success-foreground/30': !!conn(), 'border-border': !conn() }}>
+              <div class="flex flex-col gap-2 rounded-lg border p-4" classList={{ 'border-success-solid/30': !!conn(), 'border-border': !conn() }}>
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
                     <FanbaseIcon sourceKind={spec.icon as never} size={28} />

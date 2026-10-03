@@ -63,7 +63,7 @@ export function UsageKpiStrip(props: {
         in the last 30 days
         <Show when={dailyCostSeries().some(v => v > 0)}>
           <span class="mt-1 block h-5 opacity-80">
-            <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning-foreground)' : 'var(--color-primary)'} />
+            <Sparkline data={dailyCostSeries()} width={80} height={20} color={budgetPctValue() > 80 ? 'var(--color-warning-solid)' : 'var(--color-primary)'} />
           </span>
         </Show>
       </>} />

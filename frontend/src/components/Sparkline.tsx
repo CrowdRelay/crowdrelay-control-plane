@@ -6,7 +6,7 @@ import { prefersReducedMotion } from '../lib/format'
 //
 // Usage:
 //   <Sparkline data={[3, 7, 2, 8, 5, 10]} />
-//   <Sparkline data={points} width={120} height={32} color="var(--color-success-foreground)" />
+//   <Sparkline data={points} width={120} height={32} color="var(--color-success-solid)" />
 
 
 export const Sparkline: Component<{

@@ -241,7 +241,7 @@ export function ReplyTriagePanel() {
         degraded, not empty. The page retries until it fills; say so instead
         of leaving a blank tab. */}
     <Show when={model.data && !data()}>
-      <div class="rounded-lg border border-warning-foreground/30 bg-warning-foreground/10 p-4 text-sm text-warning-foreground" role="status">
+      <div class="rounded-lg border border-warning-solid/30 bg-warning-solid/10 p-4 text-sm text-warning-foreground" role="status">
         {platform() ? 'Reply triage did not answer — retrying shortly.' : 'The replies list did not answer — retrying shortly.'}
       </div>
     </Show>

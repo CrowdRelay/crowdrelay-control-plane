@@ -69,7 +69,7 @@ type PressRow = {
 const SECTIONS: { id: PressOverviewSection; label: string; one: string; icon: typeof Inbox; tone: string }[] = [
   { id: 'requests', label: 'Requests', one: 'Request', icon: Inbox, tone: 'border-chart-1/40 bg-chart-1/15 [&>svg]:text-chart-1' },
   { id: 'assets', label: 'Assets', one: 'Asset', icon: Image, tone: 'border-chart-2/40 bg-chart-2/15 [&>svg]:text-chart-2' },
-  { id: 'engagements', label: 'Engagements', one: 'Engagement', icon: Handshake, tone: 'border-info-foreground/30 bg-info [&>svg]:text-info-foreground' },
+  { id: 'engagements', label: 'Engagements', one: 'Engagement', icon: Handshake, tone: 'border-info-solid/30 bg-info [&>svg]:text-info-foreground' },
   { id: 'coverage', label: 'Coverage', one: 'Coverage', icon: Newspaper, tone: 'border-chart-3/40 bg-chart-3/15 [&>svg]:text-chart-3' },
 ]
 const sectionOf = (id: PressOverviewSection) => SECTIONS.find(s => s.id === id)!

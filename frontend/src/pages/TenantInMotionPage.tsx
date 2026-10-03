@@ -191,9 +191,9 @@ function RelayRow(props: { run: RelayProcessRun; slug: string }) {
   const day = () => (run().occurred_at ? new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(new Date(run().occurred_at!)) : '')
   const dot = (state: 'done' | 'wait' | 'none' | 'bad', text?: string | number) => (
     <span class={cn('inline-flex size-5 items-center justify-center rounded-full text-xs',
-      state === 'done' ? 'bg-success-foreground/20 text-success-foreground'
-      : state === 'wait' ? 'bg-warning-foreground/20 text-warning-foreground'
-      : state === 'bad' ? 'bg-error-foreground/20 text-error-foreground'
+      state === 'done' ? 'bg-success-solid/20 text-success-foreground'
+      : state === 'wait' ? 'bg-warning-solid/20 text-warning-foreground'
+      : state === 'bad' ? 'bg-error-solid/20 text-error-foreground'
       : 'border border-border text-muted-foreground')}>{text ?? ''}</span>
   )
   const pushed = () => run().push_status === 'succeeded'

@@ -8,6 +8,7 @@ import { ToastContainer } from './app/toast'
 import { RefreshControl } from './RefreshControl'
 
 import { ErrorBoundaryPanel } from './ErrorBoundaryPanel'
+import { SkeletonPage } from './Skeleton'
 import { ConfirmHost } from './Dialog'
 import { ReauthModal } from './ReauthModal'
 import { whileIncomplete, hasUnavailableTenant, hasDegradedSections } from '../lib/incomplete'
@@ -206,7 +207,7 @@ export const Shell: Component = () => {
             once, at the top, rather than leaving them to infer it from a
             tooltip on the first button they try. */}
         <Show when={authState.readOnly()}>
-          <div class="flex items-center gap-2 border-b border-warning-foreground/30 bg-warning px-4 py-2 text-xs text-warning-foreground" role="status">
+          <div class="flex items-center gap-2 border-b border-warning-solid/30 bg-warning px-4 py-2 text-xs text-warning-foreground" role="status">
             <strong class="font-semibold">Read-only session.</strong>
             <span>This account can look at everything and change nothing. Controls that would write are disabled.</span>
           </div>
@@ -216,33 +217,17 @@ export const Shell: Component = () => {
             a remount which resets Suspense + ErrorBoundary state per page. */}
         <div class="flex-1 overflow-auto" data-key={pathname()}>
           <ErrorBoundaryPanel resetKey={pathname()} title="This page failed to render">
-            <Suspense fallback={
-              <section class="px-4 md:px-6 py-6 pb-20 space-y-5">
-                <div class="flex justify-between items-start gap-6">
-                  <div>
-                    <div class="h-3 w-30 rounded-lg bg-muted mb-2.5" />
-                    <div class="h-7 w-70 rounded-lg bg-muted mb-2" />
-                    <div class="h-3.5 w-105 max-w-full rounded-lg bg-muted" />
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Array.from({ length: 4 }, () => (
-                    <div class="rounded-lg border bg-card p-4">
-                      <div class="h-3 w-18 rounded-lg bg-muted mb-2" />
-                      <div class="h-5 w-12 rounded-lg bg-muted mb-1.5" />
-                      <div class="h-3 w-22 rounded-lg bg-muted" />
-                    </div>
-                  ))}
-                </div>
-                <div class="rounded-lg border bg-card p-4 h-45" />
-              </section>
-            }>
+            <Suspense fallback={<SkeletonPage />}>
               <Outlet />
             </Suspense>
           </ErrorBoundaryPanel>
         </div>
-        {/* Loaded on first open, then kept mounted so the dialog can animate out. */}
-        <Show when={paletteLoaded()}><CommandPalette /></Show>
+        {/* Loaded on first open, then kept mounted so the dialog can animate out.
+            Its own Suspense boundary is load-bearing: without it the lazy
+            chunk (and the palette's first query) suspends up to the app root,
+            the whole console blanks to its loading screen and the click reads
+            as a page reload. */}
+        <Show when={paletteLoaded()}><Suspense fallback={null}><CommandPalette /></Suspense></Show>
         <ToastContainer />
         <ConfirmHost />
       </SidebarInset>
@@ -250,7 +235,7 @@ export const Shell: Component = () => {
       {/* `keyed` remounts the widget on tenant switch — without it the same
           instance keeps its message history and streams tenant A's
           conversation inside tenant B's page. */}
-      <Show when={slug()} keyed>{(s) => <ChatWidget slug={s} />}</Show>
+      <Show when={slug()} keyed>{(s) => <Suspense fallback={null}><ChatWidget slug={s} /></Suspense>}</Show>
     </SidebarProvider>
   </>
 }

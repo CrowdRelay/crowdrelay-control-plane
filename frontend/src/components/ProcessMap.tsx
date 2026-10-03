@@ -153,9 +153,9 @@ const ZONE_STROKE: Record<Zone, string> = {
   src: '#71dcff',
   intel: 'var(--color-primary)',
   auth: '#ffa657',
-  exec: 'var(--color-warning-foreground)',
+  exec: 'var(--color-warning-solid)',
   out: '#ff6680',
-  learn: 'var(--color-success-foreground)',
+  learn: 'var(--color-success-solid)',
 }
 
 const ZONE_LABEL: Record<Zone, string> = {

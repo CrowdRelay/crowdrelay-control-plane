@@ -110,7 +110,7 @@ export function ConfirmHost(): JSX.Element {
   return (
     <AlertDialog open={pending() !== null} onOpenChange={(open) => { if (!open) settle(false) }}>
       <AlertDialogContent
-        class="w-[calc(100vw-2rem)] max-w-md border-border bg-card"
+        class="max-w-md border-border bg-card"
         onCloseAutoFocus={(event: Event) => {
           if (!returnFocusTo?.isConnected) return
           event.preventDefault()

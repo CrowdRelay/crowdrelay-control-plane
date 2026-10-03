@@ -32,6 +32,10 @@
   --color-warning-foreground: hsl(var(--warning-foreground));
   --color-error: hsl(var(--error));
   --color-error-foreground: hsl(var(--error-foreground));
+  --color-info-solid: hsl(var(--info-solid));
+  --color-success-solid: hsl(var(--success-solid));
+  --color-warning-solid: hsl(var(--warning-solid));
+  --color-error-solid: hsl(var(--error-solid));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
@@ -61,11 +65,20 @@
 
   /* Overlays float: a 1px ring plus lift, per theme (see :root / .dark). */
   --shadow-overlay: var(--elevation-overlay);
+  /* The dim behind a modal — one value for dialogs and drawers alike. */
+  --color-scrim: var(--scrim);
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
   --animate-content-show: content-show 0.2s ease-out;
-  --animate-content-hide: content-hide 0.2s ease-out;
+  /* Overlays: every menu, popover, dialog and drawer opens the same way.
+     Closing is shorter than opening — attention is already moving on. */
+  --animate-content-hide: content-hide 0.15s ease-out;
+  --animate-overlay-show: fade-in 0.2s ease-out;
+  --animate-overlay-hide: fade-out 0.15s ease-out;
+  /* High-frequency overlays (⌘K, tooltips): opacity only, under 150ms. */
+  --animate-quick-show: fade-in 0.12s ease-out;
+  --animate-quick-hide: fade-out 0.1s ease-out;
   --animate-caret-blink: caret-blink 1.25s ease-out infinite;
 
   @keyframes accordion-down {
@@ -83,6 +96,14 @@
   @keyframes content-hide {
     from { opacity: 1; transform: scale(1); }
     to { opacity: 0; transform: scale(0.96); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
   @keyframes caret-blink {
     0%, 70%, 100% { opacity: 1; }
@@ -123,23 +144,36 @@
     --destructive: 0 84% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --info: 204 94% 94%;
-    /* Status foregrounds are text colours too: each clears 4.5:1 as 12px
-       text on its own 15% pill tint and on the muted tiles. */
-    --info-foreground: 199 89% 32%;
+    /* Status ramps — one hue per status, held from surface to text, built in
+       oklch and written here as HSL (success 150°, warning 50°, error 27°,
+       info 245°). Each step has one job:
+         --x             surface: badge, alert and tile tints
+         --x-solid       vivid fill: dots, bars, borders, strokes, icons
+                         (non-text, 3:1 on the page and on muted)
+         --x-foreground  text: the most vivid colour that still clears
+                         4.5:1 on white, muted, its surface and on a
+                         solid/15 pill tint. Measured, not eyeballed. */
+    --info: 208 84% 93%;
+    --info-solid: 203 88% 48%;
+    --info-foreground: 203 92% 34%;
 
-    --success: 149 80% 90%;
-    --success-foreground: 160 84% 25%;
+    --success: 130 76% 90%;
+    --success-solid: 145 84% 35%;
+    --success-foreground: 145 88% 24%;
 
-    --warning: 48 96% 89%;
-    --warning-foreground: 25 95% 34%;
+    --warning: 21 85% 93%;
+    --warning-solid: 27 89% 47%;
+    --warning-foreground: 27 93% 32%;
 
-    --error: 0 93% 94%;
-    --error-foreground: 0 84% 42%;
+    --error: 7 82% 94%;
+    --error-solid: 2 98% 63%;
+    --error-foreground: 356 89% 41%;
 
     --ring: 240 5.9% 10%;
 
     --radius: 0.5rem;
+
+    --scrim: oklch(0 0 0 / 0.3);
 
     --elevation-overlay:
       0px 0px 0px 1px oklch(0 0 0 / 0.06),
@@ -197,21 +231,31 @@
 
     /* Status fills are dark tints here — the light theme's pastels under
        a bright label measured 2.3:1. Each label clears 4.6:1 on its fill. */
-    --info: 199 50% 12%;
-    --info-foreground: 199 89% 48%;
+    /* Dark status ramps: deep surfaces, solids a touch less vivid than the
+       light theme's at higher lightness; text clears 4.5:1 on the page, its
+       surface, muted and a solid/15 tint. */
+    --info: 206 77% 14%;
+    --info-solid: 206 91% 63%;
+    --info-foreground: 206 91% 63%;
 
-    --success: 160 50% 12%;
-    --success-foreground: 160 84% 39%;
+    --success: 137 59% 11%;
+    --success-solid: 140 57% 48%;
+    --success-foreground: 140 57% 47%;
 
-    --warning: 25 50% 12%;
-    --warning-foreground: 25 95% 53%;
+    --warning: 23 78% 13%;
+    --warning-solid: 24 92% 57%;
+    --warning-foreground: 24 93% 60%;
 
-    --error: 0 50% 12%;
-    --error-foreground: 0 84% 60%;
+    --error: 5 49% 17%;
+    --error-solid: 5 90% 70%;
+    --error-foreground: 5 90% 71%;
 
     --ring: 240 4.9% 83.9%;
 
     --radius: 0.5rem;
+
+    /* A light scrim vanishes on a near-black page; dim harder here. */
+    --scrim: oklch(0 0 0 / 0.6);
 
     --elevation-overlay:
       0 0 0 1px oklch(1 0 0 / 0.08),
@@ -302,6 +346,14 @@
   .btn-spinner { @apply inline-block size-4 rounded-full border-2 border-current border-r-transparent; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Skeletons wait 150ms, then fade in: a load that finishes sooner never
+     flashes one. A transition from @starting-style, not an animation, so it
+     doesn't replace the bars' own animate-pulse. */
+  .sk-delay > * {
+    transition: opacity 200ms ease-out 150ms;
+    @starting-style { opacity: 0; }
+  }
+
   [data-refreshing="true"] { opacity: 0.55; pointer-events: none; transition: opacity 120ms ease-out; }
   [data-fresh] { animation: metric-fresh 220ms ease-out both; }
   @keyframes metric-fresh { from { opacity: 0.25; } }
@@ -317,7 +369,7 @@
   .fan-drawer-section { @apply mt-4 border-t pt-3.5; }
   .fan-drawer-section h4 { @apply mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground; }
 
-  .free-chip { @apply border border-success-foreground/30 bg-success; }
+  .free-chip { @apply border border-success-solid/30 bg-success; }
 
   .engagement-reply select { @apply min-w-30 px-1.5 py-1.5 text-sm; }
 
@@ -327,12 +379,12 @@
   .process-map-legend { @apply my-4 flex flex-wrap gap-4 text-sm text-muted-foreground; }
   .process-map-legend span { @apply inline-flex items-center gap-1.5; }
   .process-map-legend i, .legend-swatch { @apply inline-block size-2.5 rounded-sm; }
-  .legend-inputs, .pm-edge-src { background: var(--color-info-foreground); stroke: var(--color-info-foreground); }
+  .legend-inputs, .pm-edge-src { background: var(--color-info-solid); stroke: var(--color-info-solid); }
   .legend-intel, .pm-edge-intel { background: var(--color-primary); stroke: var(--color-primary); }
-  .legend-auth, .pm-edge-auth { background: var(--color-warning-foreground); stroke: var(--color-warning-foreground); }
+  .legend-auth, .pm-edge-auth { background: var(--color-warning-solid); stroke: var(--color-warning-solid); }
   .legend-worker, .pm-edge-exec { background: var(--color-muted-foreground); stroke: var(--color-muted-foreground); }
-  .legend-outcome, .pm-edge-out { background: var(--color-error-foreground); stroke: var(--color-error-foreground); }
-  .legend-learning, .pm-edge-learn { background: var(--color-success-foreground); stroke: var(--color-success-foreground); }
+  .legend-outcome, .pm-edge-out { background: var(--color-error-solid); stroke: var(--color-error-solid); }
+  .legend-learning, .pm-edge-learn { background: var(--color-success-solid); stroke: var(--color-success-solid); }
   .pm-node-group { cursor: pointer; }
   .pm-node { fill: var(--color-card); stroke: var(--color-border); stroke-width: 1.5; }
   .pm-node-group:hover .pm-node { fill: var(--color-accent); stroke-width: 2.5; }
@@ -347,7 +399,7 @@
   .pm-live-stuck, .pm-live-stuck strong { color: var(--color-destructive); }
   .pm-zone { fill: transparent; stroke: var(--color-border); stroke-dasharray: 5 5; }
   .pm-zone-intel { fill: color-mix(in srgb, var(--color-primary) 4%, transparent); }
-  .pm-zone-auth { fill: color-mix(in srgb, var(--color-warning-foreground) 5%, transparent); }
+  .pm-zone-auth { fill: color-mix(in srgb, var(--color-warning-solid) 5%, transparent); }
   .pm-zt { fill: var(--color-muted-foreground); @apply text-xs font-bold tracking-widest; }
   .pm-edge { fill: none; stroke-width: 1.5; opacity: 0.65; background: none; }
   .pm-edge-learn { stroke-dasharray: 6 4; opacity: 0.5; }

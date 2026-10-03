@@ -16,7 +16,7 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { TechIdList } from '~/components/ui/TechnicalDetails'
 import { StatusBadge } from '~/components/StatusBadge'
 import { Spinner } from '~/components/Spinner'
-import { SkeletonBlock, SkeletonRows } from '~/components/Skeleton'
+import { SkeletonBlock, SkeletonPage, SkeletonRows, SkeletonSection, SkeletonTabContent } from '~/components/Skeleton'
 import { DeltaBadge, Widget } from '~/components/charts'
 import { ErrorCard } from '~/components/layout'
 import { ApiError } from '~/lib/api'
@@ -323,15 +323,26 @@ toast.info('Outbox item re-queued')`}>
     sources: ['components/ui/skeleton.tsx', 'components/Skeleton.tsx', 'components/Spinner.tsx'], keywords: 'loading placeholder pending shimmer',
     render: () => (
       <>
-        <DocSection title="Skeleton" description="shadcn Skeleton: animate-pulse rounded-md bg-muted. Compose the shape of what is coming. Skeleton.tsx holds page-level composites (SkeletonPage, SkeletonRows…).">
-          <Example class="grid gap-6 md:grid-cols-3" code={`<Skeleton class="h-4 w-48" />
-<SkeletonRows count={3} />`}>
+        <DocSection title="Page skeletons" description="Every skeleton is built from five pieces that mirror the real components — DashHeader, Tiles, dash Card, divided Rows and Split — so data lands in the boxes the skeleton drew. Nothing paints for the first 150ms, so fast loads never flash.">
+          <Example title="SkeletonPage — any route while its code loads" stage="flush" code={`// AuthenticatedApp defaultPendingComponent and the shell's Suspense fallback
+<SkeletonPage />`}>
+            <div class="max-h-[560px] overflow-hidden"><SkeletonPage /></div>
+          </Example>
+          <Example title="SkeletonTabContent — a sub-page body under a header that is already there" code={`<SubPagePanel when={…}>…</SubPagePanel>   // falls back to SkeletonTabContent`}>
+            <SkeletonTabContent />
+          </Example>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <Example title="SkeletonSection — a card loading" code={`<SkeletonSection lines={3} />`}><SkeletonSection lines={3} /></Example>
+            <Example title="SkeletonRows — a list loading" code={`<SkeletonRows count={3} />`}><SkeletonRows count={3} /></Example>
+          </div>
+        </DocSection>
+        <DocSection title="Skeleton primitive" description="shadcn Skeleton (ui/skeleton.tsx): animate-pulse rounded-md bg-muted. Inline placeholders — a table cell, one number — use it directly.">
+          <Example class="grid gap-6 md:grid-cols-2" code={`<Skeleton class="h-4 w-48" />`}>
             <div class="flex items-center gap-4">
               <Skeleton class="size-12 rounded-full" />
               <div class="flex flex-col gap-2"><Skeleton class="h-4 w-40" /><Skeleton class="h-4 w-28" /></div>
             </div>
             <SkeletonBlock height="96px" />
-            <SkeletonRows count={2} />
           </Example>
         </DocSection>
         <DocSection title="Spinner">

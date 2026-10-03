@@ -227,7 +227,7 @@ export function ChiefOfStaffPanel(props: { slug: string }) {
       }>
         <div class="mt-6 pt-4 border-t border-border">
           <div class="mt-2 flex h-3 rounded-full overflow-hidden bg-muted" role="img" aria-label={`${data().measured_improved_7d} improved, ${data().measured_neutral_7d} neutral, ${data().measured_worsened_7d} worsened`}>
-            <span class="bg-success-foreground" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
+            <span class="bg-success-solid" style={{ width: `${(data().measured_improved_7d / measured()) * 100}%` }} />
             <span class="bg-muted" style={{ width: `${(data().measured_neutral_7d / measured()) * 100}%` }} />
             <span class="bg-destructive" style={{ width: `${(data().measured_worsened_7d / measured()) * 100}%` }} />
           </div>

@@ -115,7 +115,7 @@ export function Changelog(props: { files: string[]; id?: string }) {
           <Show when={!history.error} fallback={<p class="m-0 mt-5 text-sm text-muted-foreground">Couldn’t read git history. The changelog needs the Vite dev server running inside the repository.</p>}>
             <ol class="m-0 mt-5 list-none p-0">
               <Show when={history()?.dirty.length}>
-                <li class="grid gap-1 border-l-2 border-warning-foreground py-3 pl-4 sm:grid-cols-[8rem_1fr] sm:gap-4">
+                <li class="grid gap-1 border-l-2 border-warning-solid py-3 pl-4 sm:grid-cols-[8rem_1fr] sm:gap-4">
                   <span class="text-xs font-medium text-warning-foreground">Not committed</span>
                   <div class="min-w-0">
                     <p class="m-0 text-sm">Local edits that haven’t been committed yet</p>

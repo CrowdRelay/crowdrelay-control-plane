@@ -4,6 +4,7 @@ import { DataTable, type ColumnDef } from '~/components/app/data-table'
 import { Pill, Tile, Tiles } from '~/components/ui/dash'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Callout, DocSection } from './kit'
+import { loadSourceFiles } from './source-files'
 import type { DocEntry } from './types'
 
 /**
@@ -83,11 +84,7 @@ function namesOf(clause: string): string[] {
 }
 
 async function buildModel(docs: DocEntry[]): Promise<Model> {
-  const loaders = import.meta.glob(['/src/**/*.ts', '/src/**/*.tsx', '!/src/pages/styleguide/**'], { query: '?raw', import: 'default' })
-  const sources = new Map<string, string>()
-  await Promise.all(Object.entries(loaders).map(async ([abs, load]) => {
-    sources.set(abs.replace(/^\/src\//, ''), (await load()) as string)
-  }))
+  const sources = await loadSourceFiles()
   const known = new Set(sources.keys())
   const importers = new Map<string, Set<string>>()
   const named = new Map<string, Map<string, Set<string>>>()

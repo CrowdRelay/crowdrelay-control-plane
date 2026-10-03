@@ -251,7 +251,7 @@ export function AutomationPage(props: { section: AutomationSection }) {
                     <div class="min-w-0 flex-1 space-y-1">
                       <div class="flex flex-wrap items-center gap-2">
                         <span
-                          class={cn('inline-block size-2 shrink-0 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning-foreground' : 'bg-muted-foreground')}
+                          class={cn('inline-block size-2 shrink-0 rounded-full', severityTone(ev.severity) === 'bad' ? 'bg-destructive' : severityTone(ev.severity) === 'warn' ? 'bg-warning-solid' : 'bg-muted-foreground')}
                           role="img"
                           aria-label={`severity ${ev.severity}`}
                         />
@@ -303,8 +303,8 @@ export function AutomationPage(props: { section: AutomationSection }) {
             <div class={cn(
               'mb-3 rounded-lg border px-4 py-3 text-sm',
               inspection().issues.length > 0 || inspection().failed > 0
-                ? 'border-warning-foreground/40 bg-warning-foreground/5'
-                : 'border-success-foreground/30 bg-success-foreground/5',
+                ? 'border-warning-solid/40 bg-warning-solid/5'
+                : 'border-success-solid/30 bg-success-solid/5',
             )}>
               <strong class="text-foreground">
                 Live n8n ingress: {inspection().issues.length === 0 && inspection().failed === 0 ? 'ready' : 'needs attention'}

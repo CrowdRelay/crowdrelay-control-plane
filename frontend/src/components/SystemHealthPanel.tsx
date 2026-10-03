@@ -163,7 +163,7 @@ export function SystemHealthPanel(props: { slug: string; summary: OperationsSumm
           when={conditions().length > 0}
           fallback={
             <p class="flex items-center gap-2 text-sm text-success-foreground">
-              <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-success-foreground" aria-hidden="true" />
+              <span class="inline-block h-2 w-2 shrink-0 rounded-full bg-success-solid" aria-hidden="true" />
               Nothing needs attention. The engine is running and every queue is draining.
             </p>
           }

@@ -247,11 +247,11 @@ export const layoutEntries: DocEntry[] = [
       <>
         <DocSection title="Live" description="The tinted band shows PageShell’s padding: 16px on phones, 24px from md; 24px top, 80px bottom so content clears the chat button.">
           <Example stage="flush">
-            <div class="bg-info-foreground/10">
+            <div class="bg-info-solid/10">
               <PageShell class="pb-6">
-                <div class="rounded-md border border-dashed border-info-foreground/60 bg-background p-4 text-sm text-muted-foreground">DashHeader</div>
-                <div class="rounded-md border border-dashed border-info-foreground/60 bg-background p-4 text-sm text-muted-foreground">Tiles</div>
-                <div class="rounded-md border border-dashed border-info-foreground/60 bg-background p-4 text-sm text-muted-foreground">Section · space-y-5 between children</div>
+                <div class="rounded-md border border-dashed border-info-solid/60 bg-background p-4 text-sm text-muted-foreground">DashHeader</div>
+                <div class="rounded-md border border-dashed border-info-solid/60 bg-background p-4 text-sm text-muted-foreground">Tiles</div>
+                <div class="rounded-md border border-dashed border-info-solid/60 bg-background p-4 text-sm text-muted-foreground">Section · space-y-5 between children</div>
               </PageShell>
             </div>
           </Example>

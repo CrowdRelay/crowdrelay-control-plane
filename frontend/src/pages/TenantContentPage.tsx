@@ -78,9 +78,9 @@ const statusBadge = (status: string) =>
   RESULT_STATUS[status] ?? { label: tokenLabel(status), variant: 'muted' as const }
 
 const COLUMN_DOT: Record<'warn' | 'muted' | 'accent', string> = {
-  warn: 'bg-warning-foreground',
+  warn: 'bg-warning-solid',
   muted: 'bg-muted-foreground/50',
-  accent: 'bg-info-foreground',
+  accent: 'bg-info-solid',
 }
 
 /** One stage of the board: a quiet tinted lane with its name, count and a
@@ -484,7 +484,7 @@ export function TenantContentPage(props: { section: ContentSection }) {
       {/* Failures lead, and only when there are any: they are the one thing
           on this page that did not go where it was meant to. */}
       <Show when={failed().length > 0}>
-        <section aria-labelledby="content-failed" class="rounded-xl border border-error-foreground/30 bg-error-foreground/5 p-4">
+        <section aria-labelledby="content-failed" class="rounded-xl border border-error-solid/30 bg-error-solid/5 p-4">
           <h2 id="content-failed" class="flex items-center gap-2 text-sm font-medium text-foreground">
             <AlertTriangle class="size-4 text-error-foreground" aria-hidden="true" />
             Didn't land <span class="tabular-nums text-muted-foreground">{failed().length}</span>

@@ -14,10 +14,9 @@ import type { NavGroup, NavItem } from '~/lib/nav'
  *
  * Each nav group is a sidebar group, always open — groups never fold, so
  * every destination is one glance away. A section with sub-pages (an item
- * with `children`) lands on its overview; once you are in the section its
- * sub-pages list under it, indented, and fold away again when you leave.
- * No flyout and no chevron: the sidebar shows where you are and where you
- * can go next, without a menu to open.
+ * with `children`) lands on its overview, and its sub-pages are always
+ * listed under it, indented. No flyout and no chevron: the sidebar shows
+ * where you are and where you can go next, without a menu to open.
  */
 
 // TanStack's Link marks the current route `data-status="active"`; the stock
@@ -72,7 +71,9 @@ export function NavLink(props: {
           {props.badge! > 99 ? '99+' : props.badge}
         </SidebarMenuBadge>
       </Show>
-      <Show when={hasPages() && inSection()}>
+      {/* Always listed, not only while you are inside the section (the user's
+          call, 2026-10-03): every sub-page is one click away from anywhere. */}
+      <Show when={hasPages()}>
         <SidebarMenuSub>
           <For each={props.item.children ?? []}>{child => (
             <SidebarMenuSubItem>

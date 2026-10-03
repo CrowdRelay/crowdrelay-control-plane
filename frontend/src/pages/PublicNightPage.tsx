@@ -78,14 +78,14 @@ export default function PublicNightPage(props: { slug: string; token: string }) 
             <Show when={statusBadges(data().status ?? {}).length > 0 || countdown(data().event_date)}>
               <div class="mt-3 flex flex-wrap gap-1.5">
                 <Show when={countdown(data().event_date)}>
-                  {label => <span class="rounded-full bg-info-foreground/15 px-2 py-0.5 text-xs font-medium text-info-foreground">{label()}</span>}
+                  {label => <span class="rounded-full bg-info-solid/15 px-2 py-0.5 text-xs font-medium text-info-foreground">{label()}</span>}
                 </Show>
                 <For each={statusBadges(data().status ?? {})}>
                   {badge => (
                     <span
                       class={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         badge.cancelled
-                          ? 'bg-error-foreground/15 text-error-foreground'
+                          ? 'bg-error-solid/15 text-error-foreground'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >

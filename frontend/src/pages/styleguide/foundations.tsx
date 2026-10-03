@@ -45,16 +45,20 @@ const COLOR_GROUPS: { title: string; note: string; swatches: { name: string; cla
   },
   {
     title: 'Status',
-    note: 'Inverted from what the names suggest: the plain name is the pale surface, -foreground is the strong colour. Text, icons, dots and bars use -foreground; tinted pills use -foreground/15.',
+    note: 'One hue per status, held from surface to text (success 150°, warning 50°, error 27°, info 245°, oklch). Three steps, three jobs: the plain name is the pale surface for badges and alerts; -solid is the vivid fill for dots, bars, borders and icons (3:1, never under text); -foreground is the text colour, the most vivid that still clears 4.5:1 on white, muted, its surface and a solid/15 pill.',
     swatches: [
       { name: 'success', class: 'bg-success', usage: 'Good surface' },
-      { name: 'success-foreground', class: 'bg-success-foreground', usage: 'Good text / dot' },
+      { name: 'success-solid', class: 'bg-success-solid', usage: 'Good dot, bar, icon' },
+      { name: 'success-foreground', class: 'bg-success-foreground', usage: 'Good text' },
       { name: 'warning', class: 'bg-warning', usage: 'Needs-attention surface' },
-      { name: 'warning-foreground', class: 'bg-warning-foreground', usage: 'Warn text / dot' },
+      { name: 'warning-solid', class: 'bg-warning-solid', usage: 'Warn dot, bar, icon' },
+      { name: 'warning-foreground', class: 'bg-warning-foreground', usage: 'Warn text' },
       { name: 'error', class: 'bg-error', usage: 'Failed surface' },
-      { name: 'error-foreground', class: 'bg-error-foreground', usage: 'Bad text / dot' },
-      { name: 'info', class: 'bg-info', usage: 'Neutral notice surface' },
-      { name: 'info-foreground', class: 'bg-info-foreground', usage: 'Links in rows, accent' },
+      { name: 'error-solid', class: 'bg-error-solid', usage: 'Bad dot, bar, icon' },
+      { name: 'error-foreground', class: 'bg-error-foreground', usage: 'Bad text' },
+      { name: 'info', class: 'bg-info', usage: 'Notice surface' },
+      { name: 'info-solid', class: 'bg-info-solid', usage: 'Accent dot, bar' },
+      { name: 'info-foreground', class: 'bg-info-foreground', usage: 'Links in rows' },
       { name: 'destructive', class: 'bg-destructive', usage: 'Delete button fill' },
       { name: 'destructive-foreground', class: 'bg-destructive-foreground', usage: 'Label on destructive' },
     ],
@@ -66,6 +70,7 @@ const COLOR_GROUPS: { title: string; note: string; swatches: { name: string; cla
       { name: 'border', class: 'bg-border', usage: 'Every divider and outline' },
       { name: 'input', class: 'bg-input', usage: 'Control outlines' },
       { name: 'ring', class: 'bg-ring', usage: 'Focus ring' },
+      { name: 'scrim', class: 'bg-scrim', usage: 'Dim behind dialogs & drawers' },
     ],
   },
   {
@@ -94,10 +99,10 @@ const COLOR_GROUPS: { title: string; note: string; swatches: { name: string; cla
 ]
 
 const TONES = [
-  { tone: 'good', meaning: 'Healthy, done, connected, up', text: 'text-success-foreground', pill: 'bg-success-foreground/15 text-success-foreground', badge: 'success' },
-  { tone: 'warn', meaning: 'Needs a look soon, stale, expiring', text: 'text-warning-foreground', pill: 'bg-warning-foreground/15 text-warning-foreground', badge: 'warning' },
-  { tone: 'bad', meaning: 'Failed, stopped, blocked, down', text: 'text-error-foreground', pill: 'bg-error-foreground/15 text-error-foreground', badge: 'error' },
-  { tone: 'accent', meaning: 'In progress, informational, a link in a row', text: 'text-info-foreground', pill: 'bg-info-foreground/15 text-info-foreground', badge: 'outline' },
+  { tone: 'good', meaning: 'Healthy, done, connected, up', text: 'text-success-foreground', pill: 'bg-success-solid/15 text-success-foreground', badge: 'success' },
+  { tone: 'warn', meaning: 'Needs a look soon, stale, expiring', text: 'text-warning-foreground', pill: 'bg-warning-solid/15 text-warning-foreground', badge: 'warning' },
+  { tone: 'bad', meaning: 'Failed, stopped, blocked, down', text: 'text-error-foreground', pill: 'bg-error-solid/15 text-error-foreground', badge: 'error' },
+  { tone: 'accent', meaning: 'In progress, informational, a link in a row', text: 'text-info-foreground', pill: 'bg-info-solid/15 text-info-foreground', badge: 'outline' },
   { tone: 'muted', meaning: 'Off, unknown, not reported', text: 'text-muted-foreground', pill: 'bg-muted text-muted-foreground', badge: 'secondary' },
 ] as const
 
@@ -155,7 +160,7 @@ export const foundationEntries: DocEntry[] = [
         <DocSection title="Principles">
           <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
             <li><strong class="text-foreground">Monochrome first.</strong> Structure is black, white and greys. Colour is reserved for state, so a red dot means something.</li>
-            <li><strong class="text-foreground">Semantic names only.</strong> <code>text-muted-foreground</code>, not <code>text-zinc-500</code>; <code>bg-success-foreground/15</code>, not <code>bg-green-100</code>. The token ratchet counts hex literals.</li>
+            <li><strong class="text-foreground">Semantic names only.</strong> <code>text-muted-foreground</code>, not <code>text-zinc-500</code>; <code>bg-success-solid/15</code>, not <code>bg-green-100</code>. The token ratchet counts hex literals.</li>
             <li><strong class="text-foreground">Both themes, always.</strong> Toggle the theme at the top right; every swatch re-reads its value. If something only looks right in one theme, it is using the wrong token.</li>
             <li><strong class="text-foreground">Contrast is measured.</strong> Every -foreground clears 4.5:1 as 12px text on its own tint and on muted. Do not lighten them.</li>
           </ul>
@@ -265,7 +270,7 @@ export const foundationEntries: DocEntry[] = [
           <div>
             <For each={SPACING}>{s => (
               <Specimen label={`${s.token} · ${s.px}px`} note={s.use}>
-                <div class={cn('h-4 rounded-sm bg-info-foreground/60', SPACE_W[s.token])} />
+                <div class={cn('h-4 rounded-sm bg-info-solid/60', SPACE_W[s.token])} />
               </Specimen>
             )}</For>
           </div>
@@ -378,7 +383,10 @@ export const foundationEntries: DocEntry[] = [
           <Specimen label="transition-colors · 150ms" note="Hover and focus on rows, buttons, links">
             <Button variant="outline">Hover me</Button>
           </Specimen>
-          <Specimen label="content-show / hide · 200ms" note="Dialogs, popovers, menus open and close" ><span class="text-sm text-muted-foreground">scale 0.96 → 1, fade</span></Specimen>
+          <Specimen label="animate-content-show · 200ms / content-hide · 150ms" note="Dialogs, confirmations, popovers, menus" ><span class="text-sm text-muted-foreground">scale 0.96 → 1 with a fade; closing is shorter than opening</span></Specimen>
+          <Specimen label="animate-overlay-show · 200ms / overlay-hide · 150ms" note="The scrim behind dialogs and drawers"><span class="text-sm text-muted-foreground">opacity only</span></Specimen>
+          <Specimen label="animate-quick-show · 120ms / quick-hide · 100ms" note="High-frequency overlays: ⌘K palette, tooltips"><span class="text-sm text-muted-foreground">opacity only — no scale or slide on things opened all day</span></Specimen>
+          <Specimen label="sheet · 300ms in / 200ms out" note="FormDrawer and the phone sidebar"><span class="text-sm text-muted-foreground">slides from its edge — the direction says where it lives</span></Specimen>
           <Specimen label="sidebar · 200ms linear" note="Expand / collapse to the icon rail"><span class="text-sm text-muted-foreground">width transition</span></Specimen>
           <Specimen label="animate-pulse" note="Skeletons only"><div class="h-4 w-48 animate-pulse rounded-md bg-muted" /></Specimen>
           <Specimen label="prefers-reduced-motion" note="styles/tailwind.css cuts every animation to 0.01ms"><span class="text-sm text-muted-foreground">Nothing moves; open / close events still fire.</span></Specimen>

@@ -79,8 +79,8 @@ export function SettingsFirstScreen(props: { slug: string; tenant: TenantSummary
               <Row class="text-xs">
                 <span class="min-w-0 flex-1 text-foreground">{AREA_LABEL[policy.context]}</span>
                 <span class="inline-flex overflow-hidden rounded-md border border-border">
-                  <span class={cn('px-2 py-0.5', !alone(policy) ? 'bg-info-foreground/15 text-info-foreground' : 'text-muted-foreground')}>{suggest(policy) ? 'suggest' : 'ask'}</span>
-                  <span class={cn('px-2 py-0.5', alone(policy) ? 'bg-info-foreground/15 text-info-foreground' : 'text-muted-foreground')}>alone</span>
+                  <span class={cn('px-2 py-0.5', !alone(policy) ? 'bg-info-solid/15 text-info-foreground' : 'text-muted-foreground')}>{suggest(policy) ? 'suggest' : 'ask'}</span>
+                  <span class={cn('px-2 py-0.5', alone(policy) ? 'bg-info-solid/15 text-info-foreground' : 'text-muted-foreground')}>alone</span>
                 </span>
               </Row>
             )}</For>
