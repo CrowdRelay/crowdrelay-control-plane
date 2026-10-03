@@ -14,3 +14,13 @@ assert "<Ring" in SCORECARD
 assert "components/ProgressRing" not in DATA_GUIDE
 assert "ProgressRing" not in DATA_GUIDE
 assert not (ROOT / "frontend/src/components/ProgressRing.tsx").exists()
+
+LAYOUT = (ROOT / "frontend/src/components/layout.tsx").read_text(encoding="utf-8")
+METRIC = (ROOT / "frontend/src/components/ui/metric.tsx").read_text(encoding="utf-8")
+
+assert "export function CommandBlock" not in LAYOUT
+assert "export function DataRow" not in LAYOUT
+assert "rounded-lg bg-muted/55" in METRIC
+assert "grid gap-2.5" in METRIC
+assert "grid border-y border-border" not in METRIC
+assert "return <MetricRow class={cn('mb-3'" in LAYOUT
