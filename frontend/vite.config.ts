@@ -3,6 +3,7 @@ import solid from 'vite-plugin-solid'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 import { apiMock } from './mock/api-mock-plugin'
+import { styleguideHistory } from './dev/styleguide-history-plugin'
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -20,7 +21,9 @@ export default defineConfig(({ command, mode }) => {
   const apiTarget = env.CONTROL_PLANE_API_URL?.trim() || 'http://127.0.0.1:8090'
 
   return {
-    plugins: [tailwindcss(), solid(), apiMock({ root: fileURLToPath(new URL('.', import.meta.url)), always: mockApi, apiTarget, adminToken })],
+    plugins: [tailwindcss(), solid(), apiMock({ root: fileURLToPath(new URL('.', import.meta.url)), always: mockApi, apiTarget, adminToken }),
+      // Dev only: git history behind the style guide's "updated" dates and changelogs.
+      styleguideHistory({ root: fileURLToPath(new URL('.', import.meta.url)) })],
     resolve: {
       alias: {
         '~': fileURLToPath(new URL('./src', import.meta.url)),

@@ -38,7 +38,7 @@ const AuthenticatedApp = lazy(() => import('./AuthenticatedApp').then((module) =
 // primitives only and issues no queries.
 const isLocalStyleGuide = import.meta.env.DEV
   && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
-  && window.location.pathname.replace(/\/$/, '') === '/styleguide'
+  && ['/styleguide', '/style-guide'].includes(window.location.pathname.replace(/\/$/, ''))
 
 // The organiser's night link: `/nights/{tenant}/{token}` — a bearer-token
 // read a workspace on the bill minted for its promoter (4V.6b). Renders
@@ -58,7 +58,7 @@ const WithColorMode = (props: { children: JSX.Element }) => (
 )
 
 if (isLocalStyleGuide) {
-  const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'))
+  const StyleGuidePage = lazy(() => import('./pages/styleguide/StyleGuidePage'))
   render(() => <WithColorMode><StyleGuidePage /></WithColorMode>, document.getElementById('app')!)
 } else if (nightMatch && PublicNightPage) {
   const slug = nightMatch[1]!
