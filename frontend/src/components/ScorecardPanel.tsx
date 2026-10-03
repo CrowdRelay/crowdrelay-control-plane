@@ -5,7 +5,7 @@ import { authState } from '../lib/auth'
 import { formatTimestamp } from '../lib/format'
 import type { AgentScorecard } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
-import { ProgressRing } from './ProgressRing'
+import { Ring } from './charts'
 import { SkeletonScorecard } from './Skeleton'
 import { SectionIcon } from './SectionIcon'
 import { Button } from './app/button'
@@ -162,7 +162,20 @@ export function ScorecardPanel(props: { slug: string; data?: AgentScorecard }) {
             label="Success rate"
             value={
               <Show when={d().week.success_rate_basis_points != null} fallback={<>—</>}>
-                <ProgressRing value={Math.round((d().week.success_rate_basis_points as number) / 100)} size={44} strokeWidth={4} showValue />
+                <Ring
+                  value={(d().week.success_rate_basis_points as number) / 10_000}
+                  label={`Success rate ${bpsToPercent(d().week.success_rate_basis_points)}`}
+                  class="size-11"
+                  arcClass={(d().week.success_rate_basis_points as number) >= 7500
+                    ? 'stroke-success-solid'
+                    : (d().week.success_rate_basis_points as number) >= 5000
+                      ? 'stroke-warning-solid'
+                      : 'stroke-destructive'}
+                >
+                  <span class="text-[10px] font-semibold tabular-nums">
+                    {Math.round((d().week.success_rate_basis_points as number) / 100)}%
+                  </span>
+                </Ring>
               </Show>
             }
             sub="of actions that resolved"

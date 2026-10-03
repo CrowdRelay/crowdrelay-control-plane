@@ -35,7 +35,6 @@ import { Bar, ItemRow, MoreRow, Pill, Ring as DashRing, RowButton, StatRow, Step
 import { CommandBlock, DataRow, ShowMore } from '~/components/layout'
 import { StatusBadge } from '~/components/StatusBadge'
 import { Sparkline } from '~/components/Sparkline'
-import { ProgressRing } from '~/components/ProgressRing'
 import { FunnelChart } from '~/components/FunnelChart'
 import { BarList, Donut, Legend, Ring, StackBar } from '~/components/charts'
 import { JourneyCard, JourneySteps } from '~/components/Journey'
@@ -631,7 +630,7 @@ export const dataEntries: DocEntry[] = [
   {
     id: 'charts', tab: 'components', group: 'Data viz', title: 'Charts', status: 'stable',
     summary: 'Small, honest charts: share bars, rings, donut, stack bar, bar list, sparkline, funnel.',
-    sources: ['components/charts.tsx', 'components/Sparkline.tsx', 'components/ProgressRing.tsx', 'components/FunnelChart.tsx', 'lib/charts.ts'],
+    sources: ['components/charts.tsx', 'components/Sparkline.tsx', 'components/FunnelChart.tsx', 'lib/charts.ts'],
     keywords: 'chart graph donut ring bar sparkline funnel visualization',
     render: () => (
       <>
@@ -657,11 +656,11 @@ export const dataEntries: DocEntry[] = [
             </div>
           </Example>
         </DocSection>
-        <DocSection title="Rings" description="Three ring components exist: charts Ring (large, centred children), dash Ring (56px countdown) and ProgressRing (labelled). Prefer charts Ring for new work.">
+        <DocSection title="Rings" description="Two ring components remain: charts Ring for percentage/health visualisation and dash Ring for compact countdowns. Prefer charts Ring for new work.">
           <Example class="flex flex-wrap items-center gap-8">
             <Ring value={0.71} label="Tickets sold"><span class="text-xl font-semibold tabular-nums">71%</span></Ring>
             <DashRing share={0.4} label="4d" tone="warn" title="4 days left" />
-            <ProgressRing value={86} tone="good" label="Delivery" />
+            <Ring value={0.86} label="Delivery" class="size-12" arcClass="stroke-success-solid"><span class="text-xs font-semibold tabular-nums">86%</span></Ring>
           </Example>
         </DocSection>
         <DocSection title="Sparkline & Funnel">

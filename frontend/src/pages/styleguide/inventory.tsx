@@ -32,7 +32,7 @@ type Model = {
 
 const COMPOSITES = new Set([
   'components/layout.tsx', 'components/charts.tsx', 'components/Journey.tsx', 'components/Skeleton.tsx',
-  'components/StatusBadge.tsx', 'components/Spinner.tsx', 'components/Sparkline.tsx', 'components/ProgressRing.tsx',
+  'components/StatusBadge.tsx', 'components/Spinner.tsx', 'components/Sparkline.tsx',
   'components/FunnelChart.tsx', 'components/KpiValue.tsx', 'components/NavIcon.tsx', 'components/SectionIcon.tsx',
   'components/Dialog.tsx', 'components/ModeToggle.tsx', 'components/TenantSwitcher.tsx', 'components/ErrorBoundaryPanel.tsx',
   'components/SectionFailureCard.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx',
@@ -228,8 +228,8 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Cards', why: 'Four bordered-block components with different padding and radius (dash Card is rounded-xl, the others rounded-lg).',
-    action: 'Dash Card for dashboard blocks, stock Card for standalone panels and forms. Fold Widget and SectionPanel into those; align dash Card to rounded-lg.',
+    title: 'Cards', why: 'Four bordered-block components remain even though the two canonical Cards now share one rounded-lg geometry.',
+    action: 'Dash Card for dashboard blocks, stock Card for standalone panels and forms. Fold Widget and SectionPanel into those; keep both canonical Cards on rounded-lg.',
     items: [
       { module: 'components/ui/dash.tsx', name: 'Card', label: 'Card (dash)', keep: true },
       { module: 'components/app/card.tsx', name: 'Card', label: 'Card (app)', keep: true },
@@ -238,12 +238,11 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Rings', why: 'Three ring charts with different sizes and APIs.',
-    action: 'Keep charts Ring; give it a small size and a tone, then retire dash Ring and ProgressRing.',
+    title: 'Rings', why: 'Two ring charts remain with different APIs.',
+    action: 'Keep charts Ring for percentage/health visualisation; retire dash Ring when countdown callers are migrated.',
     items: [
       { module: 'components/charts.tsx', name: 'Ring', label: 'Ring (charts)', keep: true },
       { module: 'components/ui/dash.tsx', name: 'Ring', label: 'Ring (dash)' },
-      { module: 'components/ProgressRing.tsx', name: 'ProgressRing' },
     ],
   },
   {

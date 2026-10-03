@@ -13,7 +13,7 @@ import { SkeletonTabContent } from '../Skeleton'
 //   header        DashHeader   title text-xl/medium, date text-xs muted
 //   .pill         Pill         tinted chip per tone
 //   .m            Tile         bg-muted/55, rounded-lg — a number with context
-//   .c            Card         bg-card, border, rounded-xl — one block
+//   .c            Card         bg-card, border, rounded-lg — one block
 //   .h            (Card title) text-sm/medium with an icon
 //   .row          Row          divided row, text-sm, py-2
 //   .bar          Bar          label, track, value
@@ -120,7 +120,7 @@ export function Card(props: {
   tone?: 'warn'
 }) {
   return (
-    <section class={cn('min-w-0 rounded-xl border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-solid/50' : 'border-border', props.class)}>
+    <section class={cn('min-w-0 rounded-lg border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-solid/50' : 'border-border', props.class)}>
       <Show when={props.title || props.aside}>
         <div class="flex items-baseline justify-between gap-3">
           <h2 class="m-0 flex items-center gap-1.5 text-sm font-medium text-foreground">
