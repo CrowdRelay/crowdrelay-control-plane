@@ -47,7 +47,7 @@ const SheetOverlay = <T extends ValidComponent = "div">(
   return (
     <SheetPrimitive.Overlay
       class={cn(
-        "fixed inset-0 z-50 bg-scrim backdrop-blur-xs data-[expanded=]:animate-overlay-show data-[closed=]:animate-overlay-hide",
+        "fixed inset-0 z-50 bg-scrim data-[expanded=]:animate-overlay-show data-[closed=]:animate-overlay-hide",
         local.class
       )}
       {...others}
@@ -56,7 +56,7 @@ const SheetOverlay = <T extends ValidComponent = "div">(
 }
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-overlay ease-out data-[closed=]:duration-200 data-[expanded=]:duration-300 data-[expanded=]:animate-in data-[closed=]:animate-out",
+  "fixed z-50 gap-4 bg-background p-6 ease-out data-[closed=]:duration-150 data-[expanded=]:duration-200 data-[expanded=]:animate-in data-[closed=]:animate-out",
   {
     variants: {
       position: {
