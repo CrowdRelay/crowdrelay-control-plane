@@ -13,7 +13,7 @@ import { SkeletonTabContent } from '../Skeleton'
 //   header        DashHeader   title text-xl/medium, date text-xs muted
 //   .pill         Pill         tinted chip per tone
 //   .m            Tile         bg-muted/55, rounded-lg — a number with context
-//   .c            Card         bg-card, border, rounded-xl — one block
+//   .c            Card         bg-card, border, rounded-lg — one block
 //   .h            (Card title) text-sm/medium with an icon
 //   .row          Row          divided row, text-sm, py-2
 //   .bar          Bar          label, track, value
