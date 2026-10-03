@@ -9,14 +9,14 @@ import { Textarea } from './ui/textarea'
 import type { ChatMessage, ChatAction } from '../lib/types'
 import { READ_ONLY_REASON, readOnly, writeGuard } from '../lib/read-only'
 import { Button } from './app/button'
-import { SparkIcon, CloseIcon, SendIcon } from './chat-icons'
+import { SparkIcon, SendIcon } from './chat-icons'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet'
 import { renderMarkdown } from '../lib/chat-markdown'
 import { CHAT_SUGGESTIONS, BAND_CHAT_SUGGESTIONS, readChatStream, stripActions } from '../lib/chat-stream'
 import { runChatAction } from '../lib/chat-actions'
 import { Square } from 'lucide-solid'
 
-export function ChatWidget(props: { slug: string }) {
-  const [open, setOpen] = createSignal(false)
+export function ChatWidget(props: { slug: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [messages, setMessages] = createSignal<ChatMessage[]>([])
   const [input, setInput] = createSignal('')
   const [loading, setLoading] = createSignal(false)
@@ -29,7 +29,6 @@ export function ChatWidget(props: { slug: string }) {
 
   let scrollRef: HTMLDivElement | undefined
   let inputRef: HTMLTextAreaElement | undefined
-  let panelRef: HTMLDivElement | undefined
   let abortController: AbortController | null = null
 
   // Auto-scroll to bottom on new messages or streaming text
@@ -43,68 +42,10 @@ export function ChatWidget(props: { slug: string }) {
 
   // Focus input when opened
   createEffect(() => {
-    if (open() && inputRef) {
+    if (props.open && inputRef) {
       const t = setTimeout(() => { if (inputRef) inputRef.focus() }, 100)
       onCleanup(() => clearTimeout(t))
     }
-  })
-
-  // Lock body scroll while the chat is open so touch scrolling on mobile
-  // does not chain through to the page underneath. The cleanup restores
-  // the original overflow when the chat closes or the component unmounts.
-  createEffect(() => {
-    if (open()) {
-      const previous = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      onCleanup(() => { document.body.style.overflow = previous })
-    }
-  })
-
-  // Android Chrome sizes `100vh` (and a fixed element's containing block) to
-  // the *large* viewport — the one you get with the URL bar retracted. A
-  // full-screen panel anchored to the bottom therefore starts above the top of
-  // what you can actually see, taking its header, and with it the close
-  // button, off screen: on a Pixel the chat could be opened and not shut. The
-  // visual viewport is the only thing that knows the real visible box, and it
-  // is also what shrinks when the soft keyboard comes up, so the panel follows
-  // it directly instead of trusting a viewport unit.
-  createEffect(() => {
-    if (!open()) return
-    const viewport = window.visualViewport
-    if (!viewport) return
-
-    const fullScreen = window.matchMedia('(max-width: 480px)')
-
-    const fit = () => {
-      if (!panelRef) return
-      // Only the full-screen layout is pinned this way; the desktop panel is a
-      // floating card and keeps its own size. The media query is the same one
-      // the stylesheet switches on, so the two cannot disagree.
-      // A backgrounded or hidden tab reports a zero-height visual viewport;
-      // writing that back would collapse the panel to nothing, so leave the
-      // CSS height in place until there is a real measurement again.
-      if (!fullScreen.matches || viewport.height <= 0) {
-        panelRef.style.removeProperty('height')
-        panelRef.style.removeProperty('transform')
-        return
-      }
-      panelRef.style.height = `${viewport.height}px`
-      // offsetTop is non-zero while the page is pinch-zoomed or the keyboard
-      // has pushed the visual viewport down.
-      panelRef.style.transform = viewport.offsetTop > 0 ? `translateY(${viewport.offsetTop}px)` : ''
-    }
-
-    fit()
-    viewport.addEventListener('resize', fit)
-    viewport.addEventListener('scroll', fit)
-    window.addEventListener('orientationchange', fit)
-    fullScreen.addEventListener('change', fit)
-    onCleanup(() => {
-      viewport.removeEventListener('resize', fit)
-      viewport.removeEventListener('scroll', fit)
-      window.removeEventListener('orientationchange', fit)
-      fullScreen.removeEventListener('change', fit)
-    })
   })
 
   const pageContext = () => {
@@ -260,34 +201,9 @@ export function ChatWidget(props: { slug: string }) {
     }
   }
 
-  // The launcher unmounts while the panel is open, so closing marks the
-  // remount to take focus back — keyboard users land where they started.
-  let returnFocus = false
-  const close = () => { returnFocus = true; setOpen(false) }
-  const focusLauncher = (el: HTMLButtonElement) => {
-    if (!returnFocus) return
-    returnFocus = false
-    queueMicrotask(() => el.focus())
-  }
-  // aria-modal promises the page behind is out of reach; keep Tab inside.
-  const trapTab = (e: KeyboardEvent) => {
-    if (e.key !== 'Tab' || !panelRef) return
-    const items = [...panelRef.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')]
-    if (!items.length) return
-    const first = items[0]!, last = items[items.length - 1]!
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-  }
+  const close = () => props.onOpenChange(false)
 
-  // Close on Escape
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && open()) close()
-  }
-  document.addEventListener('keydown', onKey)
-  onCleanup(() => {
-    document.removeEventListener('keydown', onKey)
-    abortController?.abort()
-  })
+  onCleanup(() => abortController?.abort())
 
   return (
     <>
@@ -346,18 +262,90 @@ export function ChatWidget(props: { slug: string }) {
                 const isStreamingMsg = () =>
                   streaming() && msg.role === 'assistant' && index() === messages().length - 1
                 return (
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent
+        position="right"
+        class="flex h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[28rem]"
+      >
+        <SheetHeader class="shrink-0 border-b px-4 py-3 pr-12 text-left">
+          <div class="flex items-center gap-2">
+            <SparkIcon />
+            <div class="min-w-0">
+              <SheetTitle class="text-sm">CrowdRelay</SheetTitle>
+              <SheetDescription class="text-xs">
+                {authState.isPlatformLevel()
+                  ? 'Ask about operations, growth, or platform health.'
+                  : 'Ask about this tenant, its fans, shows, and growth.'}
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div
+          class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
+          ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-label="Chat conversation"
+        >
+          <Show when={messages().length === 0}>
+            <div class="flex h-full flex-col justify-center gap-4 py-8">
+              <div>
+                <h3 class="m-0 text-sm font-semibold text-foreground">What do you need?</h3>
+                <p class="m-0 mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {authState.isPlatformLevel()
+                    ? 'Ask about operations, growth metrics, autopilot, or platform health.'
+                    : 'Ask about your shows, fans, or what CrowdRelay decided.'}
+                </p>
+              </div>
+              <div class="flex flex-col gap-2">
+                <For each={authState.isPlatformLevel() ? CHAT_SUGGESTIONS : BAND_CHAT_SUGGESTIONS}>
+                  {(s) => (
+                    <Button
+                      writes
+                      variant="outline"
+                      class="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm font-normal text-muted-foreground hover:text-foreground"
+                      onClick={() => send(s)}
+                    >
+                      {s}
+                    </Button>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          <For each={messages()}>
+            {(msg, index) => {
+              const isStreamingMsg = () =>
+                streaming() && msg.role === 'assistant' && index() === messages().length - 1
+              return (
                 <div class={cn('flex flex-col gap-1', msg.role === 'user' ? 'items-end' : 'items-start')}>
                   <Show
                     when={isStreamingMsg()}
-                    fallback={<div data-slot="chat-message" class={cn('max-w-[80%] rounded-lg px-4 py-2.5 text-sm leading-relaxed break-words', msg.role === 'user' ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-card text-foreground')} innerHTML={renderMarkdown(msg.content, props.slug)} />}
+                    fallback={
+                      <div
+                        data-slot="chat-message"
+                        class={cn(
+                          'break-words text-sm leading-relaxed',
+                          msg.role === 'user'
+                            ? 'max-w-[85%] rounded-lg bg-muted px-3 py-2 text-foreground'
+                            : 'w-full py-1 text-foreground',
+                        )}
+                        innerHTML={renderMarkdown(msg.content, props.slug)}
+                      />
+                    }
                   >
-                    {/* During streaming, render as a text node so the text
-                        grows smoothly without DOM rebuilds / blinking.
-                        Markdown is applied once streaming completes. */}
-                    <div data-slot="chat-message" class="max-w-[80%] rounded-lg rounded-bl-sm bg-card text-foreground px-4 py-2.5 text-sm leading-relaxed break-words">{streamingContent()}</div>
+                    <div
+                      data-slot="chat-message"
+                      class="w-full break-words py-1 text-sm leading-relaxed text-foreground"
+                    >
+                      {streamingContent()}
+                    </div>
                   </Show>
+
                   <Show when={msg.actions && msg.actions.length > 0}>
-                    <div class="flex flex-wrap gap-2 mt-2">
+                    <div class="mt-2 flex flex-wrap gap-2">
                       <For each={msg.actions}>
                         {(action) => (
                           <Button
@@ -374,67 +362,70 @@ export function ChatWidget(props: { slug: string }) {
                       </For>
                     </div>
                   </Show>
-                  {/* Blinking cursor while streaming the current assistant message */}
+
                   <Show when={isStreamingMsg()}>
-                    <span class="inline-block w-2 h-4 bg-foreground animate-pulse" />
+                    <span class="inline-block h-4 w-2 animate-pulse bg-foreground" />
                   </Show>
                 </div>
-                )
+              )
+            }}
+          </For>
+        </div>
+
+        <Show when={error()}>
+          <ErrorCard class="mx-3 mb-2 p-3">{error()}</ErrorCard>
+        </Show>
+
+        <div class="shrink-0 border-t p-3">
+          <div class="flex items-end gap-2">
+            <Textarea
+              ref={inputRef}
+              class="flex-1 resize-none"
+              aria-label="Message CrowdRelay"
+              placeholder={authState.isPlatformLevel()
+                ? 'Ask about operations, growth, or autopilot…'
+                : 'Ask about your shows, fans, or growth…'}
+              value={input()}
+              onInput={(e) => setInput(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send()
+                }
               }}
-            </For>
-          </div>
+              rows={1}
+              maxlength={4000}
+              {...writeGuard()}
+            />
 
-          <Show when={error()}>
-            <ErrorCard class="p-3">{error()}</ErrorCard>
-          </Show>
+            <Show when={streaming()}>
+              <Button
+                variant="destructive"
+                size="icon"
+                class="shrink-0"
+                onClick={stopStreaming}
+                aria-label="Stop streaming"
+                title="Stop"
+              >
+                <Square size={14} fill="currentColor" aria-hidden="true" />
+              </Button>
+            </Show>
 
-          <div class="border-t border-border p-3 flex-shrink-0">
-            <div class="flex items-end gap-2">
-              <Textarea
-                ref={inputRef}
-                class="flex-1 resize-none"
-                aria-label="Message the assistant"
-                placeholder={authState.isPlatformLevel() ? 'Ask about operations, growth, or autopilot…' : 'Ask about your shows, fans, or growth…'}
-                value={input()}
-                onInput={(e) => setInput(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    send()
-                  }
-                }}
-                rows={1}
-                maxlength={4000}
-                {...writeGuard()}
-              />
-              <Show when={streaming()}>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  class="flex-shrink-0"
-                  onClick={stopStreaming}
-                  aria-label="Stop streaming"
-                  title="Stop"
-                >
-                  <Square size={14} fill="currentColor" aria-hidden="true" />
-                </Button>
-              </Show>
-              <Show when={!streaming()}>
-                <Button
-                  writes
-                  size="icon"
-                  class="flex-shrink-0"
-                  disabled={loading() || !input().trim()}
-                  onClick={() => send()}
-                  aria-label="Send message"
-                >
-                  <SendIcon />
-                </Button>
-              </Show>
-            </div>
+            <Show when={!streaming()}>
+              <Button
+                writes
+                size="icon"
+                class="shrink-0"
+                disabled={loading() || !input().trim()}
+                onClick={() => send()}
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </Button>
+            </Show>
           </div>
         </div>
-      </Show>
-    </>
+      </SheetContent>
+    </Sheet>
   )
 }
