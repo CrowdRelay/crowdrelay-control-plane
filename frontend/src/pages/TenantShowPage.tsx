@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { api } from '../lib/api'
 import type { ShowTimelineState, ShowTimelineStep, TenantShowHelpersResponse, TenantShowPageModel } from '../lib/types'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
-import { PageShell, PageHeader } from '../components/layout'
+import { PageShell } from '../components/layout'
 import { Act, Bar, Card, DashHeader, Note, Split, StatRow, Tile, Tiles, WorkAreaPanel, WorkAreas, toneText, useWorkAreas, type Tone } from '../components/ui/dash'
 import { cn } from '../lib/cn'
 import { SectionFailureCard } from '../components/SectionFailureCard'
@@ -61,7 +61,7 @@ export function TenantShowPage() {
       <Show when={model.data} fallback={
         <>
           <Show when={model.error}>
-            <PageHeader eyebrow="SHOW" title="Show" />
+            <DashHeader title="Show" />
             <SectionFailureCard
               error={model.error}
               title="Couldn't load this show"

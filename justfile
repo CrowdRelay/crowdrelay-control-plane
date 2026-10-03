@@ -39,6 +39,7 @@ script-test:
     python3 scripts/test_destination_count_ratchet.py
     python3 scripts/test_design_tokens.py
     python3 scripts/test_overview_surface_contract.py
+    python3 scripts/test_chat_shell_contract.py
     python3 scripts/test_capability_map.py
     python3 scripts/test_capability_fields_contract.py
     python3 scripts/test_management_bootstrap_blocks.py

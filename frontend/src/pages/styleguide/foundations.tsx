@@ -113,7 +113,6 @@ const TYPE_SCALE = [
   { token: 'text-lg', size: '18 / 28', use: 'Lead section, doc headings' },
   { token: 'text-xl', size: '20 / 28', use: 'Page title (DashHeader)' },
   { token: 'text-2xl', size: '24 / 32', use: 'Metric values (Tile, Metric)' },
-  { token: 'text-3xl', size: '30 / 36', use: 'Legacy PageHeader only' },
 ]
 const SCALE_CLASS: Record<string, string> = {
   'text-xs': 'text-xs', 'text-sm': 'text-sm', 'text-base': 'text-base', 'text-lg': 'text-lg',
@@ -212,7 +211,7 @@ export const foundationEntries: DocEntry[] = [
             <Card class="p-5"><p class="m-0 text-xs text-muted-foreground">font-mono · tabular-nums</p><p class="m-0 mt-2 font-mono text-2xl tabular-nums">1,284 · 918 · 71%</p><p class="m-0 mt-1 font-mono text-sm text-muted-foreground">tenant_id=virya</p></Card>
           </div>
         </DocSection>
-        <DocSection title="Scale" description="Seven steps in use. text-sm is the body size; most of the console is text-sm and text-xs.">
+        <DocSection title="Scale" description="Six steps in use. text-sm is the body size; most of the console is text-sm and text-xs.">
           <div>
             <For each={TYPE_SCALE}>{t => (
               <Specimen label={`${t.token} · ${t.size}`} note={t.use}>
@@ -227,7 +226,7 @@ export const foundationEntries: DocEntry[] = [
             <Specimen label="font-normal · 400" note="Body"><span class="text-base font-normal">Three bands share the bill</span></Specimen>
             <Specimen label="font-medium · 500" note="Card titles, labels, metric values"><span class="text-base font-medium">Three bands share the bill</span></Specimen>
             <Specimen label="font-semibold · 600" note="Page and section headings"><span class="text-base font-semibold">Three bands share the bill</span></Specimen>
-            <Specimen label="font-bold · 700" note="Rare — count pills, legacy headers"><span class="text-base font-bold">Three bands share the bill</span></Specimen>
+            <Specimen label="font-bold · 700" note="Rare — count pills"><span class="text-base font-bold">Three bands share the bill</span></Specimen>
           </div>
         </DocSection>
         <DocSection title="Text roles" description="Which component owns each style. If you need one of these, use that component.">
@@ -338,7 +337,7 @@ export const foundationEntries: DocEntry[] = [
   {
     id: 'iconography', tab: 'foundations', group: 'Foundations', title: 'Iconography',
     summary: 'Lucide (lucide-solid) only. 16px in controls, 18px in the sidebar, one icon per meaning.',
-    sources: ['components/NavIcon.tsx', 'components/SectionIcon.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx', 'components/chat-icons.tsx'], keywords: 'icons lucide svg',
+    sources: ['components/NavIcon.tsx', 'components/SectionIcon.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx'], keywords: 'icons lucide svg',
     render: () => (
       <>
         <DocSection title="Rules">

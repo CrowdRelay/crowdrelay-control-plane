@@ -35,7 +35,7 @@ const COMPOSITES = new Set([
   'components/StatusBadge.tsx', 'components/Spinner.tsx', 'components/Sparkline.tsx', 'components/ProgressRing.tsx',
   'components/FunnelChart.tsx', 'components/KpiValue.tsx', 'components/NavIcon.tsx', 'components/SectionIcon.tsx',
   'components/Dialog.tsx', 'components/ModeToggle.tsx', 'components/TenantSwitcher.tsx', 'components/ErrorBoundaryPanel.tsx',
-  'components/SectionFailureCard.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx', 'components/chat-icons.tsx',
+  'components/SectionFailureCard.tsx', 'components/ProviderIcon.tsx', 'components/provider-icons.tsx',
 ])
 
 function layerOf(path: string): Layer {
@@ -217,11 +217,6 @@ const GROUPS: Group[] = [
       { module: 'components/ui/metric.tsx', name: 'MetricRow' }, { module: 'components/ui/metric.tsx', name: 'Metric' },
       { module: 'components/layout.tsx', name: 'CommandBlock' }, { module: 'components/KpiValue.tsx', name: 'KpiValue' },
     ],
-  },
-  {
-    title: 'Page headers', why: 'DashHeader is the page title almost everywhere; PageHeader is the older, larger one.',
-    action: 'Move the remaining PageHeader pages to DashHeader and delete PageHeader.',
-    items: [{ module: 'components/ui/dash.tsx', name: 'DashHeader', keep: true }, { module: 'components/layout.tsx', name: 'PageHeader' }],
   },
   {
     title: 'Tabs inside pages', why: 'Sub-pages replaced in-page tabs, but two tab systems remain.',
