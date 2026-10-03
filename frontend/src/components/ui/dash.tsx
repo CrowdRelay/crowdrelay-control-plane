@@ -120,7 +120,7 @@ export function Card(props: {
   tone?: 'warn'
 }) {
   return (
-    <section class={cn('min-w-0 rounded-xl border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-solid/50' : 'border-border', props.class)}>
+    <section class={cn('min-w-0 rounded-lg border bg-card px-4 py-3.5', props.tone === 'warn' ? 'border-warning-solid/50' : 'border-border', props.class)}>
       <Show when={props.title || props.aside}>
         <div class="flex items-baseline justify-between gap-3">
           <h2 class="m-0 flex items-center gap-1.5 text-sm font-medium text-foreground">
