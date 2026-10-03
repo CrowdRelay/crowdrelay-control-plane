@@ -200,7 +200,9 @@ export const TENANT_NAV_GROUPS: NavGroup[] = [
         { segment: 'switches', label: 'Switches' },
       ] },
       { path: '/tenants/$slug/integrations', label: 'AI Integrations', exact: false, icon: 'integrations', children: [
-        { segment: 'providers', label: 'Providers, tasks and schedules' },
+        { segment: 'providers', label: 'Providers' },
+        { segment: 'tasks', label: 'Tasks and schedules' },
+        { segment: 'usage', label: 'Usage and cost' },
       ] },
       { path: '/tenants/$slug/automation', label: 'Automation', exact: false, icon: 'automation', children: [
         { segment: 'routing', label: 'Workflow routing' },

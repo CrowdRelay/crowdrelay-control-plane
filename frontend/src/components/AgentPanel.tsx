@@ -8,11 +8,11 @@ import { confidencePercent, formatIsoAge } from '../lib/format'
 import { refreshQueries } from '../lib/refresh'
 import { StatusBadge } from './StatusBadge'
 import { Dialog, confirmAction } from './Dialog'
-import { TabBar, TabPanel, useTabPanels, ErrorCard, Section } from './layout'
+import { ErrorCard, Section } from './layout'
 import { Alert } from './app/alert'
+import { Link } from '@tanstack/solid-router'
 import { AgentProvidersPanel } from './AgentProvidersPanel'
 import { AIUsagePanel } from './AIUsagePanel'
-import { IntelligenceTransparencyPanel } from './IntelligenceTransparencyPanel'
 import { EmptyState } from './ui/empty-state'
 import { SkeletonGrid, SkeletonRows } from './Skeleton'
 import { Button } from './app/button'
@@ -45,10 +45,13 @@ const priorityTone = (p: string): 'good' | 'warn' | 'muted' =>
 const MAX_VISIBLE_SUGGESTIONS = 4
 const MAX_VISIBLE_TASKS = 10
 
-export function AgentPanel(props: { slug: string }) {
-  // The id list makes `?tab=` deep links land on the right tab.
-  const { activeTab, switchTab, prefetch, isVisited } = useTabPanels('providers', ['providers', 'library', 'tasks', 'usage', 'intel'])
-  const tab = () => activeTab() as 'providers' | 'library' | 'tasks' | 'growth' | 'usage' | 'intel'
+/** Each view is its own sub-page under AI integrations (Providers, Tasks and
+ *  schedules, Usage and cost). They were tabs on one page; the tab strip ran
+ *  off a phone screen with nothing showing the rest of it was there. */
+export type AgentView = 'providers' | 'tasks' | 'usage'
+
+export function AgentPanel(props: { slug: string; view: AgentView }) {
+  const tab = () => props.view
 
   const [selectedTemplate, setSelectedTemplate] = createSignal<string | null>(null)
   const [selectedModel, setSelectedModel] = createSignal<string>('laguna-s-2.1-free')
@@ -74,11 +77,10 @@ export function AgentPanel(props: { slug: string }) {
     refetchInterval: whileIncomplete(hasErrorSections),
   }))
 
-  // Consolidated Providers-tab read model — one round-trip replaces the
-  // three separate queries (providers, credentials, models).
   // The service's own "what is broken right now" roll-up: failed tasks,
-  // dead webhook deliveries, down providers. Lives above the tabs — an
-  // operator should not have to open the right tab to learn a model is down.
+  // dead webhook deliveries, down providers. The overview lists them; the
+  // sub-pages carry one line pointing there rather than five full-width
+  // cards that pushed the page's own content below the fold.
   const serviceAlerts = useQuery(() => ({
     queryKey: ['agent-health-alerts', props.slug],
     queryFn: () => api.agentHealthAlerts(props.slug),
@@ -87,12 +89,12 @@ export function AgentPanel(props: { slug: string }) {
   }))
   const alerts = () => serviceAlerts.data?.alerts ?? []
 
+  // Consolidated Providers read model — one round-trip replaces the
+  // three separate queries (providers, credentials, models).
   const providersOverview = useQuery(() => ({
     queryKey: ['agent-providers-overview', props.slug],
     queryFn: () => api.agentProvidersOverview(props.slug),
-    // The library tab renders the same provider data — keep the query live
-    // there so a degraded section keeps retrying instead of freezing.
-    enabled: tab() === 'providers' || tab() === 'library',
+    enabled: tab() === 'providers',
     refetchOnWindowFocus: false,
     staleTime: 10_000,
     refetchInterval: whileIncomplete(hasErrorSections),
@@ -298,60 +300,22 @@ export function AgentPanel(props: { slug: string }) {
         </Alert>
       </Show>
 
-      {/* Reliability alerts the service rolled up itself — failed tasks,
-          dead webhook deliveries, down providers — worst first, the way the
-          upstream list already orders them by recency. */}
-      <For each={alerts().slice(0, 5)}>{a =>
-        <Alert tone={a.severity === 'critical' ? 'destructive' : a.severity === 'warning' ? 'warning' : 'info'} role="status" title={a.category.replaceAll('_', ' ')}>
-          {a.message}
-          <Show when={a.occurred_at}>
-            <span class="ml-1.5 text-xs opacity-80">{formatIsoAge(a.occurred_at!)}</span>
-          </Show>
-        </Alert>
-      }</For>
-      <Show when={alerts().length > 5}>
-        <p class="text-xs text-muted-foreground">…and {alerts().length - 5} more service alert{alerts().length - 5 === 1 ? '' : 's'}.</p>
+      <Show when={alerts().length > 0}>
+        <p class="m-0 text-sm text-muted-foreground">
+          The AI service reported {alerts().length} problem{alerts().length === 1 ? '' : 's'} lately.{' '}
+          <Link to="/tenants/$slug/integrations" params={{ slug: props.slug }} class="font-medium text-foreground underline underline-offset-4">See them on the overview</Link>
+        </p>
       </Show>
 
-      {/* Tab navigation */}
-      <TabBar
-        class="mb-0"
-        active={activeTab()}
-        onChange={switchTab}
-        onPrefetch={prefetch}
-        tabs={[
-          { id: 'providers', label: 'AI Providers' },
-          { id: 'library', label: 'Add a provider' },
-          { id: 'tasks', label: 'Tasks' },
-          { id: 'usage', label: 'AI Usage' },
-          { id: 'intel', label: 'Intelligence' },
-        ]}
-      />
+      <Show when={tab() === 'providers'}>
+        <AgentProvidersPanel slug={props.slug} providers={providers()} credentials={credentials()} providersError={sectionError(providersSectionError())} credentialsError={sectionError(credentialsSectionError())} serviceDown={isServiceDown()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} models={models()} />
+      </Show>
 
-      {/* Tab panels — lazy-mounted on first visit via TabPanel, then kept
-          mounted with display:none. Each TabPanel has its own <Suspense>
-          boundary so the first open shows a local skeleton, not a
-          page-wide skeleton. Queries are gated by `enabled: tab() === ...`
-          so hidden tabs don't refetch on the global refresh tick. */}
-      <TabPanel active={activeTab()} id="providers" visited={isVisited('providers')}>
-        <AgentProvidersPanel mode="in-use" slug={props.slug} providers={providers()} credentials={credentials()} providersError={sectionError(providersSectionError())} credentialsError={sectionError(credentialsSectionError())} serviceDown={isServiceDown()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'providers'} models={models()} />
-      </TabPanel>
+      <Show when={tab() === 'usage'}>
+        <AIUsagePanel slug={props.slug} active />
+      </Show>
 
-      {/* The catalogue is its own tab. Ten cards where two are yours makes an
-          operator find their own two every time they open the page. */}
-      <TabPanel active={activeTab()} id="library" visited={isVisited('library')}>
-        <AgentProvidersPanel mode="library" slug={props.slug} providers={providers()} credentials={credentials()} providersError={sectionError(providersSectionError())} credentialsError={sectionError(credentialsSectionError())} serviceDown={isServiceDown()} sectionsLoading={providersOverview.isPending} refetchCreds={() => refreshQueries(['agent-providers-overview', props.slug])} active={activeTab() === 'library'} models={models()} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="usage" visited={isVisited('usage')}>
-        <AIUsagePanel slug={props.slug} active={activeTab() === 'usage'} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="intel" visited={isVisited('intel')}>
-        <IntelligenceTransparencyPanel slug={props.slug} active={activeTab() === 'intel'} />
-      </TabPanel>
-
-      <TabPanel active={activeTab()} id="tasks" visited={isVisited('tasks')}>
+      <Show when={tab() === 'tasks'}>
       {/* Autopilot intelligence → agent suggestions — the bridge between operations data and LLM execution */}
       <div class="space-y-8">
       <Show when={sectionError(suggestionsSectionError())}>{msg => <ErrorCard title="Couldn't load agent suggestions" error={unavailableError(msg())} recovery={false}>This part didn't respond. It retries on its own.</ErrorCard>}</Show>
@@ -580,7 +544,7 @@ export function AgentPanel(props: { slug: string }) {
         </Show>
       </Section>
       </div>
-      </TabPanel>
+      </Show>
 
       <Dialog
         open={viewingResult() !== null}

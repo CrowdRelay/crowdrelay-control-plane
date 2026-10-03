@@ -61,7 +61,7 @@ const NODES: MapNode[] = [
   { id: 'noaction', x: 660, y: 300, w: 220, h: 60, zone: 'auth', title: 'Observe · Deny', desc: 'recorded, never executed' },
 
   // ── EXECUTION ──
-  { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations' },
+  { id: 'providers', x: 955, y: 100, w: 290, h: 48, zone: 'exec', title: 'AI providers', desc: 'configured LLM backends', to: '/tenants/{slug}/integrations/providers' },
   { id: 'workers', x: 955, y: 168, w: 290, h: 52, zone: 'exec', title: 'LLM workers', desc: 'scan · draft · pitch', to: '/tenants/{slug}/operations' },
   { id: 'outbox', x: 955, y: 238, w: 290, h: 66, zone: 'exec', title: 'Outbox → n8n · Discord', desc: 'at-least-once delivery', to: '/tenants/{slug}/settings/destinations' },
   { id: 'community', x: 955, y: 308, w: 290, h: 52, zone: 'exec', title: 'Community executor', desc: 'joins queue · posts via browser', to: '/tenants/{slug}/audience' },

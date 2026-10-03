@@ -1,4 +1,5 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
+import { Button } from '../components/app/button'
 import { unavailableError } from '../lib/errors'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
 import { useParams } from '@tanstack/solid-router'
@@ -7,9 +8,10 @@ import { api } from '../lib/api'
 import { hasDegradedSections, whileIncomplete } from '../lib/incomplete'
 import { formatIsoAge } from '../lib/format'
 import type { AgentProviderHealth } from '../lib/types'
-import { AgentPanel } from '../components/AgentPanel'
+import { errorWord } from '../lib/credential-health'
+import { AgentPanel, type AgentView } from '../components/AgentPanel'
 import { PageShell } from '../components/layout'
-import { Card, DashHeader, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
+import { Card, DashHeader, ItemRow, Pill, Split, StatRow, Tile, Tiles, SubPagePanel, type Tone } from '../components/ui/dash'
 
 // AI integrations (mockup `console-mockups/operator-pages.html`, screen 2):
 // are the AI lanes answering, and at what cost? The first screen reads the
@@ -18,34 +20,33 @@ import { Card, DashHeader, ItemRow, Note, Pill, Split, StatRow, Tile, Tiles, Sub
 // nothing more. Providers, tasks and schedules sit behind the work area.
 
 
-const ERROR_WORDS: Record<string, string> = {
-  call_failed: 'calls failing',
-  request_invalid: 'key or request refused',
-  quota_exhausted: 'quota used up',
-  model_unavailable: 'model gone',
-  provider_outage: 'provider down',
-  rate_limited: 'rate limited',
-}
-const errorWord = (error: string | null) => {
-  if (!error) return null
-  const key = Object.keys(ERROR_WORDS).find(k => error.startsWith(k) || error.includes(k))
-  if (key) return ERROR_WORDS[key]!
-  return error.includes('429') ? 'rate limited' : error.replaceAll('_', ' ')
-}
-
-export type IntegrationsSection = 'overview' | 'providers'
+export type IntegrationsSection = 'overview' | AgentView
 
 const SECTION_TITLE: Record<IntegrationsSection, string> = {
   overview: 'AI integrations',
-  providers: 'Providers, tasks and schedules',
+  providers: 'Providers',
+  tasks: 'Tasks and schedules',
+  usage: 'Usage and cost',
+}
+
+// Each sub-page answers one part of the overview's question.
+const SECTION_SUBTITLE: Record<IntegrationsSection, string> = {
+  overview: 'Is the AI working, and what does it cost?',
+  providers: 'Which AI companies are connected, and whether their models answer',
+  tasks: 'Work the autopilot suggests, jobs you run by hand, and what repeats on its own',
+  usage: 'What the AI cost this month, and what it bought',
 }
 
 export const IntegrationsOverviewPage = () => <TenantIntegrationsPage section="overview" />
 export const IntegrationsProvidersPage = () => <TenantIntegrationsPage section="providers" />
+export const IntegrationsTasksPage = () => <TenantIntegrationsPage section="tasks" />
+export const IntegrationsUsagePage = () => <TenantIntegrationsPage section="usage" />
 
 export function TenantIntegrationsPage(props: { section: IntegrationsSection }) {
   const params = useParams({ strict: false }) as () => { slug: string }
   const section = () => props.section
+  // The overview is the one place alerts are listed, so it lists all of them.
+  const [showAllAlerts, setShowAllAlerts] = createSignal(false)
 
   // One read for the first screen. Its three sections seed the keys the
   // providers panel observes, so opening that panel costs nothing more.
@@ -108,22 +109,22 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
   return <PageShell>
     <DashHeader
       title={SECTION_TITLE[section()]}
-      subtitle="Are the AI lanes answering, and at what cost"
+      subtitle={SECTION_SUBTITLE[section()]}
     />
 
     <SubPagePanel when={section() === 'overview'}>
     <Tiles>
       <Tile
-        label="Lanes answering"
+        label="Models answering"
         value={health.data ? <>{ok().length}<span class="text-sm font-normal text-muted-foreground"> / {models().length}</span></> : null}
         valueTone={health.data && ok().length === 0 ? 'bad' : undefined}
         sub={health.data ? `${degraded().length} degraded · ${off().length} off` : undefined}
       />
       <Tile label="Failed tasks, 24 h" value={alerts.data ? failed24h() : null} valueTone={failed24h() > 0 ? 'warn' : undefined} sub="agent runs that gave up" />
       <Tile
-        label="Slowest lane"
+        label="Slowest model"
         value={slowest() ? `${(slowest()!.latency_ms! / 1000).toFixed(1)} s` : null}
-        sub={slowest() ? `${slowest()!.provider} · ${slowest()!.model_id}` : 'no lane answering'}
+        sub={slowest() ? `${slowest()!.provider} · ${slowest()!.model_id}` : 'no model answering'}
       />
       <Tile
         label="Cost this month"
@@ -133,8 +134,8 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
     </Tiles>
 
     <Split mid>
-      <Card title="Lanes" icon={<Plug />} aside="per provider">
-        <Show when={health.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{health.error ? "Couldn't check lane health." : ''}</p>}>
+      <Card title="Providers" icon={<Plug />} aside="models answering">
+        <Show when={health.data} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{health.error ? "Couldn't check which models answer." : ''}</p>}>
           <For each={providers()}>{row => (
             <StatRow
               label={<>{row.provider} <span class="text-muted-foreground">· {row.answering} of {row.total} models</span></>}
@@ -145,23 +146,25 @@ export function TenantIntegrationsPage(props: { section: IntegrationsSection }) 
       </Card>
       <Card title="What went wrong lately" icon={<AlertTriangle />}>
         <Show when={(alerts.data?.alerts ?? []).length > 0} fallback={<p class="m-0 py-2 text-sm text-muted-foreground">{alerts.error ? "Couldn't load recent problems." : 'Nothing went wrong lately.'}</p>}>
-          <For each={alerts.data!.alerts.slice(0, 4)}>{alert => (
+          <For each={showAllAlerts() ? alerts.data!.alerts : alerts.data!.alerts.slice(0, 4)}>{alert => (
             <ItemRow
               pill={{ tone: alert.severity === 'critical' ? 'bad' : 'warn', text: alert.severity }}
               title={alert.message}
               sub={alert.occurred_at ? formatIsoAge(alert.occurred_at) : undefined}
             />
           )}</For>
-          <Show when={alerts.data!.alert_count > 4}>
-            <Note>{alerts.data!.alert_count - 4} more in the providers panel.</Note>
+          <Show when={alerts.data!.alerts.length > 4}>
+            <Button variant="ghost" size="sm" class="mt-2 self-start" onClick={() => setShowAllAlerts(v => !v)}>
+              {showAllAlerts() ? 'Show fewer' : `Show all ${alerts.data!.alerts.length}`}
+            </Button>
           </Show>
         </Show>
       </Card>
     </Split>
     </SubPagePanel>
 
-    <SubPagePanel when={section() === 'providers'}>
-      <AgentPanel slug={params().slug} />
+    <SubPagePanel when={section() !== 'overview'}>
+      <AgentPanel slug={params().slug} view={section() as AgentView} />
     </SubPagePanel>
   </PageShell>
 }
