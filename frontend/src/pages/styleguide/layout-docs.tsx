@@ -274,7 +274,7 @@ export const layoutEntries: DocEntry[] = [
   {
     id: 'page-header', tab: 'layout', group: 'Page', title: 'Page header',
     summary: 'DashHeader: title, one line under it, status and actions on the right. One per page.',
-    sources: ['components/ui/dash.tsx'], keywords: 'title heading DashHeader PageHeader back',
+    sources: ['components/ui/dash.tsx'], keywords: 'title heading DashHeader back',
     render: () => (
       <>
         <DocSection title="DashHeader" description="The page title the console uses on 24 pages.">
