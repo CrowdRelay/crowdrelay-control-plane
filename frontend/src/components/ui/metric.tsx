@@ -75,17 +75,14 @@ export function Metric(props: {
       data-metric=""
       data-fresh={props.fresh ? '' : undefined}
       class={cn(
-        'flex min-w-0 flex-col gap-1.5 px-4 py-3.5',
-        // The rail draws the dividers, so the first cell in each row sheds its
-        // left padding and sits flush with the page's text column.
-        'first:pl-0',
+        'flex min-w-0 flex-col gap-1 rounded-lg bg-muted/55 px-3.5 py-3',
         props.class,
       )}
     >
       <dt class="text-xs leading-snug text-muted-foreground">{props.label}</dt>
       <dd
         class={cn(
-          'm-0 text-2xl font-bold leading-none tracking-tight tabular-nums',
+          'm-0 mt-0.5 text-2xl font-medium leading-none tracking-tight tabular-nums',
           unknown() ? 'text-muted-foreground' : VALUE_TONE[tone()],
         )}
       >
@@ -99,12 +96,9 @@ export function Metric(props: {
 }
 
 /**
- * The rail: hairlines above and below, one between each pair.
- *
- * `auto-fit` keeps a row of three from leaving a gap where a fourth would go,
- * and wraps to a second line rather than crushing a figure below its label.
- * A wrapped cell keeps its top hairline, so the grid still reads as a table
- * of readings instead of a paragraph of them.
+ * Compatibility metric row using the same quiet tile grammar as dashboard Tiles.
+ * `auto-fit` preserves the existing API for variable-size KPI strips while the
+ * geometry, fill and spacing now match the canonical dashboard number row.
  */
 export function MetricRow(props: { children: JSX.Element; class?: string; min?: string }) {
   return (
@@ -115,12 +109,8 @@ export function MetricRow(props: { children: JSX.Element; class?: string; min?: 
       data-kpi-strip=""
       data-metric-row=""
       class={cn(
-        'my-0 grid border-y border-border',
+        'my-0 grid gap-2.5',
         '[grid-template-columns:repeat(auto-fit,minmax(var(--metric-min),1fr))]',
-        // Dividers between cells, drawn by the cell so a wrapped row is still
-        // separated from the one above it.
-        '[&>[data-metric]]:border-l [&>[data-metric]]:border-border',
-        '[&>[data-metric]:first-child]:border-l-0',
         props.class,
       )}
       style={{ '--metric-min': props.min ?? '10rem' }}
