@@ -219,11 +219,6 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Page headers', why: 'DashHeader is the page title almost everywhere; PageHeader is the older, larger one.',
-    action: 'Move the remaining PageHeader pages to DashHeader and delete PageHeader.',
-    items: [{ module: 'components/ui/dash.tsx', name: 'DashHeader', keep: true }, { module: 'components/layout.tsx', name: 'PageHeader' }],
-  },
-  {
     title: 'Tabs inside pages', why: 'Sub-pages replaced in-page tabs, but two tab systems remain.',
     action: 'Separate areas → sub-pages; one list in several states → DataTable chips.',
     items: [
